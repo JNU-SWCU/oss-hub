@@ -2,6 +2,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
 import {
   prisma,
   service,
@@ -86,6 +87,7 @@ it('counts the new external link instead of the detached external one', async ()
     where: { id: oldId },
     data: { source: 'EXTERNAL_PUBLIC' },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
   const before = await status.getExternalCollectionStatus();
 
   await service.updateMine(githubId, programId, input);
@@ -103,12 +105,14 @@ it('drops an external repository from the tracked count once deletion clears its
       visibility: 'PUBLIC',
     },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
   const linked = await status.getExternalCollectionStatus();
 
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { teamId: null },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
 
   const cleared = await status.getExternalCollectionStatus();
   expect(cleared.trackedRepositoryCount).toBe(
@@ -145,6 +149,7 @@ it('reports the newest repo ledger success of tracked external repositories and 
     where: { id: oldId },
     data: { teamId: null },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
 
   const cleared = await status.getExternalCollectionStatus();
   expect(cleared.lastSuccessAt).not.toEqual(succeededAt);

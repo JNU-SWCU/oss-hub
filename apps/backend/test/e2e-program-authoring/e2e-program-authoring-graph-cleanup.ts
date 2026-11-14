@@ -1,5 +1,6 @@
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import { PrismaService } from '../../src/platform/prisma.service';
+import { deleteGithubRepositories } from '../repo-ledger.fixture';
 
 export async function removeAdoptedGraph(
   prisma: PrismaService,
@@ -60,9 +61,11 @@ export async function removeAdoptedGraph(
     await transaction.repositoryInvitation.deleteMany({
       where: { repository: { teamId: { in: teamIds } } },
     });
-    await transaction.githubRepository.deleteMany({
-      where: { teamId: { in: teamIds } },
-    });
+    await deleteGithubRepositories(
+      transaction,
+      { teamId: { in: teamIds } },
+      teamIds,
+    );
     await transaction.file.deleteMany({
       where: {
         kind: 'SUBMISSION',

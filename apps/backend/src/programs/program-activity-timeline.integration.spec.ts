@@ -7,6 +7,10 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
+import {
+  syncGithubRepositoryLedger,
+  syncGithubRepositoryLedgers,
+} from '../../test/repo-ledger.fixture';
 import { ProgramActivityRepository } from './program-activity.repository';
 import { ProgramActivityService } from './program-activity.service';
 
@@ -97,12 +101,8 @@ it('counts only current linked activity and never substitutes detached or unrela
       },
     ],
   });
-  await prisma.repo.create({
-    data: {
-      githubRepoId: githubId + 1n,
-      ownerName: 'synthetic',
-      source: 'EXTERNAL_PUBLIC',
-    },
+  await syncGithubRepositoryLedgers(prisma, {
+    id: { in: [linkedRepositoryId, unlinkedRepositoryId] },
   });
   const seenAt = new Date('2026-08-03T00:00:00Z');
   await prisma.contributionEvent.createMany({
@@ -178,6 +178,7 @@ it('counts only current linked activity and never substitutes detached or unrela
     where: { id: linkedRepositoryId },
     data: { teamId: null },
   });
+  await syncGithubRepositoryLedger(prisma, githubId + 1n);
   const detached = await service.activityTimeline(
     { githubId, userId: studentId },
     'MONTH',
@@ -194,11 +195,15 @@ it('counts only current linked activity and never substitutes detached or unrela
       where: { id: linkedRepositoryId },
     }),
   ).resolves.toMatchObject({ teamId: null });
+  await expect(
+    prisma.teamRepo.count({ where: { repoId: githubId + 1n, validTo: null } }),
+  ).resolves.toBe(0);
 
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
     data: { teamId },
   });
+  await syncGithubRepositoryLedger(prisma, githubId + 1n);
   await prisma.contributionEvent.deleteMany({
     where: { repoId: githubId + 1n },
   });

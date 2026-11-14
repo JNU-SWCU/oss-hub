@@ -14,6 +14,7 @@ import {
   seedDailyContributions,
   setRepoLastSuccessAt,
 } from '../../test/ledger-contribution.fixture';
+import { syncGithubRepositoryLedgers } from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
@@ -160,6 +161,9 @@ beforeAll(async () => {
       },
     ],
   });
+  await syncGithubRepositoryLedgers(prisma, {
+    id: { in: [repositoryA, repositoryB] },
+  });
   await seedDailyContributions(prisma, base + 100n, [
     {
       githubId: people.leader.githubId,
@@ -183,7 +187,10 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
 
   expect(activity).toEqual({
     teamId,
-    repository: { id: repositoryB, url: 'https://github.com/synthetic/b' },
+    repository: {
+      id: (base + 101n).toString(),
+      url: 'https://github.com/synthetic/b',
+    },
     status: 'NOT_COLLECTED',
     lastSuccessAt: null,
     window: { from: '2026-08-01', to: '2026-08-31', timeZone: 'Asia/Seoul' },

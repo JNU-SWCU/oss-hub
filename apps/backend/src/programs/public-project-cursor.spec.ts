@@ -25,7 +25,7 @@ describe('public-project-cursor', () => {
     const publishedAt = new Date('2026-07-20T00:00:00.000Z');
 
     const pageId = publicProjectsService.encodePublicProjectCursor(
-      { publishedAt, id: 'synthetic-repository-id' },
+      { publishedAt, id: '102' },
       KEY,
     );
     const decoded = publicProjectsService.decodePublicProjectCursor(
@@ -34,7 +34,7 @@ describe('public-project-cursor', () => {
     );
 
     expect(decoded.publishedAt).toEqual(publishedAt);
-    expect(decoded.id).toBe('synthetic-repository-id');
+    expect(decoded.id).toBe('102');
   });
 
   it('base64url이 아닌 문자열은 INVALID_PAGE_ID로 거부한다', () => {
@@ -74,7 +74,7 @@ describe('public-project-cursor', () => {
   });
 
   describe('QA40 — 토큰 불투명성', () => {
-    const HIDDEN_INTERNAL_ID = 'seed:hidden-repository-internal-cuid';
+    const HIDDEN_INTERNAL_ID = '987654321';
     const HIDDEN_PUBLISHED_AT = new Date('2026-07-21T09:30:00.000Z');
     const pageId = publicProjectsService.encodePublicProjectCursor(
       { publishedAt: HIDDEN_PUBLISHED_AT, id: HIDDEN_INTERNAL_ID },
@@ -134,11 +134,11 @@ describe('public-project-cursor', () => {
 
     it('내부 id 길이가 달라도 토큰 길이는 64바이트 블록 단위로만 변한다(길이 채널 축소)', () => {
       const short = publicProjectsService.encodePublicProjectCursor(
-        { publishedAt: HIDDEN_PUBLISHED_AT, id: 'a' },
+        { publishedAt: HIDDEN_PUBLISHED_AT, id: '1' },
         KEY,
       );
       const long = publicProjectsService.encodePublicProjectCursor(
-        { publishedAt: HIDDEN_PUBLISHED_AT, id: 'a'.repeat(20) },
+        { publishedAt: HIDDEN_PUBLISHED_AT, id: '1'.repeat(19) },
         KEY,
       );
 

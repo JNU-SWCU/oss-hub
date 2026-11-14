@@ -5,6 +5,8 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { BoardRepository } from './board.repository';
@@ -59,9 +61,15 @@ const staffGithubId = 9878100004n;
 const recordAudit = jest.fn(async () => {});
 async function cleanup(): Promise<void> {
   await prisma.teamHistory.deleteMany({ where: { programId } });
-  await prisma.githubRepository.deleteMany({
-    where: { team: { programId: programId } },
+  const teams = await prisma.team.findMany({
+    where: { programId },
+    select: { id: true },
   });
+  await deleteGithubRepositories(
+    prisma,
+    { team: { programId } },
+    teams.map((team) => team.id),
+  );
   await prisma.milestone.deleteMany({ where: { programId } });
   await prisma.boardComment.deleteMany({ where: { post: { programId } } });
   await prisma.boardPost.deleteMany({ where: { programId } });
@@ -335,19 +343,20 @@ describe.each([ProgramLifecycle.PUBLISHED, ProgramLifecycle.DELETED])(
           status: 'APPROVED',
         },
       });
-      const repository = await prisma.githubRepository.create({
-        data: {
-          githubRepositoryId: 9878100101n,
-          teamId,
-          nameWithOwner: 'synthetic/deleted-write',
-          source: 'ORG_PROVISIONED',
-        },
+      const githubRepositoryId = 9878100101n;
+      await new RepoLedgerRepository().claim(prisma, {
+        teamId,
+        githubRepositoryId,
+        nameWithOwner: 'synthetic/deleted-write',
+        visibility: 'PRIVATE',
+        source: 'ORG_PROVISIONED',
       });
       const reviews = new SubmissionReviewsRepository(prisma, platform);
-      const eligibility = await reviews.findPublishEligibility(repository.id);
+      const eligibility =
+        await reviews.findPublishEligibility(githubRepositoryId);
       if (lifecycle === ProgramLifecycle.DELETED)
         expect(eligibility).toBeNull();
-      else expect(eligibility).toMatchObject({ id: repository.id });
+      else expect(eligibility).toMatchObject({ githubRepositoryId });
     });
   },
 );

@@ -384,7 +384,7 @@ describe('PublicProjectsService', () => {
       'pageSize=%i 라도 원본 조회 1개 + eligibility 배치 조회 1개, 총 2개 질의로 고정된다',
       async (pageSize) => {
         const rawRows = Array.from({ length: pageSize }, (_, index) =>
-          row({ id: `synthetic-repository-${index}` }),
+          row({ id: `${index + 1}` }),
         );
         const listPage = jest.fn().mockResolvedValue(rawRows);
         const filterEligibleRepositoryIds = jest
@@ -406,7 +406,11 @@ describe('PublicProjectsService', () => {
   describe('findPage — 페이지 경계/커서', () => {
     it('lookahead(pageSize+1) 행을 요청하고 pageSize만큼만 잘라 반환한다', async () => {
       const pageSize = 2;
-      const rawRows = [row({ id: 'a' }), row({ id: 'b' }), row({ id: 'c' })];
+      const rawRows = [
+        row({ id: '111' }),
+        row({ id: '112' }),
+        row({ id: '113' }),
+      ];
       const listPage = jest.fn().mockResolvedValue(rawRows);
       const filterEligibleRepositoryIds = jest
         .fn()
@@ -420,7 +424,7 @@ describe('PublicProjectsService', () => {
 
       expect(listPage).toHaveBeenCalledWith(null, pageSize + 1, undefined);
       expect(page.items).toHaveLength(2);
-      expect(page.items.map((item) => item.id)).toEqual(['a', 'b']);
+      expect(page.items.map((item) => item.id)).toEqual(['111', '112']);
       expect(page.nextPageId).not.toBeNull();
     });
 
@@ -435,7 +439,7 @@ describe('PublicProjectsService', () => {
 
     it('lookahead 행이 없으면(더 볼 페이지 없음) nextPageId가 null이다', async () => {
       const pageSize = 2;
-      const rawRows = [row({ id: 'a' }), row({ id: 'b' })];
+      const rawRows = [row({ id: '111' }), row({ id: '112' })];
       const listPage = jest.fn().mockResolvedValue(rawRows);
       const filterEligibleRepositoryIds = jest
         .fn()
@@ -453,9 +457,9 @@ describe('PublicProjectsService', () => {
     it('eligibility가 일부 항목을 회수해도 nextPageId는 마지막 raw 행 기준으로 유지된다(페이지 경계가 밀리지 않는다)', async () => {
       const pageSize = 2;
       const rawRows = [
-        row({ id: 'a', publishedAt: new Date('2026-07-22T00:00:00.000Z') }),
-        row({ id: 'b', publishedAt: new Date('2026-07-21T00:00:00.000Z') }),
-        row({ id: 'c', publishedAt: new Date('2026-07-20T00:00:00.000Z') }),
+        row({ id: '111', publishedAt: new Date('2026-07-22T00:00:00.000Z') }),
+        row({ id: '112', publishedAt: new Date('2026-07-21T00:00:00.000Z') }),
+        row({ id: '113', publishedAt: new Date('2026-07-20T00:00:00.000Z') }),
       ];
       const listPage = jest.fn().mockResolvedValue(rawRows);
 
@@ -469,7 +473,7 @@ describe('PublicProjectsService', () => {
 
       const page = await service.findPage(undefined, pageSize);
 
-      expect(page.items.map((item) => item.id)).toEqual(['b']);
+      expect(page.items.map((item) => item.id)).toEqual(['112']);
 
       expect(page.nextPageId).not.toBeNull();
       expect(
@@ -486,7 +490,7 @@ describe('PublicProjectsService', () => {
     it('pageId가 주어지면 decode한 커서를 repository.listPage에 전달한다', async () => {
       const cursor = {
         publishedAt: new Date('2026-07-20T00:00:00.000Z'),
-        id: 'synthetic-repository-1',
+        id: '101',
       };
       const pageId = publicProjectsService.encodePublicProjectCursor(
         cursor,
@@ -511,17 +515,17 @@ describe('PublicProjectsService', () => {
 
   describe('QA40 — 커서를 통한 숨겨진 저장소 노출', () => {
     const HIDDEN = row({
-      id: 'seed:hidden-repository-internal-cuid',
+      id: '121',
       githubRepositoryId: 9401n,
       publishedAt: new Date('2026-07-21T09:30:00.000Z'),
     });
     const VISIBLE = row({
-      id: 'visible-repository-cuid',
+      id: '123',
       githubRepositoryId: 9400n,
       publishedAt: new Date('2026-07-22T00:00:00.000Z'),
     });
     const TAIL = row({
-      id: 'tail-repository-cuid',
+      id: '122',
       githubRepositoryId: 9402n,
       publishedAt: new Date('2026-07-20T00:00:00.000Z'),
     });
@@ -615,7 +619,7 @@ describe('PublicProjectsService', () => {
     it('②(미해결) 일반형 — 꽉 찬 창에서 items가 모자란 만큼이 곧 가려진 건수다', async () => {
       const listPage = jest
         .fn()
-        .mockResolvedValue([VISIBLE, HIDDEN, TAIL, row({ id: 'lookahead' })]);
+        .mockResolvedValue([VISIBLE, HIDDEN, TAIL, row({ id: '124' })]);
       const filterEligibleRepositoryIds = jest
         .fn()
         .mockResolvedValue(
@@ -646,19 +650,19 @@ describe('PublicProjectsService', () => {
     });
 
     it('행은 있지만 eligibility fence에 막힌 프로젝트도 동일한 PROJECT_NOT_FOUND 404다', async () => {
-      const found = row({ id: 'synthetic-repository-1' });
+      const found = row({ id: '101' });
       const findById = jest.fn().mockResolvedValue(found);
       const isEligible = jest.fn().mockResolvedValue(false);
       const { service } = serviceWith({ findById, isEligible });
 
-      await expect(
-        service.findDetail('synthetic-repository-1'),
-      ).rejects.toMatchObject({ errorCode: { code: 'PPJ_001', status: 404 } });
+      await expect(service.findDetail('101')).rejects.toMatchObject({
+        errorCode: { code: 'PPJ_001', status: 404 },
+      });
     });
 
     it('eligible한 프로젝트는 지표/기여자를 배치 조회(질의 2개, 병렬)해 기여자를 commitCount 내림차순으로 정렬한다', async () => {
       const found = row({
-        id: 'synthetic-repository-1',
+        id: '101',
         githubRepositoryId: 9001n,
       });
       const findById = jest.fn().mockResolvedValue(found);
@@ -706,7 +710,7 @@ describe('PublicProjectsService', () => {
         getContributorCumulativeMetrics,
       });
 
-      const detail = await service.findDetail('synthetic-repository-1');
+      const detail = await service.findDetail('101');
 
       expect(getRepositoryCumulativeMetrics).toHaveBeenCalledWith({
         repositoryIds: [9001n],
@@ -727,14 +731,14 @@ describe('PublicProjectsService', () => {
 
     it('지표 관측이 아직 없으면 0값으로 대체한다', async () => {
       const found = row({
-        id: 'synthetic-repository-1',
+        id: '101',
         githubRepositoryId: 9001n,
       });
       const findById = jest.fn().mockResolvedValue(found);
       const isEligible = jest.fn().mockResolvedValue(true);
       const { service } = serviceWith({ findById, isEligible });
 
-      const detail = await service.findDetail('synthetic-repository-1');
+      const detail = await service.findDetail('101');
 
       expect(detail.metrics).toEqual({
         commitCount: 0,
@@ -764,7 +768,7 @@ describe('PublicProjectsService', () => {
     });
 
     it('존재하지만 공개 가능한 프로젝트가 하나도 없는 사용자도 동일한 USER_PROFILE_NOT_FOUND 404다', async () => {
-      const found = row({ id: 'synthetic-repository-1' });
+      const found = row({ id: '101' });
       const findUserIdentity = jest.fn().mockResolvedValue(identity);
       const listForUser = jest.fn().mockResolvedValue([found]);
       const filterEligibleRepositoryIds = jest
@@ -782,7 +786,7 @@ describe('PublicProjectsService', () => {
     });
 
     it('신원 조회·후보 조회를 병렬로 호출하고 eligibility 배치 조회 1개 + 지표/기여자 배치 조회 2개(병렬)를 더해 총 5개 질의로 고정된다', async () => {
-      const found = row({ id: 'synthetic-repository-1' });
+      const found = row({ id: '101' });
       const findUserIdentity = jest.fn().mockResolvedValue(identity);
       const listForUser = jest.fn().mockResolvedValue([found]);
       const filterEligibleRepositoryIds = jest
@@ -829,11 +833,11 @@ describe('PublicProjectsService', () => {
 
     it('두 프로젝트의 기여를 정확히 합산하고, 다른 기여자의 활동은 섞이지 않는다', async () => {
       const projectA = row({
-        id: 'synthetic-repository-a',
+        id: '131',
         githubRepositoryId: 9101n,
       });
       const projectB = row({
-        id: 'synthetic-repository-b',
+        id: '132',
         githubRepositoryId: 9102n,
       });
       const findUserIdentity = jest.fn().mockResolvedValue(identity);
@@ -928,11 +932,11 @@ describe('PublicProjectsService', () => {
 
     it('관측됐지만 이 사용자의 기여가 없는 project는 0값 metrics로, 아직 관측되지 않은 project는 metrics null로 구분한다', async () => {
       const observedZero = row({
-        id: 'synthetic-repository-zero',
+        id: '143',
         githubRepositoryId: 9201n,
       });
       const unobserved = row({
-        id: 'synthetic-repository-unobserved',
+        id: '142',
         githubRepositoryId: 9202n,
       });
       const findUserIdentity = jest.fn().mockResolvedValue(identity);
@@ -995,7 +999,7 @@ describe('PublicProjectsService', () => {
 
     it('#893: presence는 PRESENT라 observed:true지만 첫 sweep 전이라 hasCollectedData:false인 project를 그대로 전달한다', async () => {
       const preSweep = row({
-        id: 'synthetic-repository-pre-sweep',
+        id: '141',
         githubRepositoryId: 9301n,
       });
       const findUserIdentity = jest.fn().mockResolvedValue(identity);

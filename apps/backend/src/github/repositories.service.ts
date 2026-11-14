@@ -44,7 +44,7 @@ export class RepositoryOwnEnrollmentService {
 }
 
 export interface PublishRepositoryInput {
-  readonly repositoryId: string;
+  readonly githubRepositoryId: bigint;
 }
 
 @Injectable()
@@ -60,7 +60,6 @@ export class RepositoriesService {
     row: RepositoryPublishTargetRow,
   ): RepositoryPublishTarget {
     return {
-      id: row.id,
       githubRepositoryId: row.githubRepositoryId,
       name: this.repositoryUrlService.repositoryNameFromNameWithOwner(
         row.nameWithOwner,
@@ -79,7 +78,7 @@ export class RepositoriesService {
     now = new Date(),
   ): Promise<RepositoryPublishTarget> {
     const targetRow = await this.repository.findPublishTarget(
-      input.repositoryId,
+      input.githubRepositoryId,
     );
     if (targetRow === null) {
       throw new RepositoryNotFoundError();
@@ -99,19 +98,22 @@ export class RepositoriesService {
 
     return this.repository.withTransaction(async (store) => {
       const won = await store.publishRepositoryIfPrivate(
-        target.id,
         target.githubRepositoryId,
         now,
       );
       if (!won) {
-        const reloaded = await store.findPublishTarget(target.id);
+        const reloaded = await store.findPublishTarget(
+          target.githubRepositoryId,
+        );
         if (reloaded === null) {
           throw new RepositoryNotFoundError();
         }
         return this.toPublishTarget(reloaded);
       }
 
-      const committedRow = await store.findPublishTarget(target.id);
+      const committedRow = await store.findPublishTarget(
+        target.githubRepositoryId,
+      );
       if (committedRow?.team == null) {
         throw new RepositoryNotFoundError();
       }
@@ -130,10 +132,10 @@ export class RepositoriesService {
           data: {
             schemaVersion: 1,
             targetType: 'REPOSITORY',
-            targetId: target.id,
+            targetId: target.githubRepositoryId.toString(),
             metadata:
               this.historyMetadataService.createRepositoryPublishAuditMetadata({
-                repositoryId: target.id,
+                repositoryId: target.githubRepositoryId.toString(),
                 repositoryFullName:
                   this.historyMetadataService.deriveRepositoryFullName(
                     committed.name,

@@ -8,6 +8,7 @@ import {
 import { stateForE2eProgramGraph } from './e2e-program-authoring-state';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
+import { deleteGithubRepositories } from '../repo-ledger.fixture';
 import { adoptE2eProgramGraph } from './e2e-program-authoring-graph-adoption';
 import { ensureE2eProgramAuthoringActors } from './e2e-program-authoring-actors';
 import { deleteE2eProgramDeadlineClaims } from './e2e-program-authoring-notification-cleanup';
@@ -73,9 +74,11 @@ export class E2eProgramAuthoringFixture {
       await transaction.repositoryInvitation.deleteMany({
         where: { repository: E2E_REPOSITORY_WHERE },
       });
-      await transaction.githubRepository.deleteMany({
-        where: E2E_REPOSITORY_WHERE,
-      });
+      await deleteGithubRepositories(
+        transaction,
+        E2E_REPOSITORY_WHERE,
+        teamIds,
+      );
       await transaction.file.deleteMany({
         where: { kind: 'SUBMISSION', teamId: { in: teamIds } },
       });

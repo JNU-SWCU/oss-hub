@@ -22,10 +22,10 @@ describe('program-activity-summary.repository', () => {
       const findMany = jest
         .fn()
         .mockResolvedValue([
-          { team: { programId: 'program-archived' }, githubRepositoryId: 101n },
+          { team: { programId: 'program-archived' }, repoId: 101n },
         ]);
       const prisma = {
-        githubRepository: { findMany },
+        teamRepo: { findMany },
       } satisfies ProgramActivitySummaryDataSource;
 
       const result = await new ProgramActivitySummaryRepository(
@@ -34,11 +34,12 @@ describe('program-activity-summary.repository', () => {
 
       expect(findMany).toHaveBeenCalledWith({
         where: {
+          validTo: null,
           team: { programId: { in: ['program-archived'] } },
         },
         select: {
           team: { select: { programId: true } },
-          githubRepositoryId: true,
+          repoId: true,
         },
       });
       expect(result).toEqual([
@@ -52,7 +53,7 @@ describe('program-activity-summary.repository', () => {
     it('skips repository reads when no program is requested', async () => {
       const findMany = jest.fn();
       const prisma = {
-        githubRepository: { findMany },
+        teamRepo: { findMany },
       } satisfies ProgramActivitySummaryDataSource;
 
       await expect(
@@ -67,7 +68,8 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
   it('reads issues inside the same linked-repository query with the same author filter as commits', async () => {
     const updatedAt = new Date('2026-08-05T00:00:00.000Z');
     const issueCreatedAt = new Date('2026-08-01T00:00:00.000Z');
-    const findMany = jest.fn().mockResolvedValue([
+    const findMany = jest.fn().mockResolvedValue([{ githubRepoId: 101n }]);
+    const collectionStateFindMany = jest.fn().mockResolvedValue([
       {
         githubRepositoryId: 101n,
         updatedAt,
@@ -83,7 +85,8 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
     ]);
     const repository = new ProgramActivityRepository(
       {
-        githubRepository: { findMany },
+        repo: { findMany },
+        githubRepository: { findMany: collectionStateFindMany },
         $queryRaw: queryRaw,
       } as unknown as PrismaService,
       new PlatformRepository(),
@@ -108,9 +111,8 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          githubRepositoryId: { in: [101n] },
-          teamId: { not: null },
-          OR: [{ source: 'ORG_PROVISIONED' }, { source: 'EXTERNAL_PUBLIC' }],
+          githubRepoId: { in: [101n] },
+          teamRepos: { some: {} },
         },
       }),
     );

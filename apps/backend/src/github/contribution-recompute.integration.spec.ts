@@ -32,16 +32,13 @@ describe('Contribution 재계산 (실 Postgres)', () => {
         COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
         COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
       FROM "contribution" AS event
-      JOIN "GithubRepository" AS repository
-        ON repository."githubRepositoryId" = event.repo_id
-      WHERE repository.id = ${REPO_ID}
+      WHERE event.repo_id = ${GITHUB_REPO_ID}
         AND event.author_github_id IS NOT NULL
       GROUP BY 1, 2
       ORDER BY 2 ASC, 1 ASC
     `;
 
   const PREFIX = 'contrib-recompute';
-  const REPO_ID = `${PREFIX}-repo`;
   const GITHUB_REPO_ID = 9_910_000_001n;
   const MEMBER = 9_920_000_001n;
   const STRANGER = 9_920_000_999n;
@@ -59,21 +56,8 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       where: { repoId: GITHUB_REPO_ID },
     });
     await prisma.repo.deleteMany({ where: { githubRepoId: GITHUB_REPO_ID } });
-    await prisma.githubRepository.deleteMany({
-      where: { githubRepositoryId: GITHUB_REPO_ID },
-    });
     await prisma.user.deleteMany({ where: { githubId: MEMBER } });
 
-    await prisma.githubRepository.create({
-      data: {
-        id: REPO_ID,
-        githubRepositoryId: GITHUB_REPO_ID,
-        nameWithOwner: `${PREFIX}/synthetic`,
-        source: 'ORG_PROVISIONED',
-        visibility: 'PUBLIC',
-        presence: 'PRESENT',
-      },
-    });
     await prisma.repo.create({
       data: {
         githubRepoId: GITHUB_REPO_ID,
@@ -91,7 +75,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('KST 자정 경계를 사이에 둔 두 커밋이 서로 다른 날짜 칸으로 간다', async () => {
-    await repository.recordContributions(REPO_ID, 'commit', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', [
       {
         githubKey: 'before-kst-midnight',
         occurredAt: new Date('2026-03-15T14:30:00.000Z'),
@@ -113,7 +97,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('Issue도 KST 자정에서 날짜가 갈린다 — 14:59:59Z 는 그날, 15:00:00Z 는 다음 날이다', async () => {
-    await repository.recordContributions(REPO_ID, 'issue', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'issue', [
       {
         githubKey: '1',
         occurredAt: new Date('2026-03-15T14:59:59.000Z'),
@@ -141,7 +125,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('커밋만 다시 센 재계산도 같은 칸의 issueCount 를 지우지 않는다', async () => {
-    await repository.recordContributions(REPO_ID, 'issue', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'issue', [
       {
         githubKey: '1',
         occurredAt: new Date('2026-03-15T01:00:00.000Z'),
@@ -149,7 +133,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       },
     ]);
 
-    await repository.recordContributions(REPO_ID, 'commit', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', [
       {
         githubKey: 'same-day-commit',
         occurredAt: new Date('2026-03-15T02:00:00.000Z'),
@@ -164,7 +148,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('미가입자 기여도 원장에 남는다 — 가입 여부는 읽기 조건이 가른다(U3)', async () => {
-    await repository.recordContributions(REPO_ID, 'commit', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', [
       {
         githubKey: 'by-member',
         occurredAt: new Date('2026-03-15T01:00:00.000Z'),
@@ -195,10 +179,10 @@ describe('Contribution 재계산 (실 Postgres)', () => {
         authorGithubId: MEMBER.toString(),
       },
     ];
-    await repository.recordContributions(REPO_ID, 'commit', batch);
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', batch);
     const first = await readDays();
 
-    await repository.recordContributions(REPO_ID, 'commit', batch);
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', batch);
     const second = await readDays();
 
     expect(second).toEqual(first);
@@ -206,14 +190,14 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('같은 날의 다른 커밋은 이전 이벤트를 지우지 않는다', async () => {
-    await repository.recordContributions(REPO_ID, 'commit', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', [
       {
         githubKey: 'stays',
         occurredAt: new Date('2026-03-15T01:00:00.000Z'),
         authorGithubId: MEMBER.toString(),
       },
     ]);
-    await repository.recordContributions(REPO_ID, 'commit', [
+    await repository.recordContributions(GITHUB_REPO_ID, 'commit', [
       {
         githubKey: 'also-stays',
         occurredAt: new Date('2026-03-15T03:00:00.000Z'),
@@ -246,7 +230,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       new PlatformRepository(),
     );
 
-    await loggedRepository.recordContributions(REPO_ID, 'commit', facts);
+    await loggedRepository.recordContributions(GITHUB_REPO_ID, 'commit', facts);
     await logged.$disconnect();
 
     expect(

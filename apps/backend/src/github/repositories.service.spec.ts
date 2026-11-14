@@ -97,7 +97,6 @@ const NOW = new Date('2026-07-22T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
 const ACTOR_USER_ID = 'synthetic-actor-user-id';
 const targetRow = {
-  id: 'synthetic-repository-id',
   team: { id: 'synthetic-team-id', programId: 'synthetic-program-id' },
   githubRepositoryId: 987654321n,
   nameWithOwner: 'synthetic-org/synthetic-repository',
@@ -105,7 +104,6 @@ const targetRow = {
   publishedAt: null,
 };
 const target = {
-  id: targetRow.id,
   githubRepositoryId: targetRow.githubRepositoryId,
   name: 'synthetic-repository',
   url: 'https://github.com/synthetic-org/synthetic-repository',
@@ -633,7 +631,7 @@ describe('RepositoriesService.publish', () => {
     });
 
     const result = await service.publish(
-      { repositoryId: target.id },
+      { githubRepositoryId: target.githubRepositoryId },
       ACTOR_GITHUB_ID,
       NOW,
     );
@@ -654,14 +652,14 @@ describe('RepositoriesService.publish', () => {
     });
 
     const result = await service.publish(
-      { repositoryId: target.id },
+      { githubRepositoryId: target.githubRepositoryId },
       ACTOR_GITHUB_ID,
       NOW,
     );
 
     expect(github.publishRepository.mock.calls).toEqual([[target.name]]);
     expect(store.publishRepositoryIfPrivate.mock.calls).toEqual([
-      [target.id, target.githubRepositoryId, NOW],
+      [target.githubRepositoryId, NOW],
     ]);
     const historyCalls = store.historyWriter.teamHistory.create.mock
       .calls as unknown[][];
@@ -676,9 +674,9 @@ describe('RepositoriesService.publish', () => {
         data: {
           schemaVersion: 1,
           targetType: 'REPOSITORY',
-          targetId: target.id,
+          targetId: target.githubRepositoryId.toString(),
           metadata: {
-            repositoryId: target.id,
+            repositoryId: target.githubRepositoryId.toString(),
             before: { visibility: RepositoryVisibility.PRIVATE },
             after: {
               visibility: RepositoryVisibility.PUBLIC,
@@ -710,13 +708,13 @@ describe('RepositoriesService.publish', () => {
     });
 
     const result = await service.publish(
-      { repositoryId: target.id },
+      { githubRepositoryId: target.githubRepositoryId },
       ACTOR_GITHUB_ID,
       NOW,
     );
 
     expect(store.publishRepositoryIfPrivate.mock.calls).toEqual([
-      [target.id, target.githubRepositoryId, NOW],
+      [target.githubRepositoryId, NOW],
     ]);
     expect(store.historyWriter.teamHistory.create.mock.calls).toHaveLength(0);
     expect(result).toEqual({
@@ -736,7 +734,7 @@ describe('RepositoriesService.publish', () => {
     });
 
     const publish = service.publish(
-      { repositoryId: 'missing' },
+      { githubRepositoryId: 404n },
       ACTOR_GITHUB_ID,
       NOW,
     );

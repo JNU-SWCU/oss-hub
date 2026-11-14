@@ -826,7 +826,7 @@ export interface PublishEligibilitySource {
   readonly isRepositoryPublicationPlanned: boolean;
   readonly provisionJob: {
     readonly status: RepositoryProvisionJobStatus;
-    readonly repositoryId: string | null;
+    readonly repoId: bigint | null;
   } | null;
   readonly program: {
     readonly endAt: Date;
@@ -839,7 +839,7 @@ export interface PublishEligibilitySource {
   };
 }
 export interface PublishEligibilityRow {
-  readonly id: string;
+  readonly githubRepositoryId: bigint;
   readonly visibility: RepositoryVisibility;
   readonly application: PublishEligibilitySource;
 }
@@ -879,7 +879,7 @@ export interface SubmissionReviewsRepositoryPort {
   ): Promise<T>;
   findReviewContext(submissionId: string): Promise<ReviewContextRow | null>;
   findPublishEligibility(
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<PublishEligibilityRow | null>;
 }
 @Injectable()
@@ -907,20 +907,20 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     });
   }
   async findPublishEligibility(
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<PublishEligibilityRow | null> {
-    const repository = await this.prisma.githubRepository.findUnique({
+    const link = await this.prisma.teamRepo.findFirst({
       where: {
-        id: repositoryId,
+        repoId: githubRepositoryId,
+        validTo: null,
         team: { program: { lifecycle: { not: 'DELETED' } } },
       },
       select: {
-        id: true,
-        visibility: true,
+        repo: { select: { visibility: true } },
         team: {
           select: {
             isRepositoryPublicationPlanned: true,
-            provisionJob: { select: { status: true, repositoryId: true } },
+            provisionJob: { select: { status: true, repoId: true } },
             program: {
               select: {
                 endAt: true,
@@ -950,8 +950,12 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       },
     });
 
-    if (repository === null || repository.team === null) return null;
-    return { ...repository, application: repository.team };
+    if (link === null) return null;
+    return {
+      githubRepositoryId,
+      visibility: link.repo.visibility,
+      application: link.team,
+    };
   }
   readonly REVIEW_CONTEXT_SELECT = {
     id: true,
@@ -964,7 +968,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
         name: true,
         isRepositoryPublicationPlanned: true,
-        provisionJob: { select: { status: true, repositoryId: true } },
+        provisionJob: { select: { status: true, repoId: true } },
         program: {
           select: {
             endAt: true,
@@ -989,11 +993,13 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
             },
           },
         },
-        repository: {
+        teamRepos: {
+          where: { validTo: null },
+          take: 1,
           select: {
-            id: true,
-            nameWithOwner: true,
-            visibility: true,
+            repo: {
+              select: { githubRepoId: true, ownerName: true, visibility: true },
+            },
           },
         },
       },

@@ -529,20 +529,31 @@ export class ProgramsRepository {
     programId: string,
     studentUserId: string | null,
   ) {
-    const repositories = await this.prisma.githubRepository.findMany({
-      where: {
-        team: {
-          programId,
-          ...(studentUserId
-            ? this.platformRepository.programApplicationParticipantWhere(
-                studentUserId,
-              )
-            : {}),
-        },
-      },
-      select: {
-        githubRepositoryId: true,
-        team: {
+    const links = await this.prisma.$queryRaw<
+      readonly { readonly repoId: bigint; readonly teamId: string }[]
+    >`
+      SELECT link.repo_id AS "repoId", link.team_id AS "teamId"
+      FROM team_repo AS link
+      JOIN "Team" AS team ON team.id = link.team_id
+      WHERE team."programId" = ${programId}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM team_repo AS later
+          WHERE later.repo_id = link.repo_id
+            AND later.valid_from > link.valid_from
+        )
+    `;
+    const teams = new Map(
+      (
+        await this.prisma.team.findMany({
+          where: {
+            id: { in: links.map((link) => link.teamId) },
+            ...(studentUserId
+              ? this.platformRepository.programApplicationParticipantWhere(
+                  studentUserId,
+                )
+              : {}),
+          },
           select: {
             id: true,
             applicant: {
@@ -556,16 +567,16 @@ export class ProgramsRepository {
             leader: { select: { githubId: true } },
             members: { select: { user: { select: { githubId: true } } } },
           },
-        },
-      },
-    });
+        })
+      ).map((team) => [team.id, team]),
+    );
 
-    return repositories.flatMap((repository) => {
-      const team = repository.team;
-      if (team === null) return [];
+    return links.flatMap((link) => {
+      const team = teams.get(link.teamId);
+      if (team === undefined) return [];
       return [
         {
-          githubRepositoryId: repository.githubRepositoryId,
+          githubRepositoryId: link.repoId,
           application: {
             id: team.id,
             applicant: team.applicant,
@@ -580,25 +591,38 @@ export class ProgramsRepository {
     });
   }
   async findStudentActivityApplications(userId: string) {
-    return this.prisma.team.findMany({
-      where: {
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-        ...this.platformRepository.programApplicationParticipantWhere(userId),
-      },
-      select: {
-        id: true,
-        applicant: { select: { githubId: true } },
-        leader: { select: { githubId: true } },
-        members: {
-          select: { user: { select: { githubId: true } } },
+    return this.prisma.team
+      .findMany({
+        where: {
+          status: ApplicationStatus.APPROVED,
+          archivedAt: null,
+          ...this.platformRepository.programApplicationParticipantWhere(userId),
         },
-        program: {
-          select: { id: true, name: true, applicationStartAt: true },
+        select: {
+          id: true,
+          applicant: { select: { githubId: true } },
+          leader: { select: { githubId: true } },
+          members: {
+            select: { user: { select: { githubId: true } } },
+          },
+          program: {
+            select: { id: true, name: true, applicationStartAt: true },
+          },
+          teamRepos: {
+            where: { validTo: null },
+            take: 1,
+            select: { repoId: true },
+          },
         },
-        repository: { select: { githubRepositoryId: true } },
-      },
-    });
+      })
+      .then((teams) =>
+        teams.map(({ teamRepos, ...team }) => ({
+          ...team,
+          repository: teamRepos[0]
+            ? { githubRepositoryId: teamRepos[0].repoId }
+            : null,
+        })),
+      );
   }
   findViewer(githubId: bigint) {
     return this.prisma.user.findUnique({
@@ -741,12 +765,15 @@ export class ProgramDeletionScopeRepository {
             INNER JOIN "Team" AS application ON application.id = job."teamId"
             WHERE application."programId" = ${programId}
             UNION ALL
-            SELECT CONCAT(
-              'GithubRepository:', repository.id, ':',
-              COALESCE(repository."teamId", '')
-            )
-            FROM "GithubRepository" AS repository
-            WHERE repository."teamId" IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
+            SELECT CONCAT('Repo:', link.repo_id, ':', link.team_id)
+            FROM team_repo AS link
+            WHERE link.team_id IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
+              AND NOT EXISTS (
+                SELECT 1
+                FROM team_repo AS later
+                WHERE later.repo_id = link.repo_id
+                  AND later.valid_from > link.valid_from
+              )
             UNION ALL
             SELECT CONCAT('OutboxEvent:', event.id)
             FROM "OutboxEvent" AS event
@@ -1178,7 +1205,18 @@ export class ProgramOverviewRepository {
         select: { userId: true },
         distinct: ['userId'],
       }),
-      this.prisma.githubRepository.count({ where: { team: { programId } } }),
+      this.prisma.$queryRaw<readonly { readonly count: number }[]>`
+        SELECT COUNT(*)::int AS count
+        FROM team_repo AS link
+        JOIN "Team" AS team ON team.id = link.team_id
+        WHERE team."programId" = ${programId}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM team_repo AS later
+            WHERE later.repo_id = link.repo_id
+              AND later.valid_from > link.valid_from
+          )
+      `.then((rows) => rows[0]?.count ?? 0),
     ]);
     const participantIds = new Set<string>(
       teamMemberRows.map((row) => row.userId),

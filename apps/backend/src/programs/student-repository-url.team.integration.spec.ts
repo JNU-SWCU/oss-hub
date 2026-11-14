@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
 import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import {
@@ -210,6 +211,7 @@ it('rejects a repository owned by another application without detaching A', asyn
       teamId: other.teamId,
     },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId);
   await expect(
     service.updateForTeam(staffGithubId, programId, teamId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_029' } });
@@ -225,6 +227,7 @@ it('rejects a detached repository carrying another team history without changing
     where: { id: targetId },
     data: { teamId: other.teamId },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId);
   await expect(
     service.updateForTeam(staffGithubId, programId, teamId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_029' } });

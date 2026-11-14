@@ -70,12 +70,15 @@ export function givenRepository(
     updatedAt: new Date('2026-08-01Z'),
     repositoryConnectionMode,
     isRepositoryPublicationPlanned: false,
-    repository: {
-      id: 'current-repo',
-      nameWithOwner: 'synthetic/current',
-      visibility: 'PRIVATE',
-      githubRepositoryId: 7001n,
-    },
+    teamRepos: [
+      {
+        repo: {
+          githubRepoId: 4242n,
+          ownerName: 'synthetic/current',
+          visibility: 'PRIVATE',
+        },
+      },
+    ],
     program: {
       id: 'program',
       startAt: new Date('2026-07-31T15:00:00Z'),

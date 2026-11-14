@@ -38,8 +38,8 @@ export async function stateForE2eProgramGraph(
     prisma.repositoryProvisionJob.count({
       where: { team: { programId: graph.programId } },
     }),
-    prisma.githubRepository.count({
-      where: { team: { programId: graph.programId } },
+    prisma.teamRepo.count({
+      where: { validTo: null, team: { programId: graph.programId } },
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
     prisma.file.findMany({

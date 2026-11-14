@@ -25,7 +25,6 @@ const context: StudentRepositoryUrlContext = {
   leaderId: 'leader',
   program: { name: 'Synthetic program', endAt: new Date('2099-01-01') },
   repository: {
-    id: 'old',
     githubRepositoryId: 2n,
     nameWithOwner: 'synthetic/old',
   },
@@ -81,7 +80,7 @@ function fixture(
     .spyOn(transaction, 'lockTeamContext')
     .mockResolvedValue(teamContext);
   const relink = jest.spyOn(transaction, 'relink').mockResolvedValue({
-    repositoryId: 'target',
+    githubRepositoryId: 3n,
     deletedCounts: null,
   });
 
@@ -280,8 +279,8 @@ it('records old and new identities with the actor snapshot in the transaction', 
         metadata: {
           actorGithubLogin: 'synthetic-actor',
           schemaVersion: 2,
-          before: { repositoryId: 'old' },
-          after: { repositoryId: 'target' },
+          before: { repositoryId: '2' },
+          after: { repositoryId: '3' },
         },
       },
     },

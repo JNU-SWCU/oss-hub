@@ -1,4 +1,5 @@
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -18,6 +19,7 @@ import { StudentRepositoryUrlRepository } from './team.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 
 const prisma = new PrismaService();
+const ledger = new RepoLedgerRepository();
 const namespace = randomBytes(4).toString('hex');
 const prefix = `synthetic-url-relink-${namespace}`;
 const githubIdBase = BigInt(`0x${namespace}`) * 1000n;
@@ -167,6 +169,8 @@ beforeEach(async () => {
       archived: true,
     },
   });
+  await ledger.link(prisma, targetGithubId + 1n);
+  await ledger.write(prisma, targetGithubId);
   await seedDailyContributions(prisma, targetGithubId + 1n, [
     { githubId, date: '2026-08-01', commitCount: 7 },
   ]);

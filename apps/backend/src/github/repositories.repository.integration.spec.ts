@@ -12,6 +12,11 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+  syncGithubRepositoryLedgers,
+} from '../../test/repo-ledger.fixture';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoryUrlService } from './repository-url.service';
@@ -59,6 +64,13 @@ const REPOSITORY_IDS = [
   `${PREFIX}-unrelated-repository`,
   `${PREFIX}-unapproved-repository`,
 ] as const;
+const REPOSITORY_GITHUB_IDS = [
+  8300000001n,
+  8300000002n,
+  8300000003n,
+  8300000004n,
+] as const;
+const REPLACEMENT_GITHUB_ID = 8300000000777n;
 
 describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
   beforeAll(async () => {
@@ -175,8 +187,8 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       await prisma.repositoryProvisionJob.deleteMany({
         where: { teamId: { in: [...APPLICATION_IDS] } },
       });
-      await prisma.githubRepository.deleteMany({
-        where: { id: { in: [...REPOSITORY_IDS] } },
+      await deleteGithubRepositories(prisma, {
+        id: { in: [...REPOSITORY_IDS] },
       });
       await prisma.teamMember.deleteMany({
         where: {
@@ -229,7 +241,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         name: `${PREFIX}-member-team`,
         _count: { members: 2 },
         repository: {
-          id: REPOSITORY_IDS[1],
+          id: REPOSITORY_GITHUB_IDS[1].toString(),
           nameWithOwner: `synthetic/${REPOSITORY_IDS[1]}`,
           visibility: RepositoryVisibility.PRIVATE,
           source: RepositorySource.ORG_PROVISIONED,
@@ -242,7 +254,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     });
     const [mine] = await readService.getMyRepositories(8_300_000_000_001n);
     expect(mine).toMatchObject({
-      repositoryId: REPOSITORY_IDS[1],
+      repositoryId: REPOSITORY_GITHUB_IDS[1].toString(),
       repositoryName: REPOSITORY_IDS[1],
       githubUrl: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
     });
@@ -255,6 +267,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         where: { id: REPOSITORY_IDS[1] },
         data: { teamId: null },
       });
+      await syncGithubRepositoryLedger(prisma, REPOSITORY_GITHUB_IDS[1]);
 
       const pendingJobs =
         await repository.listOwnedProvisionJobs(8_300_000_000_001n);
@@ -266,22 +279,25 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       await prisma.githubRepository.create({
         data: {
           id: replacementId,
-          githubRepositoryId: 8300000000777n,
+          githubRepositoryId: REPLACEMENT_GITHUB_ID,
           nameWithOwner: `synthetic/${replacementId}`,
           visibility: RepositoryVisibility.PRIVATE,
           source: RepositorySource.ORG_PROVISIONED,
           teamId: MEMBER_APPLICATION_ID,
         },
       });
+      await syncGithubRepositoryLedger(prisma, REPLACEMENT_GITHUB_ID);
       await prisma.repositoryInvitation.createMany({
         data: [
           {
             repositoryId: replacementId,
+            repoId: REPLACEMENT_GITHUB_ID,
             githubLogin: `${PREFIX}-current`,
             status: RepositoryInvitationStatus.SUCCEEDED,
           },
           {
             repositoryId: replacementId,
+            repoId: REPLACEMENT_GITHUB_ID,
             githubLogin: `${PREFIX}-other`,
             status: RepositoryInvitationStatus.FAILED_FINAL,
           },
@@ -293,8 +309,10 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         (candidate) => candidate.team.id === MEMBER_APPLICATION_ID,
       );
 
-      expect(job?.team.repository?.id).toBe(replacementId);
-      expect(job?.team.repository?.id).not.toBe(REPOSITORY_IDS[1]);
+      expect(job?.team.repository?.id).toBe(REPLACEMENT_GITHUB_ID.toString());
+      expect(job?.team.repository?.id).not.toBe(
+        REPOSITORY_GITHUB_IDS[1].toString(),
+      );
       expect(job?.team.repository?.invitations).toEqual([
         { status: RepositoryInvitationStatus.SUCCEEDED },
       ]);
@@ -302,15 +320,14 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       await prisma.repositoryInvitation.deleteMany({
         where: { repositoryId: replacementId },
       });
-      await prisma.githubRepository.deleteMany({
-        where: { id: replacementId },
-      });
+      await deleteGithubRepositories(prisma, { id: replacementId });
       await prisma.githubRepository.update({
         where: { id: REPOSITORY_IDS[1] },
         data: {
           teamId: MEMBER_APPLICATION_ID,
         },
       });
+      await syncGithubRepositoryLedger(prisma, REPOSITORY_GITHUB_IDS[1]);
     }
   });
 
@@ -363,6 +380,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         data: provisionJob(
           tiedTeamId,
           null,
+          null,
           RepositoryProvisionJobStatus.PENDING,
         ),
       });
@@ -393,6 +411,96 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       await prisma.teamMember.deleteMany({ where: { teamId: tiedTeamId } });
       await prisma.team.deleteMany({ where: { id: tiedTeamId } });
       await prisma.program.deleteMany({ where: { id: tiedProgramId } });
+    }
+  });
+
+  it('fills repo_id from the repository for writes that omit it', async () => {
+    const requestId = `${PREFIX}-legacy-history`;
+    const keptRepoId = 8300000000999n;
+    const repoIdOf = async (table: string, id: string) =>
+      (
+        await prisma.$queryRawUnsafe<{ repo_id: bigint | null }[]>(
+          `SELECT "repo_id" FROM "${table}" WHERE "id" = $1`,
+          id,
+        )
+      )[0]?.repo_id;
+    try {
+      await prisma.repositoryProvisionJob.deleteMany({
+        where: { teamId: UNAPPROVED_APPLICATION_ID },
+      });
+      await prisma.$executeRaw`
+        INSERT INTO "RepositoryProvisionJob" ("id", "teamId", "repositoryId", "updatedAt")
+        VALUES (${requestId}, ${UNAPPROVED_APPLICATION_ID}, ${REPOSITORY_IDS[3]}, now())
+      `;
+      await prisma.$executeRaw`
+        INSERT INTO "RepositoryInvitation" (
+          "id", "repositoryId", "repo_id", "githubLogin", "updatedAt"
+        )
+        VALUES
+          (${requestId}, ${REPOSITORY_IDS[2]}, NULL, ${`${PREFIX}-legacy`}, now()),
+          (${`${requestId}-kept`}, ${REPOSITORY_IDS[2]}, ${keptRepoId},
+            ${`${PREFIX}-kept`}, now())
+      `;
+      await prisma.$executeRaw`
+        INSERT INTO "RepositoryIssuanceHistory" (
+          "id", "requestId", "teamId", "repositoryId", "repo_id",
+          "connectionMode", "outcome", "requestedAt", "closedAt"
+        )
+        VALUES
+          (${requestId}, ${requestId}, ${UNRELATED_TEAM_ID}, ${REPOSITORY_IDS[2]}, NULL,
+            'NEW', 'SUCCEEDED', now(), now()),
+          (${`${requestId}-kept`}, ${`${requestId}-kept`}, ${UNRELATED_TEAM_ID},
+            ${REPOSITORY_IDS[2]}, ${keptRepoId}, 'NEW', 'SUCCEEDED', now(), now())
+      `;
+
+      await expect(repoIdOf('RepositoryProvisionJob', requestId)).resolves.toBe(
+        REPOSITORY_GITHUB_IDS[3],
+      );
+      await expect(repoIdOf('RepositoryInvitation', requestId)).resolves.toBe(
+        REPOSITORY_GITHUB_IDS[2],
+      );
+      await expect(
+        repoIdOf('RepositoryInvitation', `${requestId}-kept`),
+      ).resolves.toBe(keptRepoId);
+      await expect(
+        repoIdOf('RepositoryIssuanceHistory', requestId),
+      ).resolves.toBe(REPOSITORY_GITHUB_IDS[2]);
+      await expect(
+        repoIdOf('RepositoryIssuanceHistory', `${requestId}-kept`),
+      ).resolves.toBe(keptRepoId);
+
+      await prisma.$executeRaw`
+        UPDATE "RepositoryProvisionJob" SET "repositoryId" = ${REPOSITORY_IDS[2]}
+        WHERE "id" = ${requestId}
+      `;
+      await expect(repoIdOf('RepositoryProvisionJob', requestId)).resolves.toBe(
+        REPOSITORY_GITHUB_IDS[2],
+      );
+      await prisma.$executeRaw`
+        UPDATE "RepositoryProvisionJob" SET "repositoryId" = NULL
+        WHERE "id" = ${requestId}
+      `;
+      await expect(
+        repoIdOf('RepositoryProvisionJob', requestId),
+      ).resolves.toBeNull();
+    } finally {
+      await prisma.repositoryIssuanceHistory.deleteMany({
+        where: { id: { in: [requestId, `${requestId}-kept`] } },
+      });
+      await prisma.repositoryInvitation.deleteMany({
+        where: { id: { in: [requestId, `${requestId}-kept`] } },
+      });
+      await prisma.repositoryProvisionJob.deleteMany({
+        where: { teamId: UNAPPROVED_APPLICATION_ID },
+      });
+      await prisma.repositoryProvisionJob.create({
+        data: provisionJob(
+          UNAPPROVED_APPLICATION_ID,
+          REPOSITORY_IDS[3],
+          REPOSITORY_GITHUB_IDS[3],
+          RepositoryProvisionJobStatus.SUCCEEDED,
+        ),
+      });
     }
   });
 
@@ -443,31 +551,39 @@ async function createFixtures(): Promise<void> {
       storedRepository(REPOSITORY_IDS[3], UNAPPROVED_TEAM_ID, 8300000004n),
     ],
   });
+  await syncGithubRepositoryLedgers(prisma, {
+    id: { in: [...REPOSITORY_IDS] },
+  });
   await prisma.repositoryProvisionJob.createMany({
     data: [
       provisionJob(
         PERSONAL_APPLICATION_ID,
+        null,
         null,
         RepositoryProvisionJobStatus.PENDING,
       ),
       provisionJob(
         LEADER_APPLICATION_ID,
         REPOSITORY_IDS[0],
+        REPOSITORY_GITHUB_IDS[0],
         RepositoryProvisionJobStatus.SUCCEEDED,
       ),
       provisionJob(
         MEMBER_APPLICATION_ID,
         REPOSITORY_IDS[1],
+        REPOSITORY_GITHUB_IDS[1],
         RepositoryProvisionJobStatus.SUCCEEDED,
       ),
       provisionJob(
         UNRELATED_APPLICATION_ID,
         REPOSITORY_IDS[2],
+        REPOSITORY_GITHUB_IDS[2],
         RepositoryProvisionJobStatus.SUCCEEDED,
       ),
       provisionJob(
         UNAPPROVED_APPLICATION_ID,
         REPOSITORY_IDS[3],
+        REPOSITORY_GITHUB_IDS[3],
         RepositoryProvisionJobStatus.SUCCEEDED,
       ),
     ],
@@ -476,17 +592,20 @@ async function createFixtures(): Promise<void> {
     data: [
       {
         repositoryId: REPOSITORY_IDS[0],
+        repoId: REPOSITORY_GITHUB_IDS[0],
         githubLogin: `${PREFIX}-current`,
         status: RepositoryInvitationStatus.SUCCEEDED,
       },
       {
         repositoryId: REPOSITORY_IDS[0],
+        repoId: REPOSITORY_GITHUB_IDS[0],
         githubLogin: `${PREFIX}-other`,
         status: RepositoryInvitationStatus.FAILED_FINAL,
         lastErrorMessage: 'synthetic-raw-upstream-detail',
       },
       {
         repositoryId: REPOSITORY_IDS[1],
+        repoId: REPOSITORY_GITHUB_IDS[1],
         githubLogin: `${PREFIX}-Current`,
         status: RepositoryInvitationStatus.PENDING,
       },
@@ -527,11 +646,13 @@ function storedRepository(
 function provisionJob(
   teamId: string,
   repositoryId: string | null,
+  repoId: bigint | null,
   status: RepositoryProvisionJobStatus,
 ) {
   return {
     teamId,
     repositoryId,
+    repoId,
     status,
     nextAttemptAt: new Date('2026-07-22T00:00:00.000Z'),
     lastErrorCode: 'SYNTHETIC_ERROR',

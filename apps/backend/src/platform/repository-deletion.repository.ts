@@ -7,22 +7,19 @@ import { RepoLedgerRepository } from './repo-ledger.repository';
 export class RepositoryDeletionRepository {
   async deleteRepositoryWithFacts(
     transaction: Prisma.TransactionClient,
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<RepositoryDeletionCounts> {
     await transaction.$queryRaw`
-    SELECT id FROM "GithubRepository" WHERE id = ${repositoryId} FOR UPDATE
+    SELECT github_repo_id FROM "repo" WHERE github_repo_id = ${githubRepositoryId} FOR UPDATE
   `;
     const [row] = await transaction.$queryRaw<
       readonly [{ readonly counts: RepositoryDeletionCounts }]
     >`
     SELECT json_build_object(
-      'repositories', (SELECT count(*) FROM "GithubRepository" WHERE id = ${repositoryId}),
+      'repositories', (SELECT count(*) FROM "repo" WHERE github_repo_id = ${githubRepositoryId}),
       'commits', (
-        SELECT count(*) FROM "contribution" AS event
-        JOIN "GithubRepository" AS repository
-          ON repository."githubRepositoryId" = event.repo_id
-        WHERE repository.id = ${repositoryId}
-          AND event.kind = 'commit'::"contribution_kind"
+        SELECT count(*) FROM "contribution"
+        WHERE repo_id = ${githubRepositoryId} AND kind = 'commit'::"contribution_kind"
       ),
       'contributions', (
         SELECT count(DISTINCT (
@@ -30,49 +27,32 @@ export class RepositoryDeletionRepository {
           (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
         ))
         FROM "contribution" AS event
-        JOIN "GithubRepository" AS repository
-          ON repository."githubRepositoryId" = event.repo_id
-        WHERE repository.id = ${repositoryId}
+        WHERE event.repo_id = ${githubRepositoryId}
           AND event.author_github_id IS NOT NULL
       ),
       'pullRequests', (
-        SELECT count(*) FROM "contribution" AS event
-        JOIN "GithubRepository" AS repository
-          ON repository."githubRepositoryId" = event.repo_id
-        WHERE repository.id = ${repositoryId}
-          AND event.kind = 'pull_request'::"contribution_kind"
+        SELECT count(*) FROM "contribution"
+        WHERE repo_id = ${githubRepositoryId} AND kind = 'pull_request'::"contribution_kind"
       ),
       'releases', (
-        SELECT count(*) FROM "contribution" AS event
-        JOIN "GithubRepository" AS repository
-          ON repository."githubRepositoryId" = event.repo_id
-        WHERE repository.id = ${repositoryId}
-          AND event.kind = 'release'::"contribution_kind"
+        SELECT count(*) FROM "contribution"
+        WHERE repo_id = ${githubRepositoryId} AND kind = 'release'::"contribution_kind"
       ),
       'issues', (
-        SELECT count(*) FROM "contribution" AS event
-        JOIN "GithubRepository" AS repository
-          ON repository."githubRepositoryId" = event.repo_id
-        WHERE repository.id = ${repositoryId}
-          AND event.kind = 'issue'::"contribution_kind"
+        SELECT count(*) FROM "contribution"
+        WHERE repo_id = ${githubRepositoryId} AND kind = 'issue'::"contribution_kind"
       ),
-      'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE "repositoryId" = ${repositoryId})
+      'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE repo_id = ${githubRepositoryId})
     ) AS counts
   `;
     await transaction.repositoryProvisionJob.updateMany({
-      where: { repositoryId },
-      data: { repositoryId: null },
+      where: { repoId: githubRepositoryId },
+      data: { repositoryId: null, repoId: null },
     });
     await transaction.repositoryInvitation.deleteMany({
-      where: { repositoryId },
+      where: { repoId: githubRepositoryId },
     });
-    const deleted = await transaction.githubRepository.delete({
-      where: { id: repositoryId },
-      select: { githubRepositoryId: true },
-    });
-    await new RepoLedgerRepository().remove(transaction, [
-      deleted.githubRepositoryId,
-    ]);
+    await new RepoLedgerRepository().remove(transaction, [githubRepositoryId]);
     return row.counts;
   }
 }

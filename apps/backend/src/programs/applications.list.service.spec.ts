@@ -246,6 +246,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             rejectionReason: null,
             teamId: null,
             answers: {},
+            teamRepos: [],
             program: { repositoryProvisioningEnabled: enabled },
             applicant: { id: 'student-1', name: null, nickname: 'student' },
             name: 'Synthetic team',
@@ -524,7 +525,20 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
           teamId: 'team-1',
           answers: {},
           isRepositoryPublicationPlanned: true,
-          repository,
+          teamRepos:
+            repository === null
+              ? []
+              : [
+                  {
+                    repo: {
+                      githubRepoId: 1n,
+                      ownerName: repository.nameWithOwner,
+                      visibility: repository.visibility,
+                      source: 'ORG_PROVISIONED',
+                      publishedAt: null,
+                    },
+                  },
+                ],
           program: { repositoryProvisioningEnabled: true },
           applicant: { id: 'student-1', name: null, nickname: 'student' },
           name: '합성 팀',
@@ -579,13 +593,20 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
       expect(item?.repository).toBeNull();
     });
 
-    it('Application.repository 1:1 관계만 select 하고 team.repositories 는 읽지 않는다', async () => {
+    it('열린 team_repo 기간 한 건만 select 하고 team.repositories 는 읽지 않는다', async () => {
       const { findMany } = await listWithRepository(null);
 
       const select = readSelect(findMany);
       expect(select).toMatchObject({
-        repository: { select: { nameWithOwner: true, visibility: true } },
+        teamRepos: {
+          where: { validTo: null },
+          take: 1,
+          select: {
+            repo: { select: { ownerName: true, visibility: true } },
+          },
+        },
       });
+      expect(select).not.toHaveProperty('repository');
       expect(select).toHaveProperty('name', true);
       expect(select).toHaveProperty('_count.select.members', true);
       expect(select).not.toHaveProperty('repositories');

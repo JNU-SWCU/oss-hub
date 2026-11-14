@@ -118,14 +118,12 @@ const OSS_HUB_TEAM_ACCOUNT_USER_IDS = OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS.map(
 );
 const OSS_HUB_PROGRAM_ID = seedId('oss-hub', 'program');
 const OSS_HUB_TEAM_ID = seedId('oss-hub', 'team');
-const OSS_HUB_REPOSITORY_ID = seedId('oss-hub', 'repository');
 const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
 
 const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const OSS_HUB_PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const OSS_HUB_PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
-const OSS_HUB_PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
 const OSS_HUB_PRACTICE_PROVISION_JOB_ID = seedId(
   'oss-hub-practice',
   'provision-job',
@@ -211,8 +209,7 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   ],
   [
     'Repository',
-    () =>
-      prisma.githubRepository.count({ where: { id: { startsWith: 'seed:' } } }),
+    () => prisma.teamRepo.count({ where: { teamId: { startsWith: 'seed:' } } }),
   ],
   [
     'RepositoryInvitation',
@@ -361,7 +358,15 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryProvisionJob.deleteMany({ where: seedIdFilter });
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
-  await deleteGithubRepositories(prisma, seedIdFilter);
+  const seedTeamIds = await prisma.team.findMany({
+    where: seedIdFilter,
+    select: { id: true },
+  });
+  await deleteGithubRepositories(
+    prisma,
+    { OR: [seedIdFilter, { teamId: { startsWith: seedPrefix } }] },
+    seedTeamIds.map((team) => team.id),
+  );
   await prisma.submission.deleteMany({ where: seedIdFilter });
   await prisma.file.deleteMany({ where: seedIdFilter });
   await prisma.requirement.deleteMany({ where: seedIdFilter });
@@ -499,8 +504,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
             histories: true,
           },
         }),
-        prisma.githubRepository.findUniqueOrThrow({
-          where: { id: OSS_HUB_REPOSITORY_ID },
+        prisma.repo.findUniqueOrThrow({
+          where: { githubRepoId: OSS_HUB_GITHUB_REPOSITORY_ID },
+          include: { teamRepos: { where: { validTo: null } } },
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PROVISION_JOB_ID },
@@ -515,8 +521,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_TEAM_ID },
         }),
-        prisma.githubRepository.findUniqueOrThrow({
-          where: { id: OSS_HUB_PRACTICE_REPOSITORY_ID },
+        prisma.repo.findUniqueOrThrow({
+          where: { githubRepoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID },
+          include: { teamRepos: { where: { validTo: null } } },
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_PROVISION_JOB_ID },
@@ -546,8 +553,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.submissionHistory.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.githubRepository.count({
-          where: { id: { startsWith: 'seed:oss-hub:' } },
+        prisma.teamRepo.count({
+          where: { teamId: { startsWith: 'seed:oss-hub:' }, validTo: null },
         }),
         prisma.repositoryProvisionJob.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
@@ -689,19 +696,19 @@ describe('seed profile=oss-hub contract (integration)', () => {
 
       expect(ossHubRepositoryCount).toBe(1);
       expect(repository).toMatchObject({
-        teamId: OSS_HUB_TEAM_ID,
-        githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
+        githubRepoId: OSS_HUB_GITHUB_REPOSITORY_ID,
         visibility: RepositoryVisibility.PUBLIC,
+        teamRepos: [{ teamId: OSS_HUB_TEAM_ID }],
       });
       expect(
         repositoryUrlService.repositoryUrlFromNameWithOwner(
-          repository.nameWithOwner,
+          repository.ownerName,
         ),
       ).toBe(OSS_HUB_REPOSITORY_URL);
       expect(ossHubRepositoryProvisionJobCount).toBe(1);
       expect(provisionJob).toMatchObject({
         teamId: OSS_HUB_TEAM_ID,
-        repositoryId: OSS_HUB_REPOSITORY_ID,
+        repoId: OSS_HUB_GITHUB_REPOSITORY_ID,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
 
@@ -719,19 +726,19 @@ describe('seed profile=oss-hub contract (integration)', () => {
         status: ApplicationStatus.APPROVED,
       });
       expect(practiceRepository).toMatchObject({
-        teamId: OSS_HUB_PRACTICE_TEAM_ID,
-        githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+        githubRepoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
         visibility: RepositoryVisibility.PUBLIC,
+        teamRepos: [{ teamId: OSS_HUB_PRACTICE_TEAM_ID }],
       });
       expect(
         repositoryUrlService.repositoryUrlFromNameWithOwner(
-          practiceRepository.nameWithOwner,
+          practiceRepository.ownerName,
         ),
       ).toBe(OSS_HUB_PRACTICE_REPOSITORY_URL);
       expect(practiceRepository.publishedAt).not.toBeNull();
       expect(practiceProvisionJob).toMatchObject({
         teamId: OSS_HUB_PRACTICE_TEAM_ID,
-        repositoryId: OSS_HUB_PRACTICE_REPOSITORY_ID,
+        repoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
     },
@@ -911,8 +918,8 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.boardComment.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.githubRepository.count({
-        where: { id: { startsWith: seedDemoPrefix } },
+      prisma.teamRepo.count({
+        where: { teamId: { startsWith: seedDemoPrefix } },
       }),
       prisma.contributionEvent.count({
         where: {

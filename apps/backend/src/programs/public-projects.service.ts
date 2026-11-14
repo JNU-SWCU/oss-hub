@@ -472,7 +472,11 @@ export class PublicProjectsService {
       ]).toString('utf8');
 
       const decoded = JSON.parse(payload) as { p: unknown; i: unknown };
-      if (typeof decoded.p !== 'string' || typeof decoded.i !== 'string') {
+      if (
+        typeof decoded.p !== 'string' ||
+        typeof decoded.i !== 'string' ||
+        !/^[1-9][0-9]*$/.test(decoded.i)
+      ) {
         throw new Error('malformed cursor shape');
       }
       const publishedAt = new Date(decoded.p);

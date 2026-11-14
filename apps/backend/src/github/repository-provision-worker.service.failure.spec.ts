@@ -124,7 +124,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: PROVISION_REPOSITORY.id,
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
     });
     expect(state.recordRepository.mock.calls).toHaveLength(1);
   });
@@ -170,7 +170,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       id: 'synthetic-job-id',
       teamId: 'synthetic-application-id',
       requestId: 'synthetic-request-id',
-      repositoryId: null,
+      repoId: null,
       attemptCount: 2,
     });
     const state = provisionStateMock();
@@ -314,7 +314,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       id: 'synthetic-job-id',
       teamId: 'synthetic-application-id',
       requestId: 'synthetic-request-id',
-      repositoryId: null,
+      repoId: null,
       attemptCount: 3,
     });
     const state = provisionStateMock();
@@ -376,7 +376,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
     expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
       requestId: 'synthetic-request-id',
       invitationId: 'synthetic-failed-invitation',
-      repositoryId: PROVISION_REPOSITORY.id,
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
       expectedStatus: RepositoryInvitationStatus.PENDING,
       intent: 'GRANT',
       final: false,
@@ -619,7 +619,7 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
     expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
       requestId: 'synthetic-request-id',
       invitationId: 'synthetic-revoke-a',
-      repositoryId: PROVISION_REPOSITORY.id,
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
       intent: 'REVOKE',
       final: false,

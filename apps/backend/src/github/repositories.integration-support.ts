@@ -35,22 +35,17 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
   }
 
   findPublishTarget(
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<RepositoryPublishTargetRow | null> {
-    return this.store.findPublishTarget(repositoryId);
+    return this.store.findPublishTarget(githubRepositoryId);
   }
 
   async publishRepositoryIfPrivate(
-    repositoryId: string,
     githubRepositoryId: bigint,
     now: Date,
   ): Promise<boolean> {
     await this.barrier.wait();
-    return this.store.publishRepositoryIfPrivate(
-      repositoryId,
-      githubRepositoryId,
-      now,
-    );
+    return this.store.publishRepositoryIfPrivate(githubRepositoryId, now);
   }
 
   claimProvisionEvent(
@@ -116,9 +111,9 @@ export class BarrierRepositoriesRepository {
   }
 
   findPublishTarget(
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<RepositoryPublishTargetRow | null> {
-    return this.repository.findPublishTarget(repositoryId);
+    return this.repository.findPublishTarget(githubRepositoryId);
   }
 
   listOwnedProvisionJobs(

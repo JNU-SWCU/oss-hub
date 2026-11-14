@@ -64,7 +64,7 @@ function eligibilityRow(
   eligibility: RepositoryPublishEligibility,
 ): PublishEligibilityRow {
   return {
-    id: eligibility.repositoryId,
+    githubRepositoryId: BigInt(eligibility.repositoryId),
     visibility: eligibility.visibility,
     application: {
       submissions: [],
@@ -75,7 +75,7 @@ function eligibilityRow(
           ? null
           : {
               status: eligibility.provisionStatus,
-              repositoryId: eligibility.repositoryId,
+              repoId: BigInt(eligibility.repositoryId),
             },
       program: {
         endAt: eligibility.programEndAt,
@@ -238,7 +238,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue(
       eligibilityRow({
-        repositoryId: 'repository-1',
+        repositoryId: '1',
         visibility: RepositoryVisibility.PRIVATE,
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         requiredMilestonesApproved: true,
@@ -247,8 +247,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       }),
     );
     repositories.publish.mockResolvedValue({
-      id: 'repository-1',
-      githubRepositoryId: 123n,
+      githubRepositoryId: 1n,
       name: 'synthetic-repository',
       url: 'https://github.com/synthetic-org/synthetic-repository',
       visibility: RepositoryVisibility.PUBLIC,
@@ -265,18 +264,18 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
 
     const result = await service.publishRepository(
-      'repository-1',
+      '1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
 
     expect(repositories.publish).toHaveBeenCalledWith(
-      { repositoryId: 'repository-1' },
+      { githubRepositoryId: 1n },
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
     expect(result).toEqual({
-      repositoryId: 'repository-1',
+      repositoryId: '1',
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: REVIEWED_AT,
     });
@@ -286,7 +285,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue(
       eligibilityRow({
-        repositoryId: 'repository-1',
+        repositoryId: '1',
         visibility: RepositoryVisibility.PRIVATE,
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         requiredMilestonesApproved: false,
@@ -305,7 +304,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
 
     const publish = service.publishRepository(
-      'repository-1',
+      '1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
@@ -322,7 +321,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue(
       eligibilityRow({
-        repositoryId: 'repository-1',
+        repositoryId: '1',
         visibility: RepositoryVisibility.PRIVATE,
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         requiredMilestonesApproved: true,
@@ -341,7 +340,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
 
     const publish = service.publishRepository(
-      'repository-1',
+      '1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
@@ -358,7 +357,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue(
       eligibilityRow({
-        repositoryId: 'repository-1',
+        repositoryId: '1',
         visibility: RepositoryVisibility.PRIVATE,
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         requiredMilestonesApproved: true,
@@ -377,7 +376,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
 
     const publish = service.publishRepository(
-      'repository-1',
+      '1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
@@ -392,7 +391,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue(
       eligibilityRow({
-        repositoryId: 'repository-1',
+        repositoryId: '1',
         visibility: RepositoryVisibility.PRIVATE,
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         requiredMilestonesApproved: true,
@@ -414,7 +413,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
 
     const publish = service.publishRepository(
-      'repository-1',
+      '1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
@@ -429,7 +428,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue(
       eligibilityRow({
-        repositoryId: 'repository-1',
+        repositoryId: '1',
         visibility: RepositoryVisibility.PRIVATE,
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         requiredMilestonesApproved: true,
@@ -450,7 +449,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
 
     await expect(
-      service.publishRepository('repository-1', ACTOR_GITHUB_ID, REVIEWED_AT),
+      service.publishRepository('1', ACTOR_GITHUB_ID, REVIEWED_AT),
     ).rejects.toBe(internalError);
   });
 });

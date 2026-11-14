@@ -26,6 +26,10 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+} from '../../test/repo-ledger.fixture';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -152,9 +156,7 @@ async function cleanupTeamScope(): Promise<void> {
   await prisma.repositoryInvitation.deleteMany({
     where: { repositoryId: { startsWith: TEST_PREFIX } },
   });
-  await prisma.githubRepository.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
-  });
+  await deleteGithubRepositories(prisma, { id: { startsWith: TEST_PREFIX } });
   await prisma.teamInvitation.deleteMany({
     where: { inviteeId: { startsWith: TEST_PREFIX } },
   });
@@ -344,6 +346,7 @@ async function seedApprovedTeam(
       publishedAt: new Date('2026-08-20T00:00:00.000Z'),
     },
   });
+  await syncGithubRepositoryLedger(prisma, githubRepositoryId);
 
   await seedDailyContributions(prisma, githubRepositoryId, [
     { githubId: LEADER_GITHUB_ID, date: '2026-08-21', commitCount: 3 },
@@ -353,6 +356,7 @@ async function seedApprovedTeam(
       id: `${teamId}:provision-job`,
       teamId,
       repositoryId,
+      repoId: githubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
     },
   });
@@ -632,6 +636,7 @@ it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지
   await prisma.repositoryInvitation.create({
     data: {
       repositoryId: fixture.repositoryId,
+      repoId: fixture.githubRepositoryId,
       githubLogin: 'synthetic-team-deletion-invitee',
     },
   });
@@ -846,6 +851,7 @@ it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', asy
       requestId,
       teamId: fixture.teamId,
       repositoryId: fixture.repositoryId,
+      repoId: fixture.githubRepositoryId,
       connectionMode: RepositoryConnectionMode.NEW,
       source: RepositorySource.ORG_PROVISIONED,
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,

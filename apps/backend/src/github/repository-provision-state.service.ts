@@ -105,11 +105,9 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       currentRepositorySource: application.repository?.source ?? null,
       repository:
         application.repository === null ||
-        job.repositoryId !== application.repository.id
+        job.repoId !== application.repository.githubRepositoryId
           ? null
-          : this.toProvisionedRepository(
-              this.repository.assertOwnedRepository(application.repository),
-            ),
+          : this.toProvisionedRepository(application.repository),
     };
   }
 
@@ -135,7 +133,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     githubLogins: readonly string[],
   ): Promise<void> {
     const desired = this.canonicalGithubLogins(githubLogins);
@@ -144,7 +142,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       jobId,
       workerId,
       requestId,
-      repositoryId,
+      githubRepositoryId,
       (rows) => {
         const known = new Set(
           rows.map((row) => this.canonicalGithubLogin(row.githubLogin)),
@@ -178,13 +176,13 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<readonly RepositoryInvitationWork[]> {
     const rows = await this.repository.findInvitationWork(
       jobId,
       workerId,
       requestId,
-      repositoryId,
+      githubRepositoryId,
     );
     const work = rows.map((row) => ({
       id: row.id,
@@ -223,7 +221,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     now: Date,
     nextReconciliationAt?: Date,
     expectedMembershipFingerprint?: string,
@@ -232,7 +230,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       jobId,
       workerId,
       requestId,
-      repositoryId,
+      githubRepositoryId,
       now,
       nextReconciliationAt,
       this.membershipCurrencyCheck(expectedMembershipFingerprint),
@@ -304,7 +302,6 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     row: OwnedProvisionedRepositoryRow,
   ): ProvisionedRepository {
     return {
-      id: row.id,
       teamId: row.teamId,
       githubRepositoryId: row.githubRepositoryId,
       name: this.repositoryUrlService.repositoryNameFromNameWithOwner(

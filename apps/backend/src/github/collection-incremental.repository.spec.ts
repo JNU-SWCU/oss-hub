@@ -10,7 +10,7 @@ interface MockDb {
     updateMany: jest.Mock;
     findMany: jest.Mock;
   };
-  repo: { findMany: jest.Mock };
+  repo: { findMany: jest.Mock; findFirst: jest.Mock };
   $executeRaw: jest.Mock;
   $queryRaw: jest.Mock;
   collectionSyncLease: { findMany: jest.Mock };
@@ -27,7 +27,10 @@ const createDb = (): MockDb => {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findMany: jest.fn().mockResolvedValue([]),
     },
-    repo: { findMany: jest.fn().mockResolvedValue([]) },
+    repo: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     $executeRaw: jest.fn().mockResolvedValue(1),
     $queryRaw: jest
       .fn()
@@ -63,78 +66,6 @@ const fact = (
   authorGithubId,
   occurredAt: new Date('2026-11-14T08:00:00.000Z'),
 });
-
-interface FakeRepoRow {
-  readonly team?: { readonly program: { readonly lifecycle: string } };
-  teamId: string | null;
-  id: string;
-  githubOrganizationId: bigint | null;
-  githubRepositoryId: bigint;
-  presence: 'PRESENT' | 'ABSENT';
-  source: 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
-}
-
-function matchesWhere(row: object, where: Record<string, unknown>): boolean {
-  return Object.entries(where).every(([key, condition]) => {
-    if (key === 'NOT' && Array.isArray(condition)) {
-      return condition.every(
-        (nested: Record<string, unknown>) => !matchesWhere(row, nested),
-      );
-    }
-    const value = (row as unknown as Record<string, unknown>)[key];
-    if (
-      condition !== null &&
-      typeof condition === 'object' &&
-      'not' in condition
-    ) {
-      return value !== condition.not;
-    }
-    if (
-      condition !== null &&
-      typeof condition === 'object' &&
-      'notIn' in (condition as Record<string, unknown>)
-    ) {
-      const notIn = (condition as { notIn: readonly unknown[] }).notIn;
-      return !notIn.includes(value);
-    }
-    if (
-      value !== null &&
-      typeof value === 'object' &&
-      condition !== null &&
-      typeof condition === 'object'
-    )
-      return matchesWhere(value, condition as Record<string, unknown>);
-    return value === condition;
-  });
-}
-
-function createFakeGithubRepositoryStore(seed: readonly FakeRepoRow[]) {
-  const rows = seed.map((row) => ({ ...row }));
-  return {
-    rows,
-    updateMany: jest.fn(
-      ({
-        where,
-        data,
-      }: {
-        where: Record<string, unknown>;
-        data: Partial<FakeRepoRow>;
-      }) => {
-        let count = 0;
-        for (const row of rows) {
-          if (matchesWhere(row, where)) {
-            Object.assign(row, data);
-            count += 1;
-          }
-        }
-        return Promise.resolve({ count });
-      },
-    ),
-    findMany: jest.fn(({ where }: { where: Record<string, unknown> }) =>
-      Promise.resolve(rows.filter((row) => matchesWhere(row, where))),
-    ),
-  };
-}
 
 describe('CollectionIncrementalRepository — 외부 저장소 편입', () => {
   it('external 저장소를 현재 관찰로 복구하고 repo 원장에 같이 쓴다', async () => {
@@ -190,20 +121,20 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
     const db = createDb();
 
     await expect(
-      repositoryFor(db).recordContributions('repo-1', 'commit', []),
+      repositoryFor(db).recordContributions(42n, 'commit', []),
     ).resolves.toEqual({ inserted: 0, authorFilled: 0 });
     expect(db.$queryRaw).not.toHaveBeenCalled();
     expect(db.$transaction).not.toHaveBeenCalled();
   });
 
-  it('repo 행을 보장하고 contribution 한 문장으로 넣어 삽입·작성자 채움 개수를 돌려준다', async () => {
+  it('repo 행이 있는 저장소에만 contribution 한 문장으로 넣어 삽입·작성자 채움 개수를 돌려준다', async () => {
     const db = createDb();
     db.$queryRaw.mockResolvedValue([
       { candidates: 2, missing_repo: 0, inserted: 1, author_filled: 1 },
     ]);
 
     await expect(
-      repositoryFor(db).recordContributions('repo-1', 'pull_request', [
+      repositoryFor(db).recordContributions(42n, 'pull_request', [
         fact('1'),
         fact('2'),
       ]),
@@ -211,8 +142,9 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
 
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
     const sql = sqlOf(db.$queryRaw.mock.calls[0] as unknown[]);
-    expect(sql).toContain('INSERT INTO "repo"');
-    expect(sql).toContain('ON CONFLICT ("github_repo_id") DO NOTHING');
+    expect(sql).not.toContain('INSERT INTO "repo"');
+    expect(sql).not.toContain('GithubRepository');
+    expect(sql).toContain('FROM "repo" AS existing');
     expect(sql).toContain('INSERT INTO "contribution"');
     expect(sql).toContain(
       'ON CONFLICT ("repo_id", "kind", "github_key") DO UPDATE',
@@ -226,12 +158,16 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
   it('작성자를 모르는 기여도 행으로 남긴다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).recordContributions('repo-1', 'commit', [
+    await repositoryFor(db).recordContributions(42n, 'commit', [
       fact('sha', null),
     ]);
 
     const values = (db.$queryRaw.mock.calls[0] as unknown[]).slice(1);
-    expect(JSON.stringify(values)).toContain('"sha"');
+    expect(
+      JSON.stringify(values, (_key, value: unknown) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    ).toContain('"sha"');
   });
 
   it.each([
@@ -243,7 +179,7 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
     jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     await expect(
-      repositoryFor(db).recordContributions('repo-1', 'issue', [fact('1')]),
+      repositoryFor(db).recordContributions(42n, 'issue', [fact('1')]),
     ).rejects.toThrow('contribution repository row is missing');
   });
 
@@ -252,7 +188,7 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
     db.$queryRaw.mockResolvedValue([{ candidates: '1' }]);
 
     await expect(
-      repositoryFor(db).recordContributions('repo-1', 'release', [fact('1')]),
+      repositoryFor(db).recordContributions(42n, 'release', [fact('1')]),
     ).rejects.toThrow('contribution insert summary was not an integer');
   });
 
@@ -260,7 +196,7 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
     const db = createDb();
 
     await repositoryFor(db).runInTransaction((store) =>
-      store.recordContributions('repo-1', 'commit', [fact('1')]),
+      store.recordContributions(42n, 'commit', [fact('1')]),
     );
 
     expect(db.$transaction).toHaveBeenCalledTimes(1);
@@ -294,36 +230,54 @@ describe('CollectionIncrementalRepository — recordRepositorySuccess', () => {
 });
 
 describe('CollectionIncrementalRepository — listCollectionTargets', () => {
-  it('출처별 수집 대상에 repo.last_success_at을 붙여 돌려준다', async () => {
+  it('열린 팀 연결이 있는 repo 행을 수집 대상으로 last_success_at과 함께 돌려준다', async () => {
     const db = createDb();
     const at = new Date('2026-11-14T09:00:00.000Z');
-    db.githubRepository.findMany.mockResolvedValue([
-      { id: 'r1', githubRepositoryId: 1n },
-      { id: 'r2', githubRepositoryId: 2n },
-    ]);
     db.repo.findMany.mockResolvedValue([
-      { githubRepoId: 1n, lastSuccessAt: at },
+      {
+        githubRepoId: 1n,
+        ownerName: 'org/one',
+        defaultBranch: 'main',
+        archived: false,
+        visibility: 'PRIVATE',
+        presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
+        teamRepos: [{ teamId: 'team-1' }],
+        lastSuccessAt: at,
+      },
     ]);
 
     await expect(
       repositoryFor(db).listCollectionTargets('ORG_PROVISIONED'),
     ).resolves.toEqual([
-      { id: 'r1', githubRepositoryId: 1n, lastSuccessAt: at },
-      { id: 'r2', githubRepositoryId: 2n, lastSuccessAt: null },
-    ]);
-    expect(db.githubRepository.findMany).toHaveBeenCalledWith({
-      where: {
-        source: 'ORG_PROVISIONED',
+      {
+        githubRepositoryId: 1n,
+        nameWithOwner: 'org/one',
+        defaultBranch: 'main',
+        archived: false,
+        visibility: 'PRIVATE',
         presence: 'PRESENT',
-        teamId: { not: null },
-        team: { program: { lifecycle: { not: 'DELETED' } } },
+        source: 'ORG_PROVISIONED',
+        teamId: 'team-1',
+        lastSuccessAt: at,
       },
-      orderBy: { githubRepositoryId: 'asc' },
-    });
-    expect(db.repo.findMany).toHaveBeenCalledWith({
-      where: { githubRepoId: { in: [1n, 2n] } },
-      select: { githubRepoId: true, lastSuccessAt: true },
-    });
+    ]);
+    expect(db.repo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          source: 'ORG_PROVISIONED',
+          presence: 'PRESENT',
+          teamRepos: {
+            some: {
+              validTo: null,
+              team: { program: { lifecycle: { not: 'DELETED' } } },
+            },
+          },
+        },
+        orderBy: { githubRepoId: 'asc' },
+      }),
+    );
+    expect(db.githubRepository.findMany).not.toHaveBeenCalled();
   });
 
   it('external 수집 대상은 공개 저장소만이다', async () => {
@@ -331,7 +285,7 @@ describe('CollectionIncrementalRepository — listCollectionTargets', () => {
 
     await repositoryFor(db).listCollectionTargets('EXTERNAL_PUBLIC');
 
-    expect(db.githubRepository.findMany).toHaveBeenCalledWith(
+    expect(db.repo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           source: 'EXTERNAL_PUBLIC',
@@ -340,63 +294,35 @@ describe('CollectionIncrementalRepository — listCollectionTargets', () => {
       }),
     );
   });
-
-  it('조직 조회는 같은 조직 ID를 가진 외부 저장소와 사라진 저장소를 반환하지 않는다', async () => {
-    const store = createFakeGithubRepositoryStore([
-      {
-        id: 'org-1',
-        teamId: 'team-1',
-        team: { program: { lifecycle: 'PUBLISHED' } },
-        githubOrganizationId: 10n,
-        githubRepositoryId: 1n,
-        presence: 'PRESENT',
-        source: 'ORG_PROVISIONED',
-      },
-      {
-        id: 'org-gone',
-        teamId: 'team-3',
-        team: { program: { lifecycle: 'PUBLISHED' } },
-        githubOrganizationId: 10n,
-        githubRepositoryId: 3n,
-        presence: 'ABSENT',
-        source: 'ORG_PROVISIONED',
-      },
-      {
-        id: 'ext-1',
-        teamId: 'team-2',
-        team: { program: { lifecycle: 'PUBLISHED' } },
-        githubOrganizationId: 10n,
-        githubRepositoryId: 99n,
-        presence: 'PRESENT',
-        source: 'EXTERNAL_PUBLIC',
-      },
-    ]);
-    const db = createDb();
-    db.githubRepository.findMany = store.findMany;
-
-    const result =
-      await repositoryFor(db).listCollectionTargets('ORG_PROVISIONED');
-
-    expect(result.map((row) => row.id)).toEqual(['org-1']);
-  });
 });
 
 describe('CollectionIncrementalRepository — transactional scope', () => {
   it('트랜잭션 내부의 조회 결과를 반환한다', async () => {
     const db = createDb();
-    db.githubRepository.findUnique.mockResolvedValue({ id: 'repo-1' });
+    db.repo.findFirst.mockResolvedValue({
+      githubRepoId: 20n,
+      ownerName: 'org/twenty',
+      defaultBranch: null,
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'EXTERNAL_PUBLIC',
+      teamRepos: [],
+    });
     const result = await repositoryFor(db).runInTransaction((repo) =>
-      repo.findRepositoryByLogicalKey(20n),
+      repo.findCollectionTargetByLogicalKey(20n),
     );
-    expect(result).toEqual({ id: 'repo-1' });
+    expect(result).toEqual(
+      expect.objectContaining({ githubRepositoryId: 20n, teamId: null }),
+    );
   });
 
   it('트랜잭션 내부 실패를 호출자에게 전달한다', async () => {
     const db = createDb();
-    db.githubRepository.findUnique.mockRejectedValue(new Error('boom'));
+    db.repo.findFirst.mockRejectedValue(new Error('boom'));
     await expect(
       repositoryFor(db).runInTransaction((repo) =>
-        repo.findRepositoryByLogicalKey(20n),
+        repo.findCollectionTargetByLogicalKey(20n),
       ),
     ).rejects.toThrow('boom');
   });

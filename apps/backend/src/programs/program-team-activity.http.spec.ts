@@ -248,11 +248,15 @@ beforeEach(() => {
               ],
               id: TEAM_ID,
               status: 'APPROVED',
-              repository: {
-                id: 'synthetic-repository',
-                nameWithOwner: 'synthetic-org/synthetic-repo',
-                githubRepositoryId: 7001n,
-              },
+              teamRepos: [
+                {
+                  repo: {
+                    githubRepoId: 4242n,
+                    ownerName: 'synthetic-org/synthetic-repo',
+                    visibility: 'PRIVATE',
+                  },
+                },
+              ],
             }
           : null,
       ),
@@ -285,7 +289,7 @@ it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을
   expect(bodies[0]).toEqual({
     teamId: TEAM_ID,
     repository: {
-      id: 'synthetic-repository',
+      id: '4242',
       url: 'https://github.com/synthetic-org/synthetic-repo',
     },
     status: 'COLLECTED',

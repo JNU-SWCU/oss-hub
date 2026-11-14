@@ -68,7 +68,6 @@ export interface OwnedProvisionJob {
 }
 
 export interface RepositoryPublishTargetRow {
-  readonly id: string;
   readonly githubRepositoryId: bigint;
   readonly nameWithOwner: string;
   readonly visibility: RepositoryVisibility;
@@ -77,7 +76,6 @@ export interface RepositoryPublishTargetRow {
 }
 
 export interface RepositoryPublishTarget {
-  readonly id: string;
   readonly githubRepositoryId: bigint;
   readonly name: string;
   readonly url: string;
@@ -108,10 +106,9 @@ export interface RepositoriesTransactionStore {
   ): Promise<void>;
   failProvisionEvent(eventId: string, workerId: string): Promise<void>;
   findPublishTarget(
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<RepositoryPublishTargetRow | null>;
   publishRepositoryIfPrivate(
-    repositoryId: string,
     githubRepositoryId: bigint,
     now: Date,
   ): Promise<boolean>;
@@ -176,20 +173,17 @@ export class RepositoriesRepository {
             },
             name: true,
             _count: { select: { members: true } },
-            repository: {
+            teamRepos: {
+              where: { validTo: null },
+              take: 1,
               select: {
-                id: true,
-                nameWithOwner: true,
-                visibility: true,
-                source: true,
-                invitations: {
-                  where: {
-                    githubLogin: {
-                      equals: user.nickname.trim(),
-                      mode: 'insensitive',
-                    },
+                repo: {
+                  select: {
+                    githubRepoId: true,
+                    ownerName: true,
+                    visibility: true,
+                    source: true,
                   },
-                  select: { status: true },
                 },
               },
             },
@@ -197,26 +191,46 @@ export class RepositoriesRepository {
         },
       },
     });
-    return jobs.map((job) => ({
-      ...job,
-      team: job.team,
-    }));
+    const invitations = await this.prisma.repositoryInvitation.findMany({
+      where: {
+        repoId: {
+          in: jobs.flatMap((job) =>
+            job.team.teamRepos.map((link) => link.repo.githubRepoId),
+          ),
+        },
+        githubLogin: { equals: user.nickname.trim(), mode: 'insensitive' },
+      },
+      select: { repoId: true, status: true },
+    });
+    return jobs.map(({ team: { teamRepos, ...team }, ...job }) => {
+      const repo = teamRepos[0]?.repo ?? null;
+      return {
+        ...job,
+        team: {
+          ...team,
+          repository:
+            repo === null
+              ? null
+              : {
+                  id: repo.githubRepoId.toString(),
+                  nameWithOwner: repo.ownerName,
+                  visibility: repo.visibility,
+                  source: repo.source,
+                  invitations: invitations
+                    .filter(
+                      (invitation) => invitation.repoId === repo.githubRepoId,
+                    )
+                    .map(({ status }) => ({ status })),
+                },
+        },
+      };
+    });
   }
 
   async findPublishTarget(
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<RepositoryPublishTargetRow | null> {
-    return this.prisma.githubRepository.findUnique({
-      where: { id: repositoryId },
-      select: {
-        id: true,
-        githubRepositoryId: true,
-        nameWithOwner: true,
-        visibility: true,
-        publishedAt: true,
-        team: { select: { id: true, programId: true } },
-      },
-    });
+    return this.findPublishTargetIn(this.prisma, githubRepositoryId);
   }
 
   private repositoriesTransactionStore(
@@ -244,40 +258,43 @@ export class RepositoriesRepository {
 
   private async findPublishTargetIn(
     transaction: Prisma.TransactionClient,
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<RepositoryPublishTargetRow | null> {
-    return transaction.githubRepository.findUnique({
-      where: { id: repositoryId },
+    const repo = await transaction.repo.findUnique({
+      where: { githubRepoId: githubRepositoryId },
       select: {
-        id: true,
-        githubRepositoryId: true,
-        nameWithOwner: true,
+        githubRepoId: true,
+        ownerName: true,
         visibility: true,
         publishedAt: true,
-        team: { select: { id: true, programId: true } },
+        teamRepos: {
+          where: { validTo: null },
+          take: 1,
+          select: { team: { select: { id: true, programId: true } } },
+        },
       },
     });
+    return repo === null
+      ? null
+      : {
+          githubRepositoryId: repo.githubRepoId,
+          nameWithOwner: repo.ownerName,
+          visibility: repo.visibility,
+          publishedAt: repo.publishedAt,
+          team: repo.teamRepos[0]?.team ?? null,
+        };
   }
 
   private async publishRepositoryIfPrivateIn(
     transaction: Prisma.TransactionClient,
-    repositoryId: string,
     githubRepositoryId: bigint,
     now: Date,
   ): Promise<boolean> {
-    const updated = await transaction.githubRepository.updateMany({
-      where: {
-        id: repositoryId,
-        githubRepositoryId,
-        visibility: RepositoryVisibility.PRIVATE,
-      },
-      data: {
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: now,
-      },
-    });
-    await new RepoLedgerRepository().write(transaction, githubRepositoryId);
-    return updated.count === 1;
+    return new RepoLedgerRepository().publish(
+      transaction,
+      githubRepositoryId,
+      now,
+    );
   }
 
   private async claimProvisionEventIn(
@@ -420,7 +437,7 @@ export class RepositoriesRepository {
       {
         requestId: eventId,
         teamId,
-        repositoryId: null,
+        githubRepositoryId: null,
         source: null,
         outcome: RepositoryIssuanceOutcome.SUPERSEDED,
         closedAt: now,

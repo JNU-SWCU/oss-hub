@@ -27,7 +27,8 @@ const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';
 const WORKER_ID = 'worker-1';
 const REQUEST_ID = 'event-1';
-const REPOSITORY_ID = 'repository-1';
+const REPOSITORY_ID = 7n;
+const REPOSITORY_ROW_ID = 'repository-1';
 
 interface InvitationRow {
   readonly id: string;
@@ -92,17 +93,23 @@ interface MockDb {
   };
   githubRepository: {
     findUnique: jest.Mock<
-      Promise<{
-        readonly id: string;
-        readonly teamId: string | null;
-      } | null>,
+      Promise<{ readonly id: string } | null>,
       [Prisma.GithubRepositoryFindUniqueArgs]
+    >;
+    upsert: jest.Mock<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>;
+  };
+  repo: {
+    findUnique: jest.Mock<
+      Promise<{ readonly source: RepositorySource } | null>,
+      [Prisma.RepoFindUniqueArgs]
     >;
     findUniqueOrThrow: jest.Mock<
       Promise<{ readonly source: RepositorySource }>,
-      [Prisma.GithubRepositoryFindUniqueOrThrowArgs]
+      [Prisma.RepoFindUniqueOrThrowArgs]
     >;
-    upsert: jest.Mock<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>;
+  };
+  teamRepo: {
+    count: jest.Mock<Promise<number>, [Prisma.TeamRepoCountArgs]>;
   };
   repositoryIssuanceHistory: {
     createMany: jest.Mock<
@@ -116,7 +123,7 @@ interface MockDb {
       readonly {
         readonly teamId: string;
         readonly currentEventId: string | null;
-        readonly repositoryId: string | null;
+        readonly repoId: bigint | null;
         readonly status: RepositoryProvisionJobStatus;
         readonly lockedBy: string | null;
       }[]
@@ -205,20 +212,32 @@ function createDb(): MockDb {
         .mockResolvedValue([]),
     },
     githubRepository: {
-      findUnique: jest.fn<
-        Promise<{
-          readonly id: string;
-          readonly teamId: string | null;
-        } | null>,
-        [Prisma.GithubRepositoryFindUniqueArgs]
-      >(),
+      findUnique: jest
+        .fn<
+          Promise<{ readonly id: string } | null>,
+          [Prisma.GithubRepositoryFindUniqueArgs]
+        >()
+        .mockResolvedValue({ id: REPOSITORY_ROW_ID }),
+      upsert: jest.fn<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>(),
+    },
+    repo: {
+      findUnique: jest
+        .fn<
+          Promise<{ readonly source: RepositorySource } | null>,
+          [Prisma.RepoFindUniqueArgs]
+        >()
+        .mockResolvedValue({ source: RepositorySource.ORG_PROVISIONED }),
       findUniqueOrThrow: jest
         .fn<
           Promise<{ readonly source: RepositorySource }>,
-          [Prisma.GithubRepositoryFindUniqueOrThrowArgs]
+          [Prisma.RepoFindUniqueOrThrowArgs]
         >()
         .mockResolvedValue({ source: RepositorySource.ORG_PROVISIONED }),
-      upsert: jest.fn<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>(),
+    },
+    teamRepo: {
+      count: jest
+        .fn<Promise<number>, [Prisma.TeamRepoCountArgs]>()
+        .mockResolvedValue(1),
     },
     repositoryIssuanceHistory: {
       createMany: jest
@@ -234,7 +253,7 @@ function createDb(): MockDb {
           readonly {
             readonly teamId: string;
             readonly currentEventId: string | null;
-            readonly repositoryId: string | null;
+            readonly repoId: bigint | null;
             readonly status: RepositoryProvisionJobStatus;
             readonly lockedBy: string | null;
           }[]
@@ -245,7 +264,7 @@ function createDb(): MockDb {
         {
           teamId: 'application-1',
           currentEventId: REQUEST_ID,
-          repositoryId: REPOSITORY_ID,
+          repoId: REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.PROCESSING,
           lockedBy: WORKER_ID,
         },
@@ -283,7 +302,7 @@ function jobRow(
 ) {
   return {
     currentEventId: REQUEST_ID,
-    repositoryId: REPOSITORY_ID,
+    repoId: REPOSITORY_ID,
     team: {
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
@@ -294,14 +313,16 @@ function jobRow(
       members: (roster?.nicknames ?? []).map((nickname) => ({
         user: { nickname },
       })),
-      repository: {
-        id: REPOSITORY_ID,
-        source,
-        teamId: 'application-1',
-        githubRepositoryId: 7n,
-        nameWithOwner: 'synthetic-org/synthetic-repo',
-        visibility: RepositoryVisibility.PRIVATE,
-      },
+      teamRepos: [
+        {
+          repo: {
+            githubRepoId: REPOSITORY_ID,
+            ownerName: 'synthetic-org/synthetic-repo',
+            visibility: RepositoryVisibility.PRIVATE,
+            source,
+          },
+        },
+      ],
     },
   };
 }
@@ -384,8 +405,8 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       const job = jobRow({ name: 'synthetic-team', nicknames: ['alpha'] });
       db.repositoryProvisionJob.findFirst.mockResolvedValue(
         state === 'missing'
-          ? { ...job, team: { ...job.team, repository: null } }
-          : { ...job, repositoryId: 'different-repository' },
+          ? { ...job, team: { ...job.team, teamRepos: [] } }
+          : { ...job, repoId: 8n },
       );
 
       const context = await serviceFor(db).loadContext(
@@ -448,7 +469,13 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
     );
 
     expect(db.repositoryInvitation.createMany).toHaveBeenCalledWith({
-      data: [{ repositoryId: REPOSITORY_ID, githubLogin: 'fresh' }],
+      data: [
+        {
+          repositoryId: REPOSITORY_ROW_ID,
+          repoId: REPOSITORY_ID,
+          githubLogin: 'fresh',
+        },
+      ],
       skipDuplicates: true,
     });
     const [revokeCall, rejoinCall] =
@@ -571,7 +598,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
       invitationId: 'invitation-1',
-      repositoryId: REPOSITORY_ID,
+      githubRepositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
       status: RepositoryInvitationStatus.REVOKED,
       now: NOW,
@@ -580,7 +607,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     expect(db.repositoryInvitation.updateMany.mock.calls[0]?.[0].where).toEqual(
       {
         id: 'invitation-1',
-        repositoryId: REPOSITORY_ID,
+        repoId: REPOSITORY_ID,
         status: RepositoryInvitationStatus.REVOKE_REQUIRED,
       },
     );
@@ -596,7 +623,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
       invitationId: 'invitation-1',
-      repositoryId: REPOSITORY_ID,
+      githubRepositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKED,
       status: RepositoryInvitationStatus.REVOKED,
       now: NOW,
@@ -618,7 +645,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
         workerId: WORKER_ID,
         requestId: REQUEST_ID,
         invitationId: 'invitation-1',
-        repositoryId: REPOSITORY_ID,
+        githubRepositoryId: REPOSITORY_ID,
         expectedStatus: RepositoryInvitationStatus.PENDING,
         status: RepositoryInvitationStatus.SUCCEEDED,
         now: NOW,
@@ -634,7 +661,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
       invitationId: 'invitation-1',
-      repositoryId: REPOSITORY_ID,
+      githubRepositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.PENDING,
       status: RepositoryInvitationStatus.PENDING,
       now: NOW,
@@ -661,7 +688,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
       invitationId: 'invitation-1',
-      repositoryId: REPOSITORY_ID,
+      githubRepositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
       intent: 'REVOKE',
       final: false,
@@ -673,7 +700,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
       invitationId: 'invitation-2',
-      repositoryId: REPOSITORY_ID,
+      githubRepositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
       intent: 'REVOKE',
       final: true,
@@ -685,7 +712,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
       invitationId: 'invitation-3',
-      repositoryId: REPOSITORY_ID,
+      githubRepositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.PENDING,
       intent: 'GRANT',
       final: false,
@@ -728,7 +755,8 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toEqual({
-      repositoryId: REPOSITORY_ID,
+      repositoryId: REPOSITORY_ROW_ID,
+      repoId: REPOSITORY_ID,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: nextAt,
       lockedAt: null,
@@ -757,7 +785,8 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toEqual({
-      repositoryId: REPOSITORY_ID,
+      repositoryId: REPOSITORY_ROW_ID,
+      repoId: REPOSITORY_ID,
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
       nextAttemptAt: NOW,
@@ -778,7 +807,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
         {
           teamId: 'application-1',
           currentEventId: REQUEST_ID,
-          repositoryId: REPOSITORY_ID,
+          repoId: REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.PROCESSING,
           lockedBy: WORKER_ID,
         },
@@ -999,22 +1028,14 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
         {
           teamId: 'application-1',
           currentEventId: REQUEST_ID,
-          repositoryId: null,
+          repoId: null,
           status: RepositoryProvisionJobStatus.PROCESSING,
           lockedBy: WORKER_ID,
         },
       ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    db.githubRepository.findUnique.mockResolvedValue(null);
-    const create = jest.fn().mockResolvedValue({
-      id: REPOSITORY_ID,
-      teamId: 'application-1',
-      githubRepositoryId: 7n,
-      nameWithOwner: 'synthetic-owner/synthetic-repo',
-      visibility: RepositoryVisibility.PUBLIC,
-    });
     const update = jest.fn().mockResolvedValue({});
-    Object.assign(db.githubRepository, { create });
     Object.assign(db.team, { update });
     Object.assign(db, { $executeRaw: jest.fn().mockResolvedValue(1) });
     return db;
@@ -1062,7 +1083,10 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
       serviceFor(db).recordRepository(
         recordInput('https://github.com/synthetic-owner/synthetic-repo'),
       ),
-    ).resolves.toMatchObject({ id: REPOSITORY_ID, name: 'synthetic-repo' });
+    ).resolves.toMatchObject({
+      githubRepositoryId: REPOSITORY_ID,
+      name: 'synthetic-repo',
+    });
     expect(db.repositoryProvisionJob.updateMany).toHaveBeenCalledTimes(1);
   });
 });

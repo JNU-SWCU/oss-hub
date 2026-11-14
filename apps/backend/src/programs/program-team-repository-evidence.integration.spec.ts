@@ -14,6 +14,10 @@ import {
   repositoryContributionTotals,
   seedDailyContributions,
 } from '../../test/ledger-contribution.fixture';
+import {
+  syncGithubRepositoryLedger,
+  syncGithubRepositoryLedgers,
+} from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramActivityRepository,
@@ -144,6 +148,9 @@ it('projects current repository facts and URL audit history without reading or m
         teamId,
       },
     ],
+  });
+  await syncGithubRepositoryLedgers(prisma, {
+    id: { in: [oldRepositoryId, repositoryId] },
   });
   await seedDailyContributions(prisma, githubId + 1n, [
     { githubId, date: '2026-08-01', commitCount: 900 },
@@ -290,6 +297,7 @@ it('reads contributions of a program that never set an end date', async () => {
       teamId: scopedTeamId,
     },
   });
+  await syncGithubRepositoryLedger(prisma, base + 1n);
   await seedDailyContributions(
     prisma,
     base + 1n,
@@ -406,6 +414,7 @@ it('counts issues for team members, so an issue-only member has observations', a
       teamId: scopedTeamId,
     },
   });
+  await syncGithubRepositoryLedger(prisma, base + 2n);
   await seedDailyContributions(
     prisma,
     base + 2n,
@@ -539,13 +548,7 @@ it('counts only student authors in team, program and public totals', async () =>
         lastCompleteInventoryObservedAt: new Date('2026-09-01Z'),
       },
     });
-    await prisma.repo.create({
-      data: {
-        githubRepoId: team.repo,
-        ownerName: 'synthetic',
-        source: 'EXTERNAL_PUBLIC',
-      },
-    });
+    await syncGithubRepositoryLedger(prisma, team.repo);
   }
   const events: readonly (readonly [
     bigint,

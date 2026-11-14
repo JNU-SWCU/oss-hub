@@ -106,7 +106,7 @@ const feedExpectedFromAuditLog = async () => {
           CASE a."targetType"
             WHEN 'PROGRAM' THEN program.name
             WHEN 'APPLICATION' THEN application_program.name
-            WHEN 'REPOSITORY' THEN repository."nameWithOwner" END AS "joinedTarget"
+            WHEN 'REPOSITORY' THEN repo.owner_name END AS "joinedTarget"
         FROM "AuditLog" a
         JOIN routed ON routed.id = a.id AND routed.route NOT LIKE 'DELETE%'
         JOIN "User" actor ON actor.id = a."actorId"
@@ -114,8 +114,8 @@ const feedExpectedFromAuditLog = async () => {
         LEFT JOIN program_team_backup.application_team_map map
           ON a."targetType" = 'APPLICATION' AND map."applicationId" = a."targetId"
         LEFT JOIN "Program" application_program ON application_program.id = map."programId"
-        LEFT JOIN "GithubRepository" repository
-          ON a."targetType" = 'REPOSITORY' AND repository.id = a."targetId"
+        LEFT JOIN "repo" repo
+          ON a."targetType" = 'REPOSITORY' AND repo.github_repo_id::text = a."targetId"
         ORDER BY a.id
       `),
     ),

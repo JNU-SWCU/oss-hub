@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import {
-  CollectionRepositoryPresence,
   Prisma,
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
@@ -30,7 +29,6 @@ import {
 } from './repository-provision-state.error';
 
 export interface ProvisionedRepository {
-  readonly id: string;
   readonly teamId: string;
   readonly githubRepositoryId: bigint;
   readonly name: string;
@@ -83,7 +81,7 @@ export interface CompleteRepositoryInvitationInput {
   readonly workerId: string;
   readonly requestId: string;
   readonly invitationId: string;
-  readonly repositoryId: string;
+  readonly githubRepositoryId: bigint;
   readonly expectedStatus: RepositoryInvitationStatus;
   readonly status: Extract<
     RepositoryInvitationStatus,
@@ -97,7 +95,7 @@ export interface FailRepositoryInvitationInput {
   readonly workerId: string;
   readonly requestId: string;
   readonly invitationId: string;
-  readonly repositoryId: string;
+  readonly githubRepositoryId: bigint;
   readonly expectedStatus: RepositoryInvitationStatus;
   readonly intent: 'GRANT' | 'REVOKE';
   readonly final: boolean;
@@ -130,14 +128,14 @@ export interface RepositoryProvisionStateStore {
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     githubLogins: readonly string[],
   ): Promise<void>;
   findInvitationWork(
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<readonly RepositoryInvitationWork[]>;
   completeInvitation(input: CompleteRepositoryInvitationInput): Promise<void>;
   failInvitation(input: FailRepositoryInvitationInput): Promise<void>;
@@ -150,7 +148,7 @@ export interface RepositoryProvisionStateStore {
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     now: Date,
     nextReconciliationAt?: Date,
 
@@ -160,25 +158,24 @@ export interface RepositoryProvisionStateStore {
 }
 
 interface LockedRepositoryClaimTarget {
-  readonly id: string;
   readonly teamId: string | null;
   readonly source: RepositorySource;
+}
+
+interface CurrentTeamRepository {
+  readonly githubRepositoryId: bigint;
+  readonly nameWithOwner: string;
 }
 
 export interface RepositoryConnectionAudit {
   readonly actorGithubId: bigint;
 }
 
-export interface ProvisionedRepositoryRow {
-  readonly id: string;
-  readonly teamId: string | null;
+export interface OwnedProvisionedRepositoryRow {
+  readonly teamId: string;
   readonly githubRepositoryId: bigint;
   readonly nameWithOwner: string;
   readonly visibility: RepositoryVisibility;
-}
-
-export interface OwnedProvisionedRepositoryRow extends ProvisionedRepositoryRow {
-  readonly teamId: string;
 }
 
 function failedInvitationStatus(
@@ -196,10 +193,13 @@ function failedInvitationStatus(
 
 function rearmedProvisionJobData(
   now: Date,
-  repositoryId?: string,
+  repository?: {
+    readonly repositoryId: string | null;
+    readonly repoId: bigint;
+  },
 ): Prisma.RepositoryProvisionJobUncheckedUpdateManyInput {
   return {
-    ...(repositoryId === undefined ? {} : { repositoryId }),
+    ...repository,
     status: RepositoryProvisionJobStatus.PENDING,
     attemptCount: 0,
     nextAttemptAt: now,
@@ -229,15 +229,6 @@ export class RepositoryProvisionStateRepository {
     private readonly repositoryProvisionJobRepository: RepositoryProvisionJobRepository,
     private readonly repositoryDeletion: RepositoryDeletionRepository,
   ) {}
-
-  assertOwnedRepository(
-    row: ProvisionedRepositoryRow,
-  ): OwnedProvisionedRepositoryRow {
-    if (row.teamId === null) {
-      throw new RepositoryProvisionLeaseLostError();
-    }
-    return { ...row, teamId: row.teamId };
-  }
 
   private isPrismaUniqueConstraintError(error: unknown): boolean {
     return (
@@ -274,14 +265,21 @@ export class RepositoryProvisionStateRepository {
       readonly connectionMode: RepositoryConnectionMode;
       readonly connectionAudit?: RepositoryConnectionAudit;
     },
-  ): Promise<ProvisionedRepositoryRow> {
+  ): Promise<OwnedProvisionedRepositoryRow> {
+    const githubRepositoryId = input.metadata.githubRepositoryId;
     const target =
       (
         await transaction.$queryRaw<readonly LockedRepositoryClaimTarget[]>(
           Prisma.sql`
-          SELECT "id", "teamId", "source"
-          FROM "GithubRepository"
-          WHERE "githubRepositoryId" = ${input.metadata.githubRepositoryId}
+          SELECT repo."source", (
+            SELECT link."team_id"
+            FROM "team_repo" AS link
+            WHERE link."repo_id" = repo."github_repo_id"
+            ORDER BY link."valid_from" DESC
+            LIMIT 1
+          ) AS "teamId"
+          FROM "repo" AS repo
+          WHERE repo."github_repo_id" = ${githubRepositoryId}
           FOR UPDATE
         `,
         )
@@ -294,75 +292,58 @@ export class RepositoryProvisionStateRepository {
       throw new GithubRepositoryClaimConflictError();
     }
 
-    const current = await transaction.githubRepository.findUnique({
-      where: { teamId: input.teamId },
-      select: { id: true, nameWithOwner: true },
-    });
-    if (current !== null && current.id !== target?.id) {
-      if (input.connectionAudit === undefined) {
-        throw RepositoryProvisionFailure.final(
-          PROVISION_ERROR_CODES.INVALID_EVENT,
-        );
-      }
+    const current =
+      (
+        await transaction.$queryRaw<readonly CurrentTeamRepository[]>(
+          Prisma.sql`
+          SELECT repo."github_repo_id" AS "githubRepositoryId",
+            repo."owner_name" AS "nameWithOwner"
+          FROM "team_repo" AS link
+          JOIN "repo" AS repo ON repo."github_repo_id" = link."repo_id"
+          WHERE link."team_id" = ${input.teamId}
+            AND NOT EXISTS (
+              SELECT 1
+              FROM "team_repo" AS later
+              WHERE later."repo_id" = link."repo_id"
+                AND later."valid_from" > link."valid_from"
+            )
+          ORDER BY link."valid_from" DESC
+          LIMIT 1
+          FOR UPDATE OF repo
+        `,
+        )
+      )[0] ?? null;
+    const replaced =
+      current !== null && current.githubRepositoryId !== githubRepositoryId;
+    if (replaced && input.connectionAudit === undefined) {
+      throw RepositoryProvisionFailure.final(
+        PROVISION_ERROR_CODES.INVALID_EVENT,
+      );
     }
 
-    const deletedCounts =
-      current !== null && current.id !== target?.id
-        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
-            transaction,
-            current.id,
-          )
-        : null;
+    const deletedCounts = replaced
+      ? await this.repositoryDeletion.deleteRepositoryWithFacts(
+          transaction,
+          current.githubRepositoryId,
+        )
+      : null;
     const source =
       target?.source === RepositorySource.ORG_PROVISIONED
         ? RepositorySource.ORG_PROVISIONED
         : input.source;
-    let repository: ProvisionedRepositoryRow;
-    if (target === null) {
-      try {
-        repository = await transaction.githubRepository.create({
-          data: {
-            teamId: input.teamId,
-            githubRepositoryId: input.metadata.githubRepositoryId,
-            nameWithOwner: input.metadata.nameWithOwner,
-            visibility: input.metadata.visibility,
-            source,
-            presence: CollectionRepositoryPresence.PRESENT,
-          },
-          select: this.repositorySelection,
-        });
-      } catch (error) {
-        if (this.isPrismaUniqueConstraintError(error)) {
-          throw new GithubRepositoryClaimConflictError();
-        }
-        throw error;
-      }
-    } else {
-      const claimed = await transaction.githubRepository.updateMany({
-        where: {
-          id: target.id,
-          OR: [{ teamId: null }, { teamId: input.teamId }],
-        },
-        data: {
-          teamId: input.teamId,
-          nameWithOwner: input.metadata.nameWithOwner,
-          visibility: input.metadata.visibility,
-          source,
-          presence: CollectionRepositoryPresence.PRESENT,
-        },
-      });
-      if (claimed.count !== 1) {
-        throw new GithubRepositoryClaimConflictError();
-      }
-      repository = await transaction.githubRepository.findUniqueOrThrow({
-        where: { id: target.id },
-        select: this.repositorySelection,
-      });
-    }
-    await new RepoLedgerRepository().link(
-      transaction,
-      input.metadata.githubRepositoryId,
-    );
+    await new RepoLedgerRepository().claim(transaction, {
+      teamId: input.teamId,
+      githubRepositoryId,
+      nameWithOwner: input.metadata.nameWithOwner,
+      visibility: input.metadata.visibility,
+      source,
+    });
+    const repository: OwnedProvisionedRepositoryRow = {
+      teamId: input.teamId,
+      githubRepositoryId,
+      nameWithOwner: input.metadata.nameWithOwner,
+      visibility: input.metadata.visibility,
+    };
 
     await transaction.team.update({
       where: { id: input.teamId },
@@ -397,13 +378,13 @@ export class RepositoryProvisionStateRepository {
               programName: scope.program.name,
               actorGithubLogin: actor.nickname,
               before: {
-                repositoryId: current?.id ?? null,
+                repositoryId: current?.githubRepositoryId.toString() ?? null,
                 repositoryUrl: current
                   ? `https://github.com/${current.nameWithOwner}`
                   : null,
               },
               after: {
-                repositoryId: repository.id,
+                repositoryId: githubRepositoryId.toString(),
                 repositoryUrl: `https://github.com/${repository.nameWithOwner}`,
               },
               ...(deletedCounts === null ? {} : { deletedCounts }),
@@ -427,14 +408,6 @@ export class RepositoryProvisionStateRepository {
     );
   }
 
-  private readonly repositorySelection = {
-    id: true,
-    teamId: true,
-    githubRepositoryId: true,
-    nameWithOwner: true,
-    visibility: true,
-  } satisfies Prisma.GithubRepositorySelect;
-
   private readonly teamMemberLoginSelection = {
     user: { select: { nickname: true } },
   } satisfies Prisma.TeamMemberSelect;
@@ -454,7 +427,7 @@ export class RepositoryProvisionStateRepository {
         ),
         select: {
           currentEventId: true,
-          repositoryId: true,
+          repoId: true,
           team: {
             select: {
               id: true,
@@ -470,10 +443,18 @@ export class RepositoryProvisionStateRepository {
 
               name: true,
               members: { select: this.teamMemberLoginSelection },
-              repository: {
+              teamRepos: {
+                where: { validTo: null },
+                take: 1,
                 select: {
-                  ...this.repositorySelection,
-                  source: true,
+                  repo: {
+                    select: {
+                      githubRepoId: true,
+                      ownerName: true,
+                      visibility: true,
+                      source: true,
+                    },
+                  },
                 },
               },
             },
@@ -483,6 +464,8 @@ export class RepositoryProvisionStateRepository {
       if (job === null) {
         throw new RepositoryProvisionLeaseLostError();
       }
+      const { teamRepos, ...team } = job.team;
+      const repo = teamRepos[0]?.repo ?? null;
       const event =
         job.currentEventId === null
           ? null
@@ -496,7 +479,25 @@ export class RepositoryProvisionStateRepository {
                 payload: true,
               },
             });
-      return { job, event };
+      return {
+        job: {
+          ...job,
+          team: {
+            ...team,
+            repository:
+              repo === null
+                ? null
+                : {
+                    teamId: team.id,
+                    githubRepositoryId: repo.githubRepoId,
+                    nameWithOwner: repo.ownerName,
+                    visibility: repo.visibility,
+                    source: repo.source,
+                  },
+          },
+        },
+        event,
+      };
     });
   }
 
@@ -513,7 +514,7 @@ export class RepositoryProvisionStateRepository {
           input.workerId,
           input.requestId,
         );
-        const repository = await this.claimGithubRepositoryForApplication(
+        const provisioned = await this.claimGithubRepositoryForApplication(
           transaction,
           {
             teamId: input.teamId,
@@ -523,7 +524,6 @@ export class RepositoryProvisionStateRepository {
             connectionAudit: input.connectionAudit,
           },
         );
-        const provisioned = this.assertOwnedRepository(repository);
         if (
           !metadataMatchesRepositoryIdentity ||
           !this.matchesProvisionedMetadata(provisioned, input)
@@ -537,7 +537,13 @@ export class RepositoryProvisionStateRepository {
             input.jobId,
             input.workerId,
           ),
-          data: { repositoryId: provisioned.id },
+          data: {
+            repositoryId: await new RepoLedgerRepository().rowId(
+              transaction,
+              provisioned.githubRepositoryId,
+            ),
+            repoId: provisioned.githubRepositoryId,
+          },
         });
         this.repositoryProvisionJobRepository.assertSingleProvisionUpdate(
           attached.count,
@@ -561,7 +567,7 @@ export class RepositoryProvisionStateRepository {
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     planInvitations: (rows: readonly RepositoryInvitationRow[]) => {
       readonly createLogins: readonly string[];
       readonly revokeIds: readonly string[];
@@ -577,21 +583,29 @@ export class RepositoryProvisionStateRepository {
       );
 
       const rows = await transaction.repositoryInvitation.findMany({
-        where: { repositoryId },
+        where: { repoId: githubRepositoryId },
         select: { id: true, githubLogin: true, status: true },
       });
       const plan = planInvitations(rows);
+      const repositoryId = await new RepoLedgerRepository().rowId(
+        transaction,
+        githubRepositoryId,
+      );
+      if (repositoryId === null) {
+        throw new RepositoryProvisionLeaseLostError();
+      }
 
       await transaction.repositoryInvitation.createMany({
         data: plan.createLogins.map((githubLogin) => ({
           repositoryId,
+          repoId: githubRepositoryId,
           githubLogin,
         })),
         skipDuplicates: true,
       });
 
       await transaction.repositoryInvitation.updateMany({
-        where: { repositoryId, id: { in: [...plan.revokeIds] } },
+        where: { repoId: githubRepositoryId, id: { in: [...plan.revokeIds] } },
         data: {
           status: RepositoryInvitationStatus.REVOKE_REQUIRED,
           attemptCount: 0,
@@ -603,7 +617,7 @@ export class RepositoryProvisionStateRepository {
       });
 
       await transaction.repositoryInvitation.updateMany({
-        where: { repositoryId, id: { in: [...plan.rejoinIds] } },
+        where: { repoId: githubRepositoryId, id: { in: [...plan.rejoinIds] } },
         data: {
           status: RepositoryInvitationStatus.PENDING,
           attemptCount: 0,
@@ -620,19 +634,26 @@ export class RepositoryProvisionStateRepository {
     jobId: string,
     workerId: string,
     _requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
   ): Promise<readonly RepositoryInvitationRow[]> {
     await this.repositoryProvisionJobRepository.assertProvisionLease(
       this.prisma,
       jobId,
       workerId,
     );
+    const available = await this.prisma.teamRepo.count({
+      where: {
+        repoId: githubRepositoryId,
+        validTo: null,
+        team: { program: { lifecycle: { not: 'DELETED' } } },
+      },
+    });
+    if (available === 0) {
+      return [];
+    }
     const rows = await this.prisma.repositoryInvitation.findMany({
       where: {
-        repositoryId,
-        repository: {
-          team: { program: { lifecycle: { not: 'DELETED' } } },
-        },
+        repoId: githubRepositoryId,
         OR: [
           {
             status: RepositoryInvitationStatus.PENDING,
@@ -668,7 +689,7 @@ export class RepositoryProvisionStateRepository {
       const updated = await transaction.repositoryInvitation.updateMany({
         where: {
           id: input.invitationId,
-          repositoryId: input.repositoryId,
+          repoId: input.githubRepositoryId,
           status: input.expectedStatus,
         },
         data: {
@@ -719,7 +740,7 @@ export class RepositoryProvisionStateRepository {
       const updated = await transaction.repositoryInvitation.updateMany({
         where: {
           id: input.invitationId,
-          repositoryId: input.repositoryId,
+          repoId: input.githubRepositoryId,
           status: input.expectedStatus,
         },
         data: {
@@ -749,7 +770,7 @@ export class RepositoryProvisionStateRepository {
           requestId,
           teamId,
 
-          repositoryId: null,
+          githubRepositoryId: null,
           source: null,
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: now,
@@ -763,7 +784,7 @@ export class RepositoryProvisionStateRepository {
     jobId: string,
     workerId: string,
     requestId: string,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     now: Date,
     nextReconciliationAt: Date | undefined,
     isMembershipCurrent: MembershipCurrencyCheck | undefined,
@@ -782,15 +803,22 @@ export class RepositoryProvisionStateRepository {
           : !isMembershipCurrent(
               await this.currentMemberLogins(transaction, teamId),
             );
+      const repository = {
+        repositoryId: await new RepoLedgerRepository().rowId(
+          transaction,
+          githubRepositoryId,
+        ),
+        repoId: githubRepositoryId,
+      };
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: this.repositoryProvisionJobRepository.claimedJobWhere(
           jobId,
           workerId,
         ),
         data: stale
-          ? rearmedProvisionJobData(now, repositoryId)
+          ? rearmedProvisionJobData(now, repository)
           : {
-              repositoryId,
+              ...repository,
               status: RepositoryProvisionJobStatus.SUCCEEDED,
               nextAttemptAt: nextReconciliationAt ?? now,
               lockedAt: null,
@@ -804,19 +832,17 @@ export class RepositoryProvisionStateRepository {
         updated.count,
       );
       if (!stale) {
-        const repository = await transaction.githubRepository.findUniqueOrThrow(
-          {
-            where: { id: repositoryId },
-            select: { source: true },
-          },
-        );
+        const repo = await transaction.repo.findUniqueOrThrow({
+          where: { githubRepoId: githubRepositoryId },
+          select: { source: true },
+        });
         await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
           transaction,
           {
             requestId,
             teamId,
-            repositoryId,
-            source: repository.source,
+            githubRepositoryId,
+            source: repo.source,
             outcome: RepositoryIssuanceOutcome.SUCCEEDED,
             closedAt: now,
           },
@@ -877,7 +903,7 @@ export class RepositoryProvisionStateRepository {
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { teamId, repositoryId } =
+      const { teamId, repoId } =
         await this.repositoryProvisionJobRepository.assertCurrentRequest(
           transaction,
           input.jobId,
@@ -914,11 +940,11 @@ export class RepositoryProvisionStateRepository {
         updated.count,
       );
       if (!stale && input.final) {
-        const repository =
-          repositoryId === null
+        const repo =
+          repoId === null
             ? null
-            : await transaction.githubRepository.findUnique({
-                where: { id: repositoryId },
+            : await transaction.repo.findUnique({
+                where: { githubRepoId: repoId },
                 select: { source: true },
               });
         await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
@@ -926,8 +952,8 @@ export class RepositoryProvisionStateRepository {
           {
             requestId: input.requestId,
             teamId,
-            repositoryId,
-            source: repository?.source ?? null,
+            githubRepositoryId: repo === null ? null : repoId,
+            source: repo?.source ?? null,
             outcome: RepositoryIssuanceOutcome.FAILED_FINAL,
             lastErrorCode: input.errorCode,
             closedAt: input.now,

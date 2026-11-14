@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -47,66 +46,42 @@ export class SystemStatusRepository {
   async getCollectionRepositories(): Promise<
     readonly CollectionRepositoryStatusDto[]
   > {
-    const repositories = await this.prisma.githubRepository.findMany({
+    const repositories = await this.prisma.repo.findMany({
       where: {
         ...PRESENT_REPOSITORY,
-        ...this.platform.collectionTargetWhere(),
+        ...this.platform.collectionTargetRepoWhere(),
       },
-      orderBy: { nameWithOwner: 'asc' },
+      orderBy: { ownerName: 'asc' },
       select: {
-        githubRepositoryId: true,
-        nameWithOwner: true,
-        team: { select: { program: { select: { name: true } } } },
+        ownerName: true,
+        lastSuccessAt: true,
+        teamRepos: {
+          where: { validTo: null },
+          take: 1,
+          select: { team: { select: { program: { select: { name: true } } } } },
+        },
       },
     });
-    const lastSuccessAt = await this.lastSuccessAtByRepository(
-      repositories.map((repository) => repository.githubRepositoryId),
-    );
     return repositories.map((repository) => ({
-      repositoryName: repository.nameWithOwner,
-      programName: repository.team?.program.name ?? null,
-      lastSuccessAt: lastSuccessAt.get(repository.githubRepositoryId) ?? null,
+      repositoryName: repository.ownerName,
+      programName: repository.teamRepos[0]?.team.program.name ?? null,
+      lastSuccessAt: repository.lastSuccessAt,
     }));
   }
 
   async getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto> {
-    const where = {
-      ...PRESENT_EXTERNAL_REPOSITORY,
-      ...this.platform.collectionTargetWhere(),
-    };
-    const [trackedRepositoryCount, lastSuccessAt] = await Promise.all([
-      this.prisma.githubRepository.count({ where }),
-      this.lastSuccessAt(where),
-    ]);
-
-    return { trackedRepositoryCount, lastSuccessAt };
-  }
-
-  private async lastSuccessAtByRepository(
-    githubRepositoryIds: readonly bigint[],
-  ): Promise<ReadonlyMap<bigint, Date | null>> {
-    const rows = await this.prisma.repo.findMany({
-      where: { githubRepoId: { in: [...githubRepositoryIds] } },
-      select: { githubRepoId: true, lastSuccessAt: true },
-    });
-    return new Map(rows.map((row) => [row.githubRepoId, row.lastSuccessAt]));
-  }
-
-  private async lastSuccessAt(
-    where: Prisma.GithubRepositoryWhereInput,
-  ): Promise<Date | null> {
-    const repositories = await this.prisma.githubRepository.findMany({
-      where,
-      select: { githubRepositoryId: true },
-    });
-    const lastSuccess = await this.prisma.repo.aggregate({
+    const tracked = await this.prisma.repo.aggregate({
       where: {
-        githubRepoId: {
-          in: repositories.map((repository) => repository.githubRepositoryId),
-        },
+        ...PRESENT_EXTERNAL_REPOSITORY,
+        ...this.platform.collectionTargetRepoWhere(),
       },
+      _count: { _all: true },
       _max: { lastSuccessAt: true },
     });
-    return lastSuccess._max.lastSuccessAt ?? null;
+
+    return {
+      trackedRepositoryCount: tracked._count._all,
+      lastSuccessAt: tracked._max.lastSuccessAt ?? null,
+    };
   }
 }

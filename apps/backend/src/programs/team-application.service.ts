@@ -332,8 +332,7 @@ function isProvisioningCompleted(
 ): boolean {
   if (job === null) return false;
   return (
-    job.repositoryId !== null ||
-    job.status === RepositoryProvisionJobStatus.SUCCEEDED
+    job.repoId !== null || job.status === RepositoryProvisionJobStatus.SUCCEEDED
   );
 }
 
@@ -1022,7 +1021,7 @@ export class TeamApplicationService {
         row.status === ApplicationStatus.APPROVED &&
         row.repository != null &&
         job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        job.repositoryId === row.repository.id &&
+        job.repoId === row.repository.githubRepositoryId &&
         row.repositoryConnectionMode === RepositoryConnectionMode.OWN
           ? {
               enabled: row.program.repositoryProvisioningEnabled,
@@ -1567,7 +1566,7 @@ export class StudentRepositoryUrlService {
             },
             relinked: false,
           };
-        const { repositoryId, deletedCounts } = await store
+        const { githubRepositoryId, deletedCounts } = await store
           .relink(current, resolution, (stored) =>
             this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
               stored,
@@ -1595,10 +1594,14 @@ export class StudentRepositoryUrlService {
                 programName: current.program.name,
                 actorGithubLogin: current.editor.nickname,
                 before: {
-                  repositoryId: current.repository?.id ?? null,
+                  repositoryId:
+                    current.repository?.githubRepositoryId.toString() ?? null,
                   repositoryUrl: this.url(current),
                 },
-                after: { repositoryId, repositoryUrl },
+                after: {
+                  repositoryId: githubRepositoryId.toString(),
+                  repositoryUrl,
+                },
                 ...(deletedCounts === null ? {} : { deletedCounts }),
               },
             },

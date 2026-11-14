@@ -1,5 +1,6 @@
 import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { ApprovalStatus, DepartmentType } from '@prisma/client';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
@@ -660,9 +662,14 @@ describe('RepositoryProvisionWorkerService integration', () => {
         presence: CollectionRepositoryPresence.PRESENT,
       },
     });
+    await syncGithubRepositoryLedger(
+      prisma,
+      PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
+    );
     await prisma.repositoryInvitation.create({
       data: {
         repositoryId: previous.id,
+        repoId: PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
         githubLogin: APPLICANT_LOGIN,
         status: RepositoryInvitationStatus.SUCCEEDED,
       },
@@ -677,9 +684,16 @@ describe('RepositoryProvisionWorkerService integration', () => {
         presence: CollectionRepositoryPresence.PRESENT,
       },
     });
+    await syncGithubRepositoryLedger(
+      prisma,
+      CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+    );
     await prisma.repositoryProvisionJob.update({
       where: { teamId },
-      data: { repositoryId: current.id },
+      data: {
+        repositoryId: current.id,
+        repoId: CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+      },
     });
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(
@@ -739,6 +753,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
         presence: CollectionRepositoryPresence.PRESENT,
       },
     });
+    await syncGithubRepositoryLedger(
+      prisma,
+      NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+    );
     await prisma.repositoryProvisionJob.update({
       where: { teamId },
       data: {
@@ -747,6 +765,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
             where: { teamId },
           })
         ).id,
+        repoId: NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
       },
     });
     const github = githubClient();
@@ -794,9 +813,16 @@ describe('RepositoryProvisionWorkerService integration', () => {
         presence: CollectionRepositoryPresence.PRESENT,
       },
     });
+    await syncGithubRepositoryLedger(
+      prisma,
+      OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+    );
     await prisma.repositoryProvisionJob.update({
       where: { teamId },
-      data: { repositoryId: current.id },
+      data: {
+        repositoryId: current.id,
+        repoId: OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+      },
     });
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(
@@ -1113,6 +1139,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
           visibility: RepositoryVisibility.PUBLIC,
         },
       });
+      await syncGithubRepositoryLedger(prisma, OWN_GITHUB_REPOSITORY_ID);
       const r2 = await prisma.$transaction(async (transaction) => {
         const event = await transaction.outboxEvent.create({
           data: {
@@ -1245,7 +1272,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await addTeamMember(teamId, MEMBER_USER.id);
     await addTeamMember(teamId, GHOST_USER.id);
     await outbox.consumeNext('outbox-worker-revoke', NOW);
-    const repositoryId = await createProvisionedRepository(teamId);
+    const githubRepositoryId = await createProvisionedRepository(teamId);
     const job = await claimJobFor(teamId, 'state-worker-revoke');
     const granted = await state.loadContext(
       job.id,
@@ -1265,14 +1292,14 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
       granted.currentMemberGithubLogins,
     );
     await settleWork(
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
     );
 
     await prisma.teamMember.deleteMany({
@@ -1291,14 +1318,14 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
       afterLeave.currentMemberGithubLogins,
     );
     const revokeWork = await state.findInvitationWork(
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
     );
 
     expect(
@@ -1311,7 +1338,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
     );
 
     await addTeamMember(teamId, MEMBER_USER.id);
@@ -1324,11 +1351,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
       afterRejoin.currentMemberGithubLogins,
     );
 
-    await expect(invitationRows(repositoryId)).resolves.toEqual([
+    await expect(invitationRows(githubRepositoryId)).resolves.toEqual([
       [APPLICANT_LOGIN, RepositoryInvitationStatus.SUCCEEDED, 0],
       [GHOST_USER.login, RepositoryInvitationStatus.REVOKED, 0],
       [MEMBER_USER.login, RepositoryInvitationStatus.PENDING, 0],
@@ -1338,7 +1365,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-revoke',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
     );
     expect(
       reverify.map((work) => [work.githubLogin, work.intent, work.status]),
@@ -1352,14 +1379,14 @@ describe('RepositoryProvisionWorkerService integration', () => {
       workerId: 'state-worker-revoke',
       requestId: job.requestId,
       invitationId: reverify[0]!.id,
-      repositoryId,
+      githubRepositoryId,
       expectedStatus: RepositoryInvitationStatus.REVOKED,
       status: RepositoryInvitationStatus.REVOKED,
       now: NOW,
     });
     await expect(
       prisma.repositoryInvitation.findFirstOrThrow({
-        where: { repositoryId, githubLogin: GHOST_USER.login },
+        where: { repoId: githubRepositoryId, githubLogin: GHOST_USER.login },
       }),
     ).resolves.toMatchObject({
       status: RepositoryInvitationStatus.REVOKED,
@@ -1373,7 +1400,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await createApplicationAndEvent(teamId, [APPLICANT_LOGIN]);
     await addTeamMember(teamId, MEMBER_USER.id);
     await outbox.consumeNext('outbox-worker-stale', NOW);
-    const repositoryId = await createProvisionedRepository(teamId);
+    const githubRepositoryId = await createProvisionedRepository(teamId);
     const job = await claimJobFor(teamId, 'state-worker-stale');
     const context = await state.loadContext(
       job.id,
@@ -1391,7 +1418,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-stale',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
       NOW,
       reconciliationAt,
       context.membershipFingerprint,
@@ -1419,7 +1446,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       retry.id,
       'state-worker-stale-2',
       retry.requestId,
-      repositoryId,
+      githubRepositoryId,
       NOW,
       reconciliationAt,
       fresh.membershipFingerprint,
@@ -1478,20 +1505,20 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const teamId = 'synthetic-worker-invitation-cas';
     await createApplicationAndEvent(teamId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-cas', NOW);
-    const repositoryId = await createProvisionedRepository(teamId);
+    const githubRepositoryId = await createProvisionedRepository(teamId);
     const job = await claimJobFor(teamId, 'state-worker-cas');
     await state.prepareInvitations(
       job.id,
       'state-worker-cas',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
       [APPLICANT_LOGIN],
     );
     const [pending] = await state.findInvitationWork(
       job.id,
       'state-worker-cas',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
     );
     await prisma.teamMember.deleteMany({
       where: { teamId: teamId },
@@ -1500,7 +1527,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.id,
       'state-worker-cas',
       job.requestId,
-      repositoryId,
+      githubRepositoryId,
       [],
     );
 
@@ -1510,7 +1537,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         workerId: 'state-worker-cas',
         requestId: job.requestId,
         invitationId: pending!.id,
-        repositoryId,
+        githubRepositoryId,
         expectedStatus: pending!.status,
         status: RepositoryInvitationStatus.SUCCEEDED,
         now: NOW,
@@ -1523,7 +1550,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         workerId: 'state-worker-cas-intruder',
         requestId: job.requestId,
         invitationId: pending!.id,
-        repositoryId,
+        githubRepositoryId,
         expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
         intent: 'REVOKE',
         final: false,
@@ -1532,7 +1559,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
       }),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
     await expect(
-      prisma.repositoryInvitation.findFirstOrThrow({ where: { repositoryId } }),
+      prisma.repositoryInvitation.findFirstOrThrow({
+        where: { repoId: githubRepositoryId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryInvitationStatus.REVOKE_REQUIRED,
       lastErrorCode: null,
@@ -1551,20 +1580,20 @@ async function addTeamMember(teamId: string, userId: string): Promise<void> {
   });
 }
 
-async function createProvisionedRepository(teamId: string): Promise<string> {
-  const repository = await prisma.githubRepository.create({
-    data: {
+async function createProvisionedRepository(teamId: string): Promise<bigint> {
+  const githubRepositoryId =
+    8600000000n +
+    BigInt((APPLICATION_IDS as readonly string[]).indexOf(teamId) + 1);
+  await prisma.$transaction((transaction) =>
+    new RepoLedgerRepository().claim(transaction, {
       teamId,
-      githubRepositoryId:
-        8600000000n +
-        BigInt((APPLICATION_IDS as readonly string[]).indexOf(teamId) + 1),
+      githubRepositoryId,
       nameWithOwner: `synthetic-org/${teamId}`,
       visibility: RepositoryVisibility.PRIVATE,
       source: RepositorySource.ORG_PROVISIONED,
-      presence: CollectionRepositoryPresence.PRESENT,
-    },
-  });
-  return repository.id;
+    }),
+  );
+  return githubRepositoryId;
 }
 
 async function claimJobFor(
@@ -1586,20 +1615,20 @@ async function settleWork(
   jobId: string,
   workerId: string,
   requestId: string,
-  repositoryId: string,
+  githubRepositoryId: bigint,
 ): Promise<void> {
   for (const work of await state.findInvitationWork(
     jobId,
     workerId,
     requestId,
-    repositoryId,
+    githubRepositoryId,
   )) {
     await state.completeInvitation({
       jobId,
       workerId,
       requestId,
       invitationId: work.id,
-      repositoryId,
+      githubRepositoryId,
       expectedStatus: work.status,
       status:
         work.intent === 'REVOKE'
@@ -1611,10 +1640,10 @@ async function settleWork(
 }
 
 async function invitationRows(
-  repositoryId: string,
+  githubRepositoryId: bigint,
 ): Promise<readonly unknown[]> {
   const rows = await prisma.repositoryInvitation.findMany({
-    where: { repositoryId },
+    where: { repoId: githubRepositoryId },
     orderBy: { githubLogin: 'asc' },
   });
   return rows.map(({ githubLogin, status, attemptCount }) => [

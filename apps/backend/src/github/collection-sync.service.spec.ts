@@ -37,8 +37,6 @@ const target = (
   githubRepositoryId: bigint,
   overrides: Partial<CollectionTarget> = {},
 ): CollectionTarget => ({
-  id: `repo-${githubRepositoryId}`,
-  githubOrganizationId: 1n,
   githubRepositoryId,
   nameWithOwner: `JNU-SWCU/repo-${githubRepositoryId}`,
   defaultBranch: 'main',
@@ -46,9 +44,7 @@ const target = (
   visibility: 'PRIVATE',
   presence: 'PRESENT',
   source: 'ORG_PROVISIONED',
-  lastCompleteInventoryObservedAt: null,
   teamId: 'team-1',
-  programId: 'program-1',
   lastSuccessAt: LAST_SUCCESS_AT,
   ...overrides,
 });
@@ -269,7 +265,7 @@ describe('CollectionSyncService probe/collect', () => {
     expect(store.recordContributions.mock.calls.map((call) => call[1])).toEqual(
       ['commit', 'pull_request', 'issue', 'release'],
     );
-    expect(store.recordContributions).toHaveBeenCalledWith('repo-1', 'commit', [
+    expect(store.recordContributions).toHaveBeenCalledWith(1n, 'commit', [
       contribution('sha-1'),
     ]);
     expect(store.recordRepositorySuccess).toHaveBeenCalledTimes(1);

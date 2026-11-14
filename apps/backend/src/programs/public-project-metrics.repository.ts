@@ -2,6 +2,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 interface ContributionCountsRow {
@@ -44,27 +45,31 @@ export class PublicProjectMetricsRepository {
   async findRepositoryContributionRows(
     repositoryIds: readonly bigint[],
   ): Promise<readonly RepositoryContributionRows[]> {
-    const repositories = await this.prisma.githubRepository.findMany({
+    const repositories = await this.prisma.repo.findMany({
       where: {
-        githubRepositoryId: { in: [...repositoryIds] },
+        githubRepoId: { in: [...repositoryIds] },
         visibility: 'PUBLIC',
         presence: 'PRESENT',
-        ...this.platformRepository.linkedRepositoryFilter(),
+        ...this.platformRepository.linkedRepoWhere(),
       },
-      select: {
-        githubRepositoryId: true,
-        lastCompleteInventoryObservedAt: true,
-      },
+      select: { githubRepoId: true },
     });
     if (repositories.length === 0) return [];
-    const rows = await this.readRepoContribution(
-      repositories.map((repository) => repository.githubRepositoryId),
+    const githubRepositoryIds = repositories.map(
+      (repository) => repository.githubRepoId,
     );
+    const observations = await new RepoLedgerRepository().observations(
+      this.prisma,
+      githubRepositoryIds,
+    );
+    const rows = await this.readRepoContribution(githubRepositoryIds);
     return repositories.map((repository) => ({
-      repositoryId: repository.githubRepositoryId,
-      inventoryObservedAt: repository.lastCompleteInventoryObservedAt,
+      repositoryId: repository.githubRepoId,
+      inventoryObservedAt:
+        observations.get(repository.githubRepoId)
+          ?.lastCompleteInventoryObservedAt ?? null,
       contributions: rows.filter(
-        (row) => row.githubRepositoryId === repository.githubRepositoryId,
+        (row) => row.githubRepositoryId === repository.githubRepoId,
       ),
     }));
   }
@@ -96,13 +101,17 @@ export class PublicProjectMetricsRepository {
         COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
         MAX(event.first_seen_at) AS "updatedAt"
       FROM "contribution" AS event
-      JOIN "GithubRepository" AS repository
-        ON repository."githubRepositoryId" = event.repo_id
+      JOIN repo AS repository
+        ON repository.github_repo_id = event.repo_id
       WHERE event.repo_id IN (${Prisma.join([...repositoryIds])})
         AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
         AND repository.visibility = 'PUBLIC'::"RepositoryVisibility"
         AND repository.presence = 'PRESENT'::"CollectionRepositoryPresence"
-        AND repository."teamId" IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM team_repo AS link
+          WHERE link.repo_id = repository.github_repo_id
+        )
         AND repository.source IN (
           'ORG_PROVISIONED'::"RepositorySource",
           'EXTERNAL_PUBLIC'::"RepositorySource"

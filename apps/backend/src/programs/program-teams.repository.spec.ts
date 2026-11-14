@@ -162,7 +162,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
       create: jest.fn().mockResolvedValue({ id: 'synthetic-history' }),
     },
     submission: { count: jest.fn().mockResolvedValue(0) },
-    githubRepository: { count: jest.fn().mockResolvedValue(0) },
+    teamRepo: { count: jest.fn().mockResolvedValue(0) },
     file: { count: jest.fn().mockResolvedValue(0) },
     repositoryProvisionJob: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -970,6 +970,6 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     );
 
     expect(tx.repositoryProvisionJob.deleteMany).not.toHaveBeenCalled();
-    expect(tx.githubRepository.count).not.toHaveBeenCalled();
+    expect(tx.teamRepo.count).not.toHaveBeenCalled();
   });
 });

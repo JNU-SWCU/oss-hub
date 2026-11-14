@@ -33,7 +33,7 @@ const PROGRAM_ENDS_LATER = new Date('2026-08-01T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
 
 type ReviewApplication = ReviewContextRow['team'];
-type ReviewRepository = NonNullable<ReviewApplication['repository']>;
+type ReviewRepository = ReviewApplication['teamRepos'][number]['repo'];
 function eligibleRow(): ReviewContextRow {
   return {
     id: 'submission-1',
@@ -44,7 +44,7 @@ function eligibleRow(): ReviewContextRow {
       isRepositoryPublicationPlanned: true,
       provisionJob: {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
-        repositoryId: 'repository-1',
+        repoId: 1n,
       },
       program: {
         endAt: PROGRAM_ENDED_AT,
@@ -64,11 +64,15 @@ function eligibleRow(): ReviewContextRow {
           },
         },
       ],
-      repository: {
-        id: 'repository-1',
-        nameWithOwner: 'synthetic-org/synthetic-repository',
-        visibility: RepositoryVisibility.PRIVATE,
-      },
+      teamRepos: [
+        {
+          repo: {
+            githubRepoId: 1n,
+            ownerName: 'synthetic-org/synthetic-repository',
+            visibility: RepositoryVisibility.PRIVATE,
+          },
+        },
+      ],
       name: 'Synthetic Team',
     },
     requirement: {
@@ -90,7 +94,7 @@ function eligibleRow(): ReviewContextRow {
 }
 function eligibleEligibility(): RepositoryPublishEligibility {
   return {
-    repositoryId: 'repository-1',
+    repositoryId: '1',
     visibility: RepositoryVisibility.PRIVATE,
     provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
     requiredMilestonesApproved: true,
@@ -106,7 +110,7 @@ const SCENARIOS = [
     breakRow: (_repository: ReviewRepository, team: ReviewApplication) => {
       team.provisionJob = {
         status: RepositoryProvisionJobStatus.PROCESSING,
-        repositoryId: 'repository-1',
+        repoId: 1n,
       };
     },
     breakEligibility: (eligibility: RepositoryPublishEligibility) => ({
@@ -160,8 +164,9 @@ function brokenRow(
   breakRow: (repository: ReviewRepository, team: ReviewApplication) => void,
 ): ReviewContextRow {
   const row = eligibleRow();
-  const repository = row.team.repository;
-  if (repository === null) throw new Error('fixture: repository is required');
+  const repository = row.team.teamRepos[0]?.repo;
+  if (repository === undefined)
+    throw new Error('fixture: repository is required');
   breakRow(repository, row.team);
   return row;
 }
@@ -169,7 +174,7 @@ function eligibilityRow(
   eligibility: RepositoryPublishEligibility,
 ): PublishEligibilityRow {
   return {
-    id: eligibility.repositoryId,
+    githubRepositoryId: BigInt(eligibility.repositoryId),
     visibility: eligibility.visibility,
     application: {
       submissions: [],
@@ -180,7 +185,7 @@ function eligibilityRow(
           ? null
           : {
               status: eligibility.provisionStatus,
-              repositoryId: eligibility.repositoryId,
+              repoId: BigInt(eligibility.repositoryId),
             },
       program: {
         endAt: eligibility.programEndAt,
@@ -199,8 +204,7 @@ function eligibilityRow(
 function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   const repositories = {
     publish: jest.fn().mockResolvedValue({
-      id: 'repository-1',
-      githubRepositoryId: 123n,
+      githubRepositoryId: 1n,
       name: 'synthetic-repository',
       url: 'https://github.com/synthetic-org/synthetic-repository',
       visibility: RepositoryVisibility.PUBLIC,
@@ -232,7 +236,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     const row = eligibleRow();
     const { service, repositories } = serviceFor(eligibleEligibility());
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
-    await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
+    await service.publishRepository('1', ACTOR_GITHUB_ID, NOW);
     expect(context.repository).toMatchObject({
       publishEligible: true,
       blockedReasons: [],
@@ -247,7 +251,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: NOW,
     });
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
-    await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
+    await service.publishRepository('1', ACTOR_GITHUB_ID, NOW);
     expect(context.repository?.blockedReasons).toEqual([]);
     expect(repositories.publish).toHaveBeenCalled();
   });
@@ -259,11 +263,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         breakEligibility(eligibleEligibility()),
       );
       const context = serviceFor(null).service['toReviewContext'](row, NOW);
-      const publish = service.publishRepository(
-        'repository-1',
-        ACTOR_GITHUB_ID,
-        NOW,
-      );
+      const publish = service.publishRepository('1', ACTOR_GITHUB_ID, NOW);
       await expect(publish).rejects.toMatchObject({
         errorCode: { code: errorCode },
       });
@@ -286,7 +286,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       for (const scenario of SCENARIOS) scenario.breakRow(repository, team);
     });
     const { service, repositories } = serviceFor({
-      repositoryId: 'repository-1',
+      repositoryId: '1',
       visibility: RepositoryVisibility.PRIVATE,
       provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
       requiredMilestonesApproved: false,
@@ -294,11 +294,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: new Date('2026-12-31T00:00:00.000Z'),
     });
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
-    const publish = service.publishRepository(
-      'repository-1',
-      ACTOR_GITHUB_ID,
-      NOW,
-    );
+    const publish = service.publishRepository('1', ACTOR_GITHUB_ID, NOW);
     expect(context.repository?.blockedReasons).toEqual([
       PUBLISH_BLOCKED_REASONS.REPOSITORY_NOT_READY,
       PUBLISH_BLOCKED_REASONS.REPOSITORY_PUBLICATION_NOT_PLANNED,
@@ -311,14 +307,13 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     expect(repositories.publish).not.toHaveBeenCalled();
   });
   it('저장소 조회가 게이트 재료를 DB 값 그대로 옮긴다', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
-      id: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
+    const findFirst = jest.fn().mockResolvedValue({
+      repo: { visibility: RepositoryVisibility.PRIVATE },
       team: {
         isRepositoryPublicationPlanned: false,
         provisionJob: {
           status: RepositoryProvisionJobStatus.PROCESSING,
-          repositoryId: 'repository-1',
+          repoId: 1n,
         },
         program: {
           endAt: PROGRAM_ENDED_AT,
@@ -342,11 +337,11 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
     const repository = new SubmissionReviewsRepository(
       {
-        githubRepository: { findUnique },
+        teamRepo: { findFirst },
       } as unknown as PrismaService,
       new PlatformRepository(),
     );
-    const eligibility = await repository.findPublishEligibility('repository-1');
+    const eligibility = await repository.findPublishEligibility(1n);
     expect(
       serviceFor(null).service['toPublishEligibility'](
         eligibility!.application,
@@ -361,14 +356,13 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
   });
   it('다른 저장소의 프로비저닝 작업은 준비 상태로 세지 않는다', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
-      id: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
+    const findFirst = jest.fn().mockResolvedValue({
+      repo: { visibility: RepositoryVisibility.PRIVATE },
       team: {
         isRepositoryPublicationPlanned: true,
         provisionJob: {
           status: RepositoryProvisionJobStatus.SUCCEEDED,
-          repositoryId: 'repository-2',
+          repoId: 2n,
         },
         program: { endAt: PROGRAM_ENDED_AT, milestones: [] },
         submissions: [],
@@ -376,11 +370,11 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     });
     const repository = new SubmissionReviewsRepository(
       {
-        githubRepository: { findUnique },
+        teamRepo: { findFirst },
       } as unknown as PrismaService,
       new PlatformRepository(),
     );
-    const eligibility = await repository.findPublishEligibility('repository-1');
+    const eligibility = await repository.findPublishEligibility(1n);
     expect(
       serviceFor(null).service['toPublishEligibility'](
         eligibility!.application,
@@ -390,11 +384,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
   });
   it('저장소를 찾지 못하면 준비되지 않은 것으로 거절한다', async () => {
     const { service, repositories } = serviceFor(null);
-    const publish = service.publishRepository(
-      'repository-1',
-      ACTOR_GITHUB_ID,
-      NOW,
-    );
+    const publish = service.publishRepository('1', ACTOR_GITHUB_ID, NOW);
     await expect(publish).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY },
     });

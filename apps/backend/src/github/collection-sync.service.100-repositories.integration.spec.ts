@@ -1,3 +1,5 @@
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
+import { syncGithubRepositoryLedgers } from '../../test/repo-ledger.fixture';
 import { Logger } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -93,7 +95,9 @@ const expectedContributionCount = (
 class ScaleCollectionRepository extends CollectionIncrementalRepository {
   override async listCollectionTargets(source: RepositorySource) {
     return (await super.listCollectionTargets(source)).filter(
-      (row) => row.githubOrganizationId === GITHUB_ORGANIZATION_ID,
+      (row) =>
+        row.githubRepositoryId >= BigInt(FIRST_REPO_ID) &&
+        row.githubRepositoryId < BigInt(FIRST_REPO_ID + REPO_COUNT),
     );
   }
 }
@@ -213,12 +217,8 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
         source: 'ORG_PROVISIONED',
       })),
     });
-    await prisma.repo.createMany({
-      data: seeds.map((seed) => ({
-        githubRepoId: BigInt(seed.id),
-        ownerName: `${seed.owner}/${seed.name}`,
-        source: 'ORG_PROVISIONED' as const,
-      })),
+    await syncGithubRepositoryLedgers(prisma, {
+      githubOrganizationId: GITHUB_ORGANIZATION_ID,
     });
   }, 60_000);
 
@@ -228,10 +228,7 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
     await prisma.contributionEvent.deleteMany({
       where: { repoId: { in: repoIds } },
     });
-    await prisma.repo.deleteMany({ where: { githubRepoId: { in: repoIds } } });
-    await prisma.githubRepository.deleteMany({
-      where: { githubOrganizationId: GITHUB_ORGANIZATION_ID },
-    });
+    await new RepoLedgerRepository().remove(prisma, repoIds);
     await prisma.team.deleteMany({
       where: { programId: { startsWith: PROGRAM_PREFIX } },
     });
@@ -363,11 +360,11 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
       repository: 2,
     });
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { githubRepositoryId: BigInt(FIRST_REPO_ID + 10) },
-        select: { nameWithOwner: true },
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: BigInt(FIRST_REPO_ID + 10) },
+        select: { ownerName: true },
       }),
-    ).resolves.toEqual({ nameWithOwner: `${ORG_LOGIN}/repo-10-renamed` });
+    ).resolves.toEqual({ ownerName: `${ORG_LOGIN}/repo-10-renamed` });
     const gone = await prisma.repo.findUniqueOrThrow({
       where: { githubRepoId: BigInt(FIRST_REPO_ID + 11) },
       select: { goneAt: true, lastSuccessAt: true, ownerName: true },
@@ -417,7 +414,7 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
       expiresAt: new Date(takeoverAt.getTime() + 60_000),
     });
     expect(winner?.epoch).toBe(stale.epoch + 1n);
-    const row = await repository.findRepositoryByLogicalKey(
+    const row = await repository.findCollectionTargetByLogicalKey(
       BigInt(FIRST_REPO_ID + 20),
     );
     if (!row) throw new Error('fixture repository missing');
@@ -426,7 +423,7 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
     await expect(
       repository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(stale, takeoverAt);
-        await repo.recordContributions(row.id, 'commit', [
+        await repo.recordContributions(row.githubRepositoryId, 'commit', [
           {
             githubKey: 'synthetic-stale-lease-write-attempt',
             authorGithubId: null,

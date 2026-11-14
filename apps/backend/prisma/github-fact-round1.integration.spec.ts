@@ -2,12 +2,14 @@ import { PrismaClient, type UserType } from '@prisma/client';
 import { CollectionIncrementalRepository } from '../src/github/collection-incremental.repository';
 import { CollectionScheduleService } from '../src/github/collection-schedule.service';
 import { PlatformRepository } from '../src/platform/platform.repository';
+import { RepoLedgerRepository } from '../src/platform/repo-ledger.repository';
 import type { PrismaService } from '../src/platform/prisma.service';
 import { ProgramActivityRepository } from '../src/programs/program-activity.repository';
 import { RankingRepository } from '../src/ranking/ranking.repository';
 import { RankingService } from '../src/ranking/ranking.service';
 import { RankingYearService } from '../src/ranking/ranking-year.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { syncGithubRepositoryLedger } from '../test/repo-ledger.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -128,15 +130,10 @@ const clean = async (): Promise<void> => {
   await prisma.contributionEvent.deleteMany({
     where: { repoId: { in: repoIds } },
   });
-  await prisma.repo.deleteMany({
-    where: { githubRepoId: { in: repoIds } },
-  });
   await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: githubIds } },
   });
-  await prisma.githubRepository.deleteMany({
-    where: { githubRepositoryId: { in: repoIds } },
-  });
+  await new RepoLedgerRepository().remove(prisma, repoIds);
   await prisma.team.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.user.deleteMany({ where: { id: { startsWith: PREFIX } } });
@@ -224,9 +221,9 @@ describe('github fact round 1', () => {
     ).toBe(false);
   });
 
-  it('stores a pull request when the ledger repo row is missing', async () => {
+  it('stores a pull request once for a ledger repo row', async () => {
     await createProgram();
-    const repository = await prisma.githubRepository.create({
+    await prisma.githubRepository.create({
       data: {
         githubRepositoryId: COLLECTION_REPO_ID,
         nameWithOwner: 'synthetic/round1-collection',
@@ -234,6 +231,7 @@ describe('github fact round 1', () => {
         teamId: `${PREFIX}team`,
       },
     });
+    await syncGithubRepositoryLedger(prisma, COLLECTION_REPO_ID);
     const fact = {
       githubKey: '77',
       authorGithubId: GAMMA_ID.toString(),
@@ -242,11 +240,13 @@ describe('github fact round 1', () => {
 
     await expect(
       collection.runInTransaction((store) =>
-        store.recordContributions(repository.id, 'pull_request', [fact]),
+        store.recordContributions(COLLECTION_REPO_ID, 'pull_request', [fact]),
       ),
     ).resolves.toEqual({ inserted: 1, authorFilled: 0 });
     await expect(
-      collection.recordContributions(repository.id, 'pull_request', [fact]),
+      collection.recordContributions(COLLECTION_REPO_ID, 'pull_request', [
+        fact,
+      ]),
     ).resolves.toEqual({ inserted: 0, authorFilled: 0 });
     expect(
       await prisma.contributionEvent.count({
@@ -270,17 +270,13 @@ describe('github fact round 1', () => {
           [COLLECTION_REPO_ID],
           new Date('2026-11-02T00:00:00.000Z'),
         );
-        await store.recordContributions(
-          `${PREFIX}gone-repository`,
-          'pull_request',
-          [
-            {
-              githubKey: '78',
-              authorGithubId: GAMMA_ID.toString(),
-              occurredAt: new Date('2026-11-02T00:00:00.000Z'),
-            },
-          ],
-        );
+        await store.recordContributions(9_812_100_999n, 'pull_request', [
+          {
+            githubKey: '78',
+            authorGithubId: GAMMA_ID.toString(),
+            occurredAt: new Date('2026-11-02T00:00:00.000Z'),
+          },
+        ]);
       }),
     ).rejects.toThrow('contribution repository row is missing');
     expect(
@@ -331,13 +327,7 @@ describe('github fact round 1', () => {
         teamId: `${PREFIX}activity-team`,
       },
     });
-    await prisma.repo.create({
-      data: {
-        githubRepoId: ACTIVITY_REPO_ID,
-        ownerName: 'synthetic/round1-activity',
-        source: 'ORG_PROVISIONED',
-      },
-    });
+    await syncGithubRepositoryLedger(prisma, ACTIVITY_REPO_ID);
     const occurredAt = new Date('2026-10-15T00:00:00.000Z');
     const seenAt = new Date('2026-10-16T00:00:00.000Z');
     for (const key of ['sha-1', 'sha-2', 'sha-3']) {
