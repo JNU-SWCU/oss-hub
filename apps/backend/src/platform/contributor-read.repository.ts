@@ -101,65 +101,65 @@ function standingRow(row: StandingSqlRow): StandingRow {
   };
 }
 
-async function selectStandingRows(
-  prisma: PrismaService,
-  filter: StandingFilter,
-): Promise<readonly StandingRow[]> {
-  const rows = await queryStandingRows(prisma, filter);
-  return rows.map(standingRow);
+function standingWhere(filter: StandingFilter): Prisma.Sql {
+  const predicates: Prisma.Sql[] = [];
+  if (filter.year !== null) predicates.push(Prisma.sql`year = ${filter.year}`);
+  if (filter.visibility !== null)
+    predicates.push(
+      Prisma.sql`visibility = ${filter.visibility}::"ActivityVisibility"`,
+    );
+  return predicates.length
+    ? Prisma.sql`WHERE ${Prisma.join(predicates, ' AND ')}`
+    : Prisma.empty;
 }
 
-async function queryStandingRows(
-  prisma: PrismaService,
-  filter: StandingFilter,
-): Promise<readonly StandingSqlRow[]> {
-  if (filter.year !== null && filter.visibility !== null) {
-    return prisma.$queryRaw<StandingSqlRow[]>`
-      SELECT ${STANDING_COLUMNS}
-      FROM ${STANDING}
-      WHERE year = ${filter.year}
-        AND visibility = ${filter.visibility}::"ActivityVisibility"
-    `;
-  }
-  if (filter.year !== null) {
-    return prisma.$queryRaw<StandingSqlRow[]>`
-      SELECT ${STANDING_COLUMNS}
-      FROM ${STANDING}
-      WHERE year = ${filter.year}
-    `;
-  }
-  if (filter.visibility !== null) {
-    return prisma.$queryRaw<StandingSqlRow[]>`
-      SELECT ${STANDING_COLUMNS}
-      FROM ${STANDING}
-      WHERE visibility = ${filter.visibility}::"ActivityVisibility"
-    `;
-  }
-  return prisma.$queryRaw<StandingSqlRow[]>`
-    SELECT ${STANDING_COLUMNS}
-    FROM ${STANDING}
-  `;
-}
+@Injectable()
+export class ContributorReadRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-async function selectStandingRowsBefore(
-  prisma: PrismaService,
-  filter: StandingFilter,
-  before: Date,
-): Promise<readonly StandingRow[]> {
-  const rows = await queryStandingRowsBefore(prisma, filter, before);
-  return rows.map(standingRow);
-}
-
-async function queryStandingRowsBefore(
-  prisma: PrismaService,
-  filter: StandingFilter,
-  before: Date,
-): Promise<readonly StandingSqlRow[]> {
-  if (filter.visibility !== null) {
-    throw new Error('Previous standing does not take a visibility filter');
+  async readStandingRows(
+    filter: StandingFilter,
+  ): Promise<readonly StandingRow[]> {
+    const rows = await this.queryStandingRows(filter);
+    return rows.map(standingRow);
   }
-  if (filter.year !== null) {
-    return prisma.$queryRaw<StandingSqlRow[]>`
+
+  private queryStandingRows(
+    filter: StandingFilter,
+  ): Promise<readonly StandingSqlRow[]> {
+    if (filter.year !== null && filter.visibility !== null) {
+      return this.prisma.$queryRaw<StandingSqlRow[]>`
+        SELECT ${STANDING_COLUMNS}
+        FROM ${STANDING}
+        WHERE year = ${filter.year}
+          AND visibility = ${filter.visibility}::"ActivityVisibility"
+      `;
+    }
+    if (filter.year !== null) {
+      return this.prisma.$queryRaw<StandingSqlRow[]>`
+        SELECT ${STANDING_COLUMNS}
+        FROM ${STANDING}
+        WHERE year = ${filter.year}
+      `;
+    }
+    if (filter.visibility !== null) {
+      return this.prisma.$queryRaw<StandingSqlRow[]>`
+        SELECT ${STANDING_COLUMNS}
+        FROM ${STANDING}
+        WHERE visibility = ${filter.visibility}::"ActivityVisibility"
+      `;
+    }
+    return this.prisma.$queryRaw<StandingSqlRow[]>`
+      SELECT ${STANDING_COLUMNS}
+      FROM ${STANDING}
+    `;
+  }
+
+  async readRowsBefore(
+    filter: StandingFilter,
+    before: Date,
+  ): Promise<readonly StandingRow[]> {
+    const rows = await this.prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
       FROM (
         SELECT DISTINCT ON (observation.github_id, observation.year, observation.visibility)
@@ -179,110 +179,29 @@ async function queryStandingRowsBefore(
           observation.visibility,
           observation.observed_at DESC
       ) AS previous
-      WHERE previous.year = ${filter.year}
+      ${standingWhere(filter)}
     `;
+    return rows.map(standingRow);
   }
-  return prisma.$queryRaw<StandingSqlRow[]>`
-    SELECT ${STANDING_COLUMNS}
-    FROM (
-      SELECT DISTINCT ON (observation.github_id, observation.year, observation.visibility)
-        observation.github_id,
-        observation.year,
-        observation.visibility,
-        observation.commit_count,
-        observation.pull_request_count,
-        observation.issue_count,
-        observation.repository_count,
-        observation.star_count
-      FROM github_user_activity_history AS observation
-      WHERE observation.observed_at < ${before}
-      ORDER BY
-        observation.github_id,
-        observation.year,
-        observation.visibility,
-        observation.observed_at DESC
-    ) AS previous
-  `;
-}
 
-async function selectStandingYears(
-  prisma: PrismaService,
-  filter: StandingFilter,
-): Promise<readonly number[]> {
-  const rows = await queryStandingYears(prisma, filter);
-  return rows.map((row) => row.year).sort((left, right) => right - left);
-}
-
-async function queryStandingYears(
-  prisma: PrismaService,
-  filter: StandingFilter,
-): Promise<readonly { readonly year: number }[]> {
-  if (filter.year !== null) {
-    throw new Error('Standing years do not take a year filter');
-  }
-  if (filter.visibility === null) {
-    return prisma.$queryRaw<{ year: number }[]>`
-      SELECT DISTINCT year FROM ${STANDING}
+  async readStandingYears(filter: StandingFilter): Promise<readonly number[]> {
+    const rows = await this.prisma.$queryRaw<{ year: number }[]>`
+      SELECT DISTINCT year
+      FROM ${STANDING}
+      ${standingWhere(filter)}
     `;
+    return rows.map((row) => row.year).sort((left, right) => right - left);
   }
-  return prisma.$queryRaw<{ year: number }[]>`
-    SELECT DISTINCT year
-    FROM ${STANDING}
-    WHERE visibility = ${filter.visibility}::"ActivityVisibility"
-  `;
-}
 
-async function selectStandingObservedAt(
-  prisma: PrismaService,
-  filter: StandingFilter,
-): Promise<Date | null> {
-  const rows = await queryStandingObservedAt(prisma, filter);
-  const row = rows[0];
-  if (row === undefined) {
-    throw new Error('Standing freshness query did not return a row');
-  }
-  return row.observedAt;
-}
-
-async function queryStandingObservedAt(
-  prisma: PrismaService,
-  filter: StandingFilter,
-): Promise<readonly { readonly observedAt: Date | null }[]> {
-  if (filter.year !== null) {
-    throw new Error('Standing freshness does not take a year filter');
-  }
-  if (filter.visibility === null) {
-    return prisma.$queryRaw<{ observedAt: Date | null }[]>`
-      SELECT MAX(observed_at) AS "observedAt" FROM ${STANDING}
+  async readStandingObservedAt(filter: StandingFilter): Promise<Date | null> {
+    const [row] = await this.prisma.$queryRaw<{ observedAt: Date | null }[]>`
+      SELECT MAX(observed_at) AS "observedAt"
+      FROM ${STANDING}
+      ${standingWhere(filter)}
     `;
-  }
-  return prisma.$queryRaw<{ observedAt: Date | null }[]>`
-    SELECT MAX(observed_at) AS "observedAt"
-    FROM ${STANDING}
-    WHERE visibility = ${filter.visibility}::"ActivityVisibility"
-  `;
-}
-
-@Injectable()
-export class ContributorReadRepository {
-  constructor(private readonly prisma: PrismaService) {}
-
-  readStandingRows(filter: StandingFilter): Promise<readonly StandingRow[]> {
-    return selectStandingRows(this.prisma, filter);
-  }
-
-  readRowsBefore(
-    filter: StandingFilter,
-    before: Date,
-  ): Promise<readonly StandingRow[]> {
-    return selectStandingRowsBefore(this.prisma, filter, before);
-  }
-
-  readStandingYears(filter: StandingFilter): Promise<readonly number[]> {
-    return selectStandingYears(this.prisma, filter);
-  }
-
-  readStandingObservedAt(filter: StandingFilter): Promise<Date | null> {
-    return selectStandingObservedAt(this.prisma, filter);
+    if (row === undefined) {
+      throw new Error('Standing freshness query did not return a row');
+    }
+    return row.observedAt;
   }
 }
