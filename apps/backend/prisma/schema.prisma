@@ -903,18 +903,6 @@ model CollectionSyncLease {
   @@id([appId, scope])
 }
 
-model CollectionCutoverLease {
-  appId     BigInt
-  scope     String
-  epoch     BigInt   @default(1)
-  ownerId   String
-  runId     String
-  expiresAt DateTime
-  updatedAt DateTime @updatedAt
-
-  @@id([appId, scope])
-}
-
 enum ContributionKind {
   COMMIT       @map("commit")
   PULL_REQUEST @map("pull_request")
