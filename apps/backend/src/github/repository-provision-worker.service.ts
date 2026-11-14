@@ -134,14 +134,9 @@ export class RepositoryProvisionWorkerService {
           const resolution = prepared.ownResolution;
           if (
             resolution.repository.githubRepositoryId !==
-            repository.githubRepositoryId
+              repository.githubRepositoryId ||
+            resolution.kind !== 'EXTERNAL'
           ) {
-            throw RepositoryProvisionFailure.final(
-              PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
-            );
-          }
-
-          if (resolution.kind !== 'EXTERNAL') {
             throw RepositoryProvisionFailure.final(
               PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
             );
@@ -328,12 +323,9 @@ export class RepositoryProvisionWorkerService {
         PROVISION_ERROR_CODES.INVALID_EVENT,
       );
     }
-    const current = reloaded.repository;
     if (
-      current === null ||
-      reloaded.currentRepositorySource === null ||
-      current.githubRepositoryId !== recorded.githubRepositoryId ||
-      current.teamId !== claimed.teamId
+      reloaded.repository === null ||
+      reloaded.repository.githubRepositoryId !== recorded.githubRepositoryId
     ) {
       throw RepositoryProvisionFailure.final(
         PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,

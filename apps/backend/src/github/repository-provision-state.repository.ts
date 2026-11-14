@@ -349,23 +349,19 @@ export class RepositoryProvisionStateRepository {
       data: { repositoryConnectionMode: input.connectionMode },
     });
     if (input.connectionAudit !== undefined) {
-      const auditActor = await transaction.user.findUniqueOrThrow({
+      const actor = await transaction.user.findUniqueOrThrow({
         where: { githubId: input.connectionAudit.actorGithubId },
-        select: { id: true },
+        select: { id: true, nickname: true },
       });
       const scope = await transaction.team.findUniqueOrThrow({
         where: { id: input.teamId },
         select: { programId: true, program: { select: { name: true } } },
       });
-      const actor = await transaction.user.findUniqueOrThrow({
-        where: { id: auditActor.id },
-        select: { nickname: true },
-      });
       await transaction.teamHistory.create({
         data: {
           teamId: input.teamId,
           programId: scope.programId,
-          actorId: auditActor.id,
+          actorId: actor.id,
           event: 'REPOSITORY_URL_CHANGED',
           source: 'APPLICATION',
           data: {
@@ -393,18 +389,6 @@ export class RepositoryProvisionStateRepository {
       });
     }
     return repository;
-  }
-
-  private matchesProvisionedMetadata(
-    repository: OwnedProvisionedRepositoryRow,
-    input: RecordProvisionedRepositoryInput,
-  ): boolean {
-    return (
-      repository.teamId === input.teamId &&
-      repository.githubRepositoryId === input.metadata.githubRepositoryId &&
-      repository.nameWithOwner === input.metadata.nameWithOwner &&
-      repository.visibility === input.metadata.visibility
-    );
   }
 
   private readonly teamMemberLoginSelection = {
@@ -523,10 +507,7 @@ export class RepositoryProvisionStateRepository {
             connectionAudit: input.connectionAudit,
           },
         );
-        if (
-          !metadataMatchesRepositoryIdentity ||
-          !this.matchesProvisionedMetadata(provisioned, input)
-        ) {
+        if (!metadataMatchesRepositoryIdentity) {
           throw RepositoryProvisionFailure.final(
             PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
           );
