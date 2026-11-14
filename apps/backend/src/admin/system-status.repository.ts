@@ -13,16 +13,6 @@ export interface CollectionExternalCollectionStatusDto {
   readonly lastSuccessAt: Date | null;
 }
 
-const PRESENT_REPOSITORY = {
-  presence: 'PRESENT',
-  source: 'ORG_PROVISIONED',
-} as const;
-
-const PRESENT_EXTERNAL_REPOSITORY = {
-  presence: 'PRESENT',
-  source: 'EXTERNAL_PUBLIC',
-} as const;
-
 @Injectable()
 export class SystemStatusRepository {
   constructor(
@@ -48,7 +38,8 @@ export class SystemStatusRepository {
   > {
     const repositories = await this.prisma.repo.findMany({
       where: {
-        ...PRESENT_REPOSITORY,
+        presence: 'PRESENT',
+        source: 'ORG_PROVISIONED',
         ...this.platform.collectionTargetRepoWhere(),
       },
       orderBy: { ownerName: 'asc' },
@@ -72,7 +63,8 @@ export class SystemStatusRepository {
   async getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto> {
     const tracked = await this.prisma.repo.aggregate({
       where: {
-        ...PRESENT_EXTERNAL_REPOSITORY,
+        presence: 'PRESENT',
+        source: 'EXTERNAL_PUBLIC',
         ...this.platform.collectionTargetRepoWhere(),
       },
       _count: { _all: true },
