@@ -114,8 +114,6 @@ export interface RepositoriesTransactionStore {
   ): Promise<boolean>;
 }
 
-type ClaimedProvisionEventRow = ClaimedProvisionEvent;
-
 type LockedProvisionJobRow = {
   readonly id: string;
   readonly status: RepositoryProvisionJobStatus;
@@ -239,10 +237,12 @@ export class RepositoriesRepository {
     return {
       historyWriter: transaction,
       findPublishTarget: this.findPublishTargetIn.bind(this, transaction),
-      publishRepositoryIfPrivate: this.publishRepositoryIfPrivateIn.bind(
-        this,
-        transaction,
-      ),
+      publishRepositoryIfPrivate: (githubRepositoryId, now) =>
+        new RepoLedgerRepository().publish(
+          transaction,
+          githubRepositoryId,
+          now,
+        ),
       claimProvisionEvent: this.claimProvisionEventIn.bind(this, transaction),
       upsertProvisionJob: this.upsertProvisionJobIn.bind(this, transaction),
       findProvisionJob: this.findProvisionJobIn.bind(this, transaction),
@@ -285,26 +285,13 @@ export class RepositoriesRepository {
         };
   }
 
-  private async publishRepositoryIfPrivateIn(
-    transaction: Prisma.TransactionClient,
-    githubRepositoryId: bigint,
-    now: Date,
-  ): Promise<boolean> {
-    return new RepoLedgerRepository().publish(
-      transaction,
-      githubRepositoryId,
-      now,
-    );
-  }
-
   private async claimProvisionEventIn(
     transaction: Prisma.TransactionClient,
     input: ClaimProvisionEventInput,
   ): Promise<ClaimedProvisionEvent | null> {
     const leaseCutoff = new Date(input.now.getTime() - input.leaseMs);
-    const events = await transaction.$queryRaw<
-      ClaimedProvisionEventRow[]
-    >(Prisma.sql`
+    const events = await transaction.$queryRaw<ClaimedProvisionEvent[]>(
+      Prisma.sql`
       WITH candidate AS (
         SELECT "id"
         FROM "OutboxEvent"
@@ -334,7 +321,8 @@ export class RepositoriesRepository {
       FROM candidate
       WHERE event."id" = candidate."id"
       RETURNING event."id", event."aggregateId", event."type", event."payload"
-    `);
+    `,
+    );
     return events[0] ?? null;
   }
 
@@ -384,28 +372,16 @@ export class RepositoriesRepository {
           finishedAt: null,
         },
       });
-      return {
-        id: existing.id,
-        currentEventId: existing.currentEventId,
-      };
-    }
-
-    if (
-      existing.status === RepositoryProvisionJobStatus.PENDING ||
-      existing.status === RepositoryProvisionJobStatus.FAILED_RETRYABLE
+    } else if (
+      (existing.status === RepositoryProvisionJobStatus.PENDING ||
+        existing.status === RepositoryProvisionJobStatus.FAILED_RETRYABLE) &&
+      existing.nextAttemptAt.getTime() > now.getTime()
     ) {
-      if (existing.nextAttemptAt.getTime() > now.getTime()) {
-        await transaction.repositoryProvisionJob.update({
-          where: { id: existing.id },
-          data: { nextAttemptAt: now },
-        });
-      }
-      return {
-        id: existing.id,
-        currentEventId: existing.currentEventId,
-      };
+      await transaction.repositoryProvisionJob.update({
+        where: { id: existing.id },
+        data: { nextAttemptAt: now },
+      });
     }
-
     return {
       id: existing.id,
       currentEventId: existing.currentEventId,

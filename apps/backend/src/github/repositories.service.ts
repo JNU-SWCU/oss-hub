@@ -6,11 +6,11 @@ import { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
   type RepositoryPublishTarget,
+  type RepositoryPublishTargetRow,
 } from './repositories.repository';
 import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
-import type { RepositoryPublishTargetRow } from './repositories.repository';
 import { RepositoryUrlService } from './repository-url.service';
 
 export interface OwnRepositoryEnrollmentInput {

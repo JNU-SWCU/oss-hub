@@ -4,10 +4,10 @@ import {
   COLLECTION_CLOCK_SKEW_MS,
   COLLECTION_WINDOW_MS,
 } from './collection-app.config';
-import type {
-  CollectionContributionKind,
-  CollectionRateLimit,
-  CollectionRepositoryProbe,
+import {
+  CONTRIBUTION_KINDS,
+  type CollectionRateLimit,
+  type CollectionRepositoryProbe,
 } from './collection-app.client';
 import type {
   CollectionIncrementalRepository,
@@ -27,13 +27,6 @@ const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
 const RUN_DEADLINE_MS = 45 * 60_000;
 const PROBE_BATCH_SIZE = 100;
-
-const CONTRIBUTION_KINDS: readonly CollectionContributionKind[] = [
-  'commit',
-  'pull_request',
-  'issue',
-  'release',
-];
 
 export type CollectionRunKind = 'hourly' | 'weekly' | 'full';
 

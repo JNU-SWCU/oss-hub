@@ -40,7 +40,6 @@ function service(applications: ApplicationActivity[]) {
   >();
   findProgramActivityApplications.mockResolvedValue(applications);
   const repository: ProgramActivityProgramStore = {
-    findProgramRepositories: () => Promise.resolve([]),
     findStudentActivityApplications: () => Promise.resolve([]),
   };
   return {

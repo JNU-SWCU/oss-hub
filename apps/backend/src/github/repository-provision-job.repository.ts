@@ -167,48 +167,28 @@ export class CollectionUserActivityRepository {
     return row.present;
   }
 
-  async upsertObservation(
+  upsertObservation(
     observation: CollectionUserActivityObservationInput,
   ): Promise<void> {
-    await this.record((transaction) =>
-      writeActivityLedgerRow(transaction, {
-        githubId: observation.githubId,
-        year: observation.year,
-        visibility: ActivityVisibility.PUBLIC,
-        commitCount: observation.commitCount,
-        pullRequestCount: observation.pullRequestCount,
-        issueCount: observation.issueCount,
-        repositoryCount: observation.repositoryCount,
-        starCount: observation.starCount,
-        observedAt: observation.observedAt,
-      }),
+    return this.writeObservation(observation, ActivityVisibility.PUBLIC);
+  }
+
+  upsertPrivateObservation(
+    observation: Omit<CollectionUserActivityObservationInput, 'starCount'>,
+  ): Promise<void> {
+    return this.writeObservation(
+      { ...observation, starCount: 0 },
+      ActivityVisibility.PRIVATE,
     );
   }
 
-  async upsertPrivateObservation(
-    observation: Omit<CollectionUserActivityObservationInput, 'starCount'>,
+  private async writeObservation(
+    observation: CollectionUserActivityObservationInput,
+    visibility: ActivityVisibility,
   ): Promise<void> {
-    const { githubId, year, ...row } = observation;
-    const visibility = ActivityVisibility.PRIVATE;
-    await this.record(async (transaction) => {
-      await writeActivityLedgerRow(transaction, {
-        githubId,
-        year,
-        visibility,
-        commitCount: row.commitCount,
-        pullRequestCount: row.pullRequestCount,
-        issueCount: row.issueCount,
-        repositoryCount: row.repositoryCount,
-        starCount: 0,
-        observedAt: row.observedAt,
-      });
-    });
-  }
-
-  private async record(
-    write: (transaction: Prisma.TransactionClient) => Promise<void>,
-  ): Promise<void> {
-    await this.db.$transaction(write);
+    await this.db.$transaction((transaction) =>
+      writeActivityLedgerRow(transaction, { ...observation, visibility }),
+    );
   }
 }
 
@@ -225,8 +205,6 @@ export interface ClaimedRepositoryProvisionJob {
   readonly repoId: bigint | null;
   readonly attemptCount: number;
 }
-
-type ClaimedRepositoryProvisionJobRow = ClaimedRepositoryProvisionJob;
 
 @Injectable()
 export class RepositoryProvisionJobRepository {
@@ -303,9 +281,8 @@ export class RepositoryProvisionJobRepository {
     input: ClaimRepositoryProvisionJobInput,
   ): Promise<ClaimedRepositoryProvisionJob | null> {
     const leaseCutoff = new Date(input.now.getTime() - input.leaseMs);
-    const jobs = await this.prisma.$queryRaw<
-      ClaimedRepositoryProvisionJobRow[]
-    >(Prisma.sql`
+    const jobs = await this.prisma.$queryRaw<ClaimedRepositoryProvisionJob[]>(
+      Prisma.sql`
       WITH candidate AS (
         SELECT "id"
         FROM "RepositoryProvisionJob"
@@ -343,16 +320,15 @@ export class RepositoryProvisionJobRepository {
         job."currentEventId" AS "requestId",
         job."repo_id" AS "repoId",
         job."attemptCount"
-    `);
+    `,
+    );
     return jobs[0] ?? null;
   }
 
   async claimNextReconciliation(
     input: ClaimRepositoryProvisionJobInput,
   ): Promise<ClaimedRepositoryProvisionJob | null> {
-    const jobs = await this.prisma.$queryRaw<
-      ClaimedRepositoryProvisionJobRow[]
-    >(
+    const jobs = await this.prisma.$queryRaw<ClaimedRepositoryProvisionJob[]>(
       Prisma.sql`
         WITH candidate AS (
           SELECT job."id"

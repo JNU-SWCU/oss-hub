@@ -263,12 +263,8 @@ export class CollectionIncrementalStoreRepository {
     readonly observedAt: Date;
   }): Promise<boolean> {
     return new RepoLedgerRepository().observe(this.db, {
-      githubRepositoryId: input.githubRepositoryId,
+      ...input,
       source: 'EXTERNAL_PUBLIC',
-      observedAt: input.observedAt,
-      nameWithOwner: input.nameWithOwner,
-      defaultBranch: input.defaultBranch,
-      archived: input.archived,
       visibility: 'PUBLIC',
       presence: 'PRESENT',
     });
@@ -284,13 +280,7 @@ export class CollectionIncrementalStoreRepository {
     readonly observedAt: Date;
   }): Promise<CollectionRepositoryRow | null> {
     await new RepoLedgerRepository().observe(this.db, {
-      githubRepositoryId: input.githubRepositoryId,
-      source: input.source,
-      observedAt: input.observedAt,
-      nameWithOwner: input.nameWithOwner,
-      defaultBranch: input.defaultBranch,
-      archived: input.archived,
-      visibility: input.visibility,
+      ...input,
       presence: 'PRESENT',
     });
     const current = await this.db.repo.findFirst({

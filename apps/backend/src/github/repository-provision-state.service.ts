@@ -21,10 +21,8 @@ import {
   type RepositoryInvitationWork,
   type RepositoryProvisionContext,
   type RepositoryProvisionStateStore,
-} from './repository-provision-state.repository';
-import {
-  RepositoryProvisionStateRepository,
   type MembershipCurrencyCheck,
+  RepositoryProvisionStateRepository,
 } from './repository-provision-state.repository';
 import { RepositoryUrlService } from './repository-url.service';
 
@@ -79,8 +77,8 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       }
       throw error;
     }
-    const currentMemberGithubLogins = this.loginsFromTeamMembers(
-      application.members,
+    const currentMemberGithubLogins = this.canonicalGithubLogins(
+      application.members.map((member) => member.user.nickname),
     );
     return {
       requestId: event.id,
@@ -285,14 +283,6 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
 
   private membershipFingerprint(logins: readonly string[]): string {
     return JSON.stringify(logins);
-  }
-
-  private loginsFromTeamMembers(
-    members: readonly { readonly user: { readonly nickname: string } }[],
-  ): readonly string[] {
-    return this.canonicalGithubLogins(
-      members.map((member) => member.user.nickname),
-    );
   }
 
   private readonly parseHistoryPayload = (payload: unknown) =>

@@ -1633,20 +1633,6 @@ function toTeamManagementListItem(
   };
 }
 
-const TEAM_COLLECTION_REPO_SELECT = {
-  where: { validTo: null },
-  take: 1,
-  select: {
-    repo: {
-      select: {
-        githubRepoId: true,
-        ownerName: true,
-        visibility: true,
-      },
-    },
-  },
-} satisfies PrismaTypes.Team$teamReposArgs;
-
 const APPLICATION_LIST_SELECT = {
   id: true,
   programId: true,
@@ -2428,7 +2414,7 @@ export class TeamRepository {
         updatedAt: true,
         repositoryConnectionMode: true,
         isRepositoryPublicationPlanned: true,
-        teamRepos: TEAM_COLLECTION_REPO_SELECT,
+        teamRepos: OPEN_TEAM_REPO_SELECT,
         program: {
           select: {
             id: true,
@@ -2457,7 +2443,7 @@ export class TeamRepository {
       },
     });
     if (!row) return null;
-    const team = this.withCollectionRepository(row);
+    const team = withOpenRepository(row);
 
     const [outbox, job] = await Promise.all([
       this.prisma.outboxEvent.findUnique({
@@ -2502,13 +2488,8 @@ export class TeamRepository {
       select: { id: true },
     });
     if (!team) return null;
-    const application = await this.prisma.team.findFirst({
-      where: { programId, id: teamId },
-      select: { id: true },
-    });
-    if (!application) return { teamId: null, rows: [], hasMore: false };
     return {
-      teamId: application.id,
+      teamId: team.id,
       ...(await this.evidence.history({ programId, teamId }, cursor)),
     };
   }
@@ -2530,37 +2511,12 @@ export class TeamRepository {
         },
         id: true,
         status: true,
-        teamRepos: TEAM_COLLECTION_REPO_SELECT,
+        teamRepos: OPEN_TEAM_REPO_SELECT,
       },
     });
     if (!row) return null;
-    const { id, status, repository, ...scope } =
-      this.withCollectionRepository(row);
+    const { id, status, repository, ...scope } = withOpenRepository(row);
     return { ...scope, application: { id, status, repository } };
-  }
-  private withCollectionRepository<
-    T extends {
-      readonly teamRepos: readonly {
-        readonly repo: {
-          readonly githubRepoId: bigint;
-          readonly ownerName: string;
-          readonly visibility: RepositoryVisibility;
-        };
-      }[];
-    },
-  >({ teamRepos, ...row }: T) {
-    const repo = teamRepos[0]?.repo;
-    return {
-      ...row,
-      repository:
-        repo === undefined
-          ? null
-          : {
-              githubRepositoryId: repo.githubRepoId,
-              nameWithOwner: repo.ownerName,
-              visibility: repo.visibility,
-            },
-    };
   }
   readTeamActivity(
     team: TeamActivityScope,

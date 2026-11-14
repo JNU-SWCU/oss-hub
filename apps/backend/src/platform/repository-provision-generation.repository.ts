@@ -201,20 +201,19 @@ export class RepositoryProvisionGenerationRepository {
       return;
     }
 
-    const repository = { repoId: input.githubRepositoryId };
     await transaction.repositoryProvisionJob.upsert({
       where: { teamId: input.teamId },
       create: {
         teamId: input.teamId,
         currentEventId: null,
-        ...repository,
+        repoId: input.githubRepositoryId,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         nextAttemptAt: input.now,
         finishedAt: input.now,
       },
       update: {
         currentEventId: null,
-        ...repository,
+        repoId: input.githubRepositoryId,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         nextAttemptAt: input.now,
         attemptCount: 0,

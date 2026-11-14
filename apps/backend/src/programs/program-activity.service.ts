@@ -11,10 +11,7 @@ import {
   ProgramErrorCode,
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
 } from './programs.error';
-import {
-  ProgramActivityRepository,
-  type ProgramRepositoryActivity,
-} from './program-activity.repository';
+import { ProgramActivityRepository } from './program-activity.repository';
 import { ProgramsRepository } from './programs.repository';
 import { ACTIVITY_GRANULARITIES } from './program-activity.config';
 
@@ -65,7 +62,7 @@ export interface ProgramActivityResult {
 
 export type ProgramActivityProgramStore = Pick<
   ProgramsRepository,
-  'findProgramRepositories' | 'findStudentActivityApplications'
+  'findStudentActivityApplications'
 >;
 
 function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
@@ -229,19 +226,6 @@ export class ProgramActivityService {
         repositoryIds,
         authorGithubId: student.githubId,
       });
-      const canonicalByRepository = new Map<
-        bigint,
-        ProgramRepositoryActivity
-      >();
-      for (const record of activity) {
-        const current = canonicalByRepository.get(record.repositoryId);
-        if (
-          !current ||
-          (current.dataAsOf?.getTime() ?? 0) < (record.dataAsOf?.getTime() ?? 0)
-        ) {
-          canonicalByRepository.set(record.repositoryId, record);
-        }
-      }
 
       const points = new Map<string, ActivityPointResult>();
       const add = (
@@ -264,7 +248,7 @@ export class ProgramActivityService {
           total: metric === 'issueCount' ? current.total : current.total + 1,
         });
       };
-      for (const repository of canonicalByRepository.values()) {
+      for (const repository of activity) {
         repository.commitDates.forEach((date) => add(date, 'commitCount'));
         repository.pullRequestDates.forEach((date) =>
           add(date, 'pullRequestCount'),
@@ -283,10 +267,7 @@ export class ProgramActivityService {
               year: Number(
                 seoulPeriod(application.program.applicationStartAt, 'YEAR'),
               ),
-              applicationMode:
-                application.id === null
-                  ? ('PERSONAL' as const)
-                  : ('TEAM' as const),
+              applicationMode: 'TEAM' as const,
             },
           ]),
         ).values(),
@@ -295,7 +276,7 @@ export class ProgramActivityService {
           ? left.programName.localeCompare(right.programName)
           : left.year - right.year,
       );
-      const dataAsOf = [...canonicalByRepository.values()].reduce<Date | null>(
+      const dataAsOf = activity.reduce<Date | null>(
         (latest, generation) =>
           generation.dataAsOf === null ||
           (latest !== null && latest > generation.dataAsOf)

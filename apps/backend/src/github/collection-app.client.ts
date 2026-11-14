@@ -136,7 +136,7 @@ export interface CollectionRepositoryContributions {
   readonly rateLimit: CollectionRateLimit | null;
 }
 
-const CONTRIBUTION_KINDS: readonly CollectionContributionKind[] = [
+export const CONTRIBUTION_KINDS: readonly CollectionContributionKind[] = [
   'commit',
   'pull_request',
   'issue',
@@ -157,13 +157,14 @@ interface ConnectionPage {
   readonly nextCursor: string | null;
 }
 
-function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
+function dedupeByGithubKey(
+  items: readonly CollectionContribution[],
+): CollectionContribution[] {
   const seen = new Set<string>();
-  const result: T[] = [];
+  const result: CollectionContribution[] = [];
   for (const item of items) {
-    const k = key(item);
-    if (seen.has(k)) continue;
-    seen.add(k);
+    if (seen.has(item.githubKey)) continue;
+    seen.add(item.githubKey);
     result.push(item);
   }
   return result;
@@ -182,7 +183,15 @@ export class CollectionAppClient {
     githubRepositoryId: bigint,
   ): Promise<CollectionRepository> {
     return this.repository(
-      await this.one(`/repositories/${githubRepositoryId.toString()}`),
+      await this.send(
+        new URL(
+          `/repositories/${githubRepositoryId.toString()}`,
+          `${this.config.apiBaseUrl}/`,
+        ).toString(),
+        { headers: { 'X-GitHub-Api-Version': API_VERSION } },
+        this.now() + this.config.deadlineMs,
+        true,
+      ),
     );
   }
 
@@ -307,13 +316,10 @@ export class CollectionAppClient {
 
     return {
       contributions: {
-        commit: dedupeByKey(collected.commit, (item) => item.githubKey),
-        pull_request: dedupeByKey(
-          collected.pull_request,
-          (item) => item.githubKey,
-        ),
-        issue: dedupeByKey(collected.issue, (item) => item.githubKey),
-        release: dedupeByKey(collected.release, (item) => item.githubKey),
+        commit: dedupeByGithubKey(collected.commit),
+        pull_request: dedupeByGithubKey(collected.pull_request),
+        issue: dedupeByGithubKey(collected.issue),
+        release: dedupeByGithubKey(collected.release),
       },
       requests,
       pointsUsed,
@@ -458,15 +464,16 @@ export class CollectionAppClient {
     return { cost: r.cost, remaining: r.remaining };
   }
 
-  private async one(path: string): Promise<unknown> {
-    const deadline = this.now() + this.config.deadlineMs;
-    return this.request(
-      new URL(path, `${this.config.apiBaseUrl}/`).toString(),
-      deadline,
-    );
-  }
-
-  private async request(url: string, deadline: number): Promise<unknown> {
+  private async send(
+    url: string,
+    init: {
+      readonly method?: 'POST';
+      readonly headers: Readonly<Record<string, string>>;
+      readonly body?: string;
+    },
+    deadline: number,
+    notFound: boolean,
+  ): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const remaining = deadline - this.now();
       if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
@@ -477,11 +484,12 @@ export class CollectionAppClient {
       let response: Response;
       try {
         response = await this.fetcher(url, {
+          ...init,
           headers: {
             Accept: ACCEPT,
             Authorization: `Bearer ${token}`,
             'User-Agent': USER_AGENT,
-            'X-GitHub-Api-Version': API_VERSION,
+            ...init.headers,
           },
           signal,
         });
@@ -513,7 +521,7 @@ export class CollectionAppClient {
           this.tokens.clear(token);
           throw new CollectionAppClientError('PERMISSION');
         }
-        if (response.status === 404) {
+        if (notFound && response.status === 404) {
           throw new CollectionAppClientError('NOT_FOUND');
         }
         throw new CollectionAppClientError('UPSTREAM');
@@ -532,85 +540,37 @@ export class CollectionAppClient {
     deadline: number,
     aliasErrorsAsData = false,
   ): Promise<Record<string, unknown>> {
-    const url = this.config.graphqlUrl ?? DEFAULT_GRAPHQL_URL;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const remaining = deadline - this.now();
-      if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
-      const signal = AbortSignal.timeout(Math.max(1, remaining));
-      const token = await this.tokens.getToken(signal);
-      if (deadline - this.now() <= 0)
-        throw new CollectionAppClientError('DEADLINE');
-      let response: Response;
-      try {
-        response = await this.fetcher(url, {
+    const body = this.record(
+      await this.send(
+        this.config.graphqlUrl ?? DEFAULT_GRAPHQL_URL,
+        {
           method: 'POST',
-          headers: {
-            Accept: ACCEPT,
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': USER_AGENT,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          signal,
-        });
-      } catch {
-        if (this.now() >= deadline)
-          throw new CollectionAppClientError('DEADLINE');
-        throw new CollectionAppClientError('UPSTREAM');
+        },
+        deadline,
+        false,
+      ),
+    );
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      const errors = body.errors.map((error) => this.record(error));
+      if (errors.some((error) => error.type === 'RATE_LIMITED')) {
+        throw new CollectionAppClientError('RATE_LIMITED');
       }
-      if (response.status === 401) {
-        if (attempt === 0) {
-          this.tokens.clear(token);
-          continue;
-        }
-        throw new CollectionAppClientError('AUTH');
+      if (
+        aliasErrorsAsData &&
+        errors.every(
+          (error) =>
+            Array.isArray(error.path) &&
+            typeof error.path[0] === 'string' &&
+            /^r\d+$/.test(error.path[0]),
+        )
+      ) {
+        return body;
       }
-      if (!response.ok) {
-        if (
-          response.status === 429 ||
-          (response.status === 403 &&
-            (response.headers.get('x-ratelimit-remaining') === '0' ||
-              response.headers.has('retry-after')))
-        ) {
-          throw new CollectionAppClientError(
-            'RATE_LIMITED',
-            this.retryAfter(response.headers),
-          );
-        }
-        if (response.status === 403) {
-          this.tokens.clear(token);
-          throw new CollectionAppClientError('PERMISSION');
-        }
-        throw new CollectionAppClientError('UPSTREAM');
-      }
-      let json: unknown;
-      try {
-        json = await response.json();
-      } catch {
-        throw new CollectionAppClientError('RESPONSE');
-      }
-      const body = this.record(json);
-      if (Array.isArray(body.errors) && body.errors.length > 0) {
-        const errors = body.errors.map((error) => this.record(error));
-        if (errors.some((error) => error.type === 'RATE_LIMITED')) {
-          throw new CollectionAppClientError('RATE_LIMITED');
-        }
-        if (
-          aliasErrorsAsData &&
-          errors.every(
-            (error) =>
-              Array.isArray(error.path) &&
-              typeof error.path[0] === 'string' &&
-              /^r\d+$/.test(error.path[0]),
-          )
-        ) {
-          return body;
-        }
-        throw new CollectionAppClientError('GRAPHQL_ERROR');
-      }
-      return body;
+      throw new CollectionAppClientError('GRAPHQL_ERROR');
     }
-    throw new CollectionAppClientError('AUTH');
+    return body;
   }
 
   private retryAfter(headers: Headers): number | undefined {
