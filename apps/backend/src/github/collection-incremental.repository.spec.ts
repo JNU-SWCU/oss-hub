@@ -4,13 +4,7 @@ import { CollectionIncrementalRepository } from './collection-incremental.reposi
 import type { PrismaService } from '../platform/prisma.service';
 
 interface MockDb {
-  githubRepository: {
-    createMany: jest.Mock;
-    findUnique: jest.Mock;
-    updateMany: jest.Mock;
-    findMany: jest.Mock;
-  };
-  repo: { findMany: jest.Mock; findFirst: jest.Mock };
+  repo: { findMany: jest.Mock; findFirst: jest.Mock; updateMany: jest.Mock };
   $executeRaw: jest.Mock;
   $queryRaw: jest.Mock;
   collectionSyncLease: { findMany: jest.Mock };
@@ -21,15 +15,10 @@ interface MockDb {
 
 const createDb = (): MockDb => {
   const db: MockDb = {
-    githubRepository: {
-      createMany: jest.fn().mockResolvedValue({ count: 0 }),
-      findUnique: jest.fn(),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      findMany: jest.fn().mockResolvedValue([]),
-    },
     repo: {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     $executeRaw: jest.fn().mockResolvedValue(1),
     $queryRaw: jest
@@ -68,7 +57,7 @@ const fact = (
 });
 
 describe('CollectionIncrementalRepository — 외부 저장소 편입', () => {
-  it('external 저장소를 현재 관찰로 복구하고 repo 원장에 같이 쓴다', async () => {
+  it('external 저장소를 현재 관찰로 repo 원장에 복구한다', async () => {
     const db = createDb();
     const observedAt = new Date('2026-08-09T14:00:00.000Z');
 
@@ -82,26 +71,23 @@ describe('CollectionIncrementalRepository — 외부 저장소 편입', () => {
       }),
     ).resolves.toBe(true);
 
-    expect(db.githubRepository.updateMany).toHaveBeenCalledWith({
-      where: { githubRepositoryId: 42n, source: 'EXTERNAL_PUBLIC' },
+    expect(db.repo.updateMany).toHaveBeenCalledWith({
+      where: { githubRepoId: 42n, source: 'EXTERNAL_PUBLIC' },
       data: {
-        nameWithOwner: 'synthetic-student/synthetic-own-repo',
+        ownerName: 'synthetic-student/synthetic-own-repo',
         defaultBranch: 'main',
         archived: false,
         visibility: 'PUBLIC',
         presence: 'PRESENT',
-        lastCompleteInventoryObservedAt: observedAt,
+        goneAt: null,
       },
     });
-    const ledger = db.$executeRaw.mock.calls.map(sqlOf);
-    expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toContain('INSERT INTO "repo"');
-    expect(ledger[0]).not.toContain('last_success_at');
+    expect(db.$executeRaw).not.toHaveBeenCalled();
   });
 
   it('편입할 external 행이 없으면 원장을 쓰지 않는다', async () => {
     const db = createDb();
-    db.githubRepository.updateMany.mockResolvedValue({ count: 0 });
+    db.repo.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
       repositoryFor(db).enrollExternalRepository({
@@ -143,7 +129,6 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
     const sql = sqlOf(db.$queryRaw.mock.calls[0] as unknown[]);
     expect(sql).not.toContain('INSERT INTO "repo"');
-    expect(sql).not.toContain('GithubRepository');
     expect(sql).toContain('FROM "repo" AS existing');
     expect(sql).toContain('INSERT INTO "contribution"');
     expect(sql).toContain(
@@ -224,7 +209,6 @@ describe('CollectionIncrementalRepository — recordRepositorySuccess', () => {
     const sql = sqlOf([query]);
     expect(sql).toContain('UPDATE "repo"');
     expect(sql).toContain('SET "last_success_at" =');
-    expect(sql).not.toContain('GithubRepository');
     expect(values).toEqual([at, expect.anything()]);
   });
 });
@@ -277,7 +261,6 @@ describe('CollectionIncrementalRepository — listCollectionTargets', () => {
         orderBy: { githubRepoId: 'asc' },
       }),
     );
-    expect(db.githubRepository.findMany).not.toHaveBeenCalled();
   });
 
   it('external 수집 대상은 공개 저장소만이다', async () => {

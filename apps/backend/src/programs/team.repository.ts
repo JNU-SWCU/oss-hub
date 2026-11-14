@@ -85,7 +85,7 @@ function withOpenRepository<
 }
 
 @Injectable()
-export class TeamArchiveRepository {
+class TeamArchiveRepository {
   async run(
     tx: Prisma.TransactionClient,
     teamId: string,
@@ -3243,7 +3243,7 @@ async function deleteTeamTree(
   });
   await tx.repositoryProvisionJob.updateMany({
     where: { repoId: { in: detachedRepoIds } },
-    data: { repositoryId: null, repoId: null },
+    data: { repoId: null },
   });
   await tx.repositoryInvitation.deleteMany({
     where: { repoId: { in: detachedRepoIds } },
@@ -3490,7 +3490,6 @@ export class StudentRepositoryUrlTransactionRepository {
             inventory: {
               defaultBranch: resolution.repository.defaultBranch,
               archived: resolution.repository.archived,
-              observedAt: new Date(),
             },
           }
         : {}),

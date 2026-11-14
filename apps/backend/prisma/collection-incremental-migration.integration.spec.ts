@@ -8,15 +8,12 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'test:414:';
-const ORG_ID = 9_414_000_001n;
 const REPO_ID = 9_414_000_101n;
 
 const prisma = new PrismaClient();
 
 async function cleanFixtures(): Promise<void> {
-  await prisma.githubRepository.deleteMany({
-    where: { githubOrganizationId: ORG_ID },
-  });
+  await prisma.repo.deleteMany({ where: { githubRepoId: REPO_ID } });
   await prisma.teamMember.deleteMany({
     where: { teamId: { startsWith: TEST_PREFIX } },
   });
@@ -32,13 +29,6 @@ async function cleanFixtures(): Promise<void> {
 async function tableExists(tableName: string): Promise<boolean> {
   const rows = await prisma.$queryRaw<Array<{ readonly exists: boolean }>>`
     SELECT to_regclass(${`public."${tableName}"`}) IS NOT NULL AS "exists"
-  `;
-  return rows[0]?.exists ?? false;
-}
-
-async function indexExists(indexName: string): Promise<boolean> {
-  const rows = await prisma.$queryRaw<Array<{ readonly exists: boolean }>>`
-    SELECT to_regclass(${`public."${indexName}"`}) IS NOT NULL AS "exists"
   `;
   return rows[0]?.exists ?? false;
 }
@@ -85,8 +75,9 @@ describe('collection incremental migration — DB invariants', () => {
     }
   });
 
-  it('원장으로 대체된 GitHub 테이블 9개는 물리적으로 존재하지 않는다', async () => {
+  it('원장으로 대체된 GitHub 테이블 10개는 물리적으로 존재하지 않는다', async () => {
     const dropped = [
+      'GithubRepository',
       'CollectionRepositoryYearAggregate',
       'CollectionRepositoryContributorYearAggregate',
       'Contribution',
@@ -116,45 +107,11 @@ describe('collection incremental migration — DB invariants', () => {
     ).resolves.toEqual([]);
   });
 
-  it('eligibility/frontier 인덱스가 모두 존재한다', async () => {
-    await expect(
-      indexExists('GithubRepository_visibility_presence_idx'),
-    ).resolves.toBe(true);
-  });
-
-  it('App installation 교체를 흉내내도 논리 저장소는 org+repo id 기준 한 행만 유지한다', async () => {
-    const observedAt = new Date('2026-07-31T00:00:00.000Z');
-    const create = (): Promise<{ id: string }> =>
-      prisma.githubRepository.upsert({
-        where: { githubRepositoryId: REPO_ID },
-        create: {
-          githubOrganizationId: ORG_ID,
-          githubRepositoryId: REPO_ID,
-          nameWithOwner: 'org/repo',
-          defaultBranch: 'main',
-          source: 'ORG_PROVISIONED',
-          visibility: 'PUBLIC',
-          presence: 'PRESENT',
-          lastCompleteInventoryObservedAt: observedAt,
-        },
-        update: { lastCompleteInventoryObservedAt: observedAt },
-      });
-
-    await create();
-    await create();
-
-    const rows = await prisma.githubRepository.findMany({
-      where: { githubOrganizationId: ORG_ID, githubRepositoryId: REPO_ID },
-    });
-    expect(rows).toHaveLength(1);
-  });
-
   it('연도 집계 행이 없는 새해 1/1에는 빈 결과를 반환한다(0으로 안전하게 읽는다)', async () => {
-    const repository = await prisma.githubRepository.create({
+    const repository = await prisma.repo.create({
       data: {
-        githubOrganizationId: ORG_ID,
-        githubRepositoryId: REPO_ID + 2n,
-        nameWithOwner: 'org/repo-3',
+        githubRepoId: REPO_ID,
+        ownerName: 'org/repo-3',
         defaultBranch: 'main',
         source: 'ORG_PROVISIONED',
         visibility: 'PUBLIC',
@@ -165,7 +122,7 @@ describe('collection incremental migration — DB invariants', () => {
     const rows = await prisma.$queryRaw<unknown[]>`
       SELECT event.occurred_at
       FROM "contribution" AS event
-      WHERE event.repo_id = ${repository.githubRepositoryId}
+      WHERE event.repo_id = ${repository.githubRepoId}
         AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date >= DATE '2099-01-01'
         AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date < DATE '2100-01-01'
     `;

@@ -1,5 +1,5 @@
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
-import { syncGithubRepositoryLedgers } from '../../test/repo-ledger.fixture';
+import { seedRepos } from '../../test/repo-ledger.fixture';
 import { Logger } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -27,7 +27,6 @@ assertIsolatedIntegrationDatabase({
 const APP_ID = BigInt(SYNTHETIC_APP_ID);
 const ORG_LOGIN = SYNTHETIC_ORG_LOGIN;
 const SCOPE = `org:${ORG_LOGIN}`;
-const GITHUB_ORGANIZATION_ID = 9_000_000_300_002n;
 const OWNER_ID = 'synthetic-scale-suite-instance';
 const PROGRAM_PREFIX = 'synthetic-scale-program-';
 const CONTRIBUTOR_PREFIX = 'synthetic-scale-contributor-';
@@ -206,20 +205,17 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
         applicationTemplateVersion: 1,
       })),
     });
-    await prisma.githubRepository.createMany({
-      data: seeds.map((seed) => ({
+    await seedRepos(
+      prisma,
+      seeds.map((seed) => ({
         githubRepositoryId: BigInt(seed.id),
-        githubOrganizationId: GITHUB_ORGANIZATION_ID,
         teamId: `synthetic-scale-${seed.id}`,
         nameWithOwner: `${seed.owner}/${seed.name}`,
         defaultBranch: seed.defaultBranch,
         visibility: 'PRIVATE',
         source: 'ORG_PROVISIONED',
       })),
-    });
-    await syncGithubRepositoryLedgers(prisma, {
-      githubOrganizationId: GITHUB_ORGANIZATION_ID,
-    });
+    );
   }, 60_000);
 
   afterAll(async () => {

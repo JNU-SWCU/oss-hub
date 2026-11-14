@@ -235,7 +235,10 @@ export class ProgramActivityService {
       >();
       for (const record of activity) {
         const current = canonicalByRepository.get(record.repositoryId);
-        if (!current || current.dataAsOf < record.dataAsOf) {
+        if (
+          !current ||
+          (current.dataAsOf?.getTime() ?? 0) < (record.dataAsOf?.getTime() ?? 0)
+        ) {
           canonicalByRepository.set(record.repositoryId, record);
         }
       }
@@ -294,7 +297,10 @@ export class ProgramActivityService {
       );
       const dataAsOf = [...canonicalByRepository.values()].reduce<Date | null>(
         (latest, generation) =>
-          latest && latest > generation.dataAsOf ? latest : generation.dataAsOf,
+          generation.dataAsOf === null ||
+          (latest !== null && latest > generation.dataAsOf)
+            ? latest
+            : generation.dataAsOf,
         null,
       );
 

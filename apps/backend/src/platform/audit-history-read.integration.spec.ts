@@ -2,7 +2,7 @@ import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
 import { AuditLogReadRepository } from './audit-log-read.repository';
-import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
+import { seedRepo } from '../../test/repo-ledger.fixture';
 import { AuditLogReadService } from './audit-log-read.service';
 
 assertIsolatedIntegrationDatabase({
@@ -16,7 +16,6 @@ const ADMIN_ID = `${TEST_PREFIX}admin`;
 const STAFF_ID = `${TEST_PREFIX}staff`;
 const PROGRAM_ID = `${TEST_PREFIX}program`;
 const TEAM_ID = `${TEST_PREFIX}team`;
-const REPOSITORY_ID = `${TEST_PREFIX}repository`;
 const REPOSITORY_GITHUB_ID = 9_233_000_003n;
 const PROGRAM_NAME = 'Audit history program';
 const TEAM_NAME = 'Audit history team';
@@ -135,15 +134,11 @@ describe('Audit history feed', () => {
         applicationTemplateVersion: 1,
       },
     });
-    await prisma.githubRepository.create({
-      data: {
-        id: REPOSITORY_ID,
-        githubRepositoryId: REPOSITORY_GITHUB_ID,
-        nameWithOwner: REPOSITORY_NAME,
-        source: 'EXTERNAL_PUBLIC',
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: REPOSITORY_GITHUB_ID,
+      nameWithOwner: REPOSITORY_NAME,
+      source: 'EXTERNAL_PUBLIC',
     });
-    await syncGithubRepositoryLedger(prisma, REPOSITORY_GITHUB_ID);
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterAll(async () => {

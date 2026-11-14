@@ -11,10 +11,7 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
-} from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
@@ -44,11 +41,7 @@ const APPLICATION_IDS = [
   'synthetic-job-legacy-null-generation',
   'synthetic-job-org-on-own',
 ] as const;
-const SHARED_REPOSITORY_ID = 'synthetic-job-shared-repository';
-
-function repositoryIdFor(teamId: string): string {
-  return `${teamId}-repository`;
-}
+const SHARED_GITHUB_REPOSITORY_ID = 8200000099001n;
 
 function githubRepositoryIdFor(teamId: string): bigint {
   return BigInt(
@@ -81,24 +74,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.repositoryInvitation.deleteMany({
-      where: { repository: { teamId: { in: [...APPLICATION_IDS] } } },
-    });
-    await deleteGithubRepositories(
+    await deleteRepos(
       prisma,
-      {
-        OR: [
-          {
-            id: {
-              in: [
-                ...APPLICATION_IDS.map(repositoryIdFor),
-                SHARED_REPOSITORY_ID,
-              ],
-            },
-          },
-          { teamId: { in: [...APPLICATION_IDS] } },
-        ],
-      },
+      [
+        ...APPLICATION_IDS.map(githubRepositoryIdFor),
+        SHARED_GITHUB_REPOSITORY_ID,
+      ],
       APPLICATION_IDS,
     );
     await prisma.outboxEvent.deleteMany({
@@ -163,45 +144,42 @@ describe('RepositoryProvisionJobRepository integration', () => {
       RepositoryProvisionJobStatus.SUCCEEDED,
       NOW,
     );
-    await prisma.githubRepository.create({
-      data: {
-        id: SHARED_REPOSITORY_ID,
-        teamId: firstApplicationId,
-        githubRepositoryId: 8200000099001n,
-        nameWithOwner: 'synthetic-org/shared-history',
-        source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PRIVATE,
-      },
+    await seedRepo(prisma, {
+      teamId: firstApplicationId,
+      githubRepositoryId: SHARED_GITHUB_REPOSITORY_ID,
+      nameWithOwner: 'synthetic-org/shared-history',
+      source: RepositorySource.ORG_PROVISIONED,
+      visibility: RepositoryVisibility.PRIVATE,
     });
 
     await prisma.repositoryProvisionJob.update({
       where: { teamId: firstApplicationId },
-      data: { repositoryId: SHARED_REPOSITORY_ID },
+      data: { repoId: SHARED_GITHUB_REPOSITORY_ID },
     });
     await prisma.repositoryProvisionJob.update({
       where: { teamId: secondApplicationId },
-      data: { repositoryId: SHARED_REPOSITORY_ID },
+      data: { repoId: SHARED_GITHUB_REPOSITORY_ID },
     });
 
     await expect(
       prisma.repositoryProvisionJob.count({
-        where: { repositoryId: SHARED_REPOSITORY_ID },
+        where: { repoId: SHARED_GITHUB_REPOSITORY_ID },
       }),
     ).resolves.toBe(2);
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { id: SHARED_REPOSITORY_ID },
+      prisma.teamRepo.findFirstOrThrow({
+        where: { repoId: SHARED_GITHUB_REPOSITORY_ID, validTo: null },
       }),
     ).resolves.toMatchObject({ teamId: firstApplicationId });
     await expect(
       prisma.repositoryProvisionJob.update({
         where: { teamId: secondApplicationId },
-        data: { repositoryId: 'synthetic-missing-repository' },
+        data: { repoId: 8200000099999n },
       }),
     ).rejects.toMatchObject({ code: 'P2003' });
     await expect(
       prisma.repositoryProvisionJob.count({
-        where: { repositoryId: SHARED_REPOSITORY_ID },
+        where: { repoId: SHARED_GITHUB_REPOSITORY_ID },
       }),
     ).resolves.toBe(2);
   });
@@ -209,21 +187,18 @@ describe('RepositoryProvisionJobRepository integration', () => {
   it('reconciles a live ORG_PROVISIONED current link', async () => {
     const teamId = APPLICATION_IDS[0];
     await createJob(teamId, RepositoryProvisionJobStatus.SUCCEEDED, NOW);
-    const current = await prisma.githubRepository.create({
-      data: {
-        teamId,
-        githubRepositoryId: 8133900001n,
-        nameWithOwner: 'synthetic/relinked',
-        source: 'ORG_PROVISIONED',
-        invitations: {
-          create: { githubLogin: 'synthetic-invitee', repoId: 8133900001n },
-        },
-      },
+    await seedRepo(prisma, {
+      teamId,
+      githubRepositoryId: 8133900001n,
+      nameWithOwner: 'synthetic/relinked',
+      source: 'ORG_PROVISIONED',
     });
-    await syncGithubRepositoryLedger(prisma, current.githubRepositoryId);
+    await prisma.repositoryInvitation.create({
+      data: { githubLogin: 'synthetic-invitee', repoId: 8133900001n },
+    });
     await prisma.repositoryProvisionJob.update({
       where: { teamId },
-      data: { repositoryId: current.id, repoId: current.githubRepositoryId },
+      data: { repoId: 8133900001n },
     });
     await expect(
       repository.claimNextReconciliation({
@@ -233,7 +208,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       }),
     ).resolves.toMatchObject({
       teamId,
-      repoId: current.githubRepositoryId,
+      repoId: 8133900001n,
     });
   });
 
@@ -576,23 +551,18 @@ async function createJob(
   if (options.attachRepository !== true) {
     return;
   }
-  const repositoryId = repositoryIdFor(teamId);
-  await prisma.githubRepository.create({
-    data: {
-      id: repositoryId,
-      githubRepositoryId: githubRepositoryIdFor(teamId),
-      nameWithOwner: `synthetic-org/${teamId}`,
-      source:
-        options.source ??
-        (options.connectionMode === RepositoryConnectionMode.OWN
-          ? RepositorySource.EXTERNAL_PUBLIC
-          : RepositorySource.ORG_PROVISIONED),
-      teamId,
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId: githubRepositoryIdFor(teamId),
+    nameWithOwner: `synthetic-org/${teamId}`,
+    source:
+      options.source ??
+      (options.connectionMode === RepositoryConnectionMode.OWN
+        ? RepositorySource.EXTERNAL_PUBLIC
+        : RepositorySource.ORG_PROVISIONED),
+    teamId,
   });
-  await syncGithubRepositoryLedger(prisma, githubRepositoryIdFor(teamId));
   await prisma.repositoryProvisionJob.update({
     where: { teamId },
-    data: { repositoryId, repoId: githubRepositoryIdFor(teamId) },
+    data: { repoId: githubRepositoryIdFor(teamId) },
   });
 }

@@ -1,4 +1,4 @@
-import { deleteGithubRepositories } from '../test/repo-ledger.fixture';
+import { deleteRepos } from '../test/repo-ledger.fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
   AccountStatus,
@@ -362,9 +362,9 @@ async function deleteAllSeeded(): Promise<void> {
     where: seedIdFilter,
     select: { id: true },
   });
-  await deleteGithubRepositories(
+  await deleteRepos(
     prisma,
-    { OR: [seedIdFilter, { teamId: { startsWith: seedPrefix } }] },
+    [],
     seedTeamIds.map((team) => team.id),
   );
   await prisma.submission.deleteMany({ where: seedIdFilter });
@@ -885,7 +885,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       submissionFiles,
       boardPosts,
       boardComments,
-      githubRepositories,
+      teamRepos,
       contributions,
     ] = await Promise.all([
       prisma.user.count({ where: { id: { startsWith: seedDemoPrefix } } }),
@@ -947,7 +947,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       SubmissionFile: submissionFiles,
       BoardPost: boardPosts,
       BoardComment: boardComments,
-      GithubRepository: githubRepositories,
+      TeamRepo: teamRepos,
       Contribution: contributions,
     };
   }
@@ -1024,9 +1024,9 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(reviewEvents).toBe(reviewedSubmissions);
       expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
-      expect(countsAfterFirstRun.GithubRepository).toBe(0);
+      expect(countsAfterFirstRun.TeamRepo).toBe(0);
       expect(countsAfterFirstRun.Contribution).toBe(0);
-      expect(countsAfterSecondRun.GithubRepository).toBe(0);
+      expect(countsAfterSecondRun.TeamRepo).toBe(0);
       expect(countsAfterSecondRun.Contribution).toBe(0);
       const demoUsers = await prisma.user.findMany({
         where: { id: { startsWith: seedDemoPrefix } },

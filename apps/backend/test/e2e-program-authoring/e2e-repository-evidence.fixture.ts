@@ -37,14 +37,14 @@ export async function seedE2eRepositoryEvidence(
         status: 'APPROVED',
       },
       select: {
-        repository: { select: { id: true, githubRepositoryId: true } },
+        teamRepos: { where: { validTo: null }, select: { repoId: true } },
         program: { select: { startAt: true, endAt: true } },
       },
     });
-    if (!application?.repository) {
+    const githubRepositoryId = application?.teamRepos[0]?.repoId;
+    if (!application || githubRepositoryId === undefined) {
       throw new E2eAdapterError(409);
     }
-    const currentRepositoryId = application.repository.id;
     const date = new Date(
       application.program.startAt.getTime() + 24 * 60 * 60 * 1000,
     );
@@ -53,7 +53,7 @@ export async function seedE2eRepositoryEvidence(
     const day = date.toISOString().slice(0, 10);
     await seedDailyContributions(
       transaction,
-      application.repository.githubRepositoryId,
+      githubRepositoryId,
       [
         {
           githubId: E2E_STUDENT_GITHUB_ID,
@@ -74,13 +74,13 @@ export async function seedE2eRepositoryEvidence(
     );
     await setRepoLastSuccessAt(
       transaction,
-      application.repository.githubRepositoryId,
+      githubRepositoryId,
       new Date(),
       'EXTERNAL_PUBLIC',
     );
-    const repositories = await transaction.githubRepository.findMany({
+    const repositories = await transaction.repo.findMany({
       where: E2E_REPOSITORY_WHERE,
-      select: { id: true },
+      select: { githubRepoId: true },
     });
     const facts = await transaction.$queryRaw<
       Array<{
@@ -93,22 +93,22 @@ export async function seedE2eRepositoryEvidence(
       }>
     >`
       SELECT
-        repository.id AS "repositoryId",
+        event.repo_id::text AS "repositoryId",
         event.author_github_id AS "githubId",
         (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date AS "date",
         COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
         COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
         COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount"
       FROM "contribution" AS event
-      JOIN "GithubRepository" AS repository
-        ON repository."githubRepositoryId" = event.repo_id
-      WHERE repository.id = ANY(${repositories.map(({ id }) => id)})
+      WHERE event.repo_id = ANY(${repositories.map(
+        ({ githubRepoId }) => githubRepoId,
+      )})
         AND event.author_github_id IS NOT NULL
       GROUP BY 1, 2, 3
       ORDER BY 1, 2, 3
     `;
     return {
-      currentRepositoryId,
+      currentRepositoryId: githubRepositoryId.toString(),
       facts: facts.map((fact) => ({
         ...fact,
         githubId: fact.githubId.toString(),

@@ -28,7 +28,6 @@ const JOB_ID = 'job-1';
 const WORKER_ID = 'worker-1';
 const REQUEST_ID = 'event-1';
 const REPOSITORY_ID = 7n;
-const REPOSITORY_ROW_ID = 'repository-1';
 
 interface InvitationRow {
   readonly id: string;
@@ -90,13 +89,6 @@ interface MockDb {
       Promise<readonly TeamMemberRow[]>,
       [Prisma.TeamMemberFindManyArgs]
     >;
-  };
-  githubRepository: {
-    findUnique: jest.Mock<
-      Promise<{ readonly id: string } | null>,
-      [Prisma.GithubRepositoryFindUniqueArgs]
-    >;
-    upsert: jest.Mock<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>;
   };
   repo: {
     findUnique: jest.Mock<
@@ -210,15 +202,6 @@ function createDb(): MockDb {
           [Prisma.TeamMemberFindManyArgs]
         >()
         .mockResolvedValue([]),
-    },
-    githubRepository: {
-      findUnique: jest
-        .fn<
-          Promise<{ readonly id: string } | null>,
-          [Prisma.GithubRepositoryFindUniqueArgs]
-        >()
-        .mockResolvedValue({ id: REPOSITORY_ROW_ID }),
-      upsert: jest.fn<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>(),
     },
     repo: {
       findUnique: jest
@@ -471,7 +454,6 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
     expect(db.repositoryInvitation.createMany).toHaveBeenCalledWith({
       data: [
         {
-          repositoryId: REPOSITORY_ROW_ID,
           repoId: REPOSITORY_ID,
           githubLogin: 'fresh',
         },
@@ -755,7 +737,6 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toEqual({
-      repositoryId: REPOSITORY_ROW_ID,
       repoId: REPOSITORY_ID,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: nextAt,
@@ -785,7 +766,6 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
     ).toEqual({
-      repositoryId: REPOSITORY_ROW_ID,
       repoId: REPOSITORY_ID,
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
@@ -1037,6 +1017,7 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
       .mockResolvedValueOnce([]);
     const update = jest.fn().mockResolvedValue({});
     Object.assign(db.team, { update });
+    Object.assign(db.repo, { upsert: jest.fn().mockResolvedValue({}) });
     Object.assign(db, { $executeRaw: jest.fn().mockResolvedValue(1) });
     return db;
   }

@@ -75,7 +75,6 @@ type CollectionStoreClient = Pick<
   | '$queryRaw'
   | '$queryRawUnsafe'
   | 'collectionSyncLease'
-  | 'githubRepository'
   | 'repo'
 >;
 
@@ -263,18 +262,16 @@ export class CollectionIncrementalStoreRepository {
     readonly archived: boolean;
     readonly observedAt: Date;
   }): Promise<boolean> {
-    return this.inSameTransaction((store) =>
-      new RepoLedgerRepository().observe(store, {
-        githubRepositoryId: input.githubRepositoryId,
-        source: 'EXTERNAL_PUBLIC',
-        observedAt: input.observedAt,
-        nameWithOwner: input.nameWithOwner,
-        defaultBranch: input.defaultBranch,
-        archived: input.archived,
-        visibility: 'PUBLIC',
-        presence: 'PRESENT',
-      }),
-    );
+    return new RepoLedgerRepository().observe(this.db, {
+      githubRepositoryId: input.githubRepositoryId,
+      source: 'EXTERNAL_PUBLIC',
+      observedAt: input.observedAt,
+      nameWithOwner: input.nameWithOwner,
+      defaultBranch: input.defaultBranch,
+      archived: input.archived,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+    });
   }
 
   async refreshRepositoryObservation(input: {
@@ -286,18 +283,16 @@ export class CollectionIncrementalStoreRepository {
     readonly visibility: 'PRIVATE' | 'PUBLIC';
     readonly observedAt: Date;
   }): Promise<CollectionRepositoryRow | null> {
-    await this.inSameTransaction((store) =>
-      new RepoLedgerRepository().observe(store, {
-        githubRepositoryId: input.githubRepositoryId,
-        source: input.source,
-        observedAt: input.observedAt,
-        nameWithOwner: input.nameWithOwner,
-        defaultBranch: input.defaultBranch,
-        archived: input.archived,
-        visibility: input.visibility,
-        presence: 'PRESENT',
-      }),
-    );
+    await new RepoLedgerRepository().observe(this.db, {
+      githubRepositoryId: input.githubRepositoryId,
+      source: input.source,
+      observedAt: input.observedAt,
+      nameWithOwner: input.nameWithOwner,
+      defaultBranch: input.defaultBranch,
+      archived: input.archived,
+      visibility: input.visibility,
+      presence: 'PRESENT',
+    });
     const current = await this.db.repo.findFirst({
       where: { githubRepoId: input.githubRepositoryId, source: input.source },
       select: COLLECTION_REPOSITORY_SELECT,
@@ -310,14 +305,12 @@ export class CollectionIncrementalStoreRepository {
     observedAt: Date,
     source: RepositorySource,
   ): Promise<void> {
-    await this.inSameTransaction((store) =>
-      new RepoLedgerRepository().observe(store, {
-        githubRepositoryId,
-        source,
-        observedAt,
-        presence: 'ABSENT',
-      }),
-    );
+    await new RepoLedgerRepository().observe(this.db, {
+      githubRepositoryId,
+      source,
+      observedAt,
+      presence: 'ABSENT',
+    });
   }
 
   async recordRepositorySuccess(

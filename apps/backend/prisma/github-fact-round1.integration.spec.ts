@@ -9,7 +9,7 @@ import { RankingRepository } from '../src/ranking/ranking.repository';
 import { RankingService } from '../src/ranking/ranking.service';
 import { RankingYearService } from '../src/ranking/ranking-year.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { syncGithubRepositoryLedger } from '../test/repo-ledger.fixture';
+import { seedRepo } from '../test/repo-ledger.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -223,15 +223,12 @@ describe('github fact round 1', () => {
 
   it('stores a pull request once for a ledger repo row', async () => {
     await createProgram();
-    await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId: COLLECTION_REPO_ID,
-        nameWithOwner: 'synthetic/round1-collection',
-        source: 'ORG_PROVISIONED',
-        teamId: `${PREFIX}team`,
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: COLLECTION_REPO_ID,
+      nameWithOwner: 'synthetic/round1-collection',
+      source: 'ORG_PROVISIONED',
+      teamId: `${PREFIX}team`,
     });
-    await syncGithubRepositoryLedger(prisma, COLLECTION_REPO_ID);
     const fact = {
       githubKey: '77',
       authorGithubId: GAMMA_ID.toString(),
@@ -319,15 +316,12 @@ describe('github fact round 1', () => {
         applicationTemplateVersion: 1,
       },
     });
-    await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId: ACTIVITY_REPO_ID,
-        nameWithOwner: 'synthetic/round1-activity',
-        source: 'ORG_PROVISIONED',
-        teamId: `${PREFIX}activity-team`,
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: ACTIVITY_REPO_ID,
+      nameWithOwner: 'synthetic/round1-activity',
+      source: 'ORG_PROVISIONED',
+      teamId: `${PREFIX}activity-team`,
     });
-    await syncGithubRepositoryLedger(prisma, ACTIVITY_REPO_ID);
     const occurredAt = new Date('2026-10-15T00:00:00.000Z');
     const seenAt = new Date('2026-10-16T00:00:00.000Z');
     for (const key of ['sha-1', 'sha-2', 'sha-3']) {

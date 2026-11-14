@@ -1,7 +1,4 @@
-import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
-} from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -150,25 +147,19 @@ async function createRepositoryFixture(params: {
       processedAt: new Date(),
     },
   });
-  const rowId = `${PREFIX}-${params.key}-repository`;
   const repositoryName = `${PREFIX}-${params.key}-repo`;
-  await harness.prisma.githubRepository.create({
-    data: {
-      id: rowId,
-      teamId,
-      githubRepositoryId,
-      nameWithOwner: `synthetic-org/${repositoryName}`,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: params.visibility,
-      publishedAt: params.publishedAt,
-    },
+  await seedRepo(harness.prisma, {
+    teamId,
+    githubRepositoryId,
+    nameWithOwner: `synthetic-org/${repositoryName}`,
+    source: RepositorySource.ORG_PROVISIONED,
+    visibility: params.visibility,
+    publishedAt: params.publishedAt,
   });
-  await syncGithubRepositoryLedger(harness.prisma, githubRepositoryId);
   await harness.prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
       teamId,
-      repositoryId: rowId,
       repoId: githubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: new Date(),
@@ -245,19 +236,14 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     });
     publicProject = published;
 
-    await harness.prisma.githubRepository.update({
-      where: { githubRepositoryId: published.githubRepositoryId },
+    await harness.prisma.repo.update({
+      where: { githubRepoId: published.githubRepositoryId },
       data: {
-        githubOrganizationId: 8900000000001n,
         defaultBranch: 'main',
         presence: CollectionRepositoryPresence.PRESENT,
-        lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
+        lastSuccessAt: new Date('2026-06-15T00:00:00.000Z'),
       },
     });
-    await syncGithubRepositoryLedger(
-      harness.prisma,
-      published.githubRepositoryId,
-    );
     await seedDailyContributions(harness.prisma, published.githubRepositoryId, [
       {
         githubId: 8_950_000_000_001n,
@@ -324,9 +310,16 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await deleteGithubRepositories(harness.prisma, {
-        id: { startsWith: `${PREFIX}-` },
-      });
+      await deleteRepos(
+        harness.prisma,
+        [],
+        (
+          await harness.prisma.team.findMany({
+            where: { id: { startsWith: `${PREFIX}-` } },
+            select: { id: true },
+          })
+        ).map((team) => team.id),
+      );
       await harness.prisma.teamMember.deleteMany({
         where: { teamId: { startsWith: `${PREFIX}-` } },
       });

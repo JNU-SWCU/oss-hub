@@ -1,8 +1,10 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
+  deleteRepos,
+  repoWithTeam,
+  seedRepo,
+  unlinkRepo,
 } from '../../test/repo-ledger.fixture';
 import {
   repositoryContributionTotals,
@@ -16,8 +18,7 @@ import {
   githubId,
   programId,
   teamId,
-  oldId,
-  targetId,
+  oldGithubId,
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
@@ -126,11 +127,10 @@ it('collects new facts only on the replacement when an external application repo
     },
     update: {},
   });
-  await prisma.githubRepository.update({
-    where: { id: oldId },
+  await prisma.repo.update({
+    where: { githubRepoId: oldGithubId },
     data: { source: 'EXTERNAL_PUBLIC' },
   });
-  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
   await service.updateMine(githubId, programId, input);
   const provider = syntheticProvider([commit('new-after-relink')]);
   const sync = new CollectionSyncService(
@@ -154,21 +154,18 @@ it('collects new facts only on the replacement when an external application repo
       where: { repoId: targetGithubId, kind: 'COMMIT' },
     }),
   ).toEqual([expect.objectContaining({ githubKey: 'new-after-relink' })]);
+  expect(await repoWithTeam(prisma, oldGithubId)).toBeNull();
   expect(
-    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toBeNull();
-  expect(
-    (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+    (await repositoryContributionTotals(prisma, [oldGithubId])).commitCount,
   ).toBe(0);
 });
 
 it('비공개이거나 사라진 외부 저장소는 연결이 남아 있어도 수집 대상에서 빠진다', async () => {
   await service.updateMine(githubId, programId, input);
-  await prisma.githubRepository.update({
-    where: { id: targetId },
-    data: { visibility: 'PRIVATE', presence: 'ABSENT' },
+  await prisma.repo.update({
+    where: { githubRepoId: targetGithubId },
+    data: { visibility: 'PRIVATE', presence: 'ABSENT', goneAt: observedAt },
   });
-  await syncGithubRepositoryLedger(prisma, targetGithubId);
 
   const selected = await collection.listCollectionTargets('EXTERNAL_PUBLIC');
 
@@ -179,11 +176,7 @@ it('비공개이거나 사라진 외부 저장소는 연결이 남아 있어도 
 
 it('stops selecting a linked external repository once deletion clears every link', async () => {
   await service.updateMine(githubId, programId, input);
-  await prisma.githubRepository.update({
-    where: { id: targetId },
-    data: { teamId: null },
-  });
-  await syncGithubRepositoryLedger(prisma, targetGithubId);
+  await unlinkRepo(prisma, targetGithubId);
 
   const selected = await collection.listCollectionTargets('EXTERNAL_PUBLIC');
 
@@ -193,11 +186,10 @@ it('stops selecting a linked external repository once deletion clears every link
 });
 
 it('does not revive a detached external repository when it is enrolled again', async () => {
-  await prisma.githubRepository.update({
-    where: { id: oldId },
+  await prisma.repo.update({
+    where: { githubRepoId: oldGithubId },
     data: { source: 'EXTERNAL_PUBLIC' },
   });
-  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
   await service.updateMine(githubId, programId, input);
 
   await collection.enrollExternalRepository({
@@ -216,11 +208,10 @@ it('does not revive a detached external repository when it is enrolled again', a
 });
 
 it('selects a historical external repository again when the application reattaches it', async () => {
-  await prisma.githubRepository.update({
-    where: { id: oldId },
+  await prisma.repo.update({
+    where: { githubRepoId: oldGithubId },
     data: { source: 'EXTERNAL_PUBLIC' },
   });
-  await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
   await service.updateMine(githubId, programId, input);
   resolver.resolve.mockResolvedValue({
     kind: 'EXTERNAL',
@@ -261,26 +252,23 @@ it('교체된 조직 저장소는 수집 목록에도 레포 테이블에도 남
   expect(
     selected.some((row) => row.githubRepositoryId === targetGithubId + 1n),
   ).toBe(false);
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toBeNull();
+  expect(await repoWithTeam(prisma, oldGithubId)).toBeNull();
 });
 
 it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
   'stops collecting and counting a deleted %s program repository while retaining facts and ranking',
   async (source) => {
-    const repositoryName = `synthetic/${oldId}`;
-    await prisma.githubRepository.update({
-      where: { id: oldId },
+    const repositoryName = `synthetic/${oldGithubId}`;
+    await prisma.repo.update({
+      where: { githubRepoId: oldGithubId },
       data: {
-        nameWithOwner: repositoryName,
+        ownerName: repositoryName,
         source,
         presence: 'PRESENT',
         visibility: 'PUBLIC',
         defaultBranch: 'main',
       },
     });
-    await syncGithubRepositoryLedger(prisma, targetGithubId + 1n);
     await prisma.contributionEvent.deleteMany({
       where: { repoId: targetGithubId + 1n },
     });
@@ -344,7 +332,7 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       ]),
     );
     const beforeContributions = await repositoryContributionTotals(prisma, [
-      oldId,
+      oldGithubId,
     ]);
     expect(beforeContributions.commitCount).toBe(1);
     await prisma.program.update({
@@ -358,18 +346,13 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     expect(provider.collectedNames()).toEqual([]);
     expect(provider.client.getRepositoryById).not.toHaveBeenCalled();
     await expect(
-      prisma.githubRepository.create({
-        data: {
-          githubRepositoryId: targetGithubId + 2n,
-          nameWithOwner: `synthetic/${oldId}-duplicate`,
-          teamId,
-          source,
-        },
+      seedRepo(prisma, {
+        githubRepositoryId: targetGithubId + 2n,
+        nameWithOwner: `synthetic/${oldGithubId}-duplicate`,
+        teamId,
+        source,
       }),
-    ).rejects.toMatchObject({
-      code: 'P2002',
-      meta: { target: ['teamId'] },
-    });
+    ).rejects.toThrow('team_repo_team_id_period_excl');
     expect(await trackedCount()).toBe(beforeTracked - 1);
     if (source === 'ORG_PROVISIONED') {
       const repositories = await status.getCollectionRepositories();
@@ -383,7 +366,7 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
         ),
       ).toBe(false);
     }
-    expect(await repositoryContributionTotals(prisma, [oldId])).toEqual(
+    expect(await repositoryContributionTotals(prisma, [oldGithubId])).toEqual(
       beforeContributions,
     );
     expect(await ranking.findMetrics({ currentYear: 2026 })).toEqual(
@@ -402,7 +385,7 @@ it('collects a repository linked into an empty slot right after the team route s
     },
     update: {},
   });
-  await deleteGithubRepositories(prisma, { id: oldId });
+  await deleteRepos(prisma, [oldGithubId]);
   const provider = syntheticProvider([commit('collected-right-after-link')]);
   const sync = new CollectionSyncService(
     collection,
@@ -476,10 +459,8 @@ it('교체된 조직 저장소는 다음 조직 수집에서 되살아나지 않
     processedRepositoryCount: 0,
   });
   expect(provider.collectedNames()).toEqual([]);
+  expect(await repoWithTeam(prisma, oldGithubId)).toBeNull();
   expect(
-    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toBeNull();
-  expect(
-    (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+    (await repositoryContributionTotals(prisma, [oldGithubId])).commitCount,
   ).toBe(0);
 });

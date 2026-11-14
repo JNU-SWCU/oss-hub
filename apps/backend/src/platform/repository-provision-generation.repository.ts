@@ -7,7 +7,6 @@ import {
   type RepositoryConnectionMode,
 } from '@prisma/client';
 import { InvalidRepositoryProvisionHistoryEventError } from './repository-provision-generation.error';
-import { RepoLedgerRepository } from './repo-ledger.repository';
 
 interface RepositoryProvisionHistoryPayload {
   readonly teamId: string;
@@ -72,13 +71,6 @@ export class RepositoryProvisionGenerationRepository {
         {
           requestId: input.requestId,
           teamId: input.teamId,
-          repositoryId:
-            input.githubRepositoryId === null
-              ? null
-              : await new RepoLedgerRepository().rowId(
-                  transaction,
-                  input.githubRepositoryId,
-                ),
           repoId: input.githubRepositoryId,
           connectionMode: payload.repositoryConnectionMode,
           source: input.source,
@@ -148,7 +140,6 @@ export class RepositoryProvisionGenerationRepository {
       where: { id: existing.id },
       data: {
         currentEventId: input.newEventId,
-        repositoryId: null,
         repoId: null,
         status: RepositoryProvisionJobStatus.PENDING,
         nextAttemptAt: input.now,
@@ -210,13 +201,7 @@ export class RepositoryProvisionGenerationRepository {
       return;
     }
 
-    const repository = {
-      repositoryId: await new RepoLedgerRepository().rowId(
-        transaction,
-        input.githubRepositoryId,
-      ),
-      repoId: input.githubRepositoryId,
-    };
+    const repository = { repoId: input.githubRepositoryId };
     await transaction.repositoryProvisionJob.upsert({
       where: { teamId: input.teamId },
       create: {

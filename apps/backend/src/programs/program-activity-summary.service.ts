@@ -72,7 +72,7 @@ export class ProgramActivitySummaryService {
 
       const lastActivityAt =
         newestActivityDate(activity)?.toISOString() ?? null;
-      const dataAsOf = activity.dataAsOf.toISOString();
+      const dataAsOf = activity.dataAsOf?.toISOString() ?? null;
 
       byProgram.set(link.programId, {
         programId: current.programId,
@@ -87,7 +87,7 @@ export class ProgramActivitySummaryService {
             ? current.lastActivityAt
             : (lastActivityAt ?? current.lastActivityAt),
         dataAsOf:
-          current.dataAsOf && current.dataAsOf > dataAsOf
+          current.dataAsOf && (dataAsOf === null || current.dataAsOf > dataAsOf)
             ? current.dataAsOf
             : dataAsOf,
       });
@@ -103,7 +103,10 @@ function latestActivityByRepository(
   const byRepository = new Map<bigint, ProgramRepositoryActivity>();
   for (const activity of activityRows) {
     const current = byRepository.get(activity.repositoryId);
-    if (!current || current.dataAsOf < activity.dataAsOf) {
+    if (
+      !current ||
+      (current.dataAsOf?.getTime() ?? 0) < (activity.dataAsOf?.getTime() ?? 0)
+    ) {
       byRepository.set(activity.repositoryId, activity);
     }
   }

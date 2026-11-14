@@ -523,8 +523,8 @@ export class PublicProjectsService {
       );
       return {
         repositoryId: repository.repositoryId,
-        dataAsOf: dataAsOf ?? repository.inventoryObservedAt ?? new Date(),
-        hasCollectedData: repository.inventoryObservedAt !== null,
+        dataAsOf: dataAsOf ?? repository.lastSuccessAt ?? new Date(),
+        hasCollectedData: repository.lastSuccessAt !== null,
         commitCount: repository.contributions.reduce(
           (sum, aggregate) => sum + aggregate.commitCount,
           0,

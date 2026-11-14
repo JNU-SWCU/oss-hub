@@ -26,10 +26,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
-import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
-} from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -111,7 +108,6 @@ interface SeededTeam {
   readonly historyId: string;
   readonly reviewHistoryId: string;
   readonly fileId: string;
-  readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
   readonly decisionNotificationId: string;
   readonly acknowledgedNotificationId: string;
@@ -153,10 +149,15 @@ async function cleanupTeamScope(): Promise<void> {
   await prisma.repositoryProvisionJob.deleteMany({
     where: { teamId: { startsWith: TEST_PREFIX } },
   });
-  await prisma.repositoryInvitation.deleteMany({
-    where: { repositoryId: { startsWith: TEST_PREFIX } },
+  const teams = await prisma.team.findMany({
+    where: { leaderId: { startsWith: TEST_PREFIX } },
+    select: { id: true },
   });
-  await deleteGithubRepositories(prisma, { id: { startsWith: TEST_PREFIX } });
+  await deleteRepos(
+    prisma,
+    [],
+    teams.map((team) => team.id),
+  );
   await prisma.teamInvitation.deleteMany({
     where: { inviteeId: { startsWith: TEST_PREFIX } },
   });
@@ -240,7 +241,6 @@ async function seedApprovedTeam(
   const submissionId = `${teamId}:submission`;
   const historyId = `${teamId}:history`;
   const reviewHistoryId = `${teamId}:review`;
-  const repositoryId = `${TEST_PREFIX}repository-${teamSequence}`;
   const invitationId = `${teamId}:invitation`;
 
   await prisma.team.create({
@@ -335,18 +335,14 @@ async function seedApprovedTeam(
   }
 
   const githubRepositoryId = BigInt(940000000 + teamSequence);
-  await prisma.githubRepository.create({
-    data: {
-      id: repositoryId,
-      githubRepositoryId,
-      nameWithOwner: `synthetic-org/team-${teamSequence}`,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: RepositoryVisibility.PUBLIC,
-      teamId,
-      publishedAt: new Date('2026-08-20T00:00:00.000Z'),
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId,
+    nameWithOwner: `synthetic-org/team-${teamSequence}`,
+    source: RepositorySource.ORG_PROVISIONED,
+    visibility: RepositoryVisibility.PUBLIC,
+    teamId,
+    publishedAt: new Date('2026-08-20T00:00:00.000Z'),
   });
-  await syncGithubRepositoryLedger(prisma, githubRepositoryId);
 
   await seedDailyContributions(prisma, githubRepositoryId, [
     { githubId: LEADER_GITHUB_ID, date: '2026-08-21', commitCount: 3 },
@@ -355,7 +351,6 @@ async function seedApprovedTeam(
     data: {
       id: `${teamId}:provision-job`,
       teamId,
-      repositoryId,
       repoId: githubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
     },
@@ -406,7 +401,6 @@ async function seedApprovedTeam(
     historyId,
     reviewHistoryId,
     fileId: `${teamId}:file`,
-    repositoryId,
     githubRepositoryId,
     decisionNotificationId: decisionNotification.id,
     acknowledgedNotificationId: acknowledged.id,
@@ -635,7 +629,6 @@ it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지
   const fixture = await seedApprovedTeam();
   await prisma.repositoryInvitation.create({
     data: {
-      repositoryId: fixture.repositoryId,
       repoId: fixture.githubRepositoryId,
       githubLogin: 'synthetic-team-deletion-invitee',
     },
@@ -649,8 +642,8 @@ it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지
   );
 
   await expect(
-    prisma.githubRepository.findUnique({ where: { id: fixture.repositoryId } }),
-  ).resolves.toBeNull();
+    prisma.teamRepo.count({ where: { teamId: fixture.teamId } }),
+  ).resolves.toBe(0);
   await expect(
     prisma.contributionEvent.count({
       where: { repoId: fixture.githubRepositoryId },
@@ -661,7 +654,7 @@ it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지
   ).resolves.toBe(0);
   await expect(
     prisma.repositoryInvitation.count({
-      where: { repositoryId: fixture.repositoryId },
+      where: { repoId: fixture.githubRepositoryId },
     }),
   ).resolves.toBe(0);
 });
@@ -850,7 +843,6 @@ it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', asy
     data: {
       requestId,
       teamId: fixture.teamId,
-      repositoryId: fixture.repositoryId,
       repoId: fixture.githubRepositoryId,
       connectionMode: RepositoryConnectionMode.NEW,
       source: RepositorySource.ORG_PROVISIONED,

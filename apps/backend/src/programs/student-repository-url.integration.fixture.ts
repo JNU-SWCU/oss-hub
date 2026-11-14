@@ -1,5 +1,4 @@
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
-import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -14,12 +13,12 @@ import {
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
 import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
+import { seedRepo } from '../../test/repo-ledger.fixture';
 import { ApplicationsRepository } from './team.repository';
 import { StudentRepositoryUrlRepository } from './team.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 
 const prisma = new PrismaService();
-const ledger = new RepoLedgerRepository();
 const namespace = randomBytes(4).toString('hex');
 const prefix = `synthetic-url-relink-${namespace}`;
 const githubIdBase = BigInt(`0x${namespace}`) * 1000n;
@@ -27,10 +26,9 @@ let programId = '';
 const userId = `${prefix}-user`;
 const githubId = githubIdBase + 1n;
 let teamId = '';
-let oldId = '';
-let targetId = '';
 let caseNumber = 0;
 let targetGithubId = 0n;
+let oldGithubId = 0n;
 const repository = new StudentRepositoryUrlRepository(
   prisma,
   new PlatformRepository(),
@@ -97,9 +95,8 @@ beforeEach(async () => {
   programId = `${prefix}-${caseNumber}-program`;
   teamId = `${prefix}-${caseNumber}-application`;
   teamId = `${prefix}-${caseNumber}-team`;
-  oldId = `${prefix}-${caseNumber}-old`;
-  targetId = `${prefix}-${caseNumber}-target`;
   targetGithubId = githubIdBase + BigInt(caseNumber * 10);
+  oldGithubId = targetGithubId + 1n;
   resolver.resolve.mockResolvedValue({
     kind: 'EXTERNAL',
     repository: {
@@ -150,28 +147,21 @@ beforeEach(async () => {
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.create({
-    data: {
-      id: oldId,
-      githubRepositoryId: targetGithubId + 1n,
-      nameWithOwner: 'synthetic/old',
-      teamId,
-      source: RepositorySource.ORG_PROVISIONED,
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId: oldGithubId,
+    nameWithOwner: 'synthetic/old',
+    teamId,
+    source: RepositorySource.ORG_PROVISIONED,
   });
-  await prisma.githubRepository.create({
-    data: {
-      id: targetId,
-      githubRepositoryId: targetGithubId,
-      nameWithOwner: 'synthetic/target',
-      source: RepositorySource.EXTERNAL_PUBLIC,
-      presence: 'ABSENT',
-      archived: true,
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId: targetGithubId,
+    nameWithOwner: 'synthetic/target',
+    source: RepositorySource.EXTERNAL_PUBLIC,
+    presence: 'ABSENT',
+    goneAt: new Date('2026-01-01T00:00:00.000Z'),
+    archived: true,
   });
-  await ledger.link(prisma, targetGithubId + 1n);
-  await ledger.write(prisma, targetGithubId);
-  await seedDailyContributions(prisma, targetGithubId + 1n, [
+  await seedDailyContributions(prisma, oldGithubId, [
     { githubId, date: '2026-08-01', commitCount: 7 },
   ]);
 });
@@ -192,8 +182,7 @@ export {
   githubId,
   programId,
   teamId,
-  oldId,
-  targetId,
   targetGithubId,
+  oldGithubId,
   input,
 };

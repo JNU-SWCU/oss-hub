@@ -169,7 +169,7 @@ async function seedRepository(
   teamId: string,
   scenarioId: string,
   visibility: RepositoryVisibility,
-): Promise<string> {
+): Promise<void> {
   const ledger = new RepoLedgerRepository();
   const githubRepositoryId = seedRepositoryId(scenarioId);
   await upsertTracked(
@@ -186,23 +186,13 @@ async function seedRepository(
         visibility,
       }),
   );
-  const repositoryId = await ledger.rowId(prisma, githubRepositoryId);
-  if (repositoryId === null) {
-    throw new Error(`seed repository ${scenarioId} was not written`);
-  }
-  return repositoryId;
 }
 
 async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
   const scenarioId = 'repo-job-succeeded';
   const { teamId } = await ensureApplication(stats, scenarioId);
 
-  const repositoryId = await seedRepository(
-    stats,
-    teamId,
-    scenarioId,
-    RepositoryVisibility.PRIVATE,
-  );
+  await seedRepository(stats, teamId, scenarioId, RepositoryVisibility.PRIVATE);
 
   const jobId = seedId('repositories', scenarioId, 'job');
   await upsertTracked(
@@ -216,7 +206,6 @@ async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
         create: {
           id: jobId,
           teamId,
-          repositoryId,
           repoId: seedRepositoryId(scenarioId),
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: offsetDays(-1),
@@ -260,12 +249,7 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
   const scenarioId = 'repository-ready';
   const { teamId, applicantId } = await ensureApplication(stats, scenarioId);
 
-  const repositoryId = await seedRepository(
-    stats,
-    teamId,
-    scenarioId,
-    RepositoryVisibility.PRIVATE,
-  );
+  await seedRepository(stats, teamId, scenarioId, RepositoryVisibility.PRIVATE);
 
   const invitationId = seedId('repositories', scenarioId, 'invitation');
   const invitedUser = await prisma.user.findUnique({
@@ -283,7 +267,6 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
         update: { status: RepositoryInvitationStatus.PENDING },
         create: {
           id: invitationId,
-          repositoryId,
           repoId: seedRepositoryId(scenarioId),
           githubLogin,
           status: RepositoryInvitationStatus.PENDING,

@@ -1,7 +1,4 @@
-import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
-} from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -228,27 +225,21 @@ async function createScenario(params: {
       processedAt: now(),
     },
   });
-  const rowId = `${PREFIX}-${params.key}-repository`;
   const githubRepositoryId = nextGithubRepositoryId();
   const nameWithOwner = `synthetic-org/${PREFIX}-${params.key}`;
-  await prisma.githubRepository.create({
-    data: {
-      id: rowId,
-      teamId,
-      githubRepositoryId,
-      nameWithOwner,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: params.visibility,
-      presence: CollectionRepositoryPresence.PRESENT,
-      publishedAt: params.publishedAt,
-    },
+  await seedRepo(prisma, {
+    teamId,
+    githubRepositoryId,
+    nameWithOwner,
+    source: RepositorySource.ORG_PROVISIONED,
+    visibility: params.visibility,
+    presence: CollectionRepositoryPresence.PRESENT,
+    publishedAt: params.publishedAt,
   });
-  await syncGithubRepositoryLedger(prisma, githubRepositoryId);
   await prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
       teamId,
-      repositoryId: rowId,
       repoId: githubRepositoryId,
       status: params.provisionStatus ?? RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: now(),
@@ -272,18 +263,20 @@ async function observeCollection(params: {
   readonly presence: CollectionRepositoryPresence;
   readonly observedAt: Date | null;
 }): Promise<void> {
-  await prisma.githubRepository.update({
-    where: { githubRepositoryId: params.githubRepositoryId },
+  await prisma.repo.update({
+    where: { githubRepoId: params.githubRepositoryId },
     data: {
-      githubOrganizationId: 8900000000000n,
       defaultBranch: 'main',
       archived: false,
       visibility: params.visibility,
       presence: params.presence,
-      lastCompleteInventoryObservedAt: params.observedAt,
+      goneAt:
+        params.presence === CollectionRepositoryPresence.ABSENT
+          ? params.observedAt
+          : null,
+      lastSuccessAt: params.observedAt,
     },
   });
-  await syncGithubRepositoryLedger(prisma, params.githubRepositoryId);
 }
 async function seedContributors(
   githubRepositoryId: bigint,
@@ -427,14 +420,13 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       presence: CollectionRepositoryPresence.PRESENT,
       observedAt: BEFORE_PUBLISH,
     });
-    await prisma.githubRepository.update({
-      where: { githubRepositoryId: outcome4.githubRepositoryId },
+    await prisma.repo.update({
+      where: { githubRepoId: outcome4.githubRepositoryId },
       data: {
         visibility: RepositoryVisibility.PUBLIC,
         publishedAt: PUBLISHED_AT,
       },
     });
-    await syncGithubRepositoryLedger(prisma, outcome4.githubRepositoryId);
     await seedContributors(
       outcome4.githubRepositoryId,
       GITHUB_ID_BASE + 900005n,
@@ -510,9 +502,16 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await deleteGithubRepositories(prisma, {
-        id: { startsWith: `${PREFIX}-` },
-      });
+      await deleteRepos(
+        prisma,
+        [],
+        (
+          await prisma.team.findMany({
+            where: { id: { startsWith: `${PREFIX}-` } },
+            select: { id: true },
+          })
+        ).map((team) => team.id),
+      );
       await prisma.teamMember.deleteMany({
         where: { teamId: { startsWith: `${PREFIX}-` } },
       });
@@ -732,10 +731,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
           where: { id: { in: teamIds } },
           data: { archivedAt },
         }),
-        prisma.githubRepository.updateMany({
-          where: { teamId: { in: teamIds } },
-          data: { teamId: null },
-        }),
       ]);
 
       const page = await publicProjectsService.findPage(undefined, 50);
@@ -767,12 +762,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
           UPDATE "team_repo" SET "valid_to" = NULL
           WHERE "team_id" IN (${Prisma.join(teamIds)}) AND "valid_to" = ${archivedAt}
         `,
-        ...[outcome2, outcome5].map((outcome) =>
-          prisma.githubRepository.updateMany({
-            where: { githubRepositoryId: outcome.githubRepositoryId },
-            data: { teamId: outcome.teamId },
-          }),
-        ),
       ]);
     }
   });

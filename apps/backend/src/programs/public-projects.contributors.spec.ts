@@ -29,7 +29,6 @@ describe('PublicProjectsService.findDetail contributor 합산 (실제 metrics re
       repo: {
         findMany: jest.fn().mockResolvedValue([{ githubRepoId: 101n }]),
       },
-      githubRepository: { findMany: jest.fn().mockResolvedValue([]) },
       $queryRaw: jest
         .fn()
         .mockResolvedValue([

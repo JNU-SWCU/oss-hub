@@ -47,7 +47,7 @@ export class RepositoryDeletionRepository {
   `;
     await transaction.repositoryProvisionJob.updateMany({
       where: { repoId: githubRepositoryId },
-      data: { repositoryId: null, repoId: null },
+      data: { repoId: null },
     });
     await transaction.repositoryInvitation.deleteMany({
       where: { repoId: githubRepositoryId },

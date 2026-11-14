@@ -335,7 +335,7 @@ function serviceWith(overrides: {
         })) as readonly ProgramRepositoryCumulativeMetrics[]
       ).map((metric) => ({
         repositoryId: metric.repositoryId,
-        inventoryObservedAt: metric.hasCollectedData ? metric.dataAsOf : null,
+        lastSuccessAt: metric.hasCollectedData ? metric.dataAsOf : null,
         contributions: [
           {
             commitCount: metric.commitCount,

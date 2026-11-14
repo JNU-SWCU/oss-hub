@@ -8,7 +8,7 @@ import {
 import { stateForE2eProgramGraph } from './e2e-program-authoring-state';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
-import { deleteGithubRepositories } from '../repo-ledger.fixture';
+import { deleteRepos } from '../repo-ledger.fixture';
 import { adoptE2eProgramGraph } from './e2e-program-authoring-graph-adoption';
 import { ensureE2eProgramAuthoringActors } from './e2e-program-authoring-actors';
 import { deleteE2eProgramDeadlineClaims } from './e2e-program-authoring-notification-cleanup';
@@ -29,12 +29,13 @@ export const E2E_DOCUMENT_ID = `${PREFIX}document`;
 export const E2E_STAFF_GITHUB_ID = 8100001n;
 export const E2E_STUDENT_GITHUB_ID = 8100002n;
 export const E2E_FOREIGN_STUDENT_GITHUB_ID = 8100003n;
+export const E2E_DETACHED_REPOSITORY_OWNER = 'e2e-program-authoring-detached';
 export const E2E_REPOSITORY_WHERE = {
   OR: [
-    { team: { programId: E2E_PROGRAM_ID } },
-    { teamId: null, id: { startsWith: `${E2E_PROGRAM_ID}-` } },
+    { teamRepos: { some: { team: { programId: E2E_PROGRAM_ID } } } },
+    { ownerName: { startsWith: `${E2E_DETACHED_REPOSITORY_OWNER}/` } },
   ],
-} satisfies Prisma.GithubRepositoryWhereInput;
+} satisfies Prisma.RepoWhereInput;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 export const E2E_NOW = new Date(Date.now() + 2 * ONE_HOUR_MS);
@@ -71,12 +72,13 @@ export class E2eProgramAuthoringFixture {
       await transaction.repositoryProvisionJob.deleteMany({
         where: { teamId: { in: teamIds } },
       });
-      await transaction.repositoryInvitation.deleteMany({
-        where: { repository: E2E_REPOSITORY_WHERE },
+      const repositories = await transaction.repo.findMany({
+        where: E2E_REPOSITORY_WHERE,
+        select: { githubRepoId: true },
       });
-      await deleteGithubRepositories(
+      await deleteRepos(
         transaction,
-        E2E_REPOSITORY_WHERE,
+        repositories.map((repository) => repository.githubRepoId),
         teamIds,
       );
       await transaction.file.deleteMany({

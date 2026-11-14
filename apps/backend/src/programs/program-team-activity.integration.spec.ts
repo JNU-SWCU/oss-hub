@@ -14,7 +14,7 @@ import {
   seedDailyContributions,
   setRepoLastSuccessAt,
 } from '../../test/ledger-contribution.fixture';
-import { syncGithubRepositoryLedgers } from '../../test/repo-ledger.fixture';
+import { seedRepos } from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
@@ -143,27 +143,19 @@ beforeAll(async () => {
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.createMany({
-    data: [
-      {
-        id: repositoryA,
-        githubRepositoryId: base + 100n,
-        nameWithOwner: 'synthetic/a',
-        source: 'ORG_PROVISIONED',
-        teamId: null,
-      },
-      {
-        id: repositoryB,
-        githubRepositoryId: base + 101n,
-        nameWithOwner: 'synthetic/b',
-        source: 'EXTERNAL_PUBLIC',
-        teamId,
-      },
-    ],
-  });
-  await syncGithubRepositoryLedgers(prisma, {
-    id: { in: [repositoryA, repositoryB] },
-  });
+  await seedRepos(prisma, [
+    {
+      githubRepositoryId: base + 100n,
+      nameWithOwner: 'synthetic/a',
+      source: 'ORG_PROVISIONED',
+    },
+    {
+      githubRepositoryId: base + 101n,
+      nameWithOwner: 'synthetic/b',
+      source: 'EXTERNAL_PUBLIC',
+      teamId,
+    },
+  ]);
   await seedDailyContributions(prisma, base + 100n, [
     {
       githubId: people.leader.githubId,

@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
+import { relinkRepo, repoWithTeam } from '../../test/repo-ledger.fixture';
 import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import {
@@ -17,8 +17,7 @@ import {
   githubId,
   programId,
   teamId,
-  oldId,
-  targetId,
+  oldGithubId,
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
@@ -100,9 +99,7 @@ async function givenOtherTeam() {
 }
 
 async function expectCurrentLinkKept() {
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ teamId });
+  expect(await repoWithTeam(prisma, oldGithubId)).toMatchObject({ teamId });
   expect(
     await prisma.teamHistory.count({
       where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
@@ -123,9 +120,7 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
     canEditRepositoryUrl: true,
   });
 
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId });
+  expect(await repoWithTeam(prisma, targetGithubId)).toMatchObject({ teamId });
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
@@ -186,55 +181,43 @@ it('rejects an archived team repository change and still saves one for an active
       repositoryUrl: nextUrl,
     }),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_028', status: 409 } });
+  expect(await repoWithTeam(prisma, targetGithubId)).toMatchObject({
+    teamId,
+    ownerName: 'synthetic/target',
+  });
   expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId, nameWithOwner: 'synthetic/target' });
-  expect(
-    await prisma.githubRepository.findUnique({
-      where: { githubRepositoryId: targetGithubId + 50n },
+    await prisma.repo.findUnique({
+      where: { githubRepoId: targetGithubId + 50n },
     }),
   ).toBeNull();
 });
 
 it('lets the current leader use the same team route', async () => {
   await service.updateForTeam(githubId, programId, teamId, input);
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId });
+  expect(await repoWithTeam(prisma, targetGithubId)).toMatchObject({ teamId });
 });
 
 it('rejects a repository owned by another application without detaching A', async () => {
   const other = await givenOtherTeam();
-  await prisma.githubRepository.update({
-    where: { id: targetId },
-    data: {
-      teamId: other.teamId,
-    },
-  });
-  await syncGithubRepositoryLedger(prisma, targetGithubId);
+  await relinkRepo(prisma, targetGithubId, other.teamId);
   await expect(
     service.updateForTeam(staffGithubId, programId, teamId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_029' } });
   await expectCurrentLinkKept();
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId: other.teamId });
+  expect(await repoWithTeam(prisma, targetGithubId)).toMatchObject({
+    teamId: other.teamId,
+  });
 });
 
 it('rejects a detached repository carrying another team history without changing it', async () => {
   const other = await givenOtherTeam();
-  const carried = await prisma.githubRepository.update({
-    where: { id: targetId },
-    data: { teamId: other.teamId },
-  });
-  await syncGithubRepositoryLedger(prisma, targetGithubId);
+  await relinkRepo(prisma, targetGithubId, other.teamId);
+  const carried = await repoWithTeam(prisma, targetGithubId);
   await expect(
     service.updateForTeam(staffGithubId, programId, teamId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_029' } });
   await expectCurrentLinkKept();
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toEqual(carried);
+  expect(await repoWithTeam(prisma, targetGithubId)).toEqual(carried);
 });
 
 it('rolls back a staff link when the team history write fails', async () => {
@@ -251,9 +234,11 @@ it('rolls back a staff link when the team history write fails', async () => {
     );
   }
   await expectCurrentLinkKept();
-  expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId: null, presence: 'ABSENT', archived: true });
+  expect(await repoWithTeam(prisma, targetGithubId)).toMatchObject({
+    teamId: null,
+    presence: 'ABSENT',
+    archived: true,
+  });
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,

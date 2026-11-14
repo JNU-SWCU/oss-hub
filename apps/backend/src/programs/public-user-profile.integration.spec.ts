@@ -11,10 +11,7 @@ import {
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
-import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedgers,
-} from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepos } from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -138,9 +135,9 @@ describe('PublicProjectsService.findProfile integration', () => {
 
     const observedKeys = ['a', 'b', 'd'] as const;
     const preSweepKeys = ['e'] as const;
-    await prisma.githubRepository.createMany({
-      data: repoKeys.map((key) => ({
-        id: `${PREFIX}-repository-${key}`,
+    await seedRepos(
+      prisma,
+      repoKeys.map((key) => ({
         teamId: `${PREFIX}-team-${key}`,
         githubRepositoryId: githubRepositoryIdByKey[key],
         nameWithOwner: `synthetic-org/${PREFIX}-repo-${key}`,
@@ -149,23 +146,18 @@ describe('PublicProjectsService.findProfile integration', () => {
         publishedAt: PUBLISHED_AT,
         ...((observedKeys as readonly string[]).includes(key)
           ? {
-              githubOrganizationId: 8800500000000n,
               defaultBranch: 'main',
               presence: CollectionRepositoryPresence.PRESENT,
-              lastCompleteInventoryObservedAt: new Date(
-                '2026-05-01T00:00:00.000Z',
-              ),
+              lastSuccessAt: new Date('2026-05-01T00:00:00.000Z'),
             }
           : (preSweepKeys as readonly string[]).includes(key)
             ? {
-                githubOrganizationId: 8800500000000n,
                 defaultBranch: 'main',
                 presence: CollectionRepositoryPresence.PRESENT,
               }
             : { presence: CollectionRepositoryPresence.ABSENT }),
       })),
-    });
-    await syncGithubRepositoryLedgers(prisma, { id: { startsWith: PREFIX } });
+    );
 
     await seedDailyContributions(prisma, githubRepositoryIdByKey.a, [
       {
@@ -205,7 +197,7 @@ describe('PublicProjectsService.findProfile integration', () => {
 
   afterAll(async () => {
     try {
-      await deleteGithubRepositories(prisma, { id: { startsWith: PREFIX } });
+      await deleteRepos(prisma, Object.values(githubRepositoryIdByKey));
       await prisma.teamMember.deleteMany({
         where: { programId: { startsWith: PROGRAM_ID } },
       });
