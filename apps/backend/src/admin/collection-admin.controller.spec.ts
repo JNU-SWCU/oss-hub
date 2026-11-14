@@ -1,13 +1,17 @@
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
 import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
 import { CollectionAdminController } from './collection-admin.controller';
+import { CollectionTriggerRequestDto } from './dto/collection-trigger-request.dto';
 import { CollectionAdminService } from '../github/collection-admin.service';
 import { CollectionCutoverRepository } from '../github/repository-provision-job.repository';
-import { CollectionSyncService } from '../github/collection-sync.service';
+import {
+  CollectionSyncService,
+  type CollectionRunKind,
+} from '../github/collection-sync.service';
 import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
@@ -26,11 +30,11 @@ function createController(
 describe('CollectionAdminController', () => {
   const run = jest.fn<
     Promise<{ runId: string; status: 'COMPLETED' }>,
-    [string, string?]
+    [string, string?, CollectionRunKind?]
   >();
   const runExternal = jest.fn<
     Promise<{ runId: string; status: 'COMPLETED' }>,
-    [string, string?]
+    [string, string?, CollectionRunKind?]
   >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
   const runUserActivity = jest.fn<
@@ -78,7 +82,7 @@ describe('CollectionAdminController', () => {
       status: 'COMPLETED',
     });
 
-    const result = await controller.trigger();
+    const result = await controller.trigger({});
     expect(result.status).toBe('PENDING');
     expect(typeof result.runId).toBe('string');
     await testingModule.close();
@@ -92,7 +96,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await controller.trigger();
+    await controller.trigger({});
 
     expect(runExternal).toHaveBeenCalledTimes(1);
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^admin:/);
@@ -117,7 +121,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await controller.trigger();
+    await controller.trigger({});
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(runUserActivity).toHaveBeenCalledTimes(1);
@@ -144,7 +148,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await expect(controller.trigger()).resolves.toEqual(
+    await expect(controller.trigger({})).resolves.toEqual(
       expect.objectContaining({ status: 'PENDING' }),
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -167,7 +171,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await expect(controller.trigger()).rejects.toMatchObject({
+    await expect(controller.trigger({})).rejects.toMatchObject({
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
@@ -186,7 +190,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const result = await controller.trigger();
+    const result = await controller.trigger({});
     expect(result.status).toBe('PENDING');
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -228,10 +232,65 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const response = await controller.trigger();
+    const response = await controller.trigger({});
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(run).toHaveBeenCalledWith(expect.any(String), response.runId);
+    expect(run).toHaveBeenCalledWith(
+      expect.any(String),
+      response.runId,
+      'hourly',
+    );
+    expect(runExternal).toHaveBeenCalledWith(
+      expect.any(String),
+      response.runId,
+      'hourly',
+    );
+  });
+
+  it('fullScan: true면 조직과 외부 sweep을 since 없는 전체 읽기로 시작한다', async () => {
+    run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    const response = await controller.trigger({ fullScan: true });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledWith(
+      expect.any(String),
+      response.runId,
+      'full',
+    );
+    expect(runExternal).toHaveBeenCalledWith(
+      expect.any(String),
+      response.runId,
+      'full',
+    );
+  });
+
+  it('fullScan은 boolean만 받고 모르는 필드는 거절한다', async () => {
+    const pipe = new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    const metadata = {
+      type: 'body' as const,
+      metatype: CollectionTriggerRequestDto,
+    };
+
+    await expect(pipe.transform({ fullScan: true }, metadata)).resolves.toEqual(
+      { fullScan: true },
+    );
+    await expect(pipe.transform({}, metadata)).resolves.toEqual({});
+    await expect(
+      pipe.transform({ fullScan: 'yes' }, metadata),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      pipe.transform({ since: '2026-01-01' }, metadata),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('트리거의 응답 계약은 그대로 유지한다', async () => {
@@ -242,7 +301,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const response = await controller.trigger();
+    const response = await controller.trigger({});
 
     expect(typeof response.runId).toBe('string');
     expect(response.status).toBe('PENDING');

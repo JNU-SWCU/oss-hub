@@ -46,15 +46,39 @@ afterAll(async () => {
   await prisma.user.deleteMany({ where: { id: ADMIN_ID } });
 });
 
-it('drops a detached organization repository from the tracked set so its missing streams stop reading as partial', async () => {
-  const before = (await statusService.getStatus()).collection;
+it('drops a detached organization repository from the tracked set', async () => {
+  const before = await status.getCollectionRepositories();
 
   await service.updateMine(githubId, programId, input);
 
-  const after = (await statusService.getStatus()).collection;
-  expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount - 1);
+  const after = await status.getCollectionRepositories();
+  expect(after).toHaveLength(before.length - 1);
+});
 
-  expect(after.partialStreamCount).toBe(before.partialStreamCount - 4);
+it('reads each tracked organization repository success time from the repo ledger', async () => {
+  const succeededAt = new Date('2099-02-01T00:00:00.000Z');
+  const tracked = await prisma.githubRepository.findUniqueOrThrow({
+    where: { id: oldId },
+    select: { githubRepositoryId: true, nameWithOwner: true },
+  });
+  await new RepoLedgerRepository().write(prisma, tracked.githubRepositoryId);
+  await prisma.repo.update({
+    where: { githubRepoId: tracked.githubRepositoryId },
+    data: { lastSuccessAt: succeededAt },
+  });
+
+  const repositories = await status.getCollectionRepositories();
+
+  expect(
+    repositories
+      .filter(
+        (repository) => repository.repositoryName === tracked.nameWithOwner,
+      )
+      .map((repository) => repository.lastSuccessAt),
+  ).toContainEqual(succeededAt);
+  expect((await statusService.getStatus()).collection.lastSuccessAt).toEqual(
+    succeededAt,
+  );
 });
 
 it('counts the new external link instead of the detached external one', async () => {
@@ -106,14 +130,13 @@ it('reports the newest repo ledger success of tracked external repositories and 
       source: 'EXTERNAL_PUBLIC',
       presence: 'PRESENT',
       visibility: 'PUBLIC',
-      lastSuccessAt: succeededAt,
     },
   });
-
-  const unwritten = await status.getExternalCollectionStatus();
-  expect(unwritten.lastSuccessAt).not.toEqual(succeededAt);
-
   await new RepoLedgerRepository().write(prisma, targetGithubId + 1n);
+  await prisma.repo.update({
+    where: { githubRepoId: targetGithubId + 1n },
+    data: { lastSuccessAt: succeededAt },
+  });
 
   const linked = await status.getExternalCollectionStatus();
   expect(linked.lastSuccessAt).toEqual(succeededAt);

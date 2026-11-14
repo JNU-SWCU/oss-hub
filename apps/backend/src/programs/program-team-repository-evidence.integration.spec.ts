@@ -142,7 +142,6 @@ it('projects current repository facts and URL audit history without reading or m
         nameWithOwner: 'synthetic/current',
         source: 'EXTERNAL_PUBLIC',
         teamId,
-        lastSuccessAt: new Date('2026-09-01Z'),
       },
     ],
   });
@@ -289,7 +288,6 @@ it('reads contributions of a program that never set an end date', async () => {
       nameWithOwner: 'synthetic/sentinel',
       source: 'EXTERNAL_PUBLIC',
       teamId: scopedTeamId,
-      lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
   await seedDailyContributions(
@@ -406,7 +404,6 @@ it('counts issues for team members, so an issue-only member has observations', a
       nameWithOwner: 'synthetic/issue-only',
       source: 'EXTERNAL_PUBLIC',
       teamId: scopedTeamId,
-      lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
   await seedDailyContributions(
@@ -539,7 +536,6 @@ it('counts only student authors in team, program and public totals', async () =>
         source: 'EXTERNAL_PUBLIC',
         visibility: 'PUBLIC',
         teamId: team.id,
-        lastSuccessAt: new Date('2026-09-01Z'),
         lastCompleteInventoryObservedAt: new Date('2026-09-01Z'),
       },
     });

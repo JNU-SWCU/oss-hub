@@ -1,28 +1,16 @@
 import type { SystemStatusResult } from '../system-status.service';
 
-export type CollectionHealthResponseDto =
-  'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
+export type CollectionHealthResponseDto = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
 export type CurrentRunStatusResponseDto = 'IDLE' | 'PROCESSING';
 
 export type SystemStatusSafeReasonResponseDto =
-  | 'NO_TRACKED_REPOSITORIES'
-  | 'UPSTREAM_RATE_LIMITED'
-  | 'RUN_INCOMPLETE'
-  | 'STALE_DATA';
+  'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
 
 export class CollectionSystemStatusResponseDto {
   declare readonly health: CollectionHealthResponseDto;
-  declare readonly dataAsOf: string | null;
   declare readonly trackedRepositoryCount: number;
-  declare readonly readyStreamCount: number;
-  declare readonly backfillingStreamCount: number;
-  declare readonly partialStreamCount: number;
-  declare readonly retryPendingStreamCount: number;
-  declare readonly oldestReadyCheckpointAt: string | null;
-  declare readonly oldestRetryPendingAt: string | null;
-  declare readonly lastCycleStartedAt: string | null;
-  declare readonly lastCycleCompletedAt: string | null;
+  declare readonly staleRepositoryCount: number;
   declare readonly lastSuccessAt: string | null;
   declare readonly nextCycleAt: string | null;
   declare readonly currentRunStatus: CurrentRunStatusResponseDto;
@@ -33,19 +21,8 @@ export class CollectionSystemStatusResponseDto {
   ): CollectionSystemStatusResponseDto {
     return {
       health: collection.health,
-      dataAsOf: collection.dataAsOf?.toISOString() ?? null,
       trackedRepositoryCount: collection.trackedRepositoryCount,
-      readyStreamCount: collection.readyStreamCount,
-      backfillingStreamCount: collection.backfillingStreamCount,
-      partialStreamCount: collection.partialStreamCount,
-      retryPendingStreamCount: collection.retryPendingStreamCount,
-      oldestReadyCheckpointAt:
-        collection.oldestReadyCheckpointAt?.toISOString() ?? null,
-      oldestRetryPendingAt:
-        collection.oldestRetryPendingAt?.toISOString() ?? null,
-      lastCycleStartedAt: collection.lastCycleStartedAt?.toISOString() ?? null,
-      lastCycleCompletedAt:
-        collection.lastCycleCompletedAt?.toISOString() ?? null,
+      staleRepositoryCount: collection.staleRepositoryCount,
       lastSuccessAt: collection.lastSuccessAt?.toISOString() ?? null,
       nextCycleAt: collection.nextCycleAt?.toISOString() ?? null,
       currentRunStatus: collection.currentRunStatus,
@@ -64,46 +41,20 @@ export class RepositoryProvisioningSystemStatusResponseDto {
   }
 }
 
-export type CollectionStreamBucketResponseDto =
-  'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
-
-export type CollectionStreamTypeResponseDto =
-  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
-
-export class CollectionRepositoryStreamResponseDto {
-  declare readonly streamType: CollectionStreamTypeResponseDto;
-  declare readonly bucket: CollectionStreamBucketResponseDto;
-  declare readonly lastSuccessAt: string | null;
-  declare readonly lastErrorCode: string | null;
-  declare readonly lastErrorAt: string | null;
-
-  static from(
-    stream: SystemStatusResult['collectionStreams'][number]['streams'][number],
-  ): CollectionRepositoryStreamResponseDto {
-    return {
-      streamType: stream.streamType,
-      bucket: stream.bucket,
-      lastSuccessAt: stream.lastSuccessAt?.toISOString() ?? null,
-      lastErrorCode: stream.lastErrorCode,
-      lastErrorAt: stream.lastErrorAt?.toISOString() ?? null,
-    };
-  }
-}
-
-export class SystemStatusCollectionStreamsResponseDto {
+export class SystemStatusCollectionRepositoryResponseDto {
   declare readonly repositoryName: string;
   declare readonly programName: string | null;
-  declare readonly streams: readonly CollectionRepositoryStreamResponseDto[];
+  declare readonly lastSuccessAt: string | null;
+  declare readonly stale: boolean;
 
   static from(
-    repository: SystemStatusResult['collectionStreams'][number],
-  ): SystemStatusCollectionStreamsResponseDto {
+    repository: SystemStatusResult['collectionRepositories'][number],
+  ): SystemStatusCollectionRepositoryResponseDto {
     return {
       repositoryName: repository.repositoryName,
       programName: repository.programName,
-      streams: repository.streams.map((stream) =>
-        CollectionRepositoryStreamResponseDto.from(stream),
-      ),
+      lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
+      stale: repository.stale,
     };
   }
 }
@@ -125,7 +76,7 @@ export class SystemStatusExternalCollectionResponseDto {
 export class SystemStatusResponseDto {
   declare readonly collection: CollectionSystemStatusResponseDto;
   declare readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto;
-  declare readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[];
+  declare readonly collectionRepositories: readonly SystemStatusCollectionRepositoryResponseDto[];
   declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
   static from(result: SystemStatusResult): SystemStatusResponseDto {
@@ -135,8 +86,8 @@ export class SystemStatusResponseDto {
         RepositoryProvisioningSystemStatusResponseDto.from(
           result.repositoryProvisioning,
         ),
-      collectionStreams: result.collectionStreams.map((repository) =>
-        SystemStatusCollectionStreamsResponseDto.from(repository),
+      collectionRepositories: result.collectionRepositories.map((repository) =>
+        SystemStatusCollectionRepositoryResponseDto.from(repository),
       ),
       externalCollection: SystemStatusExternalCollectionResponseDto.from(
         result.externalCollection,

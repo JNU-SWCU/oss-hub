@@ -2,7 +2,6 @@ export type RepositoryDeletionCounts = {
   readonly repositories: number;
   readonly commits: number;
   readonly contributions: number;
-  readonly streams: number;
   readonly pullRequests: number;
   readonly releases: number;
   readonly issues: number;

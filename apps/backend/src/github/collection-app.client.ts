@@ -2,56 +2,78 @@ import { Injectable } from '@nestjs/common';
 import { CollectionAppConfigValues } from './collection-app.config';
 import { CollectionAppClientError } from './collection-app.error';
 
-export interface RequestFingerprint {
-  readonly endpoint: string;
-  readonly ref: string | null;
-  readonly query: string;
-  readonly order: string | null;
-  readonly pageSize: number;
-  readonly accept: string;
-  readonly apiVersion: string;
-}
-
-export interface PullRequestFrontier {
-  readonly createdAt: string;
-  readonly id: string;
-}
-
-export type IssueFrontier = PullRequestFrontier;
-
-export interface ReleaseFrontier {
-  readonly probe: string;
-}
-
-const API_VERSION = '2022-11-28';
 const ACCEPT = 'application/vnd.github+json';
+const API_VERSION = '2022-11-28';
 
 const DEFAULT_GRAPHQL_URL = 'https://api.github.com/graphql';
 const USER_AGENT = 'oss-hub-collection-app';
 
-const USER_NODE_ID_QUERY = `
-  query CollectionUserNodeId($login: String!) {
-    user(login: $login) { id }
+const PROBE_FIELDS = `
+  fragment CollectionProbeFields on Repository {
+    databaseId
+    nameWithOwner
+    isArchived
+    isPrivate
+    defaultBranchRef { name }
+    pushedAt
+    issues(first: 1, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { updatedAt } }
+    pullRequests(first: 1, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { updatedAt } }
+    releases(first: 1, orderBy: { field: CREATED_AT, direction: DESC }) { nodes { createdAt publishedAt } }
   }
 `;
 
-const AUTHOR_COMMIT_HISTORY_QUERY = `
-  query CollectionAuthorCommits($owner: String!, $name: String!, $branch: String!, $authorId: ID!, $since: GitTimestamp, $cursor: String) {
+const REPOSITORY_CONTRIBUTIONS_QUERY = `
+  query CollectionRepositoryContributions(
+    $owner: String!
+    $name: String!
+    $branch: String!
+    $since: GitTimestamp
+    $issueSince: DateTime
+    $withCommits: Boolean!
+    $withPullRequests: Boolean!
+    $withIssues: Boolean!
+    $withReleases: Boolean!
+    $commitCursor: String
+    $pullRequestCursor: String
+    $issueCursor: String
+    $releaseCursor: String
+  ) {
+    rateLimit { cost remaining }
     repository(owner: $owner, name: $name) {
-      ref(qualifiedName: $branch) {
+      ref(qualifiedName: $branch) @include(if: $withCommits) {
         target {
           ... on Commit {
-            history(first: 100, author: { id: $authorId }, since: $since, after: $cursor) {
-              nodes {
-                oid
-                committedDate
-                commitUrl
-                author { user { databaseId login } }
-              }
+            history(first: 100, since: $since, after: $commitCursor) {
+              nodes { oid committedDate author { user { databaseId } } }
               pageInfo { hasNextPage endCursor }
             }
           }
         }
+      }
+      pullRequests(
+        first: 100
+        after: $pullRequestCursor
+        orderBy: { field: CREATED_AT, direction: DESC }
+      ) @include(if: $withPullRequests) {
+        nodes { fullDatabaseId createdAt author { ... on User { databaseId } ... on Bot { databaseId } } }
+        pageInfo { hasNextPage endCursor }
+      }
+      issues(
+        first: 100
+        after: $issueCursor
+        filterBy: { since: $issueSince }
+        orderBy: { field: CREATED_AT, direction: DESC }
+      ) @include(if: $withIssues) {
+        nodes { fullDatabaseId createdAt author { ... on User { databaseId } ... on Bot { databaseId } } }
+        pageInfo { hasNextPage endCursor }
+      }
+      releases(
+        first: 100
+        after: $releaseCursor
+        orderBy: { field: CREATED_AT, direction: DESC }
+      ) @include(if: $withReleases) {
+        nodes { databaseId createdAt publishedAt isDraft author { databaseId } }
+        pageInfo { hasNextPage endCursor }
       }
     }
   }
@@ -66,90 +88,73 @@ export interface CollectionAppClientTokenProvider {
 
 export interface CollectionRepository {
   id: string;
-  name: string;
   fullName: string;
   private: boolean;
   archived: boolean;
   defaultBranch: string | null;
-  ownerLogin: string;
-  htmlUrl: string;
-  updatedAt: string;
-}
-export interface CollectionCommit {
-  sha: string;
-  authorLogin: string | null;
-  authorGithubId: string | null;
-  committedAt: string;
-  htmlUrl: string;
-}
-export interface CollectionPullRequest {
-  id: string;
-  number: number;
-  state: 'open' | 'closed';
-  draft: boolean;
-  mergedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  authorLogin: string | null;
-  authorGithubId: string | null;
-  htmlUrl: string;
-}
-export interface CollectionRelease {
-  id: string;
-  tagName: string;
-  name: string | null;
-  publishedAt: string;
-  authorLogin: string | null;
-  authorGithubId: string | null;
-  htmlUrl: string;
-}
-export interface CollectionIssue {
-  id: string;
-  state: 'open' | 'closed';
-  createdAt: string;
-  authorLogin: string | null;
-  authorGithubId: string | null;
 }
 
-export type CommitHeadProbeResult =
-  | { changed: false; fingerprint: RequestFingerprint; etag: string }
-  | {
-      changed: true;
-      headSha: string | null;
-      fingerprint: RequestFingerprint;
-      etag: string | null;
-    };
-
-export interface CommitTraversalResult {
-  commits: CollectionCommit[];
-  disconnectedFullScan: boolean;
-  fingerprint: RequestFingerprint;
+export interface CollectionRateLimit {
+  readonly cost: number;
+  readonly remaining: number;
 }
 
-export interface PullRequestIncrementalResult {
-  pullRequests: CollectionPullRequest[];
-  newFrontier: PullRequestFrontier | null;
-  fingerprint: RequestFingerprint;
+export interface CollectionProbeTarget {
+  readonly owner: string;
+  readonly name: string;
 }
 
-export interface IssueIncrementalResult {
-  issues: CollectionIssue[];
-  newFrontier: IssueFrontier | null;
-  fingerprint: RequestFingerprint;
+export interface CollectionRepositoryProbe {
+  readonly githubRepositoryId: string;
+  readonly nameWithOwner: string;
+  readonly defaultBranch: string | null;
+  readonly archived: boolean;
+  readonly private: boolean;
+  readonly activityAt: readonly Date[];
 }
 
-export type ReleaseProbeResult =
-  | { changed: false; fingerprint: RequestFingerprint; etag: string }
-  | {
-      changed: true;
-      frontier: ReleaseFrontier | null;
-      fingerprint: RequestFingerprint;
-      etag: string | null;
-    };
+export interface CollectionProbeResult {
+  readonly repositories: readonly (CollectionRepositoryProbe | null)[];
+  readonly rateLimit: CollectionRateLimit | null;
+}
 
-export interface ReleaseListingResult {
-  releases: CollectionRelease[];
-  fingerprint: RequestFingerprint;
+export type CollectionContributionKind =
+  'commit' | 'pull_request' | 'issue' | 'release';
+
+export interface CollectionContribution {
+  readonly githubKey: string;
+  readonly authorGithubId: string | null;
+  readonly occurredAt: Date;
+}
+
+export interface CollectionRepositoryContributions {
+  readonly contributions: Readonly<
+    Record<CollectionContributionKind, readonly CollectionContribution[]>
+  >;
+  readonly requests: number;
+  readonly pointsUsed: number;
+  readonly rateLimit: CollectionRateLimit | null;
+}
+
+const CONTRIBUTION_KINDS: readonly CollectionContributionKind[] = [
+  'commit',
+  'pull_request',
+  'issue',
+  'release',
+];
+
+const CONNECTION_VARIABLES: Readonly<
+  Record<CollectionContributionKind, { include: string; cursor: string }>
+> = {
+  commit: { include: 'withCommits', cursor: 'commitCursor' },
+  pull_request: { include: 'withPullRequests', cursor: 'pullRequestCursor' },
+  issue: { include: 'withIssues', cursor: 'issueCursor' },
+  release: { include: 'withReleases', cursor: 'releaseCursor' },
+};
+
+interface ConnectionPage {
+  readonly contributions: readonly CollectionContribution[];
+  readonly nextCursor: string | null;
 }
 
 function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
@@ -173,430 +178,295 @@ export class CollectionAppClient {
     private readonly now: () => number = Date.now,
   ) {}
 
-  requestFingerprintKey(fingerprint: RequestFingerprint): string {
-    return [
-      fingerprint.endpoint,
-      fingerprint.ref ?? '',
-      fingerprint.query,
-      fingerprint.order ?? '',
-      String(fingerprint.pageSize),
-      fingerprint.accept,
-      fingerprint.apiVersion,
-    ].join('\u001f');
-  }
-
-  listInstallationRepositories(): Promise<CollectionRepository[]> {
-    return this.pages(
-      '/installation/repositories?per_page=100',
-      (v) => this.repository(v),
-      'repositories',
-    );
-  }
-
-  async getRepository(
-    owner: string,
-    repo: string,
+  async getRepositoryById(
+    githubRepositoryId: bigint,
   ): Promise<CollectionRepository> {
     return this.repository(
-      await this.one(`/repos/${this.segment(owner)}/${this.segment(repo)}`),
+      await this.one(`/repositories/${githubRepositoryId.toString()}`),
     );
   }
 
-  listDefaultBranchCommits(
-    owner: string,
-    repo: string,
-    defaultBranch: string,
-  ): Promise<CollectionCommit[]> {
-    return this.pages(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100`,
-      (v) => this.commit(v),
-      undefined,
-      true,
-    );
-  }
-
-  async resolveUserNodeId(login: string): Promise<string | null> {
+  async probeRepositories(
+    targets: readonly CollectionProbeTarget[],
+  ): Promise<CollectionProbeResult> {
+    if (targets.length === 0) return { repositories: [], rateLimit: null };
+    const variables: Record<string, string> = {};
+    const declarations: string[] = [];
+    const selections: string[] = [];
+    targets.forEach((target, index) => {
+      variables[`o${index}`] = target.owner;
+      variables[`n${index}`] = target.name;
+      declarations.push(`$o${index}: String!, $n${index}: String!`);
+      selections.push(
+        `r${index}: repository(owner: $o${index}, name: $n${index}) { ...CollectionProbeFields }`,
+      );
+    });
+    const query = `query CollectionProbe(${declarations.join(', ')}) {
+      rateLimit { cost remaining }
+      ${selections.join('\n')}
+    }
+    ${PROBE_FIELDS}`;
     const body = await this.graphql(
-      { query: USER_NODE_ID_QUERY, variables: { login } },
-      undefined,
+      { query, variables },
+      this.now() + this.config.deadlineMs,
       true,
     );
-    const user = this.record(body.data).user;
-    if (user === null || user === undefined) return null;
-    return this.string(this.record(user).id);
+    const data = this.record(body.data);
+    const erroredAliases = new Set(
+      (Array.isArray(body.errors) ? body.errors : []).map(
+        (error) => (this.record(error).path as unknown[])[0],
+      ),
+    );
+    return {
+      repositories: targets.map((_, index) => {
+        const alias = `r${index}`;
+        const repository = data[alias];
+        if (erroredAliases.has(alias)) return null;
+        if (repository === null || repository === undefined) return null;
+        return this.probedRepository(repository);
+      }),
+      rateLimit: this.rateLimit(data.rateLimit),
+    };
   }
 
-  async listDefaultBranchCommitsByAuthor(
+  async collectRepositoryContributions(
     owner: string,
-    repo: string,
-    defaultBranch: string,
-    authorNodeId: string,
-    since?: string,
-  ): Promise<CollectionCommit[]> {
-    const deadline = this.now() + this.config.deadlineMs;
-    const commits: CollectionCommit[] = [];
-    let cursor: string | null = null;
-    for (let page = 0; ; page += 1) {
-      if (page >= this.config.maxPages)
-        throw new CollectionAppClientError('PAGINATION');
+    name: string,
+    defaultBranch: string | null,
+    since: Date | null,
+  ): Promise<CollectionRepositoryContributions> {
+    const pending = CONTRIBUTION_KINDS.filter(
+      (kind) => kind !== 'commit' || defaultBranch !== null,
+    );
+    const collected: Record<
+      CollectionContributionKind,
+      CollectionContribution[]
+    > = { commit: [], pull_request: [], issue: [], release: [] };
+    let requests = 0;
+    let pointsUsed = 0;
+    let rateLimit: CollectionRateLimit | null = null;
+
+    const read = async (
+      kinds: readonly CollectionContributionKind[],
+      cursor: string | null,
+      deadline: number,
+    ): Promise<Map<CollectionContributionKind, ConnectionPage>> => {
+      const variables: Record<string, unknown> = {
+        owner,
+        name,
+        branch: defaultBranch ?? '',
+        since: since?.toISOString() ?? null,
+        issueSince: since?.toISOString() ?? null,
+      };
+      for (const kind of CONTRIBUTION_KINDS) {
+        variables[CONNECTION_VARIABLES[kind].include] = kinds.includes(kind);
+        variables[CONNECTION_VARIABLES[kind].cursor] =
+          kinds.length === 1 && kinds[0] === kind ? cursor : null;
+      }
       const body = await this.graphql(
-        {
-          query: AUTHOR_COMMIT_HISTORY_QUERY,
-          variables: {
-            owner,
-            name: repo,
-            branch: defaultBranch,
-            authorId: authorNodeId,
-            since: since ?? null,
-            cursor,
-          },
-        },
+        { query: REPOSITORY_CONTRIBUTIONS_QUERY, variables },
         deadline,
       );
-      const repository = this.record(body.data).repository;
-      if (repository === null || repository === undefined) this.invalid();
-      const ref = this.record(repository).ref;
-      const target =
-        ref === null || ref === undefined ? null : this.record(ref).target;
+      requests += 1;
+      const data = this.record(body.data);
+      const limit = this.rateLimit(data.rateLimit);
+      if (limit !== null) {
+        pointsUsed += limit.cost;
+        rateLimit = limit;
+      }
+      const repository = this.record(data.repository);
+      return new Map(
+        kinds.map((kind) => [
+          kind,
+          this.connectionPage(kind, repository, since),
+        ]),
+      );
+    };
+
+    const first = await read(
+      pending,
+      null,
+      this.now() + this.config.deadlineMs,
+    );
+    for (const kind of pending) {
+      let page = first.get(kind);
+      for (let pageIndex = 1; page !== undefined; pageIndex += 1) {
+        collected[kind].push(...page.contributions);
+        if (page.nextCursor === null) break;
+        if (pageIndex >= this.config.maxPages)
+          throw new CollectionAppClientError('PAGINATION');
+        page = (
+          await read(
+            [kind],
+            page.nextCursor,
+            this.now() + this.config.deadlineMs,
+          )
+        ).get(kind);
+      }
+    }
+
+    return {
+      contributions: {
+        commit: dedupeByKey(collected.commit, (item) => item.githubKey),
+        pull_request: dedupeByKey(
+          collected.pull_request,
+          (item) => item.githubKey,
+        ),
+        issue: dedupeByKey(collected.issue, (item) => item.githubKey),
+        release: dedupeByKey(collected.release, (item) => item.githubKey),
+      },
+      requests,
+      pointsUsed,
+      rateLimit,
+    };
+  }
+
+  private connectionPage(
+    kind: CollectionContributionKind,
+    repository: Record<string, unknown>,
+    since: Date | null,
+  ): ConnectionPage {
+    if (kind === 'commit') {
+      const ref = repository.ref;
+      if (ref === null || ref === undefined) {
+        return { contributions: [], nextCursor: null };
+      }
+      const target = this.record(ref).target;
       if (target === null || target === undefined) {
-        if (page > 0) this.invalid();
-        return [];
+        return { contributions: [], nextCursor: null };
       }
       const history = this.record(this.record(target).history);
-      const nodes = history.nodes;
-      if (!Array.isArray(nodes)) this.invalid();
-      for (const node of nodes) commits.push(this.historyCommit(node));
-      const pageInfo = this.record(history.pageInfo);
-      if (!this.boolean(pageInfo.hasNextPage)) break;
-      cursor = this.string(pageInfo.endCursor);
+      return {
+        contributions: this.nodes(history).map((node) => this.commit(node)),
+        nextCursor: this.nextCursor(history),
+      };
     }
-    return dedupeByKey(commits, (commit) => commit.sha);
-  }
-
-  listPullRequests(
-    owner: string,
-    repo: string,
-  ): Promise<CollectionPullRequest[]> {
-    return this.pages(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/pulls?state=all&per_page=100`,
-      (v) => this.pullRequest(v),
+    const connection = this.record(
+      repository[
+        kind === 'pull_request'
+          ? 'pullRequests'
+          : kind === 'issue'
+            ? 'issues'
+            : 'releases'
+      ],
     );
-  }
-
-  async listPublishedReleases(
-    owner: string,
-    repo: string,
-  ): Promise<CollectionRelease[]> {
-    const releases = (
-      await this.pages(
-        `/repos/${this.segment(owner)}/${this.segment(repo)}/releases?per_page=100`,
-        (v) => {
-          const r = this.record(v);
-          if (typeof r.draft !== 'boolean' || typeof r.prerelease !== 'boolean')
-            this.invalid();
-          return r.draft ? null : this.release(r);
-        },
-      )
-    ).filter((release): release is CollectionRelease => release !== null);
-    return dedupeByKey(releases, (release) => release.id);
-  }
-
-  async probeDefaultBranchHead(
-    owner: string,
-    repo: string,
-    defaultBranch: string,
-    previousEtag: string | null,
-  ): Promise<CommitHeadProbeResult> {
-    const fingerprint = this.commitFingerprint(owner, repo, defaultBranch, 1);
-    const response = await this.conditionalOne(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=1`,
-      previousEtag,
-      true,
-    );
-    if (response.notModified) {
-      if (!response.etag) this.invalid();
-      return { changed: false, fingerprint, etag: response.etag };
+    const contributions: CollectionContribution[] = [];
+    for (const node of this.nodes(connection)) {
+      const record = this.record(node);
+      if (since !== null && new Date(this.date(record.createdAt)) < since) {
+        return { contributions, nextCursor: null };
+      }
+      const contribution =
+        kind === 'release' ? this.release(record) : this.authored(record);
+      if (contribution !== null) contributions.push(contribution);
     }
-    if (!Array.isArray(response.body)) this.invalid();
-    const headSha =
-      response.body.length === 0
+    return { contributions, nextCursor: this.nextCursor(connection) };
+  }
+
+  private probedRepository(value: unknown): CollectionRepositoryProbe {
+    const r = this.record(value);
+    const defaultBranchRef = r.defaultBranchRef;
+    const activityAt: Date[] = [];
+    if (r.pushedAt !== null) activityAt.push(new Date(this.date(r.pushedAt)));
+    for (const [connection, field] of [
+      ['issues', 'updatedAt'],
+      ['pullRequests', 'updatedAt'],
+      ['releases', 'createdAt'],
+      ['releases', 'publishedAt'],
+    ] as const) {
+      const latest = this.nodes(this.record(r[connection]))[0];
+      if (latest === undefined) continue;
+      const at = this.record(latest)[field];
+      if (at !== null) activityAt.push(new Date(this.date(at)));
+    }
+    return {
+      githubRepositoryId: this.id(r.databaseId),
+      nameWithOwner: this.string(r.nameWithOwner),
+      defaultBranch:
+        defaultBranchRef === null
+          ? null
+          : this.string(this.record(defaultBranchRef).name),
+      archived: this.boolean(r.isArchived),
+      private: this.boolean(r.isPrivate),
+      activityAt,
+    };
+  }
+
+  private commit(value: unknown): CollectionContribution {
+    const r = this.record(value);
+    const author = r.author;
+    const user =
+      author === null || author === undefined
         ? null
-        : this.string(this.record(response.body[0]).sha);
-    return { changed: true, headSha, fingerprint, etag: response.etag };
-  }
-
-  async listCommitsUntilKnownSha(
-    owner: string,
-    repo: string,
-    defaultBranch: string,
-    knownShas: ReadonlySet<string>,
-  ): Promise<CommitTraversalResult> {
-    const fingerprint = this.commitFingerprint(owner, repo, defaultBranch, 100);
-    const { items, exhausted } = await this.traverseUntil(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=100`,
-      (raw) => knownShas.has(this.string(this.record(raw).sha)),
-      (v) => this.commit(v),
-      undefined,
-      { emptyRepositoryIsEmpty: true },
-    );
+        : (this.record(author).user ?? null);
     return {
-      commits: dedupeByKey(items, (commit) => commit.sha),
-      disconnectedFullScan: exhausted,
-      fingerprint,
+      githubKey: this.string(r.oid),
+      authorGithubId:
+        user === null ? null : this.id(this.record(user).databaseId),
+      occurredAt: new Date(this.date(r.committedDate)),
     };
   }
 
-  async listNewPullRequests(
-    owner: string,
-    repo: string,
-    tieFrontier: PullRequestFrontier | null,
-  ): Promise<PullRequestIncrementalResult> {
-    const fingerprint = this.pullRequestFingerprint(owner, repo);
-    const { items } = await this.traverseUntil(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/pulls?state=all&sort=created&direction=desc&per_page=100`,
-      (raw) =>
-        tieFrontier !== null &&
-        this.isAtOrBeforePullRequestFrontier(raw, tieFrontier),
-      (v) => this.pullRequest(v),
-    );
-    const pullRequests = dedupeByKey(items, (pr) => pr.id);
-    const newFrontier = pullRequests[0]
-      ? { createdAt: pullRequests[0].createdAt, id: pullRequests[0].id }
-      : tieFrontier;
-    return { pullRequests, newFrontier, fingerprint };
-  }
-
-  async listNewIssues(
-    owner: string,
-    repo: string,
-    tieFrontier: IssueFrontier | null,
-  ): Promise<IssueIncrementalResult> {
-    const { items } = await this.traverseUntil(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/issues?state=all&sort=created&direction=desc&per_page=100`,
-      (raw) =>
-        tieFrontier !== null &&
-        this.isAtOrBeforePullRequestFrontier(raw, tieFrontier),
-      (v) => this.issueListItem(v),
-      undefined,
-      { goneIsEmpty: true },
-    );
+  private authored(r: Record<string, unknown>): CollectionContribution {
     return {
-      issues: dedupeByKey(
-        items.flatMap((item) => (item.issue ? [item.issue] : [])),
-        (issue) => issue.id,
-      ),
-      newFrontier: items[0]?.frontier ?? tieFrontier,
-      fingerprint: {
-        endpoint: `/repos/${owner}/${repo}/issues`,
-        ref: null,
-        query: 'state=all',
-        order: 'sort=created&direction=desc',
-        pageSize: 100,
-        accept: ACCEPT,
-        apiVersion: API_VERSION,
-      },
+      githubKey: this.id(r.fullDatabaseId),
+      authorGithubId: this.actorId(r.author),
+      occurredAt: new Date(this.date(r.createdAt)),
     };
   }
 
-  async probeLatestRelease(
-    owner: string,
-    repo: string,
-    previousEtag: string | null,
-  ): Promise<ReleaseProbeResult> {
-    const fingerprint = this.releaseProbeFingerprint(owner, repo);
-    const response = await this.conditionalOne(
-      `/repos/${this.segment(owner)}/${this.segment(repo)}/releases?per_page=1`,
-      previousEtag,
-    );
-    if (response.notModified) {
-      if (!response.etag) this.invalid();
-      return { changed: false, fingerprint, etag: response.etag };
-    }
-    if (!Array.isArray(response.body)) this.invalid();
-    const frontier =
-      response.body.length === 0
-        ? null
-        : this.releaseFrontier(this.record(response.body[0]));
-    return { changed: true, frontier, fingerprint, etag: response.etag };
-  }
-
-  async listChangedPublishedReleases(
-    owner: string,
-    repo: string,
-  ): Promise<ReleaseListingResult> {
+  private release(r: Record<string, unknown>): CollectionContribution | null {
+    if (this.boolean(r.isDraft) || r.publishedAt === null) return null;
     return {
-      releases: await this.listPublishedReleases(owner, repo),
-      fingerprint: this.releaseListFingerprint(owner, repo),
+      githubKey: this.id(r.databaseId),
+      authorGithubId: this.actorId(r.author),
+      occurredAt: new Date(this.date(r.publishedAt)),
     };
   }
 
-  private commitFingerprint(
-    owner: string,
-    repo: string,
-    ref: string,
-    pageSize: number,
-  ): RequestFingerprint {
-    return {
-      endpoint: `/repos/${owner}/${repo}/commits`,
-      ref,
-      query: `per_page=${pageSize}`,
-      order: null,
-      pageSize,
-      accept: ACCEPT,
-      apiVersion: API_VERSION,
-    };
+  private actorId(value: unknown): string | null {
+    if (value === null || value === undefined) return null;
+    const databaseId = this.record(value).databaseId;
+    return databaseId === null || databaseId === undefined
+      ? null
+      : this.id(databaseId);
   }
 
-  private pullRequestFingerprint(
-    owner: string,
-    repo: string,
-  ): RequestFingerprint {
-    return {
-      endpoint: `/repos/${owner}/${repo}/pulls`,
-      ref: null,
-      query: 'state=all',
-      order: 'sort=created&direction=desc',
-      pageSize: 100,
-      accept: ACCEPT,
-      apiVersion: API_VERSION,
-    };
+  private nodes(connection: Record<string, unknown>): unknown[] {
+    const nodes = connection.nodes;
+    if (!Array.isArray(nodes)) this.invalid();
+    return nodes;
   }
 
-  private releaseProbeFingerprint(
-    owner: string,
-    repo: string,
-  ): RequestFingerprint {
-    return {
-      endpoint: `/repos/${owner}/${repo}/releases`,
-      ref: null,
-      query: 'per_page=1',
-      order: null,
-      pageSize: 1,
-      accept: ACCEPT,
-      apiVersion: API_VERSION,
-    };
+  private nextCursor(connection: Record<string, unknown>): string | null {
+    const pageInfo = this.record(connection.pageInfo);
+    return this.boolean(pageInfo.hasNextPage)
+      ? this.string(pageInfo.endCursor)
+      : null;
   }
 
-  private releaseListFingerprint(
-    owner: string,
-    repo: string,
-  ): RequestFingerprint {
-    return {
-      endpoint: `/repos/${owner}/${repo}/releases`,
-      ref: null,
-      query: 'per_page=100',
-      order: null,
-      pageSize: 100,
-      accept: ACCEPT,
-      apiVersion: API_VERSION,
-    };
-  }
-
-  private isAtOrBeforePullRequestFrontier(
-    raw: unknown,
-    frontier: PullRequestFrontier,
-  ): boolean {
-    const r = this.record(raw);
-
-    const createdAt = Date.parse(this.date(r.created_at));
-    const frontierCreatedAt = Date.parse(frontier.createdAt);
-    if (createdAt !== frontierCreatedAt) return createdAt < frontierCreatedAt;
-    return BigInt(this.id(r.id)) <= BigInt(frontier.id);
-  }
-
-  private releaseFrontier(r: Record<string, unknown>): ReleaseFrontier {
-    if (typeof r.draft !== 'boolean') this.invalid();
-    return {
-      probe: `${this.id(r.id)}:${r.draft}:${r.published_at === null ? 'null' : this.string(r.published_at)}`,
-    };
+  private rateLimit(value: unknown): CollectionRateLimit | null {
+    if (value === null || value === undefined) return null;
+    const r = this.record(value);
+    if (
+      typeof r.cost !== 'number' ||
+      !Number.isSafeInteger(r.cost) ||
+      typeof r.remaining !== 'number' ||
+      !Number.isSafeInteger(r.remaining)
+    )
+      this.invalid();
+    return { cost: r.cost, remaining: r.remaining };
   }
 
   private async one(path: string): Promise<unknown> {
     const deadline = this.now() + this.config.deadlineMs;
-    return (
-      await this.request(
-        new URL(path, `${this.config.apiBaseUrl}/`).toString(),
-        deadline,
-      )
-    ).body;
-  }
-
-  private async conditionalOne(
-    path: string,
-    ifNoneMatch: string | null,
-    emptyRepositoryIsEmpty = false,
-  ): Promise<{ body: unknown; etag: string | null; notModified: boolean }> {
-    const deadline = this.now() + this.config.deadlineMs;
     return this.request(
       new URL(path, `${this.config.apiBaseUrl}/`).toString(),
       deadline,
-      { emptyRepositoryIsEmpty, ifNoneMatch },
     );
   }
 
-  private async pages<T>(
-    path: string,
-    normalize: (value: unknown) => T,
-    envelope?: string,
-    emptyRepositoryIsEmpty = false,
-  ): Promise<T[]> {
-    return (
-      await this.traverseUntil(path, () => false, normalize, envelope, {
-        emptyRepositoryIsEmpty,
-      })
-    ).items;
-  }
-
-  private async traverseUntil<T>(
-    path: string,
-    shouldStop: (raw: unknown) => boolean,
-    normalize: (value: unknown) => T,
-    envelope?: string,
-    emptyWhen: { emptyRepositoryIsEmpty?: boolean; goneIsEmpty?: boolean } = {},
-  ): Promise<{ items: T[]; exhausted: boolean }> {
-    const deadline = this.now() + this.config.deadlineMs;
-    const result: T[] = [];
-    const seen = new Set<string>();
-    let next: string | null = new URL(
-      path,
-      `${this.config.apiBaseUrl}/`,
-    ).toString();
-    for (let page = 0; next; page += 1) {
-      if (page >= this.config.maxPages)
-        throw new CollectionAppClientError('PAGINATION');
-      if (seen.has(next)) throw new CollectionAppClientError('PAGINATION');
-      seen.add(next);
-      const response = await this.request(next, deadline, emptyWhen);
-      const container = envelope
-        ? this.record(response.body)[envelope]
-        : response.body;
-      if (!Array.isArray(container)) this.invalid();
-      for (const raw of container) {
-        if (shouldStop(raw)) return { items: result, exhausted: false };
-        result.push(normalize(raw));
-      }
-      next = this.nextLink(response.link);
-    }
-    return { items: result, exhausted: true };
-  }
-
-  private async request(
-    url: string,
-    deadline: number,
-    options?: {
-      emptyRepositoryIsEmpty?: boolean;
-
-      goneIsEmpty?: boolean;
-      ifNoneMatch?: string | null;
-    },
-  ): Promise<{
-    body: unknown;
-    link: string | null;
-    etag: string | null;
-    notModified: boolean;
-  }> {
-    const emptyRepositoryIsEmpty = options?.emptyRepositoryIsEmpty ?? false;
-    const ifNoneMatch = options?.ifNoneMatch ?? null;
+  private async request(url: string, deadline: number): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const remaining = deadline - this.now();
       if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
@@ -612,7 +482,6 @@ export class CollectionAppClient {
             Authorization: `Bearer ${token}`,
             'User-Agent': USER_AGENT,
             'X-GitHub-Api-Version': API_VERSION,
-            ...(ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {}),
           },
           signal,
         });
@@ -627,44 +496,6 @@ export class CollectionAppClient {
           continue;
         }
         throw new CollectionAppClientError('AUTH');
-      }
-      if (response.status === 304) {
-        return {
-          body: undefined,
-          link: null,
-          etag: response.headers.get('etag') ?? ifNoneMatch,
-          notModified: true,
-        };
-      }
-      if (emptyRepositoryIsEmpty && response.status === 409) {
-        let body: unknown;
-        try {
-          body = await response.json();
-        } catch {
-          throw new CollectionAppClientError('UPSTREAM');
-        }
-        if (
-          typeof body === 'object' &&
-          body !== null &&
-          !Array.isArray(body) &&
-          (body as Record<string, unknown>).message ===
-            'Git Repository is empty.'
-        ) {
-          return {
-            body: [],
-            link: null,
-            etag: response.headers.get('etag'),
-            notModified: false,
-          };
-        }
-      }
-      if (options?.goneIsEmpty && response.status === 410) {
-        return {
-          body: [],
-          link: null,
-          etag: response.headers.get('etag'),
-          notModified: false,
-        };
       }
       if (!response.ok) {
         if (
@@ -688,12 +519,7 @@ export class CollectionAppClient {
         throw new CollectionAppClientError('UPSTREAM');
       }
       try {
-        return {
-          body: await response.json(),
-          link: response.headers.get('link'),
-          etag: response.headers.get('etag'),
-          notModified: false,
-        };
+        return (await response.json()) as unknown;
       } catch {
         throw new CollectionAppClientError('RESPONSE');
       }
@@ -703,8 +529,8 @@ export class CollectionAppClient {
 
   private async graphql(
     payload: { query: string; variables: Record<string, unknown> },
-    deadline: number = this.now() + this.config.deadlineMs,
-    notFoundIsData = false,
+    deadline: number,
+    aliasErrorsAsData = false,
   ): Promise<Record<string, unknown>> {
     const url = this.config.graphqlUrl ?? DEFAULT_GRAPHQL_URL;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -765,50 +591,26 @@ export class CollectionAppClient {
       }
       const body = this.record(json);
       if (Array.isArray(body.errors) && body.errors.length > 0) {
+        const errors = body.errors.map((error) => this.record(error));
+        if (errors.some((error) => error.type === 'RATE_LIMITED')) {
+          throw new CollectionAppClientError('RATE_LIMITED');
+        }
         if (
-          notFoundIsData &&
-          body.errors.every(
-            (e) =>
-              typeof e === 'object' &&
-              e !== null &&
-              (e as Record<string, unknown>).type === 'NOT_FOUND',
+          aliasErrorsAsData &&
+          errors.every(
+            (error) =>
+              Array.isArray(error.path) &&
+              typeof error.path[0] === 'string' &&
+              /^r\d+$/.test(error.path[0]),
           )
         ) {
           return body;
         }
-        const rateLimited = body.errors.some(
-          (e) =>
-            typeof e === 'object' &&
-            e !== null &&
-            (e as Record<string, unknown>).type === 'RATE_LIMITED',
-        );
-        throw new CollectionAppClientError(
-          rateLimited ? 'RATE_LIMITED' : 'GRAPHQL_ERROR',
-        );
+        throw new CollectionAppClientError('GRAPHQL_ERROR');
       }
       return body;
     }
     throw new CollectionAppClientError('AUTH');
-  }
-
-  private nextLink(link: string | null): string | null {
-    if (!link) return null;
-    for (const part of link.split(',')) {
-      const match = /^\s*<([^>]+)>;\s*rel="([^"]+)"\s*$/.exec(part);
-      if (!match || match[2] !== 'next') continue;
-      const target = match[1];
-      if (!target) throw new CollectionAppClientError('PAGINATION');
-      let next: URL;
-      try {
-        next = new URL(target);
-      } catch {
-        throw new CollectionAppClientError('PAGINATION');
-      }
-      if (next.origin !== new URL(this.config.apiBaseUrl).origin)
-        throw new CollectionAppClientError('PAGINATION');
-      return next.toString();
-    }
-    return null;
   }
 
   private retryAfter(headers: Headers): number | undefined {
@@ -822,108 +624,15 @@ export class CollectionAppClient {
   }
 
   private repository(v: unknown): CollectionRepository {
-    const r = this.record(v),
-      owner = this.record(r.owner);
+    const r = this.record(v);
     return {
       id: this.id(r.id),
-      name: this.string(r.name),
       fullName: this.string(r.full_name),
       private: this.boolean(r.private),
       archived: this.boolean(r.archived),
       defaultBranch:
         r.default_branch === null ? null : this.string(r.default_branch),
-      ownerLogin: this.string(owner.login),
-      htmlUrl: this.string(r.html_url),
-      updatedAt: this.date(r.updated_at),
     };
-  }
-  private commit(v: unknown): CollectionCommit {
-    const r = this.record(v),
-      commit = this.record(r.commit),
-      committer = this.record(commit.committer);
-    return {
-      sha: this.string(r.sha),
-      ...this.actor(r.author),
-      committedAt: this.date(committer.date),
-      htmlUrl: this.string(r.html_url),
-    };
-  }
-
-  private historyCommit(v: unknown): CollectionCommit {
-    const r = this.record(v);
-    const author = r.author;
-    const user =
-      author === null || author === undefined
-        ? null
-        : (this.record(author).user ?? null);
-    return {
-      sha: this.string(r.oid),
-      authorLogin: user === null ? null : this.string(this.record(user).login),
-      authorGithubId:
-        user === null ? null : this.id(this.record(user).databaseId),
-      committedAt: this.date(r.committedDate),
-      htmlUrl: this.string(r.commitUrl),
-    };
-  }
-  private pullRequest(v: unknown): CollectionPullRequest {
-    const r = this.record(v),
-      state = this.string(r.state);
-    if (state !== 'open' && state !== 'closed') this.invalid();
-    return {
-      id: this.id(r.id),
-      number: this.integer(r.number),
-      state,
-      draft: this.boolean(r.draft),
-      mergedAt: this.nullableDate(r.merged_at),
-      createdAt: this.date(r.created_at),
-      updatedAt: this.date(r.updated_at),
-      ...this.actor(r.user),
-      htmlUrl: this.string(r.html_url),
-    };
-  }
-  private release(r: Record<string, unknown>): CollectionRelease {
-    return {
-      id: this.id(r.id),
-      tagName: this.string(r.tag_name),
-      name: r.name === null ? null : this.string(r.name),
-      publishedAt: this.date(r.published_at),
-      ...this.actor(r.author),
-      htmlUrl: this.string(r.html_url),
-    };
-  }
-
-  private issueListItem(v: unknown): {
-    frontier: IssueFrontier;
-    issue: CollectionIssue | null;
-  } {
-    const r = this.record(v);
-    const frontier = { createdAt: this.date(r.created_at), id: this.id(r.id) };
-    if (r.pull_request) return { frontier, issue: null };
-    const state = this.string(r.state);
-    if (state !== 'open' && state !== 'closed') this.invalid();
-    return {
-      frontier,
-      issue: {
-        id: frontier.id,
-        state,
-        createdAt: frontier.createdAt,
-        ...this.actor(r.user),
-      },
-    };
-  }
-  private actor(v: unknown): {
-    authorLogin: string | null;
-    authorGithubId: string | null;
-  } {
-    if (v === null) return { authorLogin: null, authorGithubId: null };
-    const actor = this.record(v);
-    return {
-      authorLogin: this.string(actor.login),
-      authorGithubId: this.id(actor.id),
-    };
-  }
-  private nullableDate(v: unknown): string | null {
-    return v === null ? null : this.date(v);
   }
   private id(v: unknown): string {
     if (
@@ -933,11 +642,6 @@ export class CollectionAppClient {
       return String(v);
     return this.invalid();
   }
-  private integer(v: unknown): number {
-    if (typeof v === 'number' && Number.isSafeInteger(v) && v > 0) return v;
-    return this.invalid();
-  }
-
   private string(v: unknown): string {
     if (typeof v === 'string' && v.length > 0) return v;
     return this.invalid();
@@ -955,10 +659,6 @@ export class CollectionAppClient {
     if (typeof v === 'object' && v !== null && !Array.isArray(v))
       return v as Record<string, unknown>;
     return this.invalid();
-  }
-  private segment(v: string): string {
-    if (!v) throw new CollectionAppClientError('RESPONSE');
-    return encodeURIComponent(v);
   }
   private invalid(): never {
     throw new CollectionAppClientError('RESPONSE');

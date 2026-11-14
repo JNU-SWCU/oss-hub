@@ -556,7 +556,7 @@ export class TeamMembershipService {
       programId,
       teamId,
     );
-    const activity = await this.repository.readTeamActivity(team);
+    const activity = await this.repository.readTeamActivity(team, now);
     return {
       ...activity,
       repository: activity.repository && {

@@ -2,7 +2,10 @@ import { generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CollectionAppClient } from './collection-app.client';
+import {
+  CollectionAppClient,
+  type CollectionContributionKind,
+} from './collection-app.client';
 import {
   CollectionAppConfig,
   CollectionAppConfigError,
@@ -19,12 +22,9 @@ const config: CollectionAppConfigValues = {
   apiBaseUrl: 'https://api.github.test',
   maxPages: 100,
   deadlineMs: 30_000,
+  graphqlUrl: 'https://api.github.test/graphql',
 };
 
-const fingerprintClient = new CollectionAppClient(config, {
-  getToken: () => Promise.resolve('synthetic-token'),
-  clear: () => undefined,
-});
 type Fetcher = jest.Mock<
   Promise<Response>,
   [input: string | URL, init?: RequestInit]
@@ -47,54 +47,6 @@ const repository = {
   updated_at: '2026-01-01T00:00:00Z',
   secret: 'excluded',
 };
-const commitFixture = (sha: string, date: string) => ({
-  sha,
-  author: { id: 7, login: 'octocat', email: 'excluded' },
-  commit: { committer: { date }, message: 'excluded' },
-  html_url: `https://github.test/${sha}`,
-});
-const prFixture = (id: number, createdAt: string) => ({
-  id,
-  number: id,
-  state: 'open',
-  draft: false,
-  merged_at: null,
-  created_at: createdAt,
-  updated_at: createdAt,
-  user: null,
-  html_url: `https://github.test/pr/${id}`,
-});
-
-const issueListFixture = (
-  id: number,
-  createdAt: string,
-  pullRequest = false,
-) => ({
-  id,
-  number: id,
-  state: 'closed',
-  created_at: createdAt,
-  user: { id: 7, login: 'octocat' },
-  title: 'excluded',
-  body: 'excluded',
-  ...(pullRequest
-    ? { pull_request: { url: `https://github.test/pr/${id}` } }
-    : {}),
-});
-const releaseFixture = (
-  id: number,
-  draft: boolean,
-  publishedAt: string | null,
-) => ({
-  id,
-  tag_name: `v${id}`,
-  name: null,
-  draft,
-  prerelease: false,
-  published_at: publishedAt,
-  author: null,
-  html_url: `https://github.test/r/${id}`,
-});
 
 describe('CollectionAppConfig', () => {
   it('validates required values and uses fixed collection limits', () => {
@@ -362,183 +314,102 @@ describe('CollectionAppTokenClient', () => {
   );
 });
 
-describe('CollectionAppClient', () => {
+type GraphqlPayload = {
+  query: string;
+  variables: Record<string, unknown>;
+};
+const payloadOf = (fetcher: Fetcher, call = 0): GraphqlPayload =>
+  JSON.parse(fetcher.mock.calls[call]?.[1]?.body as string) as GraphqlPayload;
+const page = (nodes: unknown[], endCursor: string | null = null) => ({
+  nodes,
+  pageInfo: { hasNextPage: endCursor !== null, endCursor },
+});
+const probeNode = (index: number, overrides: Record<string, unknown> = {}) => ({
+  databaseId: 1000 + index,
+  nameWithOwner: `JNU-SWCU/repo-${index}`,
+  isArchived: false,
+  isPrivate: true,
+  defaultBranchRef: { name: 'main' },
+  pushedAt: '2026-11-14T00:00:00Z',
+  issues: { nodes: [{ updatedAt: '2026-11-13T00:00:00Z' }] },
+  pullRequests: { nodes: [] },
+  releases: {
+    nodes: [
+      {
+        createdAt: '2026-11-12T00:00:00Z',
+        publishedAt: '2026-11-12T01:00:00Z',
+      },
+    ],
+  },
+  ...overrides,
+});
+const contributionsBody = (
+  repository: Record<string, unknown>,
+  rateLimit = { cost: 1, remaining: 4999 },
+) => json({ data: { rateLimit, repository } });
+const emptyRepository = (overrides: Record<string, unknown> = {}) => ({
+  ref: { target: { history: page([]) } },
+  pullRequests: page([]),
+  issues: page([]),
+  releases: page([]),
+  ...overrides,
+});
+
+describe('CollectionAppClient REST metadata', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('normalizes a private installation repository and excludes raw fields', async () => {
-    const fetcher = fetchMock().mockResolvedValue(
-      json({ repositories: [repository] }),
-    );
+  it('id로 저장소 metadata를 읽고 원본 필드는 버린다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(json(repository));
     const result = await new CollectionAppClient(
       config,
       tokenProvider,
       fetcher,
-    ).listInstallationRepositories();
-    expect(result).toEqual([
-      {
-        id: '42',
-        name: 'private-repo',
-        fullName: 'JNU-SWCU/private-repo',
-        private: true,
-        archived: false,
-        defaultBranch: 'main',
-        ownerLogin: 'JNU-SWCU',
-        htmlUrl: 'https://github.test/JNU-SWCU/private-repo',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
-    ]);
+    ).getRepositoryById(42n);
+
+    expect(result).toEqual({
+      id: '42',
+      fullName: 'JNU-SWCU/private-repo',
+      private: true,
+      archived: false,
+      defaultBranch: 'main',
+    });
     expect(JSON.stringify(result)).not.toContain('secret');
-    const [requestUrl, requestInit] = fetcher.mock.calls[0] ?? [];
-    expect(requestUrl).toEqual(
-      expect.stringContaining('/installation/repositories?per_page=100'),
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+      'https://api.github.test/repositories/42',
     );
-    expect(requestInit?.headers).toBeDefined();
   });
 
-  it('커밋이 없는 저장소의 null 기본 브랜치를 정상 metadata로 보존한다', async () => {
+  it('커밋이 없는 저장소의 null 기본 브랜치를 보존한다', async () => {
     const fetcher = fetchMock().mockResolvedValue(
-      json({ repositories: [{ ...repository, default_branch: null }] }),
+      json({ ...repository, default_branch: null }),
     );
 
     await expect(
-      new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetcher,
-      ).listInstallationRepositories(),
-    ).resolves.toEqual([
-      expect.objectContaining({ id: '42', defaultBranch: null }),
-    ]);
+      new CollectionAppClient(config, tokenProvider, fetcher).getRepositoryById(
+        42n,
+      ),
+    ).resolves.toMatchObject({ defaultBranch: null });
   });
 
-  it('uses metadata, default-branch commit, all-state PR, and release REST endpoints', async () => {
-    const responses = [
-      repository,
-      [
-        {
-          sha: 'abc',
-          author: { id: 7, login: 'octocat', email: 'excluded' },
-          commit: {
-            committer: { date: '2026-01-01T00:00:00Z' },
-            message: 'excluded',
-          },
-          html_url: 'https://github.test/c',
-        },
-      ],
-      [
-        {
-          id: 3,
-          number: 4,
-          state: 'closed',
-          draft: false,
-          merged_at: null,
-          created_at: '2026-01-01T00:00:00Z',
-          updated_at: '2026-01-02T00:00:00Z',
-          user: null,
-          html_url: 'https://github.test/p',
-          diff_url: 'excluded',
-        },
-      ],
-      [
-        {
-          id: 5,
-          tag_name: 'v1',
-          name: null,
-          draft: false,
-          prerelease: false,
-          published_at: '2026-01-01T00:00:00Z',
-          author: { id: '8', login: 'maintainer', email: 'excluded' },
-          html_url: 'https://github.test/r',
-        },
-        {
-          id: 6,
-          tag_name: 'v2-rc',
-          name: null,
-          draft: false,
-          prerelease: true,
-          published_at: '2026-01-01T00:00:00Z',
-          author: null,
-          html_url: 'https://github.test/r2',
-        },
-        {
-          id: 7,
-          tag_name: 'draft',
-          name: null,
-          draft: true,
-          prerelease: false,
-          published_at: null,
-          author: null,
-          html_url: 'https://github.test/r3',
-        },
-      ],
-    ];
-    const fetcher = fetchMock().mockImplementation(() =>
-      Promise.resolve(json(responses.shift())),
+  it.each([
+    [404, {}, 'NOT_FOUND'],
+    [403, {}, 'PERMISSION'],
+    [429, {}, 'RATE_LIMITED'],
+    [403, { 'x-ratelimit-remaining': '0' }, 'RATE_LIMITED'],
+    [500, {}, 'UPSTREAM'],
+  ])('HTTP %s 응답을 안전한 오류로 분류한다', async (status, headers, kind) => {
+    const client = new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetchMock().mockResolvedValue(new Response('', { status, headers })),
     );
-    const client = new CollectionAppClient(config, tokenProvider, fetcher);
-    await client.getRepository('JNU-SWCU', 'private-repo');
-    expect(
-      await client.listDefaultBranchCommits('JNU-SWCU', 'private-repo', 'main'),
-    ).toEqual([
-      expect.objectContaining({ authorLogin: 'octocat', authorGithubId: '7' }),
-    ]);
-    expect(await client.listPullRequests('JNU-SWCU', 'private-repo')).toEqual([
-      expect.objectContaining({ authorLogin: null, authorGithubId: null }),
-    ]);
-    expect(
-      await client.listPublishedReleases('JNU-SWCU', 'private-repo'),
-    ).toEqual([
-      expect.objectContaining({
-        tagName: 'v1',
-        authorLogin: 'maintainer',
-        authorGithubId: '8',
-      }),
-      expect.objectContaining({
-        tagName: 'v2-rc',
-        authorLogin: null,
-        authorGithubId: null,
-      }),
-    ]);
-    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('/commits?sha=main&per_page=100'),
-        expect.stringContaining('/pulls?state=all&per_page=100'),
-        expect.stringContaining('/releases?per_page=100'),
-      ]),
-    );
+
+    await expect(client.getRepositoryById(42n)).rejects.toMatchObject({
+      kind,
+    });
   });
 
-  it('treats only commit 409 as an empty repository', async () => {
-    const conflict = json(
-      { message: 'Git Repository is empty.' },
-      { status: 409 },
-    );
-    await expect(
-      new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(conflict),
-      ).listDefaultBranchCommits('o', 'r', 'main'),
-    ).resolves.toEqual([]);
-    await expect(
-      new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(conflict),
-      ).getRepository('o', 'r'),
-    ).rejects.toMatchObject({ kind: 'UPSTREAM' });
-    await expect(
-      new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({ message: 'Another conflict' }, { status: 409 }),
-        ),
-      ).listDefaultBranchCommits('o', 'r', 'main'),
-    ).rejects.toMatchObject({ kind: 'UPSTREAM' });
-  });
-
-  it('invalidates a resource token on 401 and retries exactly once', async () => {
+  it('401이면 토큰을 비우고 정확히 한 번만 다시 시도한다', async () => {
     const tokens = new CollectionAppTokenClient(config);
     const getToken = jest
       .spyOn(tokens, 'getToken')
@@ -548,748 +419,534 @@ describe('CollectionAppClient', () => {
     const fetcher = fetchMock()
       .mockResolvedValueOnce(new Response('', { status: 401 }))
       .mockResolvedValueOnce(json(repository));
+
     await expect(
-      new CollectionAppClient(config, tokens, fetcher).getRepository('o', 'r'),
+      new CollectionAppClient(config, tokens, fetcher).getRepositoryById(42n),
     ).resolves.toMatchObject({ id: '42' });
-    expect(clear).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledWith('stale');
     expect(getToken).toHaveBeenCalledTimes(2);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it('does not loop when the resource remains unauthorized', async () => {
+  it('계속 401이면 반복하지 않고 AUTH로 끝난다', async () => {
     const tokens = new CollectionAppTokenClient(config);
-    const getToken = jest.spyOn(tokens, 'getToken').mockResolvedValue('token');
+    jest.spyOn(tokens, 'getToken').mockResolvedValue('token');
     const fetcher = fetchMock().mockResolvedValue(
       new Response('', { status: 401 }),
     );
+
     await expect(
-      new CollectionAppClient(config, tokens, fetcher).getRepository('o', 'r'),
+      new CollectionAppClient(config, tokens, fetcher).getRepositoryById(42n),
     ).rejects.toMatchObject({ kind: 'AUTH' });
-    expect(getToken).toHaveBeenCalledTimes(2);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it('classifies non-rate-limit forbidden responses as permission drift', async () => {
-    const client = new CollectionAppClient(
-      config,
-      tokenProvider,
-      fetchMock().mockResolvedValue(new Response('', { status: 403 })),
-    );
-    await expect(client.getRepository('o', 'r')).rejects.toMatchObject({
-      kind: 'PERMISSION',
-    });
-  });
-
-  it('classifies a missing repository separately from a transient upstream failure', async () => {
-    const client = new CollectionAppClient(
-      config,
-      tokenProvider,
-      fetchMock().mockResolvedValue(new Response('', { status: 404 })),
-    );
-
-    await expect(client.getRepository('o', 'missing')).rejects.toMatchObject({
-      kind: 'NOT_FOUND',
-    });
-  });
-
-  it.each([
-    [429, {}, 'RATE_LIMITED'],
-    [403, { 'x-ratelimit-remaining': '0', 'retry-after': '5' }, 'RATE_LIMITED'],
-  ])('returns typed safe rate-limit errors', async (status, headers, kind) => {
-    const client = new CollectionAppClient(
-      config,
-      tokenProvider,
-      fetchMock().mockResolvedValue(new Response('', { status, headers })),
-    );
-    await expect(client.getRepository('o', 'r')).rejects.toMatchObject({
-      kind,
-    });
-  });
-
-  it('rejects cross-origin links, cycles, page overflow, malformed IDs, and deadlines', async () => {
-    const crossOrigin = json(
-      { repositories: [] },
-      { headers: { link: '<https://evil.test/x>; rel="next"' } },
-    );
+  it('잘못된 id와 마감 시간 초과를 거부한다', async () => {
     await expect(
       new CollectionAppClient(
         config,
         tokenProvider,
-        fetchMock().mockResolvedValue(crossOrigin),
-      ).listInstallationRepositories(),
-    ).rejects.toMatchObject({ kind: 'PAGINATION' });
-    const malformed = new CollectionAppClient(
-      config,
-      tokenProvider,
-      fetchMock().mockResolvedValue(json({ ...repository, id: 1.2 })),
-    );
-    await expect(malformed.getRepository('o', 'r')).rejects.toBeInstanceOf(
-      CollectionAppClientError,
-    );
+        fetchMock().mockResolvedValue(json({ ...repository, id: 1.2 })),
+      ).getRepositoryById(42n),
+    ).rejects.toBeInstanceOf(CollectionAppClientError);
     const times = [10, 10, 12];
-    const deadline = new CollectionAppClient(
-      { ...config, deadlineMs: 1 },
-      tokenProvider,
-      fetchMock(),
-      () => times.shift() ?? 12,
-    );
-    await expect(deadline.getRepository('o', 'r')).rejects.toMatchObject({
-      kind: 'DEADLINE',
-    });
+    await expect(
+      new CollectionAppClient(
+        { ...config, deadlineMs: 1 },
+        tokenProvider,
+        fetchMock(),
+        () => times.shift() ?? 12,
+      ).getRepositoryById(42n),
+    ).rejects.toMatchObject({ kind: 'DEADLINE' });
   });
 });
 
-describe('CollectionAppClient incremental contract', () => {
+describe('CollectionAppClient probeRepositories', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  describe('probeDefaultBranchHead', () => {
-    it('skips a full request on 304 for a matching ETag (no-fetch fast path)', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        new Response(null, { status: 304, headers: { etag: '"abc"' } }),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      await expect(
-        client.probeDefaultBranchHead('o', 'r', 'main', '"abc"'),
-      ).resolves.toMatchObject({ changed: false, etag: '"abc"' });
-      const [, requestInit] = fetcher.mock.calls[0] ?? [];
-      expect(
-        (requestInit?.headers as Record<string, string>)['If-None-Match'],
-      ).toBe('"abc"');
-    });
+  it('대상이 없으면 요청하지 않는다', async () => {
+    const fetcher = fetchMock();
 
-    it('accepts a 200 with no ETag header (ETag is a nullable optimization only)', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      await expect(
-        client.probeDefaultBranchHead('o', 'r', 'main', null),
-      ).resolves.toMatchObject({ changed: true, headSha: 'head1', etag: null });
-    });
-
-    it('reports headSha null for an empty repository', async () => {
-      const fetcher = fetchMock().mockResolvedValue(json([]));
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      await expect(
-        client.probeDefaultBranchHead('o', 'r', 'main', null),
-      ).resolves.toMatchObject({ changed: true, headSha: null });
-    });
-
-    it('retries exactly once after invalidating the token on 401', async () => {
-      const tokens = new CollectionAppTokenClient(config);
-      jest
-        .spyOn(tokens, 'getToken')
-        .mockResolvedValueOnce('stale')
-        .mockResolvedValueOnce('fresh');
-      const clear = jest.spyOn(tokens, 'clear');
-      const fetcher = fetchMock()
-        .mockResolvedValueOnce(new Response('', { status: 401 }))
-        .mockResolvedValueOnce(
-          json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
-        );
-      await expect(
-        new CollectionAppClient(config, tokens, fetcher).probeDefaultBranchHead(
-          'o',
-          'r',
-          'main',
-          null,
-        ),
-      ).resolves.toMatchObject({ headSha: 'head1' });
-      expect(clear).toHaveBeenCalledTimes(1);
-    });
-
-    it('rejects a malformed probe response', async () => {
-      const client = new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(json({ not: 'an array' })),
-      );
-      await expect(
-        client.probeDefaultBranchHead('o', 'r', 'main', null),
-      ).rejects.toBeInstanceOf(CollectionAppClientError);
-    });
-  });
-
-  describe('listCommitsUntilKnownSha', () => {
-    it('includes an old-dated commit that only recently became reachable and reports a disconnected full scan when no known SHA intersects', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([
-          commitFixture('new1', '2026-01-05T00:00:00Z'),
-          commitFixture('old-reachable', '2020-01-01T00:00:00Z'),
-        ]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listCommitsUntilKnownSha(
-        'o',
-        'r',
-        'main',
-        new Set(['not-present']),
-      );
-      expect(result.commits.map((c) => c.sha)).toEqual([
-        'new1',
-        'old-reachable',
-      ]);
-      expect(result.disconnectedFullScan).toBe(true);
-    });
-
-    it('stops at the first known SHA without a disconnected scan and without over-fetching', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([
-          commitFixture('new1', '2026-01-05T00:00:00Z'),
-          commitFixture('known', '2026-01-01T00:00:00Z'),
-          commitFixture('older', '2025-01-01T00:00:00Z'),
-        ]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listCommitsUntilKnownSha(
-        'o',
-        'r',
-        'main',
-        new Set(['known']),
-      );
-      expect(result.commits.map((c) => c.sha)).toEqual(['new1']);
-      expect(result.disconnectedFullScan).toBe(false);
-      expect(fetcher).toHaveBeenCalledTimes(1);
-    });
-
-    it('dedupes repeated commit SHAs caused by pagination drift', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([
-          commitFixture('c1', '2026-01-02T00:00:00Z'),
-          commitFixture('c1', '2026-01-02T00:00:00Z'),
-          commitFixture('c2', '2026-01-01T00:00:00Z'),
-        ]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listCommitsUntilKnownSha(
-        'o',
-        'r',
-        'main',
-        new Set(),
-      );
-      expect(result.commits.map((c) => c.sha)).toEqual(['c1', 'c2']);
-    });
-
-    it('throws PAGINATION instead of a false disconnected-scan when the page limit is hit before the list truly ends', async () => {
-      const limited = { ...config, maxPages: 1 };
-      const fetcher = fetchMock().mockResolvedValue(
-        json([commitFixture('c1', '2026-01-01T00:00:00Z')], {
-          headers: { link: '<https://api.github.test/next>; rel="next"' },
-        }),
-      );
-      const client = new CollectionAppClient(limited, tokenProvider, fetcher);
-      await expect(
-        client.listCommitsUntilKnownSha('o', 'r', 'main', new Set()),
-      ).rejects.toMatchObject({ kind: 'PAGINATION' });
-    });
-
-    it('uses a different fingerprint than the head probe so an ETag is never shared', async () => {
-      const probe = await new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
-        ),
-      ).probeDefaultBranchHead('o', 'r', 'main', null);
-      const traversal = await new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
-        ),
-      ).listCommitsUntilKnownSha('o', 'r', 'main', new Set());
-      expect(
-        fingerprintClient.requestFingerprintKey(probe.fingerprint),
-      ).not.toEqual(
-        fingerprintClient.requestFingerprintKey(traversal.fingerprint),
-      );
-    });
-  });
-
-  describe('listNewPullRequests', () => {
-    it('resolves createdAt ties by id and stops once the (createdAt,id) tie frontier is met, across a page boundary', async () => {
-      const fetcher = fetchMock()
-        .mockResolvedValueOnce(
-          json(
-            [
-              prFixture(9, '2026-01-02T00:00:00Z'),
-              prFixture(8, '2026-01-01T00:00:00Z'),
-            ],
-            { headers: { link: '<https://api.github.test/next>; rel="next"' } },
-          ),
-        )
-        .mockResolvedValueOnce(
-          json([
-            prFixture(7, '2026-01-01T00:00:00Z'),
-            prFixture(6, '2025-01-01T00:00:00Z'),
-          ]),
-        );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listNewPullRequests('o', 'r', {
-        createdAt: '2026-01-01T00:00:00Z',
-        id: '7',
-      });
-      expect(result.pullRequests.map((p) => p.id)).toEqual(['9', '8']);
-      expect(result.newFrontier).toEqual({
-        createdAt: '2026-01-02T00:00:00Z',
-        id: '9',
-      });
-    });
-
-    it('treats the stored cursor as already read although it was saved with milliseconds', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([
-          prFixture(7, '2026-01-01T00:00:00Z'),
-          prFixture(6, '2025-01-01T00:00:00Z'),
-        ]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const frontier = { createdAt: '2026-01-01T00:00:00.000Z', id: '7' };
-      const result = await client.listNewPullRequests('o', 'r', frontier);
-      expect(result.pullRequests).toEqual([]);
-      expect(result.newFrontier).toEqual(frontier);
-    });
-
-    it('reads every page when the frontier is null (first-ever backfill)', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([prFixture(1, '2026-01-01T00:00:00Z')]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listNewPullRequests('o', 'r', null);
-      expect(result.pullRequests.map((p) => p.id)).toEqual(['1']);
-      expect(fetcher.mock.calls[0]?.[0]).toEqual(
-        expect.stringContaining('state=all&sort=created&direction=desc'),
-      );
-    });
-
-    it('dedupes repeated PR ids caused by pagination drift', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([
-          prFixture(5, '2026-01-01T00:00:00Z'),
-          prFixture(5, '2026-01-01T00:00:00Z'),
-        ]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listNewPullRequests('o', 'r', null);
-      expect(result.pullRequests.map((p) => p.id)).toEqual(['5']);
-    });
-
-    it('classifies rate-limit responses', async () => {
-      const client = new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(new Response('', { status: 429 })),
-      );
-      await expect(
-        client.listNewPullRequests('o', 'r', null),
-      ).rejects.toMatchObject({ kind: 'RATE_LIMITED' });
-    });
-  });
-
-  describe('listNewIssues', () => {
-    it('drops pull_request items but takes the new frontier from the first raw item even when it is a PR', async () => {
-      const fetcher = fetchMock()
-        .mockResolvedValueOnce(
-          json(
-            [
-              issueListFixture(30, '2026-01-03T00:00:00Z', true),
-              issueListFixture(29, '2026-01-02T00:00:00Z'),
-            ],
-            { headers: { link: '<https://api.github.test/next>; rel="next"' } },
-          ),
-        )
-        .mockResolvedValueOnce(
-          json([
-            issueListFixture(28, '2026-01-02T00:00:00Z', true),
-            issueListFixture(27, '2026-01-01T00:00:00Z'),
-          ]),
-        );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listNewIssues('o', 'r', {
-        createdAt: '2026-01-01T00:00:00Z',
-        id: '27',
-      });
-
-      expect(fetcher.mock.calls[0]?.[0]).toEqual(
-        expect.stringContaining(
-          '/repos/o/r/issues?state=all&sort=created&direction=desc&per_page=100',
-        ),
-      );
-
-      expect(result.issues).toEqual([
-        {
-          id: '29',
-          state: 'closed',
-          createdAt: '2026-01-02T00:00:00Z',
-          authorLogin: 'octocat',
-          authorGithubId: '7',
-        },
-      ]);
-      expect(result.newFrontier).toEqual({
-        createdAt: '2026-01-03T00:00:00Z',
-        id: '30',
-      });
-    });
-
-    it('keeps the input frontier only when nothing newer was read', async () => {
-      const tie = { createdAt: '2026-01-03T00:00:00Z', id: '30' };
-      const client = new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json([issueListFixture(30, '2026-01-03T00:00:00Z', true)]),
-        ),
-      );
-      const result = await client.listNewIssues('o', 'r', tie);
-      expect(result.issues).toEqual([]);
-      expect(result.newFrontier).toBe(tie);
-    });
-
-    it('reads 410 (issues disabled) as an empty listing instead of an error, only on the issue listing', async () => {
-      const gone = () =>
-        json({ message: 'Issues are disabled for this repo' }, { status: 410 });
-      const client = new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockImplementation(() => Promise.resolve(gone())),
-      );
-
-      await expect(client.listNewIssues('o', 'r', null)).resolves.toMatchObject(
-        { issues: [], newFrontier: null },
-      );
-      await expect(
-        client.listNewPullRequests('o', 'r', null),
-      ).rejects.toMatchObject({ kind: 'UPSTREAM' });
-    });
-  });
-
-  describe('release probe and changed listing', () => {
-    it('skips the full listing on 304 for a matching ETag', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        new Response(null, { status: 304, headers: { etag: '"r1"' } }),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      await expect(
-        client.probeLatestRelease('o', 'r', '"r1"'),
-      ).resolves.toMatchObject({ changed: false, etag: '"r1"' });
-    });
-
-    it('reports a stable probe frontier and accepts a 200 with no ETag', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      await expect(
-        client.probeLatestRelease('o', 'r', null),
-      ).resolves.toMatchObject({
-        changed: true,
-        etag: null,
-        frontier: { probe: '9:false:2026-01-02T00:00:00Z' },
-      });
-    });
-
-    it('reports a null frontier probe for a repository with no releases', async () => {
-      const fetcher = fetchMock().mockResolvedValue(json([]));
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      await expect(
-        client.probeLatestRelease('o', 'r', null),
-      ).resolves.toMatchObject({ changed: true, frontier: null });
-    });
-
-    it('includes a previously-draft release that has since published and dedupes repeated IDs from pagination drift', async () => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json([
-          releaseFixture(5, false, '2026-01-01T00:00:00Z'),
-          releaseFixture(5, false, '2026-01-01T00:00:00Z'),
-          releaseFixture(9, false, '2026-01-02T00:00:00Z'),
-        ]),
-      );
-      const client = new CollectionAppClient(config, tokenProvider, fetcher);
-      const result = await client.listChangedPublishedReleases('o', 'r');
-      expect(result.releases.map((r) => r.id)).toEqual(['5', '9']);
-    });
-
-    it('uses a different fingerprint for the probe and the full listing so an ETag is never shared', async () => {
-      const probe = await new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
-        ),
-      ).probeLatestRelease('o', 'r', null);
-      const listing = await new CollectionAppClient(
-        config,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
-        ),
-      ).listChangedPublishedReleases('o', 'r');
-      expect(
-        fingerprintClient.requestFingerprintKey(probe.fingerprint),
-      ).not.toEqual(
-        fingerprintClient.requestFingerprintKey(listing.fingerprint),
-      );
-    });
-  });
-});
-describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  const graphqlConfig: CollectionAppConfigValues = {
-    ...config,
-    graphqlUrl: 'https://api.github.test/graphql',
-  };
-  const historyNode = (
-    oid: string,
-    user: unknown = { databaseId: 7, login: 'octocat' },
-  ) => ({
-    oid,
-    committedDate: '2026-01-01T00:00:00Z',
-    commitUrl: `https://github.test/${oid}`,
-    author: { user },
-  });
-  const historyBody = (
-    nodes: unknown[],
-    pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
-      hasNextPage: false,
-      endCursor: null,
-    },
-  ) =>
-    json({
-      data: {
-        repository: { ref: { target: { history: { nodes, pageInfo } } } },
-      },
-    });
-  const sentPayload = (
-    fetcher: Fetcher,
-    call = 0,
-  ): { query: string; variables: Record<string, unknown> } => {
-    const body = fetcher.mock.calls[call]?.[1]?.body;
-    if (typeof body !== 'string') throw new Error('expected a JSON body');
-    return JSON.parse(body) as {
-      query: string;
-      variables: Record<string, unknown>;
-    };
-  };
-
-  it('sends the author filter to the configured GraphQL endpoint and maps nodes to CollectionCommit', async () => {
-    const fetcher = fetchMock().mockResolvedValue(
-      historyBody([historyNode('abc')]),
-    );
-    const commits = await new CollectionAppClient(
-      graphqlConfig,
-      tokenProvider,
-      fetcher,
-    ).listDefaultBranchCommitsByAuthor(
-      'JNU-SWCU',
-      'oss-hub',
-      'main',
-      'MDQ6VXNlcjc=',
-      '2026-01-01T00:00:00Z',
-    );
-    expect(commits).toEqual([
-      {
-        sha: 'abc',
-        authorLogin: 'octocat',
-        authorGithubId: '7',
-        committedAt: '2026-01-01T00:00:00Z',
-        htmlUrl: 'https://github.test/abc',
-      },
-    ]);
-    const [url, init] = fetcher.mock.calls[0] ?? [];
-    expect(url).toEqual('https://api.github.test/graphql');
-    expect(init?.method).toEqual('POST');
-    const payload = sentPayload(fetcher);
-
-    expect(payload.query).toContain('author: { id: $authorId }');
-    expect(payload.variables).toMatchObject({
-      owner: 'JNU-SWCU',
-      name: 'oss-hub',
-      branch: 'main',
-      authorId: 'MDQ6VXNlcjc=',
-      since: '2026-01-01T00:00:00Z',
-      cursor: null,
-    });
-  });
-
-  it('follows endCursor while hasNextPage is true and dedupes by sha', async () => {
-    const fetcher = fetchMock()
-      .mockResolvedValueOnce(
-        historyBody([historyNode('abc'), historyNode('def')], {
-          hasNextPage: true,
-          endCursor: 'CURSOR-1',
-        }),
-      )
-      .mockResolvedValueOnce(
-        historyBody([historyNode('def'), historyNode('ghi')]),
-      );
-    const commits = await new CollectionAppClient(
-      graphqlConfig,
-      tokenProvider,
-      fetcher,
-    ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE');
-    expect(commits.map((c) => c.sha)).toEqual(['abc', 'def', 'ghi']);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    expect(sentPayload(fetcher, 0).variables.cursor).toBeNull();
-    expect(sentPayload(fetcher, 1).variables.cursor).toEqual('CURSOR-1');
-    expect(sentPayload(fetcher, 1).variables.since).toBeNull();
-  });
-
-  it('stops at the configured page cap instead of looping forever', async () => {
-    const fetcher = fetchMock().mockImplementation(() =>
-      Promise.resolve(
-        historyBody([historyNode('abc')], {
-          hasNextPage: true,
-          endCursor: 'CURSOR',
-        }),
+    await expect(
+      new CollectionAppClient(config, tokenProvider, fetcher).probeRepositories(
+        [],
       ),
-    );
-    await expect(
-      new CollectionAppClient(
-        { ...graphqlConfig, maxPages: 3 },
-        tokenProvider,
-        fetcher,
-      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
-    ).rejects.toMatchObject({ kind: 'PAGINATION' });
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    ).resolves.toEqual({ repositories: [], rateLimit: null });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('returns an empty array when the branch ref does not exist', async () => {
+  it('저장소마다 alias를 붙여 한 번의 GraphQL 요청으로 활동 시각을 읽는다', async () => {
     const fetcher = fetchMock().mockResolvedValue(
-      json({ data: { repository: { ref: null } } }),
+      json({
+        data: {
+          rateLimit: { cost: 1, remaining: 4990 },
+          r0: probeNode(0),
+          r1: probeNode(1, {
+            defaultBranchRef: null,
+            pushedAt: null,
+            issues: { nodes: [] },
+            releases: {
+              nodes: [{ createdAt: '2026-11-10T00:00:00Z', publishedAt: null }],
+            },
+          }),
+        },
+      }),
     );
-    await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetcher,
-      ).listDefaultBranchCommitsByAuthor('o', 'r', 'missing', 'NODE'),
-    ).resolves.toEqual([]);
+
+    const result = await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).probeRepositories([
+      { owner: 'JNU-SWCU', name: 'repo-0' },
+      { owner: 'JNU-SWCU', name: 'repo-1' },
+    ]);
+
     expect(fetcher).toHaveBeenCalledTimes(1);
-  });
-
-  it('maps a commit with no linked GitHub account to null author identity', async () => {
-    const fetcher = fetchMock().mockResolvedValue(
-      historyBody([historyNode('abc', null)]),
-    );
-    await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetcher,
-      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
-    ).resolves.toEqual([
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(config.graphqlUrl);
+    const payload = payloadOf(fetcher);
+    expect(payload.variables).toEqual({
+      o0: 'JNU-SWCU',
+      n0: 'repo-0',
+      o1: 'JNU-SWCU',
+      n1: 'repo-1',
+    });
+    expect(payload.query).toContain('r0: repository(owner: $o0, name: $n0)');
+    expect(payload.query).toContain('r1: repository(owner: $o1, name: $n1)');
+    expect(result.rateLimit).toEqual({ cost: 1, remaining: 4990 });
+    expect(result.repositories).toEqual([
+      {
+        githubRepositoryId: '1000',
+        nameWithOwner: 'JNU-SWCU/repo-0',
+        defaultBranch: 'main',
+        archived: false,
+        private: true,
+        activityAt: [
+          new Date('2026-11-14T00:00:00Z'),
+          new Date('2026-11-13T00:00:00Z'),
+          new Date('2026-11-12T00:00:00Z'),
+          new Date('2026-11-12T01:00:00Z'),
+        ],
+      },
       expect.objectContaining({
-        sha: 'abc',
-        authorLogin: null,
-        authorGithubId: null,
+        githubRepositoryId: '1001',
+        defaultBranch: null,
+        activityAt: [new Date('2026-11-10T00:00:00Z')],
       }),
     ]);
   });
 
-  it.each([
-    [[{ message: 'Something went wrong' }], 'GRAPHQL_ERROR'],
-    [
-      [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded' }],
-      'RATE_LIMITED',
-    ],
-  ])(
-    'throws on a 200 response carrying GraphQL errors',
-    async (errors, kind) => {
-      const fetcher = fetchMock().mockResolvedValue(
-        json({ data: null, errors }),
-      );
-      await expect(
-        new CollectionAppClient(
-          graphqlConfig,
-          tokenProvider,
-          fetcher,
-        ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
-      ).rejects.toMatchObject({ kind });
-    },
-  );
-
-  it('resolves a login to its node ID and reports an unknown login as null', async () => {
-    const found = fetchMock().mockResolvedValue(
-      json({ data: { user: { id: 'MDQ6VXNlcjc=' } } }),
-    );
-    await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        found,
-      ).resolveUserNodeId('octocat'),
-    ).resolves.toEqual('MDQ6VXNlcjc=');
-    expect(sentPayload(found).variables).toEqual({ login: 'octocat' });
-
-    await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({
-            data: { user: null },
-            errors: [
-              {
-                type: 'NOT_FOUND',
-                path: ['user'],
-                message:
-                  "Could not resolve to a User with the login of 'ghost'.",
-              },
-            ],
-          }),
-        ),
-      ).resolveUserNodeId('ghost'),
-    ).resolves.toBeNull();
-  });
-
-  it.each([
-    [
-      [
-        { type: 'NOT_FOUND', path: ['user'] },
-        { message: 'Something went wrong' },
-      ],
-    ],
-    [[{ message: 'Something went wrong' }]],
-  ])(
-    'still throws when a login lookup carries any error other than NOT_FOUND',
-    async (errors) => {
-      await expect(
-        new CollectionAppClient(
-          graphqlConfig,
-          tokenProvider,
-          fetchMock().mockResolvedValue(json({ data: { user: null }, errors })),
-        ).resolveUserNodeId('ghost'),
-      ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
-    },
-  );
-
-  it('keeps NOT_FOUND fatal outside the login lookup', async () => {
-    await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({
-            data: { repository: null },
-            errors: [{ type: 'NOT_FOUND', path: ['repository'] }],
-          }),
-        ),
-      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
-    ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
-  });
-
-  it('defaults the GraphQL endpoint when no override is configured', async () => {
+  it('alias 하나가 NOT_FOUND여도 그 alias만 null이고 나머지 99개는 그대로 읽는다', async () => {
+    const data: Record<string, unknown> = {
+      rateLimit: { cost: 1, remaining: 4000 },
+    };
+    for (let index = 0; index < 100; index += 1) {
+      data[`r${index}`] = index === 37 ? null : probeNode(index);
+    }
     const fetcher = fetchMock().mockResolvedValue(
-      json({ data: { user: { id: 'NODE' } } }),
+      json({
+        data,
+        errors: [
+          {
+            type: 'NOT_FOUND',
+            path: ['r37'],
+            message: 'Could not resolve to a Repository',
+          },
+        ],
+      }),
     );
-    await new CollectionAppClient(
+
+    const result = await new CollectionAppClient(
       config,
       tokenProvider,
       fetcher,
-    ).resolveUserNodeId('octocat');
-    expect(fetcher.mock.calls[0]?.[0]).toEqual(
-      'https://api.github.com/graphql',
+    ).probeRepositories(
+      Array.from({ length: 100 }, (_, index) => ({
+        owner: 'JNU-SWCU',
+        name: `repo-${index}`,
+      })),
     );
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.repositories).toHaveLength(100);
+    expect(result.repositories[37]).toBeNull();
+    expect(result.repositories.filter((item) => item !== null)).toHaveLength(
+      99,
+    );
+    expect(result.repositories[38]).toMatchObject({
+      githubRepositoryId: '1038',
+    });
+  });
+
+  it('alias에 오류가 있으면 데이터가 남아 있어도 그 alias 전체를 오류로 본다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({
+        data: { rateLimit: null, r0: probeNode(0), r1: probeNode(1) },
+        errors: [{ type: 'FORBIDDEN', path: ['r1', 'issues'] }],
+      }),
+    );
+
+    const result = await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).probeRepositories([
+      { owner: 'JNU-SWCU', name: 'repo-0' },
+      { owner: 'JNU-SWCU', name: 'repo-1' },
+    ]);
+
+    expect(result.repositories[0]).not.toBeNull();
+    expect(result.repositories[1]).toBeNull();
+  });
+
+  it('RATE_LIMITED GraphQL 오류는 실행 전체 실패로 올린다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({
+        data: { r0: null },
+        errors: [{ type: 'RATE_LIMITED', path: ['r0'] }],
+      }),
+    );
+
+    await expect(
+      new CollectionAppClient(config, tokenProvider, fetcher).probeRepositories(
+        [{ owner: 'JNU-SWCU', name: 'repo-0' }],
+      ),
+    ).rejects.toMatchObject({ kind: 'RATE_LIMITED' });
+  });
+
+  it('alias에 속하지 않는 오류는 GRAPHQL_ERROR로 실패한다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({ errors: [{ message: 'Something went wrong' }] }),
+    );
+
+    await expect(
+      new CollectionAppClient(config, tokenProvider, fetcher).probeRepositories(
+        [{ owner: 'JNU-SWCU', name: 'repo-0' }],
+      ),
+    ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
+  });
+});
+
+describe('CollectionAppClient collectRepositoryContributions', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const since = new Date('2026-11-01T00:00:00Z');
+
+  it('100건 이하이면 저장소당 한 번의 요청으로 네 종류를 모두 읽는다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      contributionsBody(
+        emptyRepository({
+          ref: {
+            target: {
+              history: page([
+                {
+                  oid: 'abc',
+                  committedDate: '2026-11-05T00:00:00Z',
+                  author: { user: { databaseId: 7 } },
+                },
+                {
+                  oid: 'def',
+                  committedDate: '2026-11-04T00:00:00Z',
+                  author: { user: null },
+                },
+              ]),
+            },
+          },
+          pullRequests: page([
+            {
+              fullDatabaseId: '300',
+              createdAt: '2026-11-03T00:00:00Z',
+              author: { databaseId: 8 },
+            },
+            {
+              fullDatabaseId: '299',
+              createdAt: '2026-10-31T23:59:59Z',
+              author: { databaseId: 8 },
+            },
+          ]),
+          issues: page([
+            {
+              fullDatabaseId: '400',
+              createdAt: '2026-11-02T00:00:00Z',
+              author: null,
+            },
+          ]),
+          releases: page([
+            {
+              databaseId: 500,
+              createdAt: '2026-11-06T00:00:00Z',
+              publishedAt: '2026-11-07T00:00:00Z',
+              isDraft: false,
+              author: { databaseId: 9 },
+            },
+            {
+              databaseId: 501,
+              createdAt: '2026-11-06T00:00:00Z',
+              publishedAt: null,
+              isDraft: true,
+              author: null,
+            },
+          ]),
+        }),
+        { cost: 1, remaining: 4321 },
+      ),
+    );
+
+    const result = await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const payload = payloadOf(fetcher);
+    expect(payload.variables).toMatchObject({
+      owner: 'JNU-SWCU',
+      name: 'repo',
+      branch: 'main',
+      since: '2026-11-01T00:00:00.000Z',
+      issueSince: '2026-11-01T00:00:00.000Z',
+      withCommits: true,
+      withPullRequests: true,
+      withIssues: true,
+      withReleases: true,
+    });
+    expect(payload.query).not.toMatch(/history\([^)]*author:/);
+    expect(result).toEqual({
+      contributions: {
+        commit: [
+          {
+            githubKey: 'abc',
+            authorGithubId: '7',
+            occurredAt: new Date('2026-11-05T00:00:00Z'),
+          },
+          {
+            githubKey: 'def',
+            authorGithubId: null,
+            occurredAt: new Date('2026-11-04T00:00:00Z'),
+          },
+        ],
+        pull_request: [
+          {
+            githubKey: '300',
+            authorGithubId: '8',
+            occurredAt: new Date('2026-11-03T00:00:00Z'),
+          },
+        ],
+        issue: [
+          {
+            githubKey: '400',
+            authorGithubId: null,
+            occurredAt: new Date('2026-11-02T00:00:00Z'),
+          },
+        ],
+        release: [
+          {
+            githubKey: '500',
+            authorGithubId: '9',
+            occurredAt: new Date('2026-11-07T00:00:00Z'),
+          },
+        ],
+      },
+      requests: 1,
+      pointsUsed: 1,
+      rateLimit: { cost: 1, remaining: 4321 },
+    });
+  });
+
+  it('기본 브랜치가 없으면 커밋은 요청하지 않는다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      contributionsBody(emptyRepository({ ref: undefined })),
+    );
+
+    const result = await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).collectRepositoryContributions('JNU-SWCU', 'repo', null, since);
+
+    expect(payloadOf(fetcher).variables).toMatchObject({
+      withCommits: false,
+      withPullRequests: true,
+    });
+    expect(result.contributions.commit).toEqual([]);
+  });
+
+  it('100건을 넘는 종류만 cursor로 이어 읽고 중복 key는 한 번만 남긴다', async () => {
+    const pr = (id: string) => ({
+      fullDatabaseId: id,
+      createdAt: '2026-11-03T00:00:00Z',
+      author: null,
+    });
+    const fetcher = fetchMock()
+      .mockResolvedValueOnce(
+        contributionsBody(
+          emptyRepository({ pullRequests: page([pr('3'), pr('2')], 'c1') }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        contributionsBody({ pullRequests: page([pr('2'), pr('1')]) }),
+      );
+
+    const result = await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since);
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(payloadOf(fetcher, 1).variables).toMatchObject({
+      withCommits: false,
+      withPullRequests: true,
+      withIssues: false,
+      withReleases: false,
+      pullRequestCursor: 'c1',
+    });
+    expect(
+      result.contributions.pull_request.map((item) => item.githubKey),
+    ).toEqual(['3', '2', '1']);
+    expect(result.requests).toBe(2);
+    expect(result.pointsUsed).toBe(2);
+  });
+
+  it('since보다 오래된 항목을 만나면 다음 페이지를 읽지 않는다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      contributionsBody(
+        emptyRepository({
+          issues: page(
+            [
+              {
+                fullDatabaseId: '9',
+                createdAt: '2026-10-01T00:00:00Z',
+                author: null,
+              },
+            ],
+            'more',
+          ),
+        }),
+      ),
+    );
+
+    const result = await new CollectionAppClient(
+      config,
+      tokenProvider,
+      fetcher,
+    ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.contributions.issue).toEqual([]);
+  });
+
+  it('페이지 상한에 닿으면 잘린 결과 대신 PAGINATION으로 실패한다', async () => {
+    const fetcher = fetchMock().mockImplementation(() =>
+      Promise.resolve(
+        contributionsBody(
+          emptyRepository({
+            ref: {
+              target: {
+                history: page(
+                  [
+                    {
+                      oid: `sha-${fetcher.mock.calls.length}`,
+                      committedDate: '2026-11-05T00:00:00Z',
+                      author: null,
+                    },
+                  ],
+                  'next',
+                ),
+              },
+            },
+          }),
+        ),
+      ),
+    );
+
+    await expect(
+      new CollectionAppClient(
+        { ...config, maxPages: 3 },
+        tokenProvider,
+        fetcher,
+      ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since),
+    ).rejects.toMatchObject({ kind: 'PAGINATION' });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it('마감 시간은 페이지마다 따로 재서 여러 페이지를 끝까지 읽는다', async () => {
+    let now = 0;
+    const fetcher = fetchMock().mockImplementation(() => {
+      now += 20;
+      return Promise.resolve(
+        contributionsBody(
+          emptyRepository({
+            issues: page([], fetcher.mock.calls.length < 4 ? 'next' : null),
+          }),
+        ),
+      );
+    });
+
+    await new CollectionAppClient(
+      { ...config, deadlineMs: 30 },
+      tokenProvider,
+      fetcher,
+      () => now,
+    ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since);
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it('한 페이지가 마감 시간을 넘기면 DEADLINE으로 실패한다', async () => {
+    let now = 0;
+    const fetcher = fetchMock().mockImplementation(() => {
+      if (fetcher.mock.calls.length > 1) {
+        now += 40;
+        return Promise.reject(new Error('aborted'));
+      }
+      now += 20;
+      return Promise.resolve(
+        contributionsBody(emptyRepository({ issues: page([], 'next') })),
+      );
+    });
+
+    await expect(
+      new CollectionAppClient(
+        { ...config, deadlineMs: 30 },
+        tokenProvider,
+        fetcher,
+        () => now,
+      ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since),
+    ).rejects.toMatchObject({ kind: 'DEADLINE' });
+  });
+
+  it.each<[CollectionContributionKind, Record<string, unknown>]>([
+    ['pull_request', { pullRequests: { nodes: 'bad', pageInfo: {} } }],
+    ['release', { releases: page([{ databaseId: 1.5, isDraft: false }]) }],
+  ])('%s 응답 모양이 다르면 RESPONSE로 실패한다', async (_kind, override) => {
+    const fetcher = fetchMock().mockResolvedValue(
+      contributionsBody(emptyRepository(override)),
+    );
+
+    await expect(
+      new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetcher,
+      ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since),
+    ).rejects.toBeInstanceOf(CollectionAppClientError);
+  });
+
+  it('strict 요청에서는 GraphQL 오류를 데이터로 넘기지 않는다', async () => {
+    const fetcher = fetchMock().mockResolvedValue(
+      json({
+        data: { repository: null },
+        errors: [{ type: 'NOT_FOUND', path: ['repository'] }],
+      }),
+    );
+
+    await expect(
+      new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetcher,
+      ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since),
+    ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
   });
 });

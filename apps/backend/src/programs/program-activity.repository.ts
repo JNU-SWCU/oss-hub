@@ -74,8 +74,7 @@ export interface ProgramActivityApplication {
     readonly user: { readonly githubId: bigint; readonly nickname: string };
   }[];
   repository: {
-    failureCount: number;
-    streams: { lastRunAt: Date | null }[];
+    lastSuccessAt: Date | null;
     _count: {
       commits: number;
       pullRequests: number;
@@ -146,11 +145,7 @@ export class ProgramActivityRepository {
           select: { user: { select: { githubId: true, nickname: true } } },
         },
         repository: {
-          select: {
-            id: true,
-            failureCount: true,
-            streams: { select: { lastRunAt: true } },
-          },
+          select: { id: true, githubRepositoryId: true },
         },
       },
     });
@@ -160,6 +155,21 @@ export class ProgramActivityRepository {
         application.repository === null ? [] : [application.repository.id],
       ),
     );
+    const ledger = await this.prisma.repo.findMany({
+      where: {
+        githubRepoId: {
+          in: applications.flatMap((application) =>
+            application.repository === null
+              ? []
+              : [application.repository.githubRepositoryId],
+          ),
+        },
+      },
+      select: { githubRepoId: true, lastSuccessAt: true },
+    });
+    const lastSuccessAt = new Map(
+      ledger.map((row) => [row.githubRepoId, row.lastSuccessAt]),
+    );
     return applications.map((application) => {
       const repository = application.repository;
       if (repository === null) return { ...application, repository: null };
@@ -168,8 +178,8 @@ export class ProgramActivityRepository {
       return {
         ...application,
         repository: {
-          failureCount: repository.failureCount,
-          streams: repository.streams,
+          lastSuccessAt:
+            lastSuccessAt.get(repository.githubRepositoryId) ?? null,
           _count: {
             commits: summary?.commitCount ?? 0,
             pullRequests: summary?.pullRequestCount ?? 0,

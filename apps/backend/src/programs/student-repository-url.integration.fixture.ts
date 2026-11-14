@@ -164,9 +164,7 @@ beforeEach(async () => {
       nameWithOwner: 'synthetic/target',
       source: RepositorySource.EXTERNAL_PUBLIC,
       presence: 'ABSENT',
-      failureCount: 4,
       archived: true,
-      nextRunAt: new Date('2099-01-01'),
     },
   });
   await seedDailyContributions(prisma, targetGithubId + 1n, [

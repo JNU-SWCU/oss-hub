@@ -88,8 +88,6 @@ describe('external repository enrollment integration', () => {
         source: 'EXTERNAL_PUBLIC',
         visibility: 'PRIVATE',
         presence: 'ABSENT',
-        nextRunAt: new Date('2026-08-10T00:00:00.000Z'),
-        failureCount: 4,
       },
     });
     await seedDailyContributions(
@@ -133,9 +131,13 @@ describe('external repository enrollment integration', () => {
       source: 'EXTERNAL_PUBLIC',
       visibility: 'PUBLIC',
       presence: 'PRESENT',
-      nextRunAt: OBSERVED_AT,
-      failureCount: 0,
     });
+    await expect(
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: REPOSITORY_IDS[1] },
+        select: { goneAt: true },
+      }),
+    ).resolves.toEqual({ goneAt: null });
     await expect(
       repositoryContributionTotals(prisma, [repository.id]),
     ).resolves.toEqual({

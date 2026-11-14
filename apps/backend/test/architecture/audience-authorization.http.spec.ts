@@ -480,21 +480,9 @@ describe('Audience authorization HTTP characterization', () => {
           provide: SystemStatusRepository,
           useValue: {
             findActor,
-            getIncrementalStatusSnapshot: () =>
-              Promise.resolve({
-                trackedRepositoryCount: 0,
-                readyStreamCount: 0,
-                backfillingStreamCount: 0,
-                partialStreamCount: 0,
-                retryPendingStreamCount: 0,
-                latestCheckpointAt: null,
-                oldestReadyCheckpointAt: null,
-                oldestRetryPendingAt: null,
-                lastCycleStartedAt: null,
-                lastCycleCompletedAt: null,
-              }),
+            getCollectionRepositories: () => Promise.resolve([]),
+            hasActiveCollectionRun: () => Promise.resolve(false),
             countFinalProvisionFailures: () => Promise.resolve(0),
-            getIncrementalStatusStreams: () => Promise.resolve([]),
             getExternalCollectionStatus: () =>
               Promise.resolve({
                 trackedRepositoryCount: 0,

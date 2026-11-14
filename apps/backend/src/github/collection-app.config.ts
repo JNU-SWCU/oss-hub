@@ -117,6 +117,8 @@ function resolvePrivateKey(
   }
 }
 
-export const COLLECTION_FAILURE_BACKOFF_BASE_MS = 60 * 60 * 1000;
+export const COLLECTION_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
-export const COLLECTION_FAILURE_BACKOFF_MAX_MS = 6 * 60 * 60 * 1000;
+export const COLLECTION_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+export const COLLECTION_STALE_AFTER_MS = 2 * 60 * 60 * 1000;

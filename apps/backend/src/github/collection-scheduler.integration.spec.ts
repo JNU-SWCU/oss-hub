@@ -78,7 +78,7 @@ describe('collection cron integration', () => {
       failedUserCount: 0,
     });
 
-    const result = await scheduler.trigger();
+    const result = await scheduler.trigger('hourly');
     expect(result.status).toBe('PENDING');
     expect(run).toHaveBeenCalledTimes(1);
     expect(run.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
@@ -96,7 +96,7 @@ describe('collection cron integration', () => {
       },
     });
 
-    await expect(scheduler.trigger()).rejects.toMatchObject({
+    await expect(scheduler.trigger('hourly')).rejects.toMatchObject({
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();

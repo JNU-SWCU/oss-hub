@@ -1,52 +1,24 @@
-export type CollectionHealth =
-  'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
+export type CollectionHealth = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
 export type CurrentRunStatus = 'IDLE' | 'PROCESSING';
 
-export type SystemStatusSafeReason =
-  | 'NO_TRACKED_REPOSITORIES'
-  | 'UPSTREAM_RATE_LIMITED'
-  | 'RUN_INCOMPLETE'
-  | 'STALE_DATA';
+export type SystemStatusSafeReason = 'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
 
 export interface SystemStatus {
   readonly health: CollectionHealth;
-  readonly dataAsOf: string | null;
   readonly trackedRepositoryCount: number;
-  readonly readyStreamCount: number;
-  readonly backfillingStreamCount: number;
-  readonly partialStreamCount: number;
-  readonly retryPendingStreamCount: number;
-  readonly oldestReadyCheckpointAt: string | null;
-  readonly oldestRetryPendingAt: string | null;
-  readonly lastCycleStartedAt: string | null;
-  readonly lastCycleCompletedAt: string | null;
+  readonly staleRepositoryCount: number;
   readonly lastSuccessAt: string | null;
-
   readonly nextCycleAt: string | null;
   readonly currentRunStatus: CurrentRunStatus;
   readonly safeReason: SystemStatusSafeReason | null;
 }
 
-export type CollectionStreamType =
-  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
-
-export type CollectionStreamBucket =
-  'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
-
-export interface CollectionStreamDetail {
-  readonly streamType: CollectionStreamType;
-  readonly bucket: CollectionStreamBucket;
-  readonly lastSuccessAt: string | null;
-  readonly lastErrorCode: string | null;
-  readonly lastErrorAt: string | null;
-}
-
-export interface CollectionStreamRepository {
+export interface CollectionRepositoryStatus {
   readonly repositoryName: string;
-
   readonly programName: string | null;
-  readonly streams: readonly CollectionStreamDetail[];
+  readonly lastSuccessAt: string | null;
+  readonly stale: boolean;
 }
 
 export interface ExternalCollectionStatus {
@@ -56,14 +28,14 @@ export interface ExternalCollectionStatus {
 
 export interface SystemStatusResponse {
   readonly collection: SystemStatus;
-  readonly collectionStreams: readonly CollectionStreamRepository[];
+  readonly collectionRepositories: readonly CollectionRepositoryStatus[];
 
   readonly externalCollection?: ExternalCollectionStatus;
 }
 
 export interface SystemStatusData {
   readonly status: SystemStatus;
-  readonly collectionStreams: readonly CollectionStreamRepository[];
+  readonly collectionRepositories: readonly CollectionRepositoryStatus[];
   readonly externalCollection: ExternalCollectionStatus;
 }
 
@@ -74,7 +46,7 @@ export type SystemStatusViewState =
       readonly kind: 'success';
       readonly freshness: 'current' | 'refreshing' | 'stale';
       readonly status: SystemStatus;
-      readonly collectionStreams: readonly CollectionStreamRepository[];
+      readonly collectionRepositories: readonly CollectionRepositoryStatus[];
       readonly externalCollection: ExternalCollectionStatus;
     };
 

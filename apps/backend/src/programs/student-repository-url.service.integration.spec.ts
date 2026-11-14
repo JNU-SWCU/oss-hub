@@ -119,7 +119,6 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
   ).toMatchObject({
     teamId,
     presence: 'PRESENT',
-    failureCount: 0,
     archived: false,
     defaultBranch: 'main',
     source: RepositorySource.EXTERNAL_PUBLIC,
@@ -192,7 +191,7 @@ it('rolls back binding and queue changes when the team history write fails', asy
   ).toBe(7);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId: null, presence: 'ABSENT', failureCount: 4 });
+  ).toMatchObject({ teamId: null, presence: 'ABSENT', archived: true });
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,

@@ -87,22 +87,18 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('KST 자정 경계를 사이에 둔 두 커밋이 서로 다른 날짜 칸으로 간다', async () => {
-    await repository.recordCommitFacts(
-      REPO_ID,
-      [
-        {
-          sha: 'before-kst-midnight',
-          committedAt: new Date('2026-03-15T14:30:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-        {
-          sha: 'after-kst-midnight',
-          committedAt: new Date('2026-03-15T15:30:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      await repository.listRegisteredGithubIds(),
-    );
+    await repository.recordContributions(REPO_ID, 'commit', [
+      {
+        githubKey: 'before-kst-midnight',
+        occurredAt: new Date('2026-03-15T14:30:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+      {
+        githubKey: 'after-kst-midnight',
+        occurredAt: new Date('2026-03-15T15:30:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+    ]);
 
     const rows = await readDays();
 
@@ -113,24 +109,18 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('Issue도 KST 자정에서 날짜가 갈린다 — 14:59:59Z 는 그날, 15:00:00Z 는 다음 날이다', async () => {
-    await repository.recordIssueFacts(
-      REPO_ID,
-      [
-        {
-          githubIssueId: 1n,
-          state: 'open',
-          createdAt: new Date('2026-03-15T14:59:59.000Z'),
-          authorGithubId: MEMBER,
-        },
-        {
-          githubIssueId: 2n,
-          state: 'closed',
-          createdAt: new Date('2026-03-15T15:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      await repository.listRegisteredGithubIds(),
-    );
+    await repository.recordContributions(REPO_ID, 'issue', [
+      {
+        githubKey: '1',
+        occurredAt: new Date('2026-03-15T14:59:59.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+      {
+        githubKey: '2',
+        occurredAt: new Date('2026-03-15T15:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+    ]);
 
     const rows = await readDays();
 
@@ -147,31 +137,21 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('커밋만 다시 센 재계산도 같은 칸의 issueCount 를 지우지 않는다', async () => {
-    const registeredGithubIds = await repository.listRegisteredGithubIds();
-    await repository.recordIssueFacts(
-      REPO_ID,
-      [
-        {
-          githubIssueId: 1n,
-          state: 'open',
-          createdAt: new Date('2026-03-15T01:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      registeredGithubIds,
-    );
+    await repository.recordContributions(REPO_ID, 'issue', [
+      {
+        githubKey: '1',
+        occurredAt: new Date('2026-03-15T01:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+    ]);
 
-    await repository.recordCommitFacts(
-      REPO_ID,
-      [
-        {
-          sha: 'same-day-commit',
-          committedAt: new Date('2026-03-15T02:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      registeredGithubIds,
-    );
+    await repository.recordContributions(REPO_ID, 'commit', [
+      {
+        githubKey: 'same-day-commit',
+        occurredAt: new Date('2026-03-15T02:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+    ]);
 
     const rows = await readDays();
     expect(rows).toEqual([
@@ -179,49 +159,42 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     ]);
   });
 
-  it('미가입자 기여는 행이 만들어지지 않는다', async () => {
-    await repository.recordCommitFacts(
-      REPO_ID,
-      [
-        {
-          sha: 'by-member',
-          committedAt: new Date('2026-03-15T01:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-        {
-          sha: 'by-stranger',
-          committedAt: new Date('2026-03-15T01:00:00.000Z'),
-          authorGithubId: STRANGER,
-        },
-      ],
-      await repository.listRegisteredGithubIds(),
-    );
+  it('미가입자 기여도 원장에 남는다 — 가입 여부는 읽기 조건이 가른다(U3)', async () => {
+    await repository.recordContributions(REPO_ID, 'commit', [
+      {
+        githubKey: 'by-member',
+        occurredAt: new Date('2026-03-15T01:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+      {
+        githubKey: 'by-stranger',
+        occurredAt: new Date('2026-03-15T01:00:00.000Z'),
+        authorGithubId: STRANGER.toString(),
+      },
+    ]);
 
     const rows = await readDays();
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.githubId).toBe(MEMBER);
+    expect(rows.map((row) => row.githubId)).toEqual([MEMBER, STRANGER]);
   });
 
   it('재실행해도 같은 값이다 — 누적이 아니라 덮어쓰기다', async () => {
     const batch = [
       {
-        sha: 'idempotent-a',
-        committedAt: new Date('2026-03-15T01:00:00.000Z'),
-        authorGithubId: MEMBER,
+        githubKey: 'idempotent-a',
+        occurredAt: new Date('2026-03-15T01:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
       },
       {
-        sha: 'idempotent-b',
-        committedAt: new Date('2026-03-15T02:00:00.000Z'),
-        authorGithubId: MEMBER,
+        githubKey: 'idempotent-b',
+        occurredAt: new Date('2026-03-15T02:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
       },
     ];
-
-    const registeredGithubIds = await repository.listRegisteredGithubIds();
-    await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
+    await repository.recordContributions(REPO_ID, 'commit', batch);
     const first = await readDays();
 
-    await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
+    await repository.recordContributions(REPO_ID, 'commit', batch);
     const second = await readDays();
 
     expect(second).toEqual(first);
@@ -229,29 +202,20 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('같은 날의 다른 커밋은 이전 이벤트를 지우지 않는다', async () => {
-    const registeredGithubIds = await repository.listRegisteredGithubIds();
-    await repository.recordCommitFacts(
-      REPO_ID,
-      [
-        {
-          sha: 'stays',
-          committedAt: new Date('2026-03-15T01:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      registeredGithubIds,
-    );
-    await repository.recordCommitFacts(
-      REPO_ID,
-      [
-        {
-          sha: 'also-stays',
-          committedAt: new Date('2026-03-15T03:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      registeredGithubIds,
-    );
+    await repository.recordContributions(REPO_ID, 'commit', [
+      {
+        githubKey: 'stays',
+        occurredAt: new Date('2026-03-15T01:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+    ]);
+    await repository.recordContributions(REPO_ID, 'commit', [
+      {
+        githubKey: 'also-stays',
+        occurredAt: new Date('2026-03-15T03:00:00.000Z'),
+        authorGithubId: MEMBER.toString(),
+      },
+    ]);
 
     const rows = await readDays();
     expect(rows).toHaveLength(1);
@@ -260,9 +224,9 @@ describe('Contribution 재계산 (실 Postgres)', () => {
 
   it('칸이 늘어도 질의 수가 늘지 않는다 — 트랜잭션 안 N+1 을 만들지 않는다', async () => {
     const facts = Array.from({ length: 60 }, (_, index) => ({
-      sha: `bulk-${index}`,
-      committedAt: new Date(Date.UTC(2026, 4, 1 + index, 3, 0, 0)),
-      authorGithubId: MEMBER,
+      githubKey: `bulk-${index}`,
+      occurredAt: new Date(Date.UTC(2026, 4, 1 + index, 3, 0, 0)),
+      authorGithubId: MEMBER.toString(),
     }));
 
     const queries: string[] = [];
@@ -278,11 +242,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       new PlatformRepository(),
     );
 
-    await loggedRepository.recordCommitFacts(
-      REPO_ID,
-      facts,
-      await loggedRepository.listRegisteredGithubIds(),
-    );
+    await loggedRepository.recordContributions(REPO_ID, 'commit', facts);
     await logged.$disconnect();
 
     expect(
@@ -298,88 +258,50 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 });
 
-describe('수집 편입 큐 백오프 (실 Postgres)', () => {
+describe('수집 성공 기록 (실 Postgres)', () => {
   const prisma = new PrismaClient();
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
     new PlatformRepository(),
   );
+  const GITHUB_IDS = [9_930_000_001n, 9_930_000_002n, 9_930_000_003n];
 
-  const QUEUE_REPO_ID = 'queue-backoff-repo';
-  const QUEUE_GITHUB_ID = 9_930_000_001n;
-
-  beforeAll(async () => {
-    await prisma.$connect();
-  });
+  beforeAll(() => prisma.$connect());
   afterAll(async () => {
+    await prisma.repo.deleteMany({
+      where: { githubRepoId: { in: GITHUB_IDS } },
+    });
     await prisma.$disconnect();
   });
 
   beforeEach(async () => {
-    await prisma.githubRepository.deleteMany({
-      where: { githubRepositoryId: QUEUE_GITHUB_ID },
+    await prisma.repo.deleteMany({
+      where: { githubRepoId: { in: GITHUB_IDS } },
     });
-    await prisma.githubRepository.create({
-      data: {
-        id: QUEUE_REPO_ID,
-        githubRepositoryId: QUEUE_GITHUB_ID,
-        nameWithOwner: 'queue-backoff/synthetic',
-        source: 'ORG_PROVISIONED',
-        visibility: 'PUBLIC',
-        presence: 'PRESENT',
-      },
+    await prisma.repo.createMany({
+      data: GITHUB_IDS.map((githubRepoId) => ({
+        githubRepoId,
+        ownerName: `queue-success/${githubRepoId}`,
+        source: 'ORG_PROVISIONED' as const,
+      })),
     });
   });
 
-  it('새 행은 기본값으로 즉시 수집 대상이다 — 행의 존재가 곧 멤버십이다', async () => {
-    const row = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: QUEUE_GITHUB_ID },
-      select: { nextRunAt: true, failureCount: true, lastSuccessAt: true },
-    });
-
-    expect(row.failureCount).toBe(0);
-    expect(row.lastSuccessAt).toBeNull();
-
-    expect(row.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
-  });
-
-  it('실패는 차례를 뒤로 밀고 성공은 즉시 되돌린다', async () => {
+  it('성공한 저장소들의 repo.last_success_at만 한 번에 올리고 나머지는 그대로 둔다', async () => {
     const at = new Date('2026-05-01T00:00:00.000Z');
 
-    await repository.recordRepositoryFailure(
-      QUEUE_GITHUB_ID,
-      (failureCount) => new Date(at.getTime() + failureCount * 60_000),
-    );
-    const failed = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: QUEUE_GITHUB_ID },
-      select: { nextRunAt: true, failureCount: true },
-    });
-    expect(failed.failureCount).toBe(1);
+    await repository.recordRepositorySuccess(GITHUB_IDS.slice(0, 2), at);
 
-    expect(failed.nextRunAt.getTime()).toBeGreaterThan(at.getTime());
-
-    await repository.recordRepositoryFailure(
-      QUEUE_GITHUB_ID,
-      (failureCount) => new Date(at.getTime() + failureCount * 60_000),
-    );
-    const twice = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: QUEUE_GITHUB_ID },
-      select: { nextRunAt: true, failureCount: true },
-    });
-
-    expect(twice.failureCount).toBe(2);
-    expect(twice.nextRunAt.getTime()).toBeGreaterThan(
-      failed.nextRunAt.getTime(),
-    );
-
-    await repository.recordRepositorySuccess(QUEUE_GITHUB_ID, at);
-    const healed = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: QUEUE_GITHUB_ID },
-      select: { nextRunAt: true, failureCount: true, lastSuccessAt: true },
-    });
-
-    expect(healed.failureCount).toBe(0);
-    expect(healed.lastSuccessAt?.getTime()).toBe(at.getTime());
-    expect(healed.nextRunAt.getTime()).toBe(at.getTime());
+    await expect(
+      prisma.repo.findMany({
+        where: { githubRepoId: { in: GITHUB_IDS } },
+        orderBy: { githubRepoId: 'asc' },
+        select: { githubRepoId: true, lastSuccessAt: true },
+      }),
+    ).resolves.toEqual([
+      { githubRepoId: GITHUB_IDS[0], lastSuccessAt: at },
+      { githubRepoId: GITHUB_IDS[1], lastSuccessAt: at },
+      { githubRepoId: GITHUB_IDS[2], lastSuccessAt: null },
+    ]);
   });
 });

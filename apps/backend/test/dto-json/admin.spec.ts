@@ -74,42 +74,26 @@ const mutation: AdminAccessMutationResult = {
 const systemStatus: SystemStatusResult = {
   collection: {
     health: 'DELAYED',
-    dataAsOf: at('2026-05-01T00:00:00.000Z'),
     trackedRepositoryCount: 12,
-    readyStreamCount: 30,
-    backfillingStreamCount: 4,
-    partialStreamCount: 2,
-    retryPendingStreamCount: 1,
-    oldestReadyCheckpointAt: at('2026-04-30T00:00:00.000Z'),
-    oldestRetryPendingAt: null,
-    lastCycleStartedAt: at('2026-05-01T01:00:00.000Z'),
-    lastCycleCompletedAt: null,
+    staleRepositoryCount: 1,
     lastSuccessAt: at('2026-05-01T00:45:00.000Z'),
     nextCycleAt: at('2026-05-01T02:00:00.000Z'),
     currentRunStatus: 'PROCESSING',
-    safeReason: 'RUN_INCOMPLETE',
+    safeReason: 'STALE_DATA',
   },
   repositoryProvisioning: { finalFailureCount: 3 },
-  collectionStreams: [
+  collectionRepositories: [
     {
       repositoryName: 'org/repo',
       programName: 'Program A',
-      streams: [
-        {
-          streamType: 'COMMIT',
-          bucket: 'READY',
-          lastSuccessAt: at('2026-05-01T00:30:00.000Z'),
-          lastErrorCode: null,
-          lastErrorAt: null,
-        },
-        {
-          streamType: 'ISSUE',
-          bucket: 'RETRY_PENDING',
-          lastSuccessAt: null,
-          lastErrorCode: 'RATE_LIMIT',
-          lastErrorAt: at('2026-05-01T00:40:00.000Z'),
-        },
-      ],
+      lastSuccessAt: at('2026-05-01T00:30:00.000Z'),
+      stale: false,
+    },
+    {
+      repositoryName: 'org/late',
+      programName: null,
+      lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
+      stale: true,
     },
   ],
   externalCollection: {
@@ -192,15 +176,14 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         collection: {
           ...systemStatus.collection,
           health: 'EMPTY',
-          dataAsOf: null,
-          oldestReadyCheckpointAt: null,
-          lastCycleStartedAt: null,
+          trackedRepositoryCount: 0,
+          staleRepositoryCount: 0,
           lastSuccessAt: null,
           nextCycleAt: null,
           currentRunStatus: 'IDLE',
-          safeReason: null,
+          safeReason: 'NO_TRACKED_REPOSITORIES',
         },
-        collectionStreams: [],
+        collectionRepositories: [],
         externalCollection: {
           ...systemStatus.externalCollection,
           lastSuccessAt: null,

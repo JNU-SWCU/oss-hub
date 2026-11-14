@@ -6,41 +6,26 @@ import { ProviderRequestQueueClient } from '../src/github/provider-request-queue
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-const SYNTHETIC_PAGE_SIZE = 4;
-
+const SYNTHETIC_PAGE_SIZE = 100;
 const SYNTHETIC_API_BASE_URL = 'https://api.collection-scale-suite.test';
 const SYNTHETIC_GRAPHQL_PATH = '/graphql';
 
-const syntheticUserNodeId = (login: string): string => `node:${login}`;
-
-export interface SyntheticCommitSeed {
+interface SyntheticCommitSeed {
   sha: string;
   authorId: number | null;
-  authorLogin: string | null;
   committedAt: string;
 }
 
-export interface SyntheticPullRequestSeed {
+export interface SyntheticAuthoredSeed {
   id: number;
   createdAt: string;
-  state: 'open' | 'closed';
   authorId: number | null;
-  authorLogin: string | null;
 }
 
-export interface SyntheticReleaseSeed {
+interface SyntheticReleaseSeed {
   id: number;
   publishedAt: string;
   authorId: number | null;
-  authorLogin: string | null;
-}
-
-export interface SyntheticIssueSeed {
-  id: number;
-  createdAt: string;
-  state: 'open' | 'closed';
-  authorId: number | null;
-  authorLogin: string | null;
 }
 
 export interface SyntheticRepositorySeed {
@@ -48,77 +33,47 @@ export interface SyntheticRepositorySeed {
   name: string;
   owner: string;
   private: boolean;
-  defaultBranch: string;
-
+  defaultBranch: string | null;
   commits: SyntheticCommitSeed[];
-  pullRequests: SyntheticPullRequestSeed[];
+  pullRequests: SyntheticAuthoredSeed[];
+  issues: SyntheticAuthoredSeed[];
   releases: SyntheticReleaseSeed[];
-
-  issues?: SyntheticIssueSeed[];
-
-  noEtag?: boolean;
 }
 
-type RequestKind =
-  | 'installation'
-  | 'repository'
-  | 'user-node'
-  | 'commit-history'
-  | 'commit-probe'
-  | 'commit-list'
-  | 'pull-list'
-  | 'issue-list'
-  | 'release-probe'
-  | 'release-list';
+type RequestKind = 'probe' | 'collect' | 'repository';
 
 export interface SyntheticRequestCounters {
   total: number;
   byKind: Record<RequestKind, number>;
-  byRepositoryKind: Map<string, Partial<Record<RequestKind, number>>>;
+  byRepository: Map<string, Partial<Record<RequestKind, number>>>;
 }
 
-const emptyByKind = (): Record<RequestKind, number> => ({
-  installation: 0,
-  repository: 0,
-  'user-node': 0,
-  'commit-history': 0,
-  'commit-probe': 0,
-  'commit-list': 0,
-  'pull-list': 0,
-  'issue-list': 0,
-  'release-probe': 0,
-  'release-list': 0,
-});
+type Variables = Readonly<Record<string, unknown>>;
 
-export const syntheticPageCount = (itemCount: number): number =>
-  Math.max(1, Math.ceil(itemCount / SYNTHETIC_PAGE_SIZE));
+const newestFirst = <T>(items: readonly T[], at: (item: T) => string): T[] =>
+  [...items].sort((a, b) => (at(a) < at(b) ? 1 : at(a) > at(b) ? -1 : 0));
+
+const latest = (values: readonly string[]): string | null =>
+  values.reduce<string | null>(
+    (max, value) => (max === null || value > max ? value : max),
+    null,
+  );
 
 export class SyntheticGithubProvider {
   private readonly repositories = new Map<string, SyntheticRepositorySeed>();
-  private readonly installationOrder: SyntheticRepositorySeed[];
   private rateRemaining: number;
-  private readonly rateLimit: number;
   readonly counters: SyntheticRequestCounters = {
     total: 0,
-    byKind: emptyByKind(),
-    byRepositoryKind: new Map(),
+    byKind: { probe: 0, collect: 0, repository: 0 },
+    byRepository: new Map(),
   };
 
   constructor(
     seeds: readonly SyntheticRepositorySeed[],
-    options: { rateRemaining?: number; rateLimit?: number } = {},
+    options: { rateRemaining?: number } = {},
   ) {
-    for (const seed of seeds) {
-      this.repositories.set(`${seed.owner}/${seed.name}`, seed);
-    }
-
-    this.installationOrder = [...this.repositories.values()].reverse();
-    this.rateLimit = options.rateLimit ?? 5000;
-    this.rateRemaining = options.rateRemaining ?? this.rateLimit;
-  }
-
-  setRateRemaining(value: number): void {
-    this.rateRemaining = value;
+    for (const seed of seeds) this.repositories.set(this.key(seed), seed);
+    this.rateRemaining = options.rateRemaining ?? 5000;
   }
 
   mutate(
@@ -126,8 +81,22 @@ export class SyntheticGithubProvider {
     name: string,
     updater: (repo: SyntheticRepositorySeed) => void,
   ): void {
-    const repo = this.repositoryFor(owner, name);
+    const repo = this.repositories.get(`${owner}/${name}`);
+    if (!repo)
+      throw new Error(`unknown synthetic repository: ${owner}/${name}`);
+    this.repositories.delete(`${owner}/${name}`);
     updater(repo);
+    this.repositories.set(this.key(repo), repo);
+  }
+
+  remove(owner: string, name: string): void {
+    this.repositories.delete(`${owner}/${name}`);
+  }
+
+  resetCounters(): void {
+    this.counters.total = 0;
+    this.counters.byKind = { probe: 0, collect: 0, repository: 0 };
+    this.counters.byRepository.clear();
   }
 
   readonly fetcher: Fetcher = (input, init) => {
@@ -136,348 +105,197 @@ export class SyntheticGithubProvider {
       if (typeof init?.body !== 'string') {
         throw new Error('synthetic GraphQL request needs a JSON body');
       }
-      return Promise.resolve(this.handleGraphql(init.body));
+      return Promise.resolve(this.graphql(init.body));
     }
-    const ifNoneMatch = new Headers(init?.headers).get('if-none-match');
-    return Promise.resolve(this.handle(url, ifNoneMatch));
+    const match = /^\/repositories\/(\d+)$/.exec(url.pathname);
+    if (match) return Promise.resolve(this.repositoryById(Number(match[1])));
+    throw new Error(`unexpected synthetic request: ${url.pathname}`);
   };
 
-  private repositoryFor(owner: string, name: string): SyntheticRepositorySeed {
-    const repo = this.repositories.get(`${owner}/${name}`);
-    if (!repo) {
-      throw new Error(`unknown synthetic repository: ${owner}/${name}`);
-    }
-    return repo;
+  private key(repo: SyntheticRepositorySeed): string {
+    return `${repo.owner}/${repo.name}`;
   }
 
   private record(kind: RequestKind, repoKey?: string): void {
     this.counters.total += 1;
     this.counters.byKind[kind] += 1;
     if (repoKey) {
-      const existing = this.counters.byRepositoryKind.get(repoKey) ?? {};
+      const existing = this.counters.byRepository.get(repoKey) ?? {};
       existing[kind] = (existing[kind] ?? 0) + 1;
-      this.counters.byRepositoryKind.set(repoKey, existing);
+      this.counters.byRepository.set(repoKey, existing);
     }
   }
 
-  private rateHeaders(): Record<string, string> {
+  private json(body: unknown, status = 200): Response {
     this.rateRemaining = Math.max(0, this.rateRemaining - 1);
-    return {
-      'x-ratelimit-remaining': String(this.rateRemaining),
-      'x-ratelimit-limit': String(this.rateLimit),
-    };
-  }
-
-  private json(body: unknown, headers: Record<string, string> = {}): Response {
     return new Response(JSON.stringify(body), {
-      status: 200,
-      headers: { ...headers, ...this.rateHeaders() },
+      status,
+      headers: {
+        'x-ratelimit-remaining': String(this.rateRemaining),
+        'x-ratelimit-limit': '5000',
+      },
     });
   }
 
-  private notModified(etag: string): Response {
-    return new Response(null, {
-      status: 304,
-      headers: { etag, ...this.rateHeaders() },
-    });
+  private rateLimit(): { cost: number; remaining: number } {
+    return { cost: 1, remaining: this.rateRemaining };
   }
 
-  private handleGraphql(body: string): Response {
-    const { query, variables } = JSON.parse(body) as {
-      readonly query: string;
-      readonly variables: Readonly<Record<string, string | null>>;
-    };
-    if (query.includes('CollectionUserNodeId')) {
-      this.record('user-node');
-      return this.json({
-        data: { user: { id: syntheticUserNodeId(String(variables.login)) } },
-      });
-    }
-    const owner = String(variables.owner);
-    const name = String(variables.name);
-    const repo = this.repositoryFor(owner, name);
-    const repoKey = `${owner}/${name}`;
-    if (query.includes('CollectionAuthorCommits')) {
-      this.record('commit-history', repoKey);
-      const authored = repo.commits.filter(
-        (commit) =>
-          commit.authorLogin !== null &&
-          syntheticUserNodeId(commit.authorLogin) === variables.authorId,
-      );
-      const start = Number(variables.cursor ?? '0');
-      const end = start + SYNTHETIC_PAGE_SIZE;
-      return this.json({
-        data: {
-          repository: {
-            ref: {
-              target: {
-                history: {
-                  nodes: authored
-                    .slice(start, end)
-                    .map((commit) => this.commitHistoryNode(commit)),
-                  pageInfo: {
-                    hasNextPage: end < authored.length,
-                    endCursor: String(end),
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-    throw new Error(`unknown synthetic GraphQL query: ${query}`);
-  }
-
-  private handle(url: URL, ifNoneMatch: string | null): Response {
-    const repositoryMatch = /^\/repos\/([^/]+)\/([^/]+)$/.exec(url.pathname);
-    const owner = repositoryMatch?.[1];
-    const name = repositoryMatch?.[2];
-    if (owner !== undefined && name !== undefined) {
-      this.record('repository', `${owner}/${name}`);
-      return this.json(this.repositoryJson(this.repositoryFor(owner, name)));
-    }
-    if (url.pathname === '/installation/repositories') {
-      this.record('installation');
-      const repositories = this.installationOrder.map((repo) =>
-        this.repositoryJson(repo),
-      );
-      return this.json({
-        total_count: repositories.length,
-        repositories,
-      });
-    }
-
-    const commitsMatch = /^\/repos\/([^/]+)\/([^/]+)\/commits$/.exec(
-      url.pathname,
-    );
-    if (commitsMatch) {
-      const [, owner, name] = commitsMatch as unknown as [
-        string,
-        string,
-        string,
-      ];
-      const repo = this.repositoryFor(owner, name);
-      const repoKey = `${owner}/${name}`;
-      const perPage = Number(url.searchParams.get('per_page'));
-      if (perPage === 1) {
-        this.record('commit-probe', repoKey);
-        const etag = this.commitEtag(repo);
-        if (!repo.noEtag && ifNoneMatch !== null && ifNoneMatch === etag) {
-          return this.notModified(etag);
-        }
-        const head = repo.commits[0];
-        const body = head ? [this.commitJson(head)] : [];
-        return this.json(body, repo.noEtag ? {} : { etag });
-      }
-      this.record('commit-list', repoKey);
-      return this.paginated(url, repo.commits, (commit) =>
-        this.commitJson(commit),
-      );
-    }
-
-    const pullsMatch = /^\/repos\/([^/]+)\/([^/]+)\/pulls$/.exec(url.pathname);
-    if (pullsMatch) {
-      const [, owner, name] = pullsMatch as unknown as [string, string, string];
-      const repo = this.repositoryFor(owner, name);
-      const repoKey = `${owner}/${name}`;
-      this.record('pull-list', repoKey);
-      const sorted = [...repo.pullRequests].sort((a, b) =>
-        a.createdAt === b.createdAt
-          ? b.id - a.id
-          : a.createdAt < b.createdAt
-            ? 1
-            : -1,
-      );
-      return this.paginated(url, sorted, (pr) => this.pullRequestJson(pr));
-    }
-
-    const issuesMatch = /^\/repos\/([^/]+)\/([^/]+)\/issues$/.exec(
-      url.pathname,
-    );
-    if (issuesMatch) {
-      const [, owner, name] = issuesMatch as unknown as [
-        string,
-        string,
-        string,
-      ];
-      const repo = this.repositoryFor(owner, name);
-      this.record('issue-list', `${owner}/${name}`);
-      const listing = [
-        ...(repo.issues ?? []).map((issue) => ({
-          ...issue,
-          pullRequest: false,
-        })),
-        ...repo.pullRequests.map((pr) => ({ ...pr, pullRequest: true })),
-      ].sort((a, b) =>
-        a.createdAt === b.createdAt
-          ? b.id - a.id
-          : a.createdAt < b.createdAt
-            ? 1
-            : -1,
-      );
-      return this.paginated(url, listing, (item) => this.issueJson(item));
-    }
-
-    const releasesMatch = /^\/repos\/([^/]+)\/([^/]+)\/releases$/.exec(
-      url.pathname,
-    );
-    if (releasesMatch) {
-      const [, owner, name] = releasesMatch as unknown as [
-        string,
-        string,
-        string,
-      ];
-      const repo = this.repositoryFor(owner, name);
-      const repoKey = `${owner}/${name}`;
-      const sorted = [...repo.releases].sort((a, b) =>
-        a.publishedAt === b.publishedAt
-          ? b.id - a.id
-          : a.publishedAt < b.publishedAt
-            ? 1
-            : -1,
-      );
-      const perPage = Number(url.searchParams.get('per_page'));
-      if (perPage === 1) {
-        this.record('release-probe', repoKey);
-        const etag = this.releaseEtag(repo, sorted);
-        if (!repo.noEtag && ifNoneMatch !== null && ifNoneMatch === etag) {
-          return this.notModified(etag);
-        }
-        const head = sorted[0];
-        const body = head ? [this.releaseJson(head)] : [];
-        return this.json(body, repo.noEtag ? {} : { etag });
-      }
-      this.record('release-list', repoKey);
-      return this.paginated(url, sorted, (release) =>
-        this.releaseJson(release),
-      );
-    }
-
-    throw new Error(
-      `unexpected synthetic collection-app request: ${url.pathname}${url.search}`,
-    );
-  }
-
-  private paginated<T>(
-    url: URL,
-    items: readonly T[],
-    toJson: (item: T) => unknown,
-  ): Response {
-    const page = Number(url.searchParams.get('page') ?? '1');
-    const start = (page - 1) * SYNTHETIC_PAGE_SIZE;
-    const slice = items.slice(start, start + SYNTHETIC_PAGE_SIZE);
-    const body = slice.map(toJson);
-    const headers: Record<string, string> = {};
-    if (start + SYNTHETIC_PAGE_SIZE < items.length) {
-      const next = new URL(url.toString());
-      next.searchParams.set('page', String(page + 1));
-      headers.link = `<${next.toString()}>; rel="next"`;
-    }
-    return this.json(body, headers);
-  }
-
-  private commitEtag(repo: SyntheticRepositorySeed): string {
-    const head = repo.commits[0];
-    return `"commit:${repo.id}:${head ? head.sha : 'empty'}"`;
-  }
-
-  private releaseEtag(
-    repo: SyntheticRepositorySeed,
-    sorted: readonly SyntheticReleaseSeed[],
-  ): string {
-    const head = sorted[0];
-    return `"release:${repo.id}:${head ? `${head.id}:${head.publishedAt}` : 'empty'}"`;
-  }
-
-  private repositoryJson(repo: SyntheticRepositorySeed): unknown {
-    return {
+  private repositoryById(id: number): Response {
+    const repo = [...this.repositories.values()].find((item) => item.id === id);
+    this.record('repository', repo ? this.key(repo) : undefined);
+    if (!repo) return this.json({ message: 'Not Found' }, 404);
+    return this.json({
       id: repo.id,
-      name: repo.name,
-      full_name: `${repo.owner}/${repo.name}`,
+      full_name: this.key(repo),
       private: repo.private,
       archived: false,
       default_branch: repo.defaultBranch,
-      owner: { login: repo.owner },
-      html_url: `https://example.invalid/${repo.owner}/${repo.name}`,
-      updated_at: '2026-08-01T00:00:00.000Z',
-    };
+    });
   }
 
-  private commitHistoryNode(commit: SyntheticCommitSeed): unknown {
-    return {
-      oid: commit.sha,
-      committedDate: commit.committedAt,
-      commitUrl: `https://example.invalid/commit/${commit.sha}`,
-      author: {
-        user:
-          commit.authorId === null
-            ? null
-            : { databaseId: commit.authorId, login: commit.authorLogin },
-      },
+  private graphql(body: string): Response {
+    const { query, variables } = JSON.parse(body) as {
+      readonly query: string;
+      readonly variables: Variables;
     };
+    if (query.includes('query CollectionProbe(')) return this.probe(variables);
+    if (query.includes('query CollectionRepositoryContributions(')) {
+      return this.collect(variables);
+    }
+    throw new Error('unknown synthetic GraphQL query');
   }
 
-  private commitJson(commit: SyntheticCommitSeed): unknown {
-    return {
-      sha: commit.sha,
-      author:
-        commit.authorId === null
-          ? null
-          : { id: commit.authorId, login: commit.authorLogin },
-      commit: { committer: { date: commit.committedAt } },
-      html_url: `https://example.invalid/commit/${commit.sha}`,
-    };
+  private probe(variables: Variables): Response {
+    this.record('probe');
+    const data: Record<string, unknown> = { rateLimit: this.rateLimit() };
+    const errors: unknown[] = [];
+    for (let index = 0; `o${index}` in variables; index += 1) {
+      const alias = `r${index}`;
+      const repo = this.repositories.get(
+        `${String(variables[`o${index}`])}/${String(variables[`n${index}`])}`,
+      );
+      if (!repo) {
+        data[alias] = null;
+        errors.push({ type: 'NOT_FOUND', path: [alias] });
+        continue;
+      }
+      const release = newestFirst(repo.releases, (item) => item.publishedAt)[0];
+      data[alias] = {
+        databaseId: repo.id,
+        nameWithOwner: this.key(repo),
+        isArchived: false,
+        isPrivate: repo.private,
+        defaultBranchRef:
+          repo.defaultBranch === null ? null : { name: repo.defaultBranch },
+        pushedAt: latest(repo.commits.map((commit) => commit.committedAt)),
+        issues: this.latestUpdated(repo.issues),
+        pullRequests: this.latestUpdated(repo.pullRequests),
+        releases: {
+          nodes: release
+            ? [
+                {
+                  createdAt: release.publishedAt,
+                  publishedAt: release.publishedAt,
+                },
+              ]
+            : [],
+        },
+      };
+    }
+    return this.json(errors.length > 0 ? { data, errors } : { data });
   }
 
-  private pullRequestJson(pr: SyntheticPullRequestSeed): unknown {
-    return {
-      id: pr.id,
-      number: pr.id,
-      state: pr.state,
-      draft: false,
-      merged_at: null,
-      created_at: pr.createdAt,
-      updated_at: pr.createdAt,
-      user:
-        pr.authorId === null
-          ? null
-          : { id: pr.authorId, login: pr.authorLogin },
-      html_url: `https://example.invalid/pull/${pr.id}`,
-    };
+  private latestUpdated(items: readonly SyntheticAuthoredSeed[]): unknown {
+    const updatedAt = latest(items.map((item) => item.createdAt));
+    return { nodes: updatedAt === null ? [] : [{ updatedAt }] };
   }
 
-  private issueJson(
-    item: SyntheticIssueSeed & { pullRequest: boolean },
+  private collect(variables: Variables): Response {
+    const key = `${String(variables.owner)}/${String(variables.name)}`;
+    this.record('collect', key);
+    const repo = this.repositories.get(key);
+    if (!repo) {
+      return this.json({
+        data: { rateLimit: this.rateLimit(), repository: null },
+        errors: [{ type: 'NOT_FOUND', path: ['repository'] }],
+      });
+    }
+    const since = typeof variables.since === 'string' ? variables.since : null;
+    const repository: Record<string, unknown> = {};
+    if (variables.withCommits === true) {
+      const commits = newestFirst(
+        repo.commits.filter(
+          (commit) => since === null || commit.committedAt >= since,
+        ),
+        (commit) => commit.committedAt,
+      );
+      repository.ref = {
+        target: {
+          history: this.page(commits, variables.commitCursor, (commit) => ({
+            oid: commit.sha,
+            committedDate: commit.committedAt,
+            author: {
+              user:
+                commit.authorId === null
+                  ? null
+                  : { databaseId: commit.authorId },
+            },
+          })),
+        },
+      };
+    }
+    const authored = (item: SyntheticAuthoredSeed) => ({
+      fullDatabaseId: String(item.id),
+      createdAt: item.createdAt,
+      author: item.authorId === null ? null : { databaseId: item.authorId },
+    });
+    if (variables.withPullRequests === true) {
+      repository.pullRequests = this.page(
+        newestFirst(repo.pullRequests, (item) => item.createdAt),
+        variables.pullRequestCursor,
+        authored,
+      );
+    }
+    if (variables.withIssues === true) {
+      repository.issues = this.page(
+        newestFirst(
+          repo.issues.filter(
+            (item) => since === null || item.createdAt >= since,
+          ),
+          (item) => item.createdAt,
+        ),
+        variables.issueCursor,
+        authored,
+      );
+    }
+    if (variables.withReleases === true) {
+      repository.releases = this.page(
+        newestFirst(repo.releases, (item) => item.publishedAt),
+        variables.releaseCursor,
+        (release) => ({
+          databaseId: release.id,
+          createdAt: release.publishedAt,
+          publishedAt: release.publishedAt,
+          isDraft: false,
+          author:
+            release.authorId === null ? null : { databaseId: release.authorId },
+        }),
+      );
+    }
+    return this.json({ data: { rateLimit: this.rateLimit(), repository } });
+  }
+
+  private page<T>(
+    items: readonly T[],
+    cursor: unknown,
+    toNode: (item: T) => unknown,
   ): unknown {
+    const start = typeof cursor === 'string' ? Number(cursor) : 0;
+    const end = start + SYNTHETIC_PAGE_SIZE;
     return {
-      id: item.id,
-      number: item.id,
-      state: item.state,
-      created_at: item.createdAt,
-      user:
-        item.authorId === null
-          ? null
-          : { id: item.authorId, login: item.authorLogin },
-      ...(item.pullRequest
-        ? { pull_request: { url: `https://example.invalid/pull/${item.id}` } }
-        : {}),
-    };
-  }
-
-  private releaseJson(release: SyntheticReleaseSeed): unknown {
-    return {
-      id: release.id,
-      tag_name: `v${release.id}`,
-      name: null,
-      draft: false,
-      prerelease: false,
-      published_at: release.publishedAt,
-      author:
-        release.authorId === null
-          ? null
-          : { id: release.authorId, login: release.authorLogin },
-      html_url: `https://example.invalid/release/${release.id}`,
+      nodes: items.slice(start, end).map(toNode),
+      pageInfo: { hasNextPage: end < items.length, endCursor: String(end) },
     };
   }
 }
@@ -491,27 +309,22 @@ const syntheticAppConfig: CollectionAppConfigValues = {
   privateKey: 'unused',
   apiBaseUrl: SYNTHETIC_API_BASE_URL,
   graphqlUrl: `${SYNTHETIC_API_BASE_URL}${SYNTHETIC_GRAPHQL_PATH}`,
-  maxPages: 50,
+  maxPages: 100,
   deadlineMs: 30_000,
 };
-
-function createSyntheticTokenProvider(): CollectionAppTokenClient {
-  return {
-    getToken: () => Promise.resolve('synthetic-token'),
-    clear: () => undefined,
-  } as unknown as CollectionAppTokenClient;
-}
 
 export function createSyntheticSyncRuntime(
   provider: SyntheticGithubProvider,
   queue: ProviderRequestQueueClient,
-  fetcherMiddleware: Fetcher = (input, init) => provider.fetcher(input, init),
 ): CollectionSyncRuntime {
-  const tokens = createSyntheticTokenProvider();
+  const tokens = {
+    getToken: () => Promise.resolve('synthetic-token'),
+    clear: () => undefined,
+  } as unknown as CollectionAppTokenClient;
   const client = new CollectionAppClient(
     syntheticAppConfig,
     tokens,
-    queue.wrapFetcher(fetcherMiddleware),
+    queue.wrapFetcher((input, init) => provider.fetcher(input, init)),
   );
   return {
     appId: syntheticAppConfig.appId,

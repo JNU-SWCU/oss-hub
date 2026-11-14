@@ -8,10 +8,28 @@ import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from './collection-error-code.error';
-import { CollectionSyncService } from './collection-sync.service';
+import {
+  CollectionSyncService,
+  type CollectionRunKind,
+} from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 export const COLLECTION_CRON_JOB_NAME = 'collection-reconciliation';
 export const COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
+export const COLLECTION_WEEKLY_CRON_JOB_NAME = 'collection-weekly-full-scan';
+export const COLLECTION_WEEKLY_CRON_EXPRESSION = '0 0 3 * * 0';
+
+const isWeeklyFullScanHour = (at: Date): boolean => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    weekday: 'short',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  return (
+    parts.find((part) => part.type === 'weekday')?.value === 'Sun' &&
+    parts.find((part) => part.type === 'hour')?.value === '03'
+  );
+};
 
 @Injectable()
 export class CollectionTriggerService {
@@ -38,12 +56,22 @@ export class CollectionTriggerService {
     waitForCompletion: true,
   })
   handleCron(): Promise<void> {
-    return this.runScheduled();
+    if (isWeeklyFullScanHour(new Date())) return Promise.resolve();
+    return this.runScheduled('hourly');
   }
 
-  async runScheduled(): Promise<void> {
+  @Cron(COLLECTION_WEEKLY_CRON_EXPRESSION, {
+    name: COLLECTION_WEEKLY_CRON_JOB_NAME,
+    timeZone: 'Asia/Seoul',
+    waitForCompletion: true,
+  })
+  handleWeeklyCron(): Promise<void> {
+    return this.runScheduled('weekly');
+  }
+
+  async runScheduled(kind: CollectionRunKind): Promise<void> {
     try {
-      await this.trigger();
+      await this.trigger(kind);
     } catch (error) {
       this.logger.error({
         event: 'collection.scheduler.failed',
@@ -52,14 +80,16 @@ export class CollectionTriggerService {
     }
   }
 
-  async trigger(): Promise<{ runId: string; status: 'PENDING' }> {
+  async trigger(
+    kind: CollectionRunKind,
+  ): Promise<{ runId: string; status: 'PENDING' }> {
     if (await this.cutover.isQuiesced(new Date())) {
       throw new DomainException(
         COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
       );
     }
     const runId = randomUUID();
-    this.sweeps.start(this.ownerId, runId);
+    this.sweeps.start(this.ownerId, runId, kind);
     return { runId, status: 'PENDING' };
   }
 

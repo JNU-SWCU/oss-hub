@@ -10,7 +10,10 @@ import {
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
+import {
+  seedDailyContributions,
+  setRepoLastSuccessAt,
+} from '../../test/ledger-contribution.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
@@ -147,7 +150,6 @@ beforeAll(async () => {
         nameWithOwner: 'synthetic/a',
         source: 'ORG_PROVISIONED',
         teamId: null,
-        lastSuccessAt: new Date('2026-08-20Z'),
       },
       {
         id: repositoryB,
@@ -192,10 +194,12 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
 
 describe('B가 수집된 뒤', () => {
   beforeAll(async () => {
-    await prisma.githubRepository.update({
-      where: { id: repositoryB },
-      data: { lastSuccessAt: new Date('2026-08-20T01:00:00Z') },
-    });
+    await setRepoLastSuccessAt(
+      prisma,
+      base + 101n,
+      new Date('2026-08-20T01:00:00Z'),
+      'EXTERNAL_PUBLIC',
+    );
     await seedDailyContributions(prisma, base + 101n, [
       {
         githubId: people.leader.githubId,
@@ -300,11 +304,12 @@ describe('B가 수집된 뒤', () => {
     ).rejects.toMatchObject({ errorCode: { code: 'TEAM_010' } });
   });
 
-  it('수집이 실패 중이어도 마지막으로 끝낸 값을 그대로 싣는다', async () => {
-    await prisma.githubRepository.update({
-      where: { id: repositoryB },
-      data: { failureCount: 2 },
-    });
+  it('마지막 수집 성공이 2시간보다 오래되면 ERROR이고 마지막으로 끝낸 값을 그대로 싣는다', async () => {
+    await setRepoLastSuccessAt(
+      prisma,
+      base + 101n,
+      new Date('2026-08-14T21:59:59.999Z'),
+    );
 
     const activity = await service.getActivity(
       people.staff.githubId,
@@ -317,10 +322,11 @@ describe('B가 수집된 뒤', () => {
       status: 'ERROR',
       members: collectedMembers,
     });
-    await prisma.githubRepository.update({
-      where: { id: repositoryB },
-      data: { failureCount: 0 },
-    });
+    await setRepoLastSuccessAt(
+      prisma,
+      base + 101n,
+      new Date('2026-08-20T01:00:00Z'),
+    );
   });
 
   it('끝나는 날을 정하지 않은 프로그램은 센티널 창을 그대로 싣고 시작 뒤의 날을 모두 싣는다', async () => {

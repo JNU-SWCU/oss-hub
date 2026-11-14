@@ -77,10 +77,7 @@ describe('registered repository observation', () => {
         },
       });
 
-      const selected =
-        source === 'ORG_PROVISIONED'
-          ? await repository.listOrganizationRepositories()
-          : await repository.listExternalRepositories();
+      const selected = await repository.listCollectionTargets(source);
 
       expect(selected.map((row) => row.githubRepositoryId)).not.toContain(
         githubRepositoryId,

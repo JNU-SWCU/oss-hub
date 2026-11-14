@@ -51,23 +51,16 @@ import { SystemStatusScreen } from './system-status-screen';
 
 const baseStatus: SystemStatus = {
   health: 'NORMAL',
-  dataAsOf: '2026-07-25T11:00:00.000Z',
   trackedRepositoryCount: 2,
-  readyStreamCount: 6,
-  backfillingStreamCount: 0,
-  partialStreamCount: 0,
-  retryPendingStreamCount: 0,
-  oldestReadyCheckpointAt: '2026-07-25T10:00:00.000Z',
-  oldestRetryPendingAt: null,
-  lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
-  lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  staleRepositoryCount: 0,
   lastSuccessAt: '2026-07-25T11:00:00.000Z',
   nextCycleAt: null,
   currentRunStatus: 'IDLE',
   safeReason: null,
 };
 
-const baseCollectionStreams: SystemStatusData['collectionStreams'] = [];
+const baseCollectionRepositories: SystemStatusData['collectionRepositories'] =
+  [];
 const baseExternalCollection: SystemStatusData['externalCollection'] = {
   trackedRepositoryCount: 0,
   lastSuccessAt: null,
@@ -76,7 +69,7 @@ const baseExternalCollection: SystemStatusData['externalCollection'] = {
 function statusData(status: SystemStatus): SystemStatusData {
   return {
     status,
-    collectionStreams: baseCollectionStreams,
+    collectionRepositories: baseCollectionRepositories,
     externalCollection: baseExternalCollection,
   };
 }
@@ -245,7 +238,7 @@ describe('SystemStatusScreen', () => {
       status: 'PENDING',
       runId: 'run-1',
     });
-    const latest = { ...baseStatus, dataAsOf: '2026-07-26T11:00:00.000Z' };
+    const latest = { ...baseStatus, lastSuccessAt: '2026-07-26T11:00:00.000Z' };
     api.fetchSystemStatus.mockResolvedValueOnce(statusData(latest));
     await act(async () => props().onTrigger());
     await act(async () => older.resolve(statusData(baseStatus)));

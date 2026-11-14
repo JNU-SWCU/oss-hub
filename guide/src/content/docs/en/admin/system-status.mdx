@@ -10,65 +10,42 @@ import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 import Verified from '~/components/Verified.astro';
 
-`시스템 상태` (System status) shows repository activity collection status and data timestamps. Start here if student activity counts have stopped changing or look unusual. Only administrators can open this screen.
+`시스템 상태` (System status) shows when each repository was last collected successfully. Start here if student activity counts have stopped changing or look unusual. Only administrators can open this screen.
 
-Collection runs automatically. You normally do not need to check this screen unless someone reports unusual numbers.
+Collection runs automatically at the top of every hour, and every Sunday at 03:00 it rereads everything. You normally do not need to check this screen unless someone reports unusual numbers.
 
 ## Read collection status
 
 <Steps>
-1. Open `시스템 상태` (System status) in the left-hand `관리자` (Administrator) section.
-2. Check the badge in the top `수집 상태` (Collection status) card. It is marked ① in the card close-up below.
-3. If the badge is not `정상` (Healthy), read the explanation below it.
+1. Open `시스템 상태` (System status) in the `관리자` (Administrator) group on the left.
+2. Check the badge on the `수집 상태` (Collection status) card at the top.
+3. If the badge is not `정상` (Normal), read the description under it, then find the `지연` (Delayed) repositories in `수집 대상 상세` (Collection target details).
 </Steps>
-<Shot src="admin/status-full.webp" alt="Full System status screen with a collection status card at the top, a Run collection now button at the top right, and several cards below. ① marks Run collection now." caption="Full screen. ① marks `지금 수집 실행` (Run collection now), explained below" />
-<Shot src="admin/status-collection-state.webp" alt="Collection status card. ① marks the Failed badge, with an explanation that some items are awaiting a retry." caption="① Failed badge and explanation" />
+<Shot src="admin/status-full.webp" alt="The full system status screen. The collection status and data freshness cards are at the top, the Run collection now button is at the top right, and the collection target details table is below." caption="Full screen" />
 
-The badge is one of `정상` (Healthy), `지연` (Delayed), `부분 진행` (Partially complete), `실패` (Failed), or `추적 대상 없음` (No tracking targets). The card also shows `이번 전체 순회 시작` (Current full sweep started), `최근 전체 순회 완료` (Last full sweep completed), and `다음 주기 예상` (Next cycle expected).
+The badge is one of `정상` (Normal), `지연` (Delayed), or `추적 대상 없음` (No tracked targets). The card also shows the `추적 저장소` (Tracked repositories) and `지연 저장소` (Delayed repositories) counts and `다음 주기 예상` (Expected next cycle).
 
-### Who should act on the message to contact the program office administrator?
+The badge is chosen by checking the table below from top to bottom. The first matching badge is shown.
 
-When collection status is `실패` (Failed), the screen displays this explanation:
-
-> Some collection items are awaiting a retry. Once the GitHub rate limit is lifted, they will be retried automatically in the next cycle. If the “Oldest pending retry” timestamp below stays unchanged for more than a day, contact the program office administrator.
-
-This is the message ending `사업단 관리자에게 알려 주세요` (Contact the program office administrator). Administrators see the same text, but there is no separate contact destination shown, so check it yourself in this order.
-
-<Steps>
-1. In `데이터 최신성` (Data freshness), check `가장 오래된 재시도 대기` (Oldest pending retry). If the timestamp keeps changing, collection is progressing. If it stays unchanged for more than a day, collection has stalled.
-2. In `수집 대상 상세` (Collection target details), find repositories marked `재시도 대기` (Awaiting retry) or `부분` (Partial).
-3. Try restarting collection with [Run collection now](#run-collection-now) below.
-4. If that does not resolve it, follow the `수집 앱 설치·권한 확인` (Check collection app installation and permissions) guidance in the `추적 대상 없음` (No tracking targets) and `지연` (Delayed) rows of the table below.
-</Steps>
-<Shot src="admin/status-freshness.webp" alt="Data freshness card showing the data reference time, the last successful collection time with its age, oldest execution time among completed items, and oldest pending retry time." caption="Data freshness card" />
-
-The interface does not provide a procedure for escalating a persistent stall to the service operator or developer. <Verified status="policy" />
-
-Badges are evaluated in the order below, from top to bottom. Only the first matching badge is displayed.
-
-| Badge | Meaning | On-screen explanation |
+| Badge | Meaning | Screen description |
 | --- | --- | --- |
-| `추적 대상 없음` (No tracking targets) | There are no repositories to collect yet. | Check that the collection app is installed in the program office's GitHub organization and that repositories are registered. |
-| `실패` (Failed) | Some collection items are awaiting a retry. | The rate-limit explanation above. |
-| `부분 진행` (Partially complete) | Some repositories are not fully collected yet, or historical activity is still being collected. | Check the `부분·대기` (Partial/pending) count in `활동 종류별 수집` (Collection by activity type), and report it if it does not decrease after the next cycle. |
-| `지연` (Delayed) | `데이터 기준 시각` (Data reference time) is more than 90 minutes old. | Check the data reference time and, if the delay continues, check collection app installation and permissions. |
-| `정상` (Healthy) | None of the conditions above apply. | None. |
+| `추적 대상 없음` (No tracked targets) | There are no repositories to collect yet. | Asks you to check whether the collection app is installed in the program GitHub organization and whether repositories are registered. |
+| `지연` (Delayed) | At least one repository last succeeded more than 2 hours ago. | Asks you to find the delayed repositories in `수집 대상 상세` (Collection target details) and, if they stay delayed after the next cycle, to check the collection app installation and permissions. |
+| `정상` (Normal) | None of the above applies. | None |
 
-The `실패` (Failed) explanation always mentions GitHub rate limits, but they are not the only possible cause. Any pending retry produces this badge. Check the labels on cells in `수집 대상 상세` (Collection target details) for the cause.
+A repository that fails is not held back; the next hourly collection simply tries it again. After one failure it can show `지연` (Delayed) for a few minutes just before the next hourly collection, and it returns to `정상` (Normal) when that collection succeeds. If it fails again, it stays `지연` (Delayed).
+
+The screen does not describe how to escalate a lasting stall to the service operator or developer. <Verified status="policy" />
 
 ## What each card shows
 
-- `활동 종류별 수집` (Collection by activity type): Shows completion, such as `완료 11 / 21개 (52%)` (11 of 21 complete, 52%). The legend is `완료` (Complete), `과거 활동 수집 중` (Collecting historical activity), `부분·대기` (Partial/pending), and `재시도 대기` (Awaiting retry).
-- `데이터 최신성` (Data freshness): `데이터 기준 시각` (Data reference time) is the most recent execution time across all collection items. `마지막 수집 성공` (Last successful collection) is the most recent time collection succeeded for an organization repository, with its age (such as `3시간 전`, 3 hours ago). If no collection has succeeded yet, it shows `아직 성공한 수집 없음` (No successful collection yet). `완료 항목 중 가장 오래된 실행 시각` (Oldest execution time among completed items) is a separate value. `가장 오래된 재시도 대기` (Oldest pending retry) appears only when there are items awaiting retry.
-- `수집 대상 상세` (Collection target details): For each repository registered to a team, shows Commit, PR, Release, and Issue collection as `완료` (Complete), `과거 활동 수집 중` (Collecting historical activity), `부분` (Partial), or `재시도 대기` (Awaiting retry). A count at the top such as `문제 3 / 전체 5` (3 with issues / 5 total) shows affected and total targets. Repositories are not registered or collected automatically just because they belong to the organization.
-- `외부 저장소 수집` (External repository collection): Collection from students' personal repositories. With targets, it shows the tracked count and `마지막 수집 성공` (Last successful collection). With no targets, it shows `수집 대상 학생 개인 저장소가 없습니다` (There are no student personal repositories to collect). External collection is configured to run on the hour alongside organization collection.
+- `데이터 최신성` (Data freshness): `마지막 수집 성공` (Last successful collection) is the most recent successful collection time among organization repositories, with its age (for example, `3시간 전`, 3 hours ago).
+- `수집 대상 상세` (Collection target details): For each repository registered to a team, it shows `마지막 수집 성공` (Last successful collection) and a state of `정상` (Normal), `지연` (Delayed), or `수집 전` (Not collected yet). Delayed repositories come first, and the top shows delayed and total counts, such as `지연 1 / 전체 5` (Delayed 1 / Total 5). A repository is not registered or collected automatically just because it belongs to the organization.
+- `외부 저장소 수집` (External repository collection): This is collection for student personal repositories. If there are targets, it shows the tracked count and `마지막 수집 성공` (Last successful collection). If there are no targets, it shows `수집 대상 학생 개인 저장소가 없습니다` (There are no student personal repositories to collect). External collection is configured to run with organization collection at the top of every hour.
 
-<Shot src="admin/status-activity-types.webp" alt="Collection by activity type card showing the completion percentage and a color-coded legend." caption="Collection by activity type" />
-<Shot src="admin/status-targets.webp" alt="Collection target details table with repository, program, Commit, PR, Release, and Issue columns and a status badge in each cell." caption="Collection target details" />
+<Shot src="admin/status-targets.webp" alt="The collection target details table, with repository, program, last successful collection, and state columns." caption="Collection target details" />
 
-On narrow screens, the right-hand columns in `수집 대상 상세` (Collection target details) are clipped. Scroll the table horizontally or widen the window.
-
-Cells with problems display cause labels: `GitHub 연결 실패` (GitHub connection failed), `응답 형식 오류` (Response format error), `페이지네이션 오류` (Pagination error), `요청 시간 초과` (Request timed out), `GitHub 호출 한도 초과` (GitHub rate limit exceeded), `수집 연동 앱 인증 실패` (Collection integration app authentication failed), `저장소 접근 권한 없음` (No repository access), `저장소를 찾을 수 없음` (Repository not found), `GraphQL 응답 오류` (GraphQL response error), or `수집 실패` (Collection failed).
+When the screen is narrow, the right columns of `수집 대상 상세` (Collection target details) are cut off. Scroll the table sideways or widen the window.
 
 ## Run collection now
 
