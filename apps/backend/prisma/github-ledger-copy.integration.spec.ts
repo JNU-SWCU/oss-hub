@@ -246,12 +246,6 @@ describe('github ledger shadow copy', () => {
     `;
     expect(gone[0]?.gone_at).not.toBeNull();
 
-    await expect(
-      prisma.$queryRaw<Array<{ name: string }>>`
-        SELECT to_regclass('public."CollectionRepositoryStream"')::text AS name
-      `,
-    ).resolves.toEqual([{ name: '"CollectionRepositoryStream"' }]);
-
     const otherTeamId = `${PREFIX}team-other`;
     await prisma.team.create({
       data: {
@@ -853,7 +847,7 @@ async function seed(): Promise<void> {
       applicationTemplateVersion: 1,
     },
   });
-  const linked = await prisma.githubRepository.create({
+  await prisma.githubRepository.create({
     data: {
       githubRepositoryId: REPO_GITHUB_ID,
       nameWithOwner: 'synthetic/ledger',
@@ -884,9 +878,6 @@ async function seed(): Promise<void> {
       ${new Date('2026-10-25T02:00:00.000Z')}
     )
   `;
-  await prisma.collectionRepositoryStream.create({
-    data: { repositoryId: linked.id, streamType: 'COMMIT' },
-  });
 }
 
 async function clean(): Promise<void> {
@@ -910,13 +901,6 @@ async function clean(): Promise<void> {
       DELETE FROM "github_user_activity_history" WHERE "github_id" = ${GITHUB_ID}
     `;
   }
-  await prisma.collectionRepositoryStream.deleteMany({
-    where: {
-      repository: {
-        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
-      },
-    },
-  });
   await prisma.githubRepository.deleteMany({
     where: {
       githubRepositoryId: { in: [...LEDGER_REPO_IDS] },

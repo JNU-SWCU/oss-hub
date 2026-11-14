@@ -819,7 +819,6 @@ model GithubRepository {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  streams       CollectionRepositoryStream[]
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
 
@@ -833,62 +832,6 @@ model GithubRepository {
 enum ActivityVisibility {
   PUBLIC
   PRIVATE
-}
-
-enum CollectionStreamType {
-  COMMIT
-  PULL_REQUEST
-  RELEASE
-  ISSUE
-}
-
-enum CollectionStreamStatus {
-  PENDING
-  BACKFILLING
-  READY
-  VERIFYING
-}
-
-model CollectionRepositoryStream {
-  id String @id @default(cuid())
-
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  streamType CollectionStreamType
-  status     CollectionStreamStatus @default(PENDING)
-
-  frontierSha       String?
-  frontierCreatedAt DateTime?
-  frontierEntityId  BigInt?
-
-  requestFingerprint String?
-  etag               String?
-
-  lastRunAt     DateTime?
-  lastErrorAt   DateTime?
-  lastErrorCode String?
-
-  syncEpoch BigInt? @map("sync_epoch")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([repositoryId, streamType])
-  @@index([status])
-}
-
-model CollectionSyncCursor {
-  appId BigInt
-  scope String
-
-  lastGithubRepositoryId BigInt?
-  cycleStartedAt         DateTime?
-  cycleCompletedAt       DateTime?
-
-  updatedAt DateTime @updatedAt
-
-  @@id([appId, scope])
 }
 
 model CollectionSyncLease {

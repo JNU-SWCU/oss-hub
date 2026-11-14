@@ -220,7 +220,6 @@ describe('CollectionIncrementalRepository — recordContributions', () => {
     expect(sql).toContain('WHERE "contribution"."author_github_id" IS NULL');
     expect(sql).toContain('AND EXCLUDED."author_github_id" IS NOT NULL');
     expect(sql).not.toContain('last_success_at');
-    expect(sql).not.toContain('CollectionRepositoryStream');
     expect(db.$executeRaw).not.toHaveBeenCalled();
   });
 

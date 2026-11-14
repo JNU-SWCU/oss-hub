@@ -22,7 +22,6 @@ const MIGRATION = readFileSync(
 );
 const SCHEMA = 'github_issue_history_fixture';
 const STREAM_TYPES = ['COMMIT', 'PULL_REQUEST', 'RELEASE', 'ISSUE'];
-const GITHUB_REPOSITORY_ID = 9_113_300_000_001n;
 
 const prisma = new PrismaService();
 
@@ -38,27 +37,8 @@ const streamTypeLabels = async (
   ).map((row) => row.label);
 
 afterAll(async () => {
-  await prisma.githubRepository.deleteMany({
-    where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
-  });
   await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
   await prisma.$disconnect();
-});
-
-it('새 DB에서 ISSUE stream이 스키마 선언대로 쓰인다', async () => {
-  await expect(streamTypeLabels(prisma)).resolves.toEqual(STREAM_TYPES);
-
-  const repository = await prisma.githubRepository.create({
-    data: {
-      githubRepositoryId: GITHUB_REPOSITORY_ID,
-      nameWithOwner: 'synthetic-1133/issue-migration',
-      source: 'ORG_PROVISIONED',
-    },
-  });
-  await prisma.collectionRepositoryStream.create({
-    data: { repositoryId: repository.id, streamType: 'ISSUE' },
-  });
-  await prisma.githubRepository.delete({ where: { id: repository.id } });
 });
 
 it('직전 마이그레이션까지 적용된 DB에 적용해도 기존 행을 보존하고 새 stream 값을 바로 쓴다', async () => {

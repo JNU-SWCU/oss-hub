@@ -49,10 +49,7 @@ const PURGE_RELATIONS = [
     id: 'github-repository-collection-descendants-preserved',
     operation: 'DELETE',
 
-    covers: [
-      'GithubRepository->RepositoryInvitation',
-      'GithubRepository->CollectionRepositoryStream',
-    ],
+    covers: ['GithubRepository->RepositoryInvitation'],
   },
   {
     id: 'files',
