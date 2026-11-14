@@ -39,19 +39,17 @@ describe('RankingRepository standing read', () => {
     expect(call.sql).toContain('contributor_standing');
   });
 
-  it('keeps the monthly chart on GithubUserActivityMonthly', async () => {
-    const monthlyFindMany = jest.fn().mockResolvedValue([]);
-    const queryRaw = jest.fn();
+  it('reads the monthly chart from the activity history of the year', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([]);
     const repository = new RankingRepository({
-      githubUserActivityMonthly: { findMany: monthlyFindMany },
       $queryRaw: queryRaw,
     } as unknown as PrismaService);
 
     await repository.findMonthlySnapshots(2026);
 
-    expect(monthlyFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { year: 2026 } }),
-    );
-    expect(queryRaw).not.toHaveBeenCalled();
+    const call = standingCall(queryRaw);
+    expect(call.values).toContain(2026);
+    expect(call.sql).toContain('github_user_activity_history');
+    expect(call.sql).not.toContain('GithubUserActivityMonthly');
   });
 });
