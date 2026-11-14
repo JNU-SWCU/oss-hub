@@ -102,7 +102,7 @@ export class PlatformRepository {
     transaction: Pick<Prisma.TransactionClient, 'submissionHistory'>,
     input: SubmissionReviewEventInput,
   ) {
-    const event = await transaction.submissionHistory.create({
+    return transaction.submissionHistory.create({
       data: {
         submissionId: input.submissionId,
         event: input.decision,
@@ -119,7 +119,6 @@ export class PlatformRepository {
         actor: { select: { nickname: true } },
       },
     });
-    return event;
   }
 }
 
