@@ -1,0 +1,58 @@
+{
+  "ranking": [
+    {
+      "id": "verify:ranking:alpha",
+      "nickname": "verify-rank-alpha",
+      "githubId": "981300000001",
+      "year": 2026,
+      "commitCount": 11,
+      "pullRequestCount": 2,
+      "issueCount": 1,
+      "repositoryCount": 1,
+      "starCount": 3
+    },
+    {
+      "id": "verify:ranking:beta",
+      "nickname": "verify-rank-beta",
+      "githubId": "981300000002",
+      "year": 2026,
+      "commitCount": 5,
+      "pullRequestCount": 1,
+      "issueCount": 0,
+      "repositoryCount": 1,
+      "starCount": 1
+    }
+  ],
+  "repository": {
+    "id": "verify:scaffold:repository:internship",
+    "githubRepositoryId": "981300100001",
+    "nameWithOwner": "verify-scaffold-org/verify-scaffold-repo",
+    "teamId": "seed:demo:team:summer-internship-alpha",
+    "programId": "seed:demo:program:summer-internship"
+  },
+  "contributions": [
+    {
+      "userId": "seed:demo:user:kim-doyoon",
+      "commitCount": 4,
+      "pullRequestCount": 1,
+      "issueCount": 0
+    },
+    {
+      "userId": "seed:demo:user:lee-seojun",
+      "commitCount": 2,
+      "pullRequestCount": 0,
+      "issueCount": 1
+    }
+  ],
+  "staffUserId": "seed:demo:user:staff-lead",
+  "ledgerActivity": {
+    "githubId": "981200200001",
+    "login": "verify-ledger-member",
+    "year": 2026,
+    "commitCount": 11,
+    "pullRequestCount": 2,
+    "issueCount": 1,
+    "repositoryCount": 1,
+    "starCount": 3
+  }
+}
