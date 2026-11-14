@@ -75,7 +75,7 @@ export async function setRepoLastSuccessAt(
 
 export async function repositoryContributionTotals(
   prisma: Pick<PrismaClient, '$queryRaw'>,
-  repositoryIds: readonly string[],
+  githubRepositoryIds: readonly bigint[],
 ): Promise<{
   commitCount: number;
   pullRequestCount: number;
@@ -98,9 +98,7 @@ export async function repositoryContributionTotals(
       COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
       COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
     FROM "contribution" AS event
-    JOIN "GithubRepository" AS repository
-      ON repository."githubRepositoryId" = event.repo_id
-    WHERE repository.id = ANY(${repositoryIds})
+    WHERE event.repo_id = ANY(${[...githubRepositoryIds]})
       AND event.author_github_id IS NOT NULL
   `;
   return row;

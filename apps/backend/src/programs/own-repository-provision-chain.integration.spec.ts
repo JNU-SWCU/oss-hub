@@ -1,6 +1,7 @@
 import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
+  deleteRepos,
+  linkedTo,
+  seedRepo,
 } from '../../test/repo-ledger.fixture';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { StudentRepositoryUrlContextRepository } from './team.repository';
@@ -270,43 +271,15 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
   });
 
   afterEach(async () => {
-    await prisma.repositoryInvitation.deleteMany({
-      where: {
-        OR: [
-          { repository: { teamId: { in: [...APPLICATION_IDS] } } },
-          {
-            repository: {
-              githubRepositoryId: {
-                in: [
-                  OWN_GITHUB_REPOSITORY_ID,
-                  NO_CONSENT_GITHUB_REPOSITORY_ID,
-                  ORG_GITHUB_REPOSITORY_ID,
-                  ECONOVATION_GITHUB_REPOSITORY_ID,
-                ],
-              },
-            },
-          },
-        ],
-      },
-    });
-    await deleteGithubRepositories(
+    await deleteRepos(
       prisma,
-      {
-        OR: [
-          { teamId: { in: [...APPLICATION_IDS] } },
-          {
-            githubRepositoryId: {
-              in: [
-                OWN_GITHUB_REPOSITORY_ID,
-                NO_CONSENT_GITHUB_REPOSITORY_ID,
-                ORG_GITHUB_REPOSITORY_ID,
-                ECONOVATION_GITHUB_REPOSITORY_ID,
-                PREVIOUS_GITHUB_REPOSITORY_ID,
-              ],
-            },
-          },
-        ],
-      },
+      [
+        OWN_GITHUB_REPOSITORY_ID,
+        NO_CONSENT_GITHUB_REPOSITORY_ID,
+        ORG_GITHUB_REPOSITORY_ID,
+        ECONOVATION_GITHUB_REPOSITORY_ID,
+        PREVIOUS_GITHUB_REPOSITORY_ID,
+      ],
       APPLICATION_IDS,
     );
     await prisma.repositoryProvisionJob.deleteMany({
@@ -511,22 +484,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       expect(result.kind).toBe('SUCCEEDED');
       await expect(
-        prisma.githubRepository.findFirstOrThrow({
-          where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+        prisma.repo.findUniqueOrThrow({
+          where: { githubRepoId: OWN_GITHUB_REPOSITORY_ID },
         }),
       ).resolves.toMatchObject({
         source: 'EXTERNAL_PUBLIC',
-        nameWithOwner: OWN_NAME_WITH_OWNER,
+        ownerName: OWN_NAME_WITH_OWNER,
         defaultBranch: 'main',
         presence: 'PRESENT',
       });
 
       await expect(
-        prisma.githubRepository.findUniqueOrThrow({
-          where: { teamId: CHAIN_APPLICATION_ID },
+        prisma.repo.findFirstOrThrow({
+          where: linkedTo(CHAIN_APPLICATION_ID),
         }),
       ).resolves.toMatchObject({
-        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+        githubRepoId: OWN_GITHUB_REPOSITORY_ID,
       });
       await expect(
         prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -594,15 +567,18 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         'eco-knock-be-central',
       );
       await expect(
-        prisma.githubRepository.findFirstOrThrow({
-          where: { githubRepositoryId: ECONOVATION_GITHUB_REPOSITORY_ID },
+        prisma.repo.findUniqueOrThrow({
+          where: { githubRepoId: ECONOVATION_GITHUB_REPOSITORY_ID },
+          include: {
+            teamRepos: { where: { validTo: null }, select: { teamId: true } },
+          },
         }),
       ).resolves.toMatchObject({
         source: 'EXTERNAL_PUBLIC',
-        nameWithOwner: ECONOVATION_NAME_WITH_OWNER,
+        ownerName: ECONOVATION_NAME_WITH_OWNER,
         defaultBranch: 'main',
         presence: 'PRESENT',
-        teamId: ORG_OWNER_EXTERNAL_APPLICATION_ID,
+        teamRepos: [{ teamId: ORG_OWNER_EXTERNAL_APPLICATION_ID }],
       });
       await expect(
         prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -659,11 +635,14 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
     expect(result.kind).toBe('FAILED_RETRYABLE');
     await expect(
-      prisma.githubRepository.findFirstOrThrow({
-        where: { githubRepositoryId: NO_CONSENT_GITHUB_REPOSITORY_ID },
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: NO_CONSENT_GITHUB_REPOSITORY_ID },
+        include: {
+          teamRepos: { where: { validTo: null }, select: { teamId: true } },
+        },
       }),
     ).resolves.toMatchObject({
-      teamId: NO_CONSENT_APPLICATION_ID,
+      teamRepos: [{ teamId: NO_CONSENT_APPLICATION_ID }],
       source: 'EXTERNAL_PUBLIC',
       defaultBranch: null,
       lastSuccessAt: null,
@@ -725,11 +704,14 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       expect(result.kind).toBe('SUCCEEDED');
       await expect(
-        prisma.githubRepository.findUniqueOrThrow({
-          where: { githubRepositoryId: ORG_GITHUB_REPOSITORY_ID },
+        prisma.repo.findUniqueOrThrow({
+          where: { githubRepoId: ORG_GITHUB_REPOSITORY_ID },
+          include: {
+            teamRepos: { where: { validTo: null }, select: { teamId: true } },
+          },
         }),
       ).resolves.toMatchObject({
-        teamId: ORG_OWN_APPLICATION_ID,
+        teamRepos: [{ teamId: ORG_OWN_APPLICATION_ID }],
         source: 'ORG_PROVISIONED',
         presence: 'PRESENT',
       });
@@ -780,8 +762,8 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       programIdFor(CHAIN_APPLICATION_ID),
       { repositoryUrl: OWN_REPOSITORY_URL },
     );
-    const current = await prisma.githubRepository.findUniqueOrThrow({
-      where: { teamId: CHAIN_APPLICATION_ID },
+    const current = await prisma.repo.findFirstOrThrow({
+      where: linkedTo(CHAIN_APPLICATION_ID),
     });
     const queueNow = await consumeApproval(
       CHAIN_APPLICATION_ID,
@@ -796,15 +778,15 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     ).runNext('synthetic-late-worker', queueNow);
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { teamId: CHAIN_APPLICATION_ID },
+      prisma.repo.findFirstOrThrow({
+        where: linkedTo(CHAIN_APPLICATION_ID),
       }),
-    ).resolves.toMatchObject({ id: current.id });
+    ).resolves.toMatchObject({ githubRepoId: current.githubRepoId });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { teamId: CHAIN_APPLICATION_ID },
       }),
-    ).resolves.toMatchObject({ repositoryId: current.id });
+    ).resolves.toMatchObject({ repoId: current.githubRepoId });
   });
 
   it.each([
@@ -845,11 +827,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
       });
       await expect(
-        prisma.githubRepository.findMany({ where: { teamId } }),
+        prisma.repo.findMany({ where: linkedTo(teamId) }),
       ).resolves.toEqual([
         expect.objectContaining({
-          githubRepositoryId: 8_520_100_099n,
-          nameWithOwner: 'synthetic/private',
+          githubRepoId: 8_520_100_099n,
+          ownerName: 'synthetic/private',
           visibility: RepositoryVisibility.PUBLIC,
           source: RepositorySource.EXTERNAL_PUBLIC,
         }),
@@ -939,19 +921,16 @@ async function createOwnApplication(
     },
   });
   if (repository !== null) {
-    await prisma.githubRepository.create({
-      data: {
-        teamId,
-        githubRepositoryId: repository.githubRepositoryId,
-        nameWithOwner: repository.nameWithOwner,
-        defaultBranch: null,
-        archived: false,
-        visibility: repository.visibility ?? RepositoryVisibility.PUBLIC,
-        source: repository.source ?? RepositorySource.EXTERNAL_PUBLIC,
-        presence: 'PRESENT',
-      },
+    await seedRepo(prisma, {
+      teamId,
+      githubRepositoryId: repository.githubRepositoryId,
+      nameWithOwner: repository.nameWithOwner,
+      defaultBranch: null,
+      archived: false,
+      visibility: repository.visibility ?? RepositoryVisibility.PUBLIC,
+      source: repository.source ?? RepositorySource.EXTERNAL_PUBLIC,
+      presence: 'PRESENT',
     });
-    await syncGithubRepositoryLedger(prisma, repository.githubRepositoryId);
   }
 }
 

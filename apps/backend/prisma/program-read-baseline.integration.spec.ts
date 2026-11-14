@@ -3,7 +3,6 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { syncGithubRepositoryLedger } from '../test/repo-ledger.fixture';
 import { PlatformRepository } from '../src/platform/platform.repository';
 import { ProgramOverviewRepository } from '../src/programs/programs.repository';
 import { SubmissionMatrixRepository } from '../src/programs/submissions.repository';
@@ -173,20 +172,12 @@ async function seed(): Promise<void> {
             },
           },
         });
-        await tx.githubRepository.create({
-          data: {
-            id: repositoryId,
-            githubRepositoryId: 9_700_000_000_000_000n + BigInt(team),
-            nameWithOwner: `baseline/team-${team}`,
-            source: 'ORG_PROVISIONED',
-            teamId,
-          },
-        });
         await tx.repo.create({
           data: {
             githubRepoId: 9_700_000_000_000_000n + BigInt(team),
-            ownerName: 'baseline',
+            ownerName: `baseline/team-${team}`,
             source: 'ORG_PROVISIONED',
+            teamRepos: { create: { teamId, validFrom: now } },
             contributions: {
               create: {
                 kind: 'COMMIT',
@@ -198,15 +189,10 @@ async function seed(): Promise<void> {
             },
           },
         });
-        await syncGithubRepositoryLedger(
-          tx,
-          9_700_000_000_000_000n + BigInt(team),
-        );
         await tx.repositoryProvisionJob.create({
           data: {
             id: id(`job-${team}`),
             teamId,
-            repositoryId,
             repoId: 9_700_000_000_000_000n + BigInt(team),
             status: 'SUCCEEDED',
           },

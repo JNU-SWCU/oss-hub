@@ -32,24 +32,19 @@ const PURGE_RELATIONS = [
     covers: ['Program->BoardPost'],
   },
   {
-    id: 'github-repositories',
+    id: 'repos',
     operation: 'DELETE',
-    covers: ['Team->GithubRepository'],
+    covers: ['logical:Team->Repo'],
   },
   {
     id: 'repository-provision-jobs',
     operation: 'DELETE',
-
-    covers: [
-      'Team->RepositoryProvisionJob',
-      'GithubRepository->RepositoryProvisionJob',
-    ],
+    covers: ['Team->RepositoryProvisionJob'],
   },
   {
-    id: 'github-repository-collection-descendants-preserved',
+    id: 'repo-invitations',
     operation: 'DELETE',
-
-    covers: ['GithubRepository->RepositoryInvitation'],
+    covers: ['logical:Repo->RepositoryInvitation'],
   },
   {
     id: 'files',
@@ -112,7 +107,6 @@ export const PROGRAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
 
 const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([
   'Team',
-  'GithubRepository',
   'Submission',
   'SubmissionHistory',
 ]);
@@ -121,6 +115,8 @@ const TEAM_ROW_RELATION = 'Program->Team';
 
 const TEAM_SCOPED_LOGICAL_COVERS: Readonly<Record<string, string>> = {
   'logical:Team->OutboxEvent': 'logical:Team->OutboxEvent',
+  'logical:Team->Repo': 'logical:Team->Repo',
+  'logical:Repo->RepositoryInvitation': 'logical:Repo->RepositoryInvitation',
   'logical:Program->Notification[APPLICATION_DECISION,payload.programId]':
     'logical:Team->Notification[APPLICATION_DECISION,payload.teamId]',
   'logical:Program->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]':

@@ -125,28 +125,25 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     새 구성으로 수렴하고 orphan을 남기지 않는다. 단 `SubmissionFile.milestoneId`처럼 seed
     밖에서 생긴 실사용 참조가 그 마일스톤에 남아 있으면 삭제가 의도적으로 FK 위반으로 실패한다
     — 이 경우 시드가 조용히 넘어가지 않고, 운영자가 직접 그 데이터를 확인해야 한다는 신호다.
-  - GithubRepository 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 팀 신청에 연결해
-    공개 완료(`visibility: PUBLIC`) 상태로 추적한다(`applicationId`·`programId`가 이 행에 직접
-    실려 프로비저닝 신청과 연결을 증명한다, `#617` 단계 D). 짝이 되는 RepositoryProvisionJob은
-    `SUCCEEDED`다. `githubRepositoryId`는 GitHub API로 확인한 이 저장소의 실제 numeric
+  - repo 1개 — 실제 공개 저장소 `github.com/JNU-SWCU/oss-hub`를 `team_repo`로 팀에 연결해
+    공개 완료(`visibility: PUBLIC`) 상태로 추적한다. 짝이 되는 RepositoryProvisionJob은
+    `SUCCEEDED`다. `github_repo_id`는 GitHub API로 확인한 이 저장소의 실제 numeric
     id(`1297138137`, public 정보)를 그대로 쓴다.
-  - GithubRepository 2개째(`oss-hub-practice`) — `github.com/JNU-SWCU/oss-hub-practice`(학생
-    fork/배포 퀘스트 실습용 저장소)를 별도 Program·Team·Application·GithubRepository 체인으로
+  - repo 2개째(`oss-hub-practice`) — `github.com/JNU-SWCU/oss-hub-practice`(학생
+    fork/배포 퀘스트 실습용 저장소)를 별도 Program·Team·repo 체인으로
     공개 완료(`visibility: PUBLIC`) 상태로 추적한다. 기존 oss-hub Program·Team을 재사용하지 않는
     이유는 `Application_programId_teamId_team_key` partial unique index(같은 팀은 같은 Program에
     신청을 한 건만 낼 수 있다) 때문이다 — 이 제약은 `schema.prisma`에는 표현되지 않고
     마이그레이션 SQL에만 있어 정적으로는 드러나지 않는다. 그래서 같은 네 명의 ADMIN 계정을
     팀원으로 하는 새 Program(`오픈소스 실습 배포 퀘스트`)·Team(`oss-hub-practice`)을 만들고
-    그 아래 Application·GithubRepository·RepositoryProvisionJob을 매단다. `githubRepositoryId`는
+    그 아래 team_repo·repo·RepositoryProvisionJob을 매단다. `github_repo_id`는
     GitHub API로 확인한 실제 numeric id(`1296567792`, public 정보)를 그대로 쓴다. 공개 프로젝트
-    상세 화면의 지표·기여자는 별도 시드 데이터 없이 `githubRepositoryId` 기준 collection
-    파이프라인 조인으로 자동 채워진다(`program-activity.service.ts`/
-    `public-projects.repository.ts`의 `canonicalByRepository` 패턴 — Program 정체성과
-    무관하게 GithubRepository 행 기준으로 조인한다).
+    상세 화면의 지표·기여자는 별도 시드 데이터 없이 `github_repo_id` 기준 `contribution`
+    조인으로 자동 채워진다(Program 정체성과 무관하게 repo 행 기준으로 조인한다).
 
 - `demo` — `seeds/demo.ts`: 내일 시연을 위한 "사업단이 실제 운영하는 느낌"의 합성 데이터다. 다른
-  profile을 참조하지 않고 자체 Program·User·Team backbone을 만든다. 이 profile은 GithubRepository·
-  Contribution 등 수집/랭킹 테이블을 **절대** 만들지 않는다 —
+  profile을 참조하지 않고 자체 Program·User·Team backbone을 만든다. 이 profile은 team_repo·
+  contribution 등 수집/랭킹 테이블을 **절대** 만들지 않는다 —
   Econovation 공개 저장소 수집 등록은 별도의 실제 ADMIN discovery/enrollment 경로 + 실제 sweep으로만
   이루어진다.
   - 프로그램 4개 — 전남대 SW중심대학사업단이 공개 운영하는 실제 프로그램 유형(하계 SW인턴십
@@ -168,7 +165,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     (SUBMITTED)·보완 필요(CHANGES_REQUESTED)·승인(APPROVED)으로 섞어 '여러 팀이 참여해
     기록이 쌓이는 모습'을 화면에서 보여준다. 보완 필요·승인 건은 Review도 함께 만든다.
   - 프로그램당 게시판 1\~2건(공지 또는 질문, 댓글 1\~2개 포함)로 시연 화면을 채운다.
-  - 모든 id는 결정적 `seed:demo:...`로 upsert된다(멱등). GithubRepository·Contribution 행은
+  - 모든 id는 결정적 `seed:demo:...`로 upsert된다(멱등). team_repo·contribution 행은
     이 profile이 종료된 뒤에도 항상 0건이어야 한다(`seed.integration.spec.ts`가 검증).
   - **ATTACHED SubmissionFile은 실제 검색 가능한 storage 객체를 동반한다(#910/#913 파인딩 4)**: 데모데이 마일스톤(FILE) 제출이 만드는 SubmissionFile은 storage key를
     `submission-files/seed-demo/<fileId>`로 둔다 — reconciliation CLI가 소유하는 prefix

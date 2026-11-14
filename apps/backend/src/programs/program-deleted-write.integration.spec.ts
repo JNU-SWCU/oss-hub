@@ -6,7 +6,7 @@ import { PrismaSerializationRetryRepository } from '../platform/prisma-serializa
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import { deleteRepos } from '../../test/repo-ledger.fixture';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { BoardRepository } from './board.repository';
@@ -65,9 +65,9 @@ async function cleanup(): Promise<void> {
     where: { programId },
     select: { id: true },
   });
-  await deleteGithubRepositories(
+  await deleteRepos(
     prisma,
-    { team: { programId } },
+    [],
     teams.map((team) => team.id),
   );
   await prisma.milestone.deleteMany({ where: { programId } });

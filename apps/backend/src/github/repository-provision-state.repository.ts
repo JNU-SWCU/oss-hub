@@ -194,7 +194,6 @@ function failedInvitationStatus(
 function rearmedProvisionJobData(
   now: Date,
   repository?: {
-    readonly repositoryId: string | null;
     readonly repoId: bigint;
   },
 ): Prisma.RepositoryProvisionJobUncheckedUpdateManyInput {
@@ -537,13 +536,7 @@ export class RepositoryProvisionStateRepository {
             input.jobId,
             input.workerId,
           ),
-          data: {
-            repositoryId: await new RepoLedgerRepository().rowId(
-              transaction,
-              provisioned.githubRepositoryId,
-            ),
-            repoId: provisioned.githubRepositoryId,
-          },
+          data: { repoId: provisioned.githubRepositoryId },
         });
         this.repositoryProvisionJobRepository.assertSingleProvisionUpdate(
           attached.count,
@@ -587,17 +580,16 @@ export class RepositoryProvisionStateRepository {
         select: { id: true, githubLogin: true, status: true },
       });
       const plan = planInvitations(rows);
-      const repositoryId = await new RepoLedgerRepository().rowId(
-        transaction,
-        githubRepositoryId,
-      );
-      if (repositoryId === null) {
+      const repo = await transaction.repo.findUnique({
+        where: { githubRepoId: githubRepositoryId },
+        select: { githubRepoId: true },
+      });
+      if (repo === null) {
         throw new RepositoryProvisionLeaseLostError();
       }
 
       await transaction.repositoryInvitation.createMany({
         data: plan.createLogins.map((githubLogin) => ({
-          repositoryId,
           repoId: githubRepositoryId,
           githubLogin,
         })),
@@ -803,13 +795,7 @@ export class RepositoryProvisionStateRepository {
           : !isMembershipCurrent(
               await this.currentMemberLogins(transaction, teamId),
             );
-      const repository = {
-        repositoryId: await new RepoLedgerRepository().rowId(
-          transaction,
-          githubRepositoryId,
-        ),
-        repoId: githubRepositoryId,
-      };
+      const repository = { repoId: githubRepositoryId };
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: this.repositoryProvisionJobRepository.claimedJobWhere(
           jobId,

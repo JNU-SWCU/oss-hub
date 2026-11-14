@@ -1,7 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 
 export interface RepositoryObservationRow {
   readonly repositoryId: bigint;
@@ -25,19 +24,19 @@ export class PublicEligibilityRepository {
         githubRepoId: { in: [...repositoryIds] },
         ...this.platformRepository.linkedRepoWhere(),
       },
-      select: { githubRepoId: true, visibility: true, presence: true },
+      select: {
+        githubRepoId: true,
+        visibility: true,
+        presence: true,
+        goneAt: true,
+        lastSuccessAt: true,
+      },
     });
-    const observations = await new RepoLedgerRepository().observations(
-      this.prisma,
-      repositories.map((repository) => repository.githubRepoId),
-    );
     return repositories.map((repository) => ({
       repositoryId: repository.githubRepoId,
       visibility: repository.visibility,
       presence: repository.presence,
-      visibilityObservedAt:
-        observations.get(repository.githubRepoId)
-          ?.lastCompleteInventoryObservedAt ?? null,
+      visibilityObservedAt: repository.goneAt ?? repository.lastSuccessAt,
     }));
   }
 }

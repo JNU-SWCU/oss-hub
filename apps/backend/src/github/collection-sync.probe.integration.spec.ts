@@ -1,5 +1,5 @@
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
-import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
+import { seedRepo, unlinkRepo } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory, RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -34,7 +34,6 @@ const SEED_PREFIX = 'synthetic-probe';
 const PROGRAM_ID = `${SEED_PREFIX}-program`;
 const TEAM_ID = `${SEED_PREFIX}-team`;
 const MEMBER_USER_ID = `${SEED_PREFIX}-user`;
-const REPOSITORY_ID = `${SEED_PREFIX}-repository`;
 const NAME_WITH_OWNER = `${ORG_LOGIN}/probe-repo`;
 
 const FIRST_RUN_AT = new Date('2026-11-14T10:00:00.000Z');
@@ -165,18 +164,14 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
     await prisma.teamMember.create({
       data: { teamId: TEAM_ID, programId: PROGRAM_ID, userId: MEMBER_USER_ID },
     });
-    await prisma.githubRepository.create({
-      data: {
-        id: REPOSITORY_ID,
-        teamId: TEAM_ID,
-        githubRepositoryId: GITHUB_REPOSITORY_ID,
-        nameWithOwner: NAME_WITH_OWNER,
-        defaultBranch: 'main',
-        visibility: 'PRIVATE',
-        source: RepositorySource.ORG_PROVISIONED,
-      },
+    await seedRepo(prisma, {
+      teamId: TEAM_ID,
+      githubRepositoryId: GITHUB_REPOSITORY_ID,
+      nameWithOwner: NAME_WITH_OWNER,
+      defaultBranch: 'main',
+      visibility: 'PRIVATE',
+      source: RepositorySource.ORG_PROVISIONED,
     });
-    await syncGithubRepositoryLedger(prisma, GITHUB_REPOSITORY_ID);
   };
 
   beforeAll(() => prisma.$connect(), 60_000);
@@ -324,11 +319,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
   );
 
   it('팀 연결이 끊긴 저장소는 probe도 수집도 하지 않는다', async () => {
-    await prisma.githubRepository.update({
-      where: { id: REPOSITORY_ID },
-      data: { teamId: null },
-    });
-    await syncGithubRepositoryLedger(prisma, GITHUB_REPOSITORY_ID);
+    await unlinkRepo(prisma, GITHUB_REPOSITORY_ID);
     const client = createClient([]);
 
     await createService(client).run(OWNER_ID);

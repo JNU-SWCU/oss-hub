@@ -14,10 +14,7 @@ import {
   repositoryContributionTotals,
   seedDailyContributions,
 } from '../../test/ledger-contribution.fixture';
-import {
-  syncGithubRepositoryLedger,
-  syncGithubRepositoryLedgers,
-} from '../../test/repo-ledger.fixture';
+import { seedRepo, seedRepos } from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramActivityRepository,
@@ -131,27 +128,19 @@ it('projects current repository facts and URL audit history without reading or m
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.createMany({
-    data: [
-      {
-        id: oldRepositoryId,
-        githubRepositoryId: githubId + 1n,
-        nameWithOwner: 'synthetic/old',
-        source: 'ORG_PROVISIONED',
-        teamId: null,
-      },
-      {
-        id: repositoryId,
-        githubRepositoryId: githubId + 2n,
-        nameWithOwner: 'synthetic/current',
-        source: 'EXTERNAL_PUBLIC',
-        teamId,
-      },
-    ],
-  });
-  await syncGithubRepositoryLedgers(prisma, {
-    id: { in: [oldRepositoryId, repositoryId] },
-  });
+  await seedRepos(prisma, [
+    {
+      githubRepositoryId: githubId + 1n,
+      nameWithOwner: 'synthetic/old',
+      source: 'ORG_PROVISIONED',
+    },
+    {
+      githubRepositoryId: githubId + 2n,
+      nameWithOwner: 'synthetic/current',
+      source: 'EXTERNAL_PUBLIC',
+      teamId,
+    },
+  ]);
   await seedDailyContributions(prisma, githubId + 1n, [
     { githubId, date: '2026-08-01', commitCount: 900 },
   ]);
@@ -233,7 +222,7 @@ it('projects current repository facts and URL audit history without reading or m
     'actor-before-rename',
   );
   expect(
-    (await repositoryContributionTotals(prisma, [oldRepositoryId])).commitCount,
+    (await repositoryContributionTotals(prisma, [githubId + 1n])).commitCount,
   ).toBe(900);
 });
 
@@ -242,7 +231,6 @@ it('reads contributions of a program that never set an end date', async () => {
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const scopedProgramId = `${scope}-program`;
   const scopedTeamId = `${scope}-team`;
-  const scopedRepositoryId = `${scope}-repository`;
   await prisma.user.create({
     data: { id: `${scope}-member`, githubId: base, nickname: 'sentinel' },
   });
@@ -288,16 +276,12 @@ it('reads contributions of a program that never set an end date', async () => {
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.create({
-    data: {
-      id: scopedRepositoryId,
-      githubRepositoryId: base + 1n,
-      nameWithOwner: 'synthetic/sentinel',
-      source: 'EXTERNAL_PUBLIC',
-      teamId: scopedTeamId,
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId: base + 1n,
+    nameWithOwner: 'synthetic/sentinel',
+    source: 'EXTERNAL_PUBLIC',
+    teamId: scopedTeamId,
   });
-  await syncGithubRepositoryLedger(prisma, base + 1n);
   await seedDailyContributions(
     prisma,
     base + 1n,
@@ -356,7 +340,6 @@ it('counts issues for team members, so an issue-only member has observations', a
   const issueOnlyId = `${scope}-issue-only`;
   const scopedProgramId = `${scope}-program`;
   const scopedTeamId = `${scope}-team`;
-  const scopedRepositoryId = `${scope}-repository`;
   await prisma.user.createMany({
     data: [
       { id: activeId, githubId: base, nickname: 'synthetic-active' },
@@ -405,16 +388,12 @@ it('counts issues for team members, so an issue-only member has observations', a
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.create({
-    data: {
-      id: scopedRepositoryId,
-      githubRepositoryId: base + 2n,
-      nameWithOwner: 'synthetic/issue-only',
-      source: 'EXTERNAL_PUBLIC',
-      teamId: scopedTeamId,
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId: base + 2n,
+    nameWithOwner: 'synthetic/issue-only',
+    source: 'EXTERNAL_PUBLIC',
+    teamId: scopedTeamId,
   });
-  await syncGithubRepositoryLedger(prisma, base + 2n);
   await seedDailyContributions(
     prisma,
     base + 2n,
@@ -462,6 +441,7 @@ it('counts issues for team members, so an issue-only member has observations', a
 it('counts only student authors in team, program and public totals', async () => {
   const scope = `student-authors-${randomUUID()}`;
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
+  const lastSuccessAt = new Date();
   const people = {
     member: { id: `${scope}-member`, githubId: base, type: 'STUDENT' },
     left: { id: `${scope}-left`, githubId: base + 1n, type: 'STUDENT' },
@@ -537,18 +517,14 @@ it('counts only student authors in team, program and public totals', async () =>
         userId: person.id,
       })),
     });
-    await prisma.githubRepository.create({
-      data: {
-        id: `${team.id}-repository`,
-        githubRepositoryId: team.repo,
-        nameWithOwner: `synthetic/${team.id}`,
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PUBLIC',
-        teamId: team.id,
-        lastCompleteInventoryObservedAt: new Date('2026-09-01Z'),
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: team.repo,
+      nameWithOwner: `synthetic/${team.id}`,
+      source: 'EXTERNAL_PUBLIC',
+      visibility: 'PUBLIC',
+      teamId: team.id,
+      lastSuccessAt,
     });
-    await syncGithubRepositoryLedger(prisma, team.repo);
   }
   const events: readonly (readonly [
     bigint,
@@ -645,7 +621,7 @@ it('counts only student authors in team, program and public totals', async () =>
       pullRequestCount: 1,
       releaseCount: 0,
       lastActivityAt: '2026-08-05T00:00:00.000Z',
-      dataAsOf: '2026-09-01T00:00:00.000Z',
+      dataAsOf: lastSuccessAt.toISOString(),
     },
   ]);
 

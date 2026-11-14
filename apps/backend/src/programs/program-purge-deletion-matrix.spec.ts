@@ -82,12 +82,12 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
     );
   });
 
-  it('DETACH된 부모(GithubRepository) 아래의 손자는 조용히 순회가 멈추는 게 아니라 명시적으로 PRESERVE 처리된다', () => {
+  it('팀이 가진 repo 아래의 초대는 조용히 순회가 멈추는 게 아니라 명시적으로 PRESERVE 처리된다', () => {
     const preserved = PROGRAM_PURGE_DELETION_ORDER.filter(
       (step) => step.operation === 'PRESERVE',
     ).flatMap((step) => step.covers);
     expect(preserved).toEqual(
-      expect.arrayContaining(['GithubRepository->RepositoryInvitation']),
+      expect.arrayContaining(['logical:Repo->RepositoryInvitation']),
     );
 
     const nonPreserveCovers = PROGRAM_PURGE_DELETION_ORDER.filter(
@@ -178,7 +178,6 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'Requirement->Submission',
       'Requirement->File',
       'Program->File',
-      'Program->GithubRepository',
       'Program->Application',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
     ]) {
@@ -186,18 +185,18 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     }
   });
 
-  it('팀 삭제는 GithubRepository와 그 아래 수집 이력을 DELETE로 분류한다', () => {
+  it('팀 삭제는 팀이 가진 repo와 그 초대를 DELETE로 분류한다', () => {
     const repository = TEAM_PURGE_DELETION_ORDER.find(
-      (step) => step.id === 'github-repositories',
+      (step) => step.id === 'repos',
     );
     expect(repository?.operation).toBe('DELETE');
-    expect(repository?.covers).toEqual(['Team->GithubRepository']);
+    expect(repository?.covers).toEqual(['logical:Team->Repo']);
 
     const deleted = TEAM_PURGE_DELETION_ORDER.filter(
       (step) => step.operation === 'DELETE',
     ).flatMap((step) => step.covers);
     expect(deleted).toEqual(
-      expect.arrayContaining(['GithubRepository->RepositoryInvitation']),
+      expect.arrayContaining(['logical:Repo->RepositoryInvitation']),
     );
     expect(
       TEAM_PURGE_DELETION_ORDER.filter((step) => step.operation === 'PRESERVE'),
@@ -231,9 +230,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       position('team-invitations'),
     );
 
-    expect(position('github-repositories')).toBeLessThan(
-      position('team-invitations'),
-    );
+    expect(position('repos')).toBeLessThan(position('team-invitations'));
   });
 });
 

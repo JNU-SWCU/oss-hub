@@ -8,8 +8,9 @@ import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  syncGithubRepositoryLedger,
-  syncGithubRepositoryLedgers,
+  relinkRepo,
+  seedRepos,
+  unlinkRepo,
 } from '../../test/repo-ledger.fixture';
 import { ProgramActivityRepository } from './program-activity.repository';
 import { ProgramActivityService } from './program-activity.service';
@@ -25,8 +26,6 @@ const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const studentId = `${prefix}-student`;
 const programId = `${prefix}-program`;
 const teamId = `${prefix}-team`;
-const linkedRepositoryId = `${prefix}-linked`;
-const unlinkedRepositoryId = `${prefix}-unlinked`;
 
 beforeAll(async () => {
   await prisma.$connect();
@@ -83,27 +82,19 @@ it('counts only current linked activity and never substitutes detached or unrela
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.createMany({
-    data: [
-      {
-        id: linkedRepositoryId,
-        githubRepositoryId: githubId + 1n,
-        nameWithOwner: 'synthetic/linked',
-        source: 'EXTERNAL_PUBLIC',
-        teamId,
-      },
-      {
-        id: unlinkedRepositoryId,
-        githubRepositoryId: githubId + 2n,
-        nameWithOwner: 'synthetic/unlinked',
-        source: 'ORG_PROVISIONED',
-        teamId: null,
-      },
-    ],
-  });
-  await syncGithubRepositoryLedgers(prisma, {
-    id: { in: [linkedRepositoryId, unlinkedRepositoryId] },
-  });
+  await seedRepos(prisma, [
+    {
+      githubRepositoryId: githubId + 1n,
+      nameWithOwner: 'synthetic/linked',
+      source: 'EXTERNAL_PUBLIC',
+      teamId,
+    },
+    {
+      githubRepositoryId: githubId + 2n,
+      nameWithOwner: 'synthetic/unlinked',
+      source: 'ORG_PROVISIONED',
+    },
+  ]);
   const seenAt = new Date('2026-08-03T00:00:00Z');
   await prisma.contributionEvent.createMany({
     data: [
@@ -174,11 +165,7 @@ it('counts only current linked activity and never substitutes detached or unrela
       total: 1,
     },
   ]);
-  await prisma.githubRepository.update({
-    where: { id: linkedRepositoryId },
-    data: { teamId: null },
-  });
-  await syncGithubRepositoryLedger(prisma, githubId + 1n);
+  await unlinkRepo(prisma, githubId + 1n);
   const detached = await service.activityTimeline(
     { githubId, userId: studentId },
     'MONTH',
@@ -191,19 +178,10 @@ it('counts only current linked activity and never substitutes detached or unrela
     }),
   ).toBe(1);
   await expect(
-    prisma.githubRepository.findUniqueOrThrow({
-      where: { id: linkedRepositoryId },
-    }),
-  ).resolves.toMatchObject({ teamId: null });
-  await expect(
     prisma.teamRepo.count({ where: { repoId: githubId + 1n, validTo: null } }),
   ).resolves.toBe(0);
 
-  await prisma.githubRepository.update({
-    where: { id: linkedRepositoryId },
-    data: { teamId },
-  });
-  await syncGithubRepositoryLedger(prisma, githubId + 1n);
+  await relinkRepo(prisma, githubId + 1n, teamId);
   await prisma.contributionEvent.deleteMany({
     where: { repoId: githubId + 1n },
   });

@@ -587,10 +587,6 @@ export async function seedOssHub(
         create: {
           id: PROVISION_JOB_ID,
           teamId: APPLICATION_ID,
-          repositoryId: await new RepoLedgerRepository().rowId(
-            prisma,
-            OSS_HUB_GITHUB_REPOSITORY_ID,
-          ),
           repoId: OSS_HUB_GITHUB_REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: offsetDays(-30),
@@ -748,10 +744,6 @@ export async function seedOssHub(
         create: {
           id: PRACTICE_PROVISION_JOB_ID,
           teamId: PRACTICE_APPLICATION_ID,
-          repositoryId: await new RepoLedgerRepository().rowId(
-            prisma,
-            OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
-          ),
           repoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: OSS_HUB_PRACTICE_CREATED_AT,

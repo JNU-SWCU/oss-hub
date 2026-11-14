@@ -12,6 +12,7 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { seedRepo } from '../../test/repo-ledger.fixture';
 import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
@@ -194,14 +195,11 @@ async function createPreservedAssets(
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.create({
-    data: {
-      id: `${prefix}repository`,
-      teamId: application.id,
-      githubRepositoryId: 9004800000n + BigInt(sequence),
-      nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
-      source: RepositorySource.ORG_PROVISIONED,
-    },
+  await seedRepo(prisma, {
+    teamId: application.id,
+    githubRepositoryId: 9004800000n + BigInt(sequence),
+    nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
+    source: RepositorySource.ORG_PROVISIONED,
   });
 }
 async function countPreservedAssets(
@@ -220,7 +218,9 @@ async function countPreservedAssets(
       prisma.loginHistory.count({ where: { userId: staffId } }),
       prisma.program.count({ where: { id: `${prefix}program` } }),
       prisma.team.count({ where: { applicantId: staffId } }),
-      prisma.githubRepository.count({ where: { id: `${prefix}repository` } }),
+      prisma.repo.count({
+        where: { teamRepos: { some: { team: { applicantId: staffId } } } },
+      }),
     ]);
   return {
     consents,

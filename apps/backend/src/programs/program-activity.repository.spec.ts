@@ -68,14 +68,9 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
   it('reads issues inside the same linked-repository query with the same author filter as commits', async () => {
     const updatedAt = new Date('2026-08-05T00:00:00.000Z');
     const issueCreatedAt = new Date('2026-08-01T00:00:00.000Z');
-    const findMany = jest.fn().mockResolvedValue([{ githubRepoId: 101n }]);
-    const collectionStateFindMany = jest.fn().mockResolvedValue([
-      {
-        githubRepositoryId: 101n,
-        updatedAt,
-        lastCompleteInventoryObservedAt: null,
-      },
-    ]);
+    const findMany = jest
+      .fn()
+      .mockResolvedValue([{ githubRepoId: 101n, lastSuccessAt: updatedAt }]);
     const queryRaw = jest.fn().mockResolvedValue([
       {
         repositoryId: 101n,
@@ -86,7 +81,6 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
     const repository = new ProgramActivityRepository(
       {
         repo: { findMany },
-        githubRepository: { findMany: collectionStateFindMany },
         $queryRaw: queryRaw,
       } as unknown as PrismaService,
       new PlatformRepository(),

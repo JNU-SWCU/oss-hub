@@ -325,7 +325,6 @@ model Team {
   archivedAt DateTime?
 
   members      TeamMember[]
-  repository   GithubRepository?
   teamRepos    TeamRepo[]
   provisionJob RepositoryProvisionJob?
   submissions  Submission[]
@@ -646,9 +645,8 @@ enum RepositoryInvitationStatus {
 model RepositoryInvitation {
   id String @id @default(cuid())
 
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id])
-  repoId       BigInt?          @map("repo_id")
+  repoId BigInt @map("repo_id")
+  repo   Repo   @relation(fields: [repoId], references: [githubRepoId])
 
   githubLogin String
 
@@ -663,7 +661,7 @@ model RepositoryInvitation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([repositoryId, githubLogin])
+  @@unique([repoId, githubLogin])
 }
 
 enum OutboxEventStatus {
@@ -712,9 +710,8 @@ model RepositoryProvisionJob {
   teamId String @unique
   team   Team   @relation(fields: [teamId], references: [id])
 
-  repositoryId String?
-  repository   GithubRepository? @relation(fields: [repositoryId], references: [id])
-  repoId       BigInt?           @map("repo_id")
+  repoId BigInt? @map("repo_id")
+  repo   Repo?   @relation(fields: [repoId], references: [githubRepoId])
 
   currentEventId String?
 
@@ -740,10 +737,9 @@ model RepositoryProvisionJob {
 model RepositoryIssuanceHistory {
   id String @id @default(cuid())
 
-  requestId    String  @unique
-  teamId       String
-  repositoryId String?
-  repoId       BigInt? @map("repo_id")
+  requestId String  @unique
+  teamId    String
+  repoId    BigInt? @map("repo_id")
 
   connectionMode RepositoryConnectionMode
   source         RepositorySource?
@@ -793,45 +789,6 @@ enum RepositorySource {
   EXTERNAL_PUBLIC
 }
 
-model GithubRepository {
-  id String @id @default(cuid())
-
-  githubOrganizationId BigInt?
-  githubRepositoryId   BigInt  @unique
-
-  nameWithOwner String
-  defaultBranch String?
-  archived      Boolean @default(false)
-
-  source RepositorySource
-
-  visibility RepositoryVisibility         @default(PRIVATE)
-  presence   CollectionRepositoryPresence @default(PRESENT)
-
-  lastCompleteInventoryObservedAt DateTime?
-
-  nextRunAt     DateTime  @default(now())
-  lastSuccessAt DateTime?
-  failureCount  Int       @default(0)
-
-  teamId String? @unique
-  team   Team?   @relation(fields: [teamId], references: [id])
-
-  publishedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  invitations   RepositoryInvitation[]
-  provisionJobs RepositoryProvisionJob[]
-
-  @@index([source, visibility])
-  @@index([visibility, presence])
-  @@index([nextRunAt])
-  @@index([teamId])
-  @@index([visibility, publishedAt, id])
-}
-
 enum ActivityVisibility {
   PUBLIC
   PRIVATE
@@ -873,6 +830,8 @@ model Repo {
 
   teamRepos     TeamRepo[]
   contributions ContributionEvent[]
+  invitations   RepositoryInvitation[]
+  provisionJobs RepositoryProvisionJob[]
 
   @@index([visibility, publishedAt, githubRepoId], map: "repo_visibility_published_at_github_repo_id_idx")
   @@map("repo")

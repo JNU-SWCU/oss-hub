@@ -1,4 +1,4 @@
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -27,7 +27,7 @@ const observation = {
 
 describe('registered repository observation', () => {
   beforeAll(() => prisma.$connect());
-  afterEach(() => deleteGithubRepositories(prisma, { githubRepositoryId }));
+  afterEach(() => deleteRepos(prisma, [githubRepositoryId]));
   afterAll(() => prisma.$disconnect());
 
   it('미등록 레포의 메타데이터 관찰은 레포를 생성하지 않는다', async () => {
@@ -35,46 +35,35 @@ describe('registered repository observation', () => {
       repository.refreshRepositoryObservation(observation),
     ).resolves.toBeNull();
     await expect(
-      prisma.githubRepository.count({ where: { githubRepositoryId } }),
+      prisma.repo.count({ where: { githubRepoId: githubRepositoryId } }),
     ).resolves.toBe(0);
   });
 
-  it('기존 레포의 메타데이터를 갱신하면서 재시도 일정을 보존한다', async () => {
-    const retryAt = new Date('2099-01-01T00:00:00.000Z');
-    await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId,
-        nameWithOwner: observation.nameWithOwner,
-        source: observation.source,
-        defaultBranch: 'main',
-        nextRunAt: retryAt,
-        failureCount: 3,
-      },
+  it('기존 레포의 메타데이터를 갱신한다', async () => {
+    await seedRepo(prisma, {
+      githubRepositoryId,
+      nameWithOwner: observation.nameWithOwner,
+      source: observation.source,
+      defaultBranch: 'main',
     });
 
     await repository.refreshRepositoryObservation(observation);
 
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { githubRepositoryId },
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: githubRepositoryId },
       }),
-    ).resolves.toMatchObject({
-      defaultBranch: 'trunk',
-      nextRunAt: retryAt,
-      failureCount: 3,
-    });
+    ).resolves.toMatchObject({ defaultBranch: 'trunk' });
   });
 
   it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     '팀 지원에서 분리된 %s 저장소는 수집 목록에서 제외한다',
     async (source) => {
-      await prisma.githubRepository.create({
-        data: {
-          githubRepositoryId,
-          nameWithOwner: observation.nameWithOwner,
-          source,
-          presence: 'PRESENT',
-        },
+      await seedRepo(prisma, {
+        githubRepositoryId,
+        nameWithOwner: observation.nameWithOwner,
+        source,
+        presence: 'PRESENT',
       });
 
       const selected = await repository.listCollectionTargets(source);

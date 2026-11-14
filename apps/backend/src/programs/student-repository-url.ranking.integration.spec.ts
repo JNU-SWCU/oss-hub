@@ -7,14 +7,15 @@ import {
   teamId,
   githubId,
   input,
-  oldId,
+  oldGithubId,
+  targetGithubId,
   prisma,
   programId,
   service,
-  targetId,
 } from './student-repository-url.integration.fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { repositoryContributionTotals } from '../../test/ledger-contribution.fixture';
+import { linkedTo, repoWithTeam } from '../../test/repo-ledger.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -151,20 +152,18 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       before.monthly.filter((row) => rankingIds.includes(row.githubId)),
     ).toHaveLength(2);
     expect(
-      (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+      (await repositoryContributionTotals(prisma, [oldGithubId])).commitCount,
     ).toBe(7);
 
     await service.updateMine(githubId, programId, input);
 
+    expect(await repoWithTeam(prisma, oldGithubId)).toBeNull();
     expect(
-      await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-    ).toBeNull();
-    expect(
-      (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+      (await repositoryContributionTotals(prisma, [oldGithubId])).commitCount,
     ).toBe(0);
     expect(
-      await prisma.githubRepository.findUnique({ where: { teamId } }),
-    ).toMatchObject({ id: targetId });
+      await prisma.repo.findFirst({ where: linkedTo(teamId) }),
+    ).toMatchObject({ githubRepoId: targetGithubId });
     expect(await readRankings()).toEqual(before);
     console.info('URL_REPLACEMENT_RANKING', {
       pages: before.pages.length,

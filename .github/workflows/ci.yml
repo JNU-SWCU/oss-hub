@@ -236,14 +236,6 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash apps/backend/test/run-integration.test.sh
 
-      - name: ledger copy transition test
-        if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: bash apps/backend/prisma/github-ledger-copy.transitions.test.sh
-
-      - name: ledger history change test
-        if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: bash apps/backend/prisma/github-ledger-copy.history-change.test.sh
-
       - name: ledger collector race test
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash apps/backend/prisma/github-ledger-collector-race.test.sh

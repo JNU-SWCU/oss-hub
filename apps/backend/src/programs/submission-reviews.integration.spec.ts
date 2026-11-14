@@ -1,4 +1,4 @@
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import { deleteRepos } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -151,7 +151,6 @@ async function createFreshPrivateRepository(): Promise<{
     data: {
       id: seedId('repositories', scenarioId, 'job'),
       teamId,
-      repositoryId: await ledger.rowId(prisma, githubRepositoryId),
       repoId: githubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: new Date(),
@@ -194,15 +193,19 @@ describe('SubmissionReviewsService integration', () => {
     });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
-    await prisma.repositoryInvitation.deleteMany({
-      where: { repository: { team: { programId: REPOSITORIES_PROGRAM_ID } } },
-    });
     await prisma.repositoryProvisionJob.deleteMany({
       where: { team: { programId: REPOSITORIES_PROGRAM_ID } },
     });
-    await deleteGithubRepositories(prisma, {
-      team: { programId: REPOSITORIES_PROGRAM_ID },
-    });
+    await deleteRepos(
+      prisma,
+      [],
+      (
+        await prisma.team.findMany({
+          where: { programId: REPOSITORIES_PROGRAM_ID },
+          select: { id: true },
+        })
+      ).map((team) => team.id),
+    );
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { startsWith: seedId('repositories') } },
     });

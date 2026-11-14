@@ -2,7 +2,6 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 interface ContributionCountsRow {
@@ -14,7 +13,7 @@ interface ContributionCountsRow {
 
 export interface RepositoryContributionRows {
   readonly repositoryId: bigint;
-  readonly inventoryObservedAt: Date | null;
+  readonly lastSuccessAt: Date | null;
   readonly contributions: readonly ContributionCountsRow[];
 }
 
@@ -52,22 +51,16 @@ export class PublicProjectMetricsRepository {
         presence: 'PRESENT',
         ...this.platformRepository.linkedRepoWhere(),
       },
-      select: { githubRepoId: true },
+      select: { githubRepoId: true, lastSuccessAt: true },
     });
     if (repositories.length === 0) return [];
     const githubRepositoryIds = repositories.map(
       (repository) => repository.githubRepoId,
     );
-    const observations = await new RepoLedgerRepository().observations(
-      this.prisma,
-      githubRepositoryIds,
-    );
     const rows = await this.readRepoContribution(githubRepositoryIds);
     return repositories.map((repository) => ({
       repositoryId: repository.githubRepoId,
-      inventoryObservedAt:
-        observations.get(repository.githubRepoId)
-          ?.lastCompleteInventoryObservedAt ?? null,
+      lastSuccessAt: repository.lastSuccessAt,
       contributions: rows.filter(
         (row) => row.githubRepositoryId === repository.githubRepoId,
       ),

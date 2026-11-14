@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 export interface ProgramRepositoryLink {
@@ -91,7 +90,7 @@ export interface ProgramActivityApplication {
 
 export interface ProgramRepositoryActivity {
   readonly repositoryId: bigint;
-  readonly dataAsOf: Date;
+  readonly dataAsOf: Date | null;
   readonly commitDates: readonly Date[];
   readonly pullRequestDates: readonly Date[];
   readonly releaseDates: readonly Date[];
@@ -190,28 +189,20 @@ export class ProgramActivityRepository {
         githubRepoId: { in: [...query.repositoryIds] },
         ...this.platformRepository.linkedRepoWhere(),
       },
-      select: { githubRepoId: true },
+      select: { githubRepoId: true, lastSuccessAt: true },
     });
-    const collectionStates = await new RepoLedgerRepository().observations(
-      this.prisma,
-      repositories.map((repository) => repository.githubRepoId),
-    );
     const events = await readContributionEvents(
       this.prisma,
       repositories.map((repository) => repository.githubRepoId),
       query.authorGithubId,
     );
-    return repositories.flatMap((repository) => {
-      const collectionState = collectionStates.get(repository.githubRepoId);
-      if (collectionState === undefined) return [];
+    return repositories.map((repository) => {
       const matched = events.filter(
         (event) => event.repositoryId === repository.githubRepoId,
       );
       return {
         repositoryId: repository.githubRepoId,
-        dataAsOf:
-          collectionState.lastCompleteInventoryObservedAt ??
-          collectionState.updatedAt,
+        dataAsOf: repository.lastSuccessAt,
         commitDates: datesFor(matched, 'commit'),
         pullRequestDates: datesFor(matched, 'pull_request'),
         releaseDates: datesFor(matched, 'release'),

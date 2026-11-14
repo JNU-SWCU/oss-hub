@@ -2,6 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../integration-database.guard
 import { prisma as seedPrisma, SeedStats } from '../../prisma/seeds/helpers';
 import { seedAuth } from '../../prisma/seeds/auth';
 import {
+  E2E_DETACHED_REPOSITORY_OWNER,
   E2E_DOCUMENT_ID,
   E2E_MILESTONE_ID,
   E2E_PROGRAM_ID,
@@ -17,6 +18,7 @@ import {
   repositoryContributionTotals,
   seedDailyContributions,
 } from '../ledger-contribution.fixture';
+import { seedRepo, unlinkRepo } from '../repo-ledger.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -169,7 +171,7 @@ describe('E2eProgramAuthoringFixture persistence', () => {
 });
 
 const repositoryContributionCommits = async (
-  repositoryIds: readonly string[],
+  repositoryIds: readonly bigint[],
 ): Promise<number> =>
   (await repositoryContributionTotals(prisma, repositoryIds)).commitCount;
 
@@ -192,8 +194,8 @@ it('removes detached fixture repository facts while preserving a neighboring pro
       applicationEndAt: new Date('2026-01-31Z'),
     },
   });
-  const detachedId = `${E2E_PROGRAM_ID}-detached`;
-  const neighborRepositoryId = `${neighborId}-repository`;
+  const detachedId = 9910001n;
+  const neighborRepositoryId = 9910002n;
   const neighborTeamId = `${neighborId}-team`;
   await prisma.team.create({
     data: {
@@ -206,24 +208,18 @@ it('removes detached fixture repository facts while preserving a neighboring pro
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.createMany({
-    data: [
-      {
-        id: detachedId,
-        githubRepositoryId: 9910001n,
-        nameWithOwner: 'synthetic/detached',
-        source: 'EXTERNAL_PUBLIC',
-      },
-      {
-        id: neighborRepositoryId,
-        teamId: neighborTeamId,
-        githubRepositoryId: 9910002n,
-        nameWithOwner: 'synthetic/neighbor',
-        source: 'EXTERNAL_PUBLIC',
-      },
-    ],
+  await seedRepo(prisma, {
+    githubRepositoryId: detachedId,
+    nameWithOwner: `${E2E_DETACHED_REPOSITORY_OWNER}/detached`,
+    source: 'EXTERNAL_PUBLIC',
   });
-  for (const githubRepositoryId of [9910001n, 9910002n]) {
+  await seedRepo(prisma, {
+    teamId: neighborTeamId,
+    githubRepositoryId: neighborRepositoryId,
+    nameWithOwner: 'synthetic/neighbor',
+    source: 'EXTERNAL_PUBLIC',
+  });
+  for (const githubRepositoryId of [detachedId, neighborRepositoryId]) {
     await seedDailyContributions(prisma, githubRepositoryId, [
       { githubId: 8_100_002n, date: '2026-08-01', commitCount: 7 },
     ]);
@@ -232,7 +228,7 @@ it('removes detached fixture repository facts while preserving a neighboring pro
   await fixture.reset();
 
   expect(
-    await prisma.githubRepository.findUnique({ where: { id: detachedId } }),
+    await prisma.repo.findUnique({ where: { githubRepoId: detachedId } }),
   ).toBeNull();
   expect(await repositoryContributionCommits([detachedId])).toBe(0);
   expect(
@@ -244,8 +240,8 @@ it('removes detached fixture repository facts while preserving a neighboring pro
 it('seeds current observations idempotently without reassigning detached facts', async () => {
   await fixture.ensure();
   const teamId = `${E2E_PROGRAM_ID}-evidence-team`;
-  const oldId = `${E2E_PROGRAM_ID}-evidence-old`;
-  const currentId = `${E2E_PROGRAM_ID}-evidence-current`;
+  const oldId = 9910003n;
+  const currentId = 9910004n;
   await prisma.team.create({
     data: {
       id: teamId,
@@ -267,40 +263,31 @@ it('seeds current observations idempotently without reassigning detached facts',
       applicationTemplateVersion: 1,
     },
   });
-  await prisma.githubRepository.create({
-    data: {
-      id: oldId,
-      teamId,
-      githubRepositoryId: 9910003n,
-      nameWithOwner: 'synthetic/evidence-old',
-      source: 'EXTERNAL_PUBLIC',
-    },
+  await seedRepo(prisma, {
+    teamId,
+    githubRepositoryId: oldId,
+    nameWithOwner: 'synthetic/evidence-old',
+    source: 'EXTERNAL_PUBLIC',
   });
   const old = await seedE2eRepositoryEvidence(prisma, fixture.graph());
-  await prisma.githubRepository.update({
-    where: { id: oldId },
-    data: { teamId: null },
-  });
-  await prisma.githubRepository.create({
-    data: {
-      id: currentId,
-      teamId,
-      githubRepositoryId: 9910004n,
-      nameWithOwner: 'synthetic/evidence-current',
-      source: 'EXTERNAL_PUBLIC',
-    },
+  await unlinkRepo(prisma, oldId);
+  await seedRepo(prisma, {
+    teamId,
+    githubRepositoryId: currentId,
+    nameWithOwner: 'synthetic/evidence-current',
+    source: 'EXTERNAL_PUBLIC',
   });
 
   const first = await seedE2eRepositoryEvidence(prisma, fixture.graph());
   const second = await seedE2eRepositoryEvidence(prisma, fixture.graph());
 
   expect(second).toEqual(first);
-  expect(second.currentRepositoryId).toBe(currentId);
-  expect(second.facts.filter((fact) => fact.repositoryId === oldId)).toEqual(
-    old.facts,
-  );
+  expect(second.currentRepositoryId).toBe(currentId.toString());
   expect(
-    second.facts.filter((fact) => fact.repositoryId === currentId),
+    second.facts.filter((fact) => fact.repositoryId === oldId.toString()),
+  ).toEqual(old.facts);
+  expect(
+    second.facts.filter((fact) => fact.repositoryId === currentId.toString()),
   ).toEqual([
     expect.objectContaining({
       githubId: '8100002',
@@ -332,11 +319,13 @@ it('rejects adopted graphs and missing approved applications without seeding fac
   expect(
     await repositoryContributionCommits(
       (
-        await prisma.githubRepository.findMany({
-          where: { team: { programId: E2E_PROGRAM_ID } },
-          select: { id: true },
+        await prisma.repo.findMany({
+          where: {
+            teamRepos: { some: { team: { programId: E2E_PROGRAM_ID } } },
+          },
+          select: { githubRepoId: true },
         })
-      ).map(({ id }) => id),
+      ).map(({ githubRepoId }) => githubRepoId),
     ),
   ).toBe(0);
 });

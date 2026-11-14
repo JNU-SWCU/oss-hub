@@ -1,4 +1,4 @@
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserPolicyRepository } from '../users/user-policy.repository';
@@ -40,9 +40,7 @@ describe('external repository enrollment integration', () => {
   });
 
   afterEach(async () => {
-    await deleteGithubRepositories(prisma, {
-      githubRepositoryId: { in: [...REPOSITORY_IDS] },
-    });
+    await deleteRepos(prisma, REPOSITORY_IDS);
     await prisma.userPolicy.deleteMany({
       where: { userId: { in: [MEMBER_USER_ID, CONSENT_USER_ID] } },
     });
@@ -65,8 +63,8 @@ describe('external repository enrollment integration', () => {
     });
 
     await expect(
-      prisma.githubRepository.findUnique({
-        where: { githubRepositoryId: REPOSITORY_IDS[0] },
+      prisma.repo.findUnique({
+        where: { githubRepoId: REPOSITORY_IDS[0] },
       }),
     ).resolves.toBeNull();
   });
@@ -79,16 +77,14 @@ describe('external repository enrollment integration', () => {
         nickname: 'synthetic-external-enrollment-member',
       },
     });
-    const repository = await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId: REPOSITORY_IDS[1],
-        nameWithOwner: 'stale/short-name',
-        defaultBranch: null,
-        archived: true,
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PRIVATE',
-        presence: 'ABSENT',
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: REPOSITORY_IDS[1],
+      nameWithOwner: 'stale/short-name',
+      defaultBranch: null,
+      archived: true,
+      source: 'EXTERNAL_PUBLIC',
+      visibility: 'PRIVATE',
+      presence: 'ABSENT',
     });
     await seedDailyContributions(
       prisma,
@@ -121,11 +117,11 @@ describe('external repository enrollment integration', () => {
     });
 
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { githubRepositoryId: REPOSITORY_IDS[1] },
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: REPOSITORY_IDS[1] },
       }),
     ).resolves.toMatchObject({
-      nameWithOwner: 'synthetic-student/reconnected-repo',
+      ownerName: 'synthetic-student/reconnected-repo',
       defaultBranch: 'trunk',
       archived: false,
       source: 'EXTERNAL_PUBLIC',
@@ -139,7 +135,7 @@ describe('external repository enrollment integration', () => {
       }),
     ).resolves.toEqual({ goneAt: null });
     await expect(
-      repositoryContributionTotals(prisma, [repository.id]),
+      repositoryContributionTotals(prisma, [REPOSITORY_IDS[1]]),
     ).resolves.toEqual({
       commitCount: 2,
       pullRequestCount: 2,
@@ -149,17 +145,14 @@ describe('external repository enrollment integration', () => {
   });
 
   it('같은 id의 기존 org 관찰은 external로 강등하거나 덮어쓰지 않는다', async () => {
-    await prisma.githubRepository.create({
-      data: {
-        githubOrganizationId: 9_000_000_730_099n,
-        githubRepositoryId: REPOSITORY_IDS[2],
-        nameWithOwner: 'synthetic-org/org-repo',
-        defaultBranch: 'main',
-        archived: false,
-        source: 'ORG_PROVISIONED',
-        visibility: 'PRIVATE',
-        presence: 'PRESENT',
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: REPOSITORY_IDS[2],
+      nameWithOwner: 'synthetic-org/org-repo',
+      defaultBranch: 'main',
+      archived: false,
+      source: 'ORG_PROVISIONED',
+      visibility: 'PRIVATE',
+      presence: 'PRESENT',
     });
 
     await enrollment.enrollExternalRepository({
@@ -171,12 +164,11 @@ describe('external repository enrollment integration', () => {
     });
 
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { githubRepositoryId: REPOSITORY_IDS[2] },
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: REPOSITORY_IDS[2] },
       }),
     ).resolves.toMatchObject({
-      githubOrganizationId: 9_000_000_730_099n,
-      nameWithOwner: 'synthetic-org/org-repo',
+      ownerName: 'synthetic-org/org-repo',
       defaultBranch: 'main',
       archived: false,
       source: 'ORG_PROVISIONED',
@@ -186,16 +178,14 @@ describe('external repository enrollment integration', () => {
   });
 
   it('external snapshot 뒤 org로 승격된 저장소의 기존 원장 이벤트를 정리하지 않는다', async () => {
-    const repository = await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId: REPOSITORY_IDS[2],
-        nameWithOwner: 'synthetic-student/promoted-repo',
-        defaultBranch: 'main',
-        archived: false,
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PUBLIC',
-        presence: 'PRESENT',
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: REPOSITORY_IDS[2],
+      nameWithOwner: 'synthetic-student/promoted-repo',
+      defaultBranch: 'main',
+      archived: false,
+      source: 'EXTERNAL_PUBLIC',
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
     });
     await seedDailyContributions(
       prisma,
@@ -212,12 +202,9 @@ describe('external repository enrollment integration', () => {
       'EXTERNAL_PUBLIC',
     );
 
-    await prisma.githubRepository.update({
-      where: { id: repository.id },
-      data: {
-        githubOrganizationId: 9_000_000_730_099n,
-        source: 'ORG_PROVISIONED',
-      },
+    await prisma.repo.update({
+      where: { githubRepoId: REPOSITORY_IDS[2] },
+      data: { source: 'ORG_PROVISIONED' },
     });
     await expect(
       enrollment.enrollExternalRepository({
@@ -229,7 +216,7 @@ describe('external repository enrollment integration', () => {
       }),
     ).resolves.toBe(false);
     await expect(
-      repositoryContributionTotals(prisma, [repository.id]),
+      repositoryContributionTotals(prisma, [REPOSITORY_IDS[2]]),
     ).resolves.toEqual({
       commitCount: 1,
       pullRequestCount: 1,
@@ -254,12 +241,10 @@ describe('external repository enrollment integration', () => {
       archived: false,
       observedAt: OBSERVED_AT,
     } as const;
-    await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId: input.githubRepositoryId,
-        nameWithOwner: input.nameWithOwner,
-        source: 'EXTERNAL_PUBLIC',
-      },
+    await seedRepo(prisma, {
+      githubRepositoryId: input.githubRepositoryId,
+      nameWithOwner: input.nameWithOwner,
+      source: 'EXTERNAL_PUBLIC',
     });
 
     await expect(
@@ -269,8 +254,8 @@ describe('external repository enrollment integration', () => {
       ]),
     ).resolves.toEqual([true, true]);
     await expect(
-      prisma.githubRepository.count({
-        where: { githubRepositoryId: REPOSITORY_IDS[3] },
+      prisma.repo.count({
+        where: { githubRepoId: REPOSITORY_IDS[3] },
       }),
     ).resolves.toBe(1);
   });
@@ -298,8 +283,8 @@ describe('external repository enrollment integration', () => {
       { name: 'DomainException' },
     );
     await expect(
-      prisma.githubRepository.count({
-        where: { githubRepositoryId: REPOSITORY_IDS[0] },
+      prisma.repo.count({
+        where: { githubRepoId: REPOSITORY_IDS[0] },
       }),
     ).resolves.toBe(0);
 
@@ -314,8 +299,8 @@ describe('external repository enrollment integration', () => {
       service.enrollExternalRepository(input),
     ).resolves.toBeUndefined();
     await expect(
-      prisma.githubRepository.count({
-        where: { githubRepositoryId: REPOSITORY_IDS[0] },
+      prisma.repo.count({
+        where: { githubRepoId: REPOSITORY_IDS[0] },
       }),
     ).resolves.toBe(0);
   });

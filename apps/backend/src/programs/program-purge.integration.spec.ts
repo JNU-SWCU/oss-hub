@@ -39,8 +39,9 @@ import { FileCleanupService } from './file-cleanup.service';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
+  deleteRepos,
+  repoWithTeam,
+  seedRepo,
 } from '../../test/repo-ledger.fixture';
 import {
   repositoryContributionTotals,
@@ -100,16 +101,14 @@ type Fixture = {
   readonly submissionFileStorageKey: string;
   readonly templateFileStorageKey: string;
   readonly coverStorageKey: string;
-  readonly externalRepositoryId: string;
   readonly externalGithubRepositoryId: bigint;
-  readonly provisionedRepositoryId: string;
+  readonly provisionedGithubRepositoryId: bigint;
   readonly applicationDecisionNotificationId: string;
   readonly applicationDecisionAcknowledgedNotificationId: string;
   readonly deadlineDigestNotificationId: string;
   readonly applicationOutboxEventId: string;
   readonly repositoryIssuanceHistoryId: string;
   readonly repositoryInvitationId: string;
-  readonly publishedRepositoryId: string;
   readonly publishedGithubRepositoryId: bigint;
 };
 async function objectExists(key: string): Promise<boolean> {
@@ -227,21 +226,17 @@ async function cleanup(): Promise<void> {
   await prisma.repositoryIssuanceHistory.deleteMany({
     where: { teamId: { startsWith: PREFIX } },
   });
-  await prisma.repositoryInvitation.deleteMany({
-    where: { repository: { nameWithOwner: { startsWith: 'purge7-org/' } } },
-  });
   const purgeTeams = await prisma.team.findMany({
     where: { programId: { startsWith: PREFIX } },
     select: { id: true },
   });
-  await deleteGithubRepositories(
+  const purgeRepos = await prisma.repo.findMany({
+    where: { ownerName: { startsWith: 'purge7-org/' } },
+    select: { githubRepoId: true },
+  });
+  await deleteRepos(
     prisma,
-    {
-      OR: [
-        { team: { is: { programId: { startsWith: PREFIX } } } },
-        { nameWithOwner: { startsWith: 'purge7-org/' } },
-      ],
-    },
+    purgeRepos.map((repo) => repo.githubRepoId),
     purgeTeams.map((team) => team.id),
   );
   await prisma.boardComment.deleteMany({
@@ -354,9 +349,7 @@ async function seedFullChildGraph(
   const submissionFileStorageKey = `${OBJECT_PREFIX}/${label}/submission-file.pdf`;
   const templateFileStorageKey = `${OBJECT_PREFIX}/${label}/template-file.pdf`;
   const coverStorageKey = `${COVER_OBJECT_PREFIX}-${label}`;
-  const externalRepositoryId = p('external-repo');
   const externalGithubRepositoryId = 9875500000n + ordinal;
-  const publishedRepositoryId = p('published-repo');
   const publishedGithubRepositoryId = 9875800000n + ordinal;
   const publishedApplicantId = p('published-applicant');
   await ensureGlobalActors();
@@ -534,24 +527,18 @@ async function seedFullChildGraph(
       processedAt: NOW,
     },
   });
-  const provisionedRepositoryId = p('provisioned-repo');
   const provisionedGithubRepositoryId = 9875400000n + ordinal;
-  await prisma.githubRepository.create({
-    data: {
-      id: provisionedRepositoryId,
-      teamId,
-      githubRepositoryId: provisionedGithubRepositoryId,
-      nameWithOwner: `purge7-org/${label}-provisioned`,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: RepositoryVisibility.PRIVATE,
-    },
+  await seedRepo(prisma, {
+    teamId,
+    githubRepositoryId: provisionedGithubRepositoryId,
+    nameWithOwner: `purge7-org/${label}-provisioned`,
+    source: RepositorySource.ORG_PROVISIONED,
+    visibility: RepositoryVisibility.PRIVATE,
   });
-  await syncGithubRepositoryLedger(prisma, provisionedGithubRepositoryId);
   await prisma.repositoryProvisionJob.create({
     data: {
       id: p('provision-job'),
       teamId,
-      repositoryId: provisionedRepositoryId,
       repoId: provisionedGithubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: NOW,
@@ -565,7 +552,6 @@ async function seedFullChildGraph(
       id: repositoryIssuanceHistoryId,
       requestId: p('repository-issuance-request'),
       teamId,
-      repositoryId: provisionedRepositoryId,
       repoId: provisionedGithubRepositoryId,
       connectionMode: RepositoryConnectionMode.NEW,
       source: RepositorySource.ORG_PROVISIONED,
@@ -578,7 +564,6 @@ async function seedFullChildGraph(
   await prisma.repositoryInvitation.create({
     data: {
       id: repositoryInvitationId,
-      repositoryId: provisionedRepositoryId,
       repoId: provisionedGithubRepositoryId,
       githubLogin: `synthetic-purge7-invitee-${label}`,
       status: RepositoryInvitationStatus.SUCCEEDED,
@@ -594,28 +579,20 @@ async function seedFullChildGraph(
       releaseCount: 1,
     },
   ]);
-  await prisma.githubRepository.create({
-    data: {
-      id: externalRepositoryId,
-      githubRepositoryId: externalGithubRepositoryId,
-      nameWithOwner: `purge7-org/${label}-external-public`,
-      source: RepositorySource.EXTERNAL_PUBLIC,
-      visibility: RepositoryVisibility.PUBLIC,
-    },
+  await seedRepo(prisma, {
+    githubRepositoryId: externalGithubRepositoryId,
+    nameWithOwner: `purge7-org/${label}-external-public`,
+    source: RepositorySource.EXTERNAL_PUBLIC,
+    visibility: RepositoryVisibility.PUBLIC,
   });
-  await syncGithubRepositoryLedger(prisma, externalGithubRepositoryId);
-  await prisma.githubRepository.create({
-    data: {
-      id: publishedRepositoryId,
-      teamId: p('published-team'),
-      githubRepositoryId: publishedGithubRepositoryId,
-      nameWithOwner: `purge7-org/${label}-published`,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: RepositoryVisibility.PUBLIC,
-      publishedAt: NOW,
-    },
+  await seedRepo(prisma, {
+    teamId: p('published-team'),
+    githubRepositoryId: publishedGithubRepositoryId,
+    nameWithOwner: `purge7-org/${label}-published`,
+    source: RepositorySource.ORG_PROVISIONED,
+    visibility: RepositoryVisibility.PUBLIC,
+    publishedAt: NOW,
   });
-  await syncGithubRepositoryLedger(prisma, publishedGithubRepositoryId);
   await prisma.boardPost.create({
     data: {
       id: boardPostId,
@@ -825,16 +802,14 @@ async function seedFullChildGraph(
     submissionFileStorageKey,
     templateFileStorageKey,
     coverStorageKey,
-    externalRepositoryId,
     externalGithubRepositoryId,
-    provisionedRepositoryId,
+    provisionedGithubRepositoryId,
     applicationDecisionNotificationId,
     applicationDecisionAcknowledgedNotificationId,
     deadlineDigestNotificationId,
     applicationOutboxEventId,
     repositoryIssuanceHistoryId,
     repositoryInvitationId,
-    publishedRepositoryId,
     publishedGithubRepositoryId,
   };
 }
@@ -1121,16 +1096,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
       select: { teamId: true, submissionId: true, submissionHistoryId: true },
     });
-    const publishedRepositoryBefore =
-      await prisma.githubRepository.findUniqueOrThrow({
-        where: { id: fixture.publishedRepositoryId },
-        select: {
-          teamId: true,
-          publishedAt: true,
-          visibility: true,
-          githubRepositoryId: true,
-        },
-      });
+    const publishedRepositoryBefore = await repoWithTeam(
+      prisma,
+      fixture.publishedGithubRepositoryId,
+    );
     const before = await programChildRowCounts(fixture.programId, [
       fixture.teamId,
     ]);
@@ -1158,7 +1127,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.not.toBeNull();
     const collectedBefore = await repositoryContributionTotals(prisma, [
-      fixture.provisionedRepositoryId,
+      fixture.provisionedGithubRepositoryId,
     ]);
     expect(collectedBefore).toEqual({
       commitCount: 1,
@@ -1228,15 +1197,19 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toMatchObject({
       teamId: fixture.teamId,
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,
-      repositoryId: fixture.provisionedRepositoryId,
+      repoId: fixture.provisionedGithubRepositoryId,
     });
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
       }),
-    ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
+    ).resolves.toMatchObject({
+      repoId: fixture.provisionedGithubRepositoryId,
+    });
     await expect(
-      repositoryContributionTotals(prisma, [fixture.provisionedRepositoryId]),
+      repositoryContributionTotals(prisma, [
+        fixture.provisionedGithubRepositoryId,
+      ]),
     ).resolves.toEqual(collectedBefore);
     const orphanSubmissionFile = await prisma.file.findFirst({
       where: {
@@ -1295,25 +1268,28 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toMatchObject({
       lifecycle: FileLifecycle.DELETED,
     });
-    const externalRepository = await prisma.githubRepository.findUnique({
-      where: { id: fixture.externalRepositoryId },
-    });
+    const externalRepository = await repoWithTeam(
+      prisma,
+      fixture.externalGithubRepositoryId,
+    );
     expect(externalRepository).toMatchObject({
-      githubRepositoryId: fixture.externalGithubRepositoryId,
+      githubRepoId: fixture.externalGithubRepositoryId,
       source: RepositorySource.EXTERNAL_PUBLIC,
     });
-    const provisionedRepositories = await prisma.githubRepository.findMany({
-      where: { nameWithOwner: { startsWith: 'purge7-org/full-provisioned' } },
+    const provisionedRepositories = await prisma.repo.findMany({
+      where: { ownerName: { startsWith: 'purge7-org/full-provisioned' } },
+      include: { teamRepos: { where: { validTo: null } } },
     });
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({
-      teamId: fixture.teamId,
+      teamRepos: [expect.objectContaining({ teamId: fixture.teamId })],
       source: RepositorySource.ORG_PROVISIONED,
     });
-    const publishedRepositoryAfter = await prisma.githubRepository.findUnique({
-      where: { id: fixture.publishedRepositoryId },
-    });
-    expect(publishedRepositoryAfter).toMatchObject(publishedRepositoryBefore);
+    const publishedRepositoryAfter = await repoWithTeam(
+      prisma,
+      fixture.publishedGithubRepositoryId,
+    );
+    expect(publishedRepositoryAfter).toEqual(publishedRepositoryBefore);
     const afterPurgePage = await publicProjects.listPage(null, 50);
     expect(
       afterPurgePage.some(
@@ -1607,9 +1583,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(submissionFile).toMatchObject({
       lifecycle: FileLifecycle.ATTACHED,
     });
-    const externalRepository = await prisma.githubRepository.findUnique({
-      where: { id: fixture.externalRepositoryId },
-    });
+    const externalRepository = await repoWithTeam(
+      prisma,
+      fixture.externalGithubRepositoryId,
+    );
     expect(externalRepository).toMatchObject({
       teamId: null,
       source: RepositorySource.EXTERNAL_PUBLIC,

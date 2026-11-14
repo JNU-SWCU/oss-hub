@@ -11,9 +11,9 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectsRepository } from './public-projects.repository';
 import {
-  deleteGithubRepositories,
-  syncGithubRepositoryLedger,
-  syncGithubRepositoryLedgers,
+  deleteRepos,
+  seedRepo,
+  seedRepos,
 } from '../../test/repo-ledger.fixture';
 
 assertIsolatedIntegrationDatabase({
@@ -86,9 +86,9 @@ describe('PublicProjectsRepository integration', () => {
         userId: applicantIds[index]!,
       })),
     });
-    await prisma.githubRepository.createMany({
-      data: teamIds.map((id, index) => ({
-        id: `${PREFIX}-repository-${index}`,
+    await seedRepos(
+      prisma,
+      teamIds.map((id, index) => ({
         teamId: id,
         githubRepositoryId: 8700000000000n + BigInt(index),
         nameWithOwner: `synthetic-org/${PREFIX}-repo-${index}`,
@@ -99,7 +99,7 @@ describe('PublicProjectsRepository integration', () => {
             ((index * 37) % PUBLIC_REPOSITORY_COUNT) * 86400000,
         ),
       })),
-    });
+    );
 
     const privateApplicantId = `${PREFIX}-private-applicant`;
     const unpublishedApplicantId = `${PREFIX}-unpublished-applicant`;
@@ -159,36 +159,40 @@ describe('PublicProjectsRepository integration', () => {
         },
       ],
     });
-    await prisma.githubRepository.createMany({
-      data: [
-        {
-          id: `${PREFIX}-private-repository`,
-          teamId: `${PREFIX}-private-team`,
-          githubRepositoryId: 8700000099001n,
-          nameWithOwner: `synthetic-org/${PREFIX}-private-repo`,
-          source: RepositorySource.ORG_PROVISIONED,
-          visibility: RepositoryVisibility.PRIVATE,
-          publishedAt: null,
-        },
-        {
-          id: `${PREFIX}-unpublished-repository`,
-          teamId: `${PREFIX}-unpublished-team`,
-          githubRepositoryId: 8700000099002n,
-          nameWithOwner: `synthetic-org/${PREFIX}-unpublished-repo`,
-          source: RepositorySource.ORG_PROVISIONED,
-          visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: null,
-        },
-      ],
-    });
+    await seedRepos(prisma, [
+      {
+        teamId: `${PREFIX}-private-team`,
+        githubRepositoryId: 8700000099001n,
+        nameWithOwner: `synthetic-org/${PREFIX}-private-repo`,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PRIVATE,
+        publishedAt: null,
+      },
+      {
+        teamId: `${PREFIX}-unpublished-team`,
+        githubRepositoryId: 8700000099002n,
+        nameWithOwner: `synthetic-org/${PREFIX}-unpublished-repo`,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: null,
+      },
+    ]);
 
-    await syncGithubRepositoryLedgers(prisma, { id: { startsWith: PREFIX } });
     await prisma.$executeRawUnsafe('VACUUM (ANALYZE) "repo"');
   });
 
   afterAll(async () => {
     try {
-      await deleteGithubRepositories(prisma, { id: { startsWith: PREFIX } });
+      await deleteRepos(
+        prisma,
+        [],
+        (
+          await prisma.team.findMany({
+            where: { programId: PROGRAM_ID },
+            select: { id: true },
+          })
+        ).map((team) => team.id),
+      );
       await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.user.deleteMany({
@@ -242,7 +246,7 @@ describe('PublicProjectsRepository integration', () => {
     expect(missingResult).toBeNull();
   });
 
-  it('findById는 콜론이 섞인 GithubRepository.id를 그대로 받아도(비숫자) DB를 조회하지 않고 null을 반환한다', async () => {
+  it('findById는 콜론이 섞인 비숫자 id를 받으면 DB를 조회하지 않고 null을 반환한다', async () => {
     const result = await repository.findById(
       `${PREFIX}-repository-0`.replace(/-/g, ':'),
     );
@@ -252,8 +256,8 @@ describe('PublicProjectsRepository integration', () => {
 
   it(
     '공개 프로젝션 계약(#projects 회귀) — listPage의 모든 행에서 projectId는 프런트 계약 정규식' +
-      '(/^[A-Za-z0-9_-]+$/)을 만족하고, GithubRepository.id에 콜론이 섞인 seed 스타일 행도 projectId는' +
-      'githubRepositoryId 기반 콜론-free 값이며 githubUrl은 JNU-SWCU 정확 계약을 만족한다',
+      '(/^[A-Za-z0-9_-]+$/)을 만족하고, projectId는' +
+      'github_repo_id 기반 콜론-free 값이며 githubUrl은 JNU-SWCU 정확 계약을 만족한다',
     async () => {
       const page = await repository.listPage(null, PUBLIC_REPOSITORY_COUNT);
       expect(page.length).toBeGreaterThan(0);
@@ -263,7 +267,6 @@ describe('PublicProjectsRepository integration', () => {
 
       const contractApplicantId = `${PREFIX}-contract-applicant`;
 
-      const contractRepositoryId = `seed:public-projects-contract:jnu-repo:repository`;
       const contractGithubRepositoryId = 8_800_000_000_001n;
       const contractRepositoryName = 'public-projects-contract-repo';
       const contractNameWithOwner = `JNU-SWCU/${contractRepositoryName}`;
@@ -306,18 +309,14 @@ describe('PublicProjectsRepository integration', () => {
           status: ApplicationStatus.APPROVED,
         },
       });
-      await prisma.githubRepository.create({
-        data: {
-          id: contractRepositoryId,
-          teamId: contractTeamId,
-          githubRepositoryId: contractGithubRepositoryId,
-          nameWithOwner: contractNameWithOwner,
-          source: RepositorySource.ORG_PROVISIONED,
-          visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: BASE_PUBLISHED_AT,
-        },
+      await seedRepo(prisma, {
+        teamId: contractTeamId,
+        githubRepositoryId: contractGithubRepositoryId,
+        nameWithOwner: contractNameWithOwner,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: BASE_PUBLISHED_AT,
       });
-      await syncGithubRepositoryLedger(prisma, contractGithubRepositoryId);
 
       try {
         const found = await repository.findById(
@@ -328,7 +327,7 @@ describe('PublicProjectsRepository integration', () => {
         expect(found?.projectId).toMatch(/^[A-Za-z0-9_-]+$/);
         expect(found?.nameWithOwner).toBe(contractNameWithOwner);
       } finally {
-        await deleteGithubRepositories(prisma, { id: contractRepositoryId });
+        await deleteRepos(prisma, [contractGithubRepositoryId]);
         await prisma.teamMember.delete({
           where: {
             teamId_userId: {
