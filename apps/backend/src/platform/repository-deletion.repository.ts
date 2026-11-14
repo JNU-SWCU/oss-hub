@@ -25,8 +25,15 @@ export class RepositoryDeletionRepository {
           AND event.kind = 'commit'::"contribution_kind"
       ),
       'contributions', (
-        SELECT count(*) FROM repo_contribution
-        WHERE repository_id = ${repositoryId}
+        SELECT count(DISTINCT (
+          event.author_github_id,
+          (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
+        ))
+        FROM "contribution" AS event
+        JOIN "GithubRepository" AS repository
+          ON repository."githubRepositoryId" = event.repo_id
+        WHERE repository.id = ${repositoryId}
+          AND event.author_github_id IS NOT NULL
       ),
       'pullRequests', (
         SELECT count(*) FROM "contribution" AS event

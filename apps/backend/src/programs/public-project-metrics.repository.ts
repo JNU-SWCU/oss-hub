@@ -89,16 +89,17 @@ export class PublicProjectMetricsRepository {
   ): Promise<readonly RepoContributionSqlRow[]> {
     return this.prisma.$queryRaw<RepoContributionSqlRow[]>`
       SELECT
-        daily.github_repository_id AS "githubRepositoryId",
-        daily.github_id AS "githubId",
-        daily.commit_count AS "commitCount",
-        daily.pull_request_count AS "pullRequestCount",
-        daily.release_count AS "releaseCount",
-        daily.updated_at AS "updatedAt"
-      FROM repo_contribution AS daily
+        event.repo_id AS "githubRepositoryId",
+        event.author_github_id AS "githubId",
+        COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
+        COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
+        COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
+        MAX(event.first_seen_at) AS "updatedAt"
+      FROM "contribution" AS event
       JOIN "GithubRepository" AS repository
-        ON repository.id = daily.repository_id
-      WHERE daily.github_repository_id IN (${Prisma.join([...repositoryIds])})
+        ON repository."githubRepositoryId" = event.repo_id
+      WHERE event.repo_id IN (${Prisma.join([...repositoryIds])})
+        AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
         AND repository.visibility = 'PUBLIC'::"RepositoryVisibility"
         AND repository.presence = 'PRESENT'::"CollectionRepositoryPresence"
         AND repository."teamId" IS NOT NULL
@@ -106,7 +107,10 @@ export class PublicProjectMetricsRepository {
           'ORG_PROVISIONED'::"RepositorySource",
           'EXTERNAL_PUBLIC'::"RepositorySource"
         )
-        AND daily.github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
+      GROUP BY
+        event.repo_id,
+        event.author_github_id,
+        (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
     `;
   }
 }

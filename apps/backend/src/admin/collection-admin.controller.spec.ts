@@ -7,7 +7,6 @@ import { RolesGuard } from '../platform/roles.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionTriggerRequestDto } from './dto/collection-trigger-request.dto';
 import { CollectionAdminService } from '../github/collection-admin.service';
-import { CollectionCutoverRepository } from '../github/repository-provision-job.repository';
 import {
   CollectionSyncService,
   type CollectionRunKind,
@@ -19,11 +18,10 @@ import {
 
 function createController(
   sync: CollectionSyncService,
-  cutover: CollectionCutoverRepository,
   activity: CollectionUserActivityService,
 ): CollectionAdminController {
   return new CollectionAdminController(
-    new CollectionAdminService(sync, cutover, activity),
+    new CollectionAdminService(sync, activity),
   );
 }
 
@@ -36,7 +34,6 @@ describe('CollectionAdminController', () => {
     Promise<{ runId: string; status: 'COMPLETED' }>,
     [string, string?, CollectionRunKind?]
   >();
-  const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
     []
@@ -49,8 +46,6 @@ describe('CollectionAdminController', () => {
       runId: 'synthetic-external-run-id',
       status: 'COMPLETED',
     });
-    isQuiesced.mockReset();
-    isQuiesced.mockResolvedValue(false);
     runUserActivity.mockReset();
     runUserActivity.mockResolvedValue({
       observedUserCount: 0,
@@ -66,7 +61,6 @@ describe('CollectionAdminController', () => {
       providers: [
         CollectionAdminService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
-        { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         {
           provide: CollectionUserActivityService,
           useValue: { run: runUserActivity },
@@ -88,11 +82,10 @@ describe('CollectionAdminController', () => {
     await testingModule.close();
   });
 
-  it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
+  it('org sweep과 함께 E1 external sweep도 시작한다', async () => {
     run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -117,7 +110,6 @@ describe('CollectionAdminController', () => {
     });
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -144,7 +136,6 @@ describe('CollectionAdminController', () => {
     runUserActivity.mockRejectedValue(new Error('person sweep unavailable'));
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -163,21 +154,6 @@ describe('CollectionAdminController', () => {
     logger.mockRestore();
   });
 
-  it('quiesce lease가 걸려 있으면 COL_008을 던지고 새 writer를 호출하지 않는다', async () => {
-    isQuiesced.mockResolvedValue(true);
-    const controller = createController(
-      { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
-      { run: runUserActivity } as unknown as CollectionUserActivityService,
-    );
-
-    await expect(controller.trigger({})).rejects.toMatchObject({
-      errorCode: { code: 'COL_008', status: 409 },
-    });
-    expect(run).not.toHaveBeenCalled();
-    expect(runExternal).not.toHaveBeenCalled();
-  });
-
   it('백그라운드 external sweep 실패는 트리거 응답이나 org sweep에 영향을 주지 않고 별도 이벤트로 기록된다', async () => {
     const logger = jest
       .spyOn(Logger.prototype, 'error')
@@ -186,7 +162,6 @@ describe('CollectionAdminController', () => {
     runExternal.mockRejectedValue(new Error('external provider unavailable'));
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -228,7 +203,6 @@ describe('CollectionAdminController', () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -251,7 +225,6 @@ describe('CollectionAdminController', () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -297,7 +270,6 @@ describe('CollectionAdminController', () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 

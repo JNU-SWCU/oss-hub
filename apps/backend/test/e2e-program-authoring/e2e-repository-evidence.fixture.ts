@@ -93,15 +93,19 @@ export async function seedE2eRepositoryEvidence(
       }>
     >`
       SELECT
-        repository_id AS "repositoryId",
-        github_id AS "githubId",
-        activity_date AS "date",
-        commit_count AS "commitCount",
-        pull_request_count AS "pullRequestCount",
-        release_count AS "releaseCount"
-      FROM repo_contribution
-      WHERE repository_id = ANY(${repositories.map(({ id }) => id)})
-      ORDER BY repository_id, github_id, activity_date
+        repository.id AS "repositoryId",
+        event.author_github_id AS "githubId",
+        (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date AS "date",
+        COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
+        COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
+        COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount"
+      FROM "contribution" AS event
+      JOIN "GithubRepository" AS repository
+        ON repository."githubRepositoryId" = event.repo_id
+      WHERE repository.id = ANY(${repositories.map(({ id }) => id)})
+        AND event.author_github_id IS NOT NULL
+      GROUP BY 1, 2, 3
+      ORDER BY 1, 2, 3
     `;
     return {
       currentRepositoryId,

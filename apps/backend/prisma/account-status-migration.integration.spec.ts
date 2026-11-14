@@ -25,10 +25,7 @@ import { assertIsolatedIntegrationDatabase } from '../test/integration-database.
 import { HistoryMetadataService } from '../src/platform/history-metadata.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 import { CollectionUserActivityService } from '../src/github/collection-user-activity.service';
-import {
-  CollectionCutoverRepository,
-  CollectionUserActivityRepository,
-} from '../src/github/repository-provision-job.repository';
+import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
 import { CollectionDiscoveryClient } from '../src/github/collection-discovery.client';
 import { CollectionPublicTokenService } from '../src/github/collection-public-token.service';
 import { UserProfileService } from '../src/users/user-profile.service';
@@ -67,10 +64,7 @@ describe('accountStatus migration regression', () => {
     new UserProfileService(),
     new AuthSessionService(),
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository(
-        prisma,
-        new CollectionCutoverRepository(prisma),
-      ),
+      new CollectionUserActivityRepository(prisma),
       new CollectionDiscoveryClient(
         {},
         new CollectionPublicTokenService(loadRuntimeConfig({})),

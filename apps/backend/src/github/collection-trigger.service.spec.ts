@@ -8,7 +8,6 @@ import {
   CollectionTriggerService,
 } from './collection-trigger.service';
 import { Logger } from '@nestjs/common';
-import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   CollectionSyncService,
   type CollectionRunKind,
@@ -33,7 +32,6 @@ describe('collection cron', () => {
       runScheduled.mockResolvedValue(undefined);
       scheduler = new CollectionTriggerService(
         {} as CollectionSyncService,
-        {} as CollectionCutoverRepository,
         {} as CollectionUserActivityService,
       );
       scheduler.runScheduled = runScheduled;
@@ -190,7 +188,6 @@ describe('CollectionTriggerService', () => {
     Promise<CollectionSyncRunResult>,
     [string, bigint, string]
   >();
-  const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
     []
@@ -211,8 +208,6 @@ describe('CollectionTriggerService', () => {
     runExternal.mockResolvedValue(
       completedRun({ runId: 'synthetic-external-run-id' }),
     );
-    isQuiesced.mockReset();
-    isQuiesced.mockResolvedValue(false);
     testingModule = await Test.createTestingModule({
       providers: [
         CollectionTriggerService,
@@ -220,7 +215,6 @@ describe('CollectionTriggerService', () => {
           provide: CollectionSyncService,
           useValue: { run, runExternal, runRepository },
         },
-        { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         {
           provide: CollectionUserActivityService,
           useValue: { run: runUserActivity },
@@ -254,7 +248,7 @@ describe('CollectionTriggerService', () => {
     expect(run.mock.calls[1]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
 
-  it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
+  it('org sweep과 함께 E1 external sweep도 시작한다', async () => {
     run.mockResolvedValue(completedRun());
 
     await service.trigger('hourly');
@@ -265,17 +259,6 @@ describe('CollectionTriggerService', () => {
     expect(runExternal.mock.calls[1]?.[0]).toBe(runExternal.mock.calls[0]?.[0]);
 
     expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
-  });
-
-  it('quiesce lease가 걸려 있으면 COL_008로 트리거를 거부하고 새 writer를 호출하지 않는다', async () => {
-    isQuiesced.mockResolvedValue(true);
-
-    await expect(service.trigger('hourly')).rejects.toMatchObject({
-      errorCode: { code: 'COL_008', status: 409 },
-    });
-    expect(run).not.toHaveBeenCalled();
-    expect(runExternal).not.toHaveBeenCalled();
-    expect(runUserActivity).not.toHaveBeenCalled();
   });
 
   it('cron tick 1회가 org·external·person 세 sweep을 모두 관측한다', async () => {
@@ -360,11 +343,11 @@ describe('CollectionTriggerService', () => {
     const logger = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
-    isQuiesced.mockRejectedValue(
-      Object.assign(new Error('private installation detail'), {
+    run.mockImplementation(() => {
+      throw Object.assign(new Error('private installation detail'), {
         token: 'must-not-be-logged',
-      }),
-    );
+      });
+    });
 
     await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
     expect(logger).toHaveBeenCalledWith({
@@ -492,25 +475,6 @@ describe('CollectionTriggerService', () => {
         event: 'collection.scheduler.completed',
         scope: 'repository',
         syncStatus: 'COMPLETED',
-      }),
-    );
-  });
-
-  it('quiesce 중에는 연결 직후 수집을 돌리지 않고 호출자 대신 로그로 거부를 남긴다', async () => {
-    const logger = jest
-      .spyOn(Logger.prototype, 'error')
-      .mockImplementation(() => undefined);
-    isQuiesced.mockResolvedValue(true);
-
-    expect(() => service.collectRepository(555n)).not.toThrow();
-    await new Promise((resolve) => setImmediate(resolve));
-
-    expect(runRepository).not.toHaveBeenCalled();
-    expect(logger).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: 'collection.scheduler.repository_sync_failed',
-        scope: 'repository',
-        errorName: 'DomainException',
       }),
     );
   });

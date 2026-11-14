@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The deploy copy leaves the activity ledger alone, and ledger verify reports
-# same-value runs, fails on a standing drift, and keeps the Seoul floor
+# same-value runs, fails on a repo count drift, and keeps the Seoul floor
 # report-only. Postgres 17. No production data.
 set -euo pipefail
 
@@ -126,39 +126,6 @@ CREATE TABLE "github_user_activity_history" (
   "clock_at" TIMESTAMPTZ(3),
   PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
-CREATE VIEW contributor_standing AS
-SELECT
-  latest.github_id,
-  latest.year,
-  latest.visibility,
-  latest.commit_count,
-  latest.pull_request_count,
-  latest.issue_count,
-  latest.repository_count,
-  latest.star_count,
-  latest.observed_at
-FROM (
-  SELECT DISTINCT ON (
-    observation.github_id,
-    observation.year,
-    observation.visibility
-  )
-    observation.github_id,
-    observation.year,
-    observation.visibility,
-    observation.commit_count,
-    observation.pull_request_count,
-    observation.issue_count,
-    observation.repository_count,
-    observation.star_count,
-    observation.observed_at
-  FROM github_user_activity_history AS observation
-  ORDER BY
-    observation.github_id,
-    observation.year,
-    observation.visibility,
-    observation.observed_at DESC
-) AS latest;
 SQL
 psql_file "$schema_file" >/dev/null
 rm -f "$schema_file"
@@ -218,13 +185,8 @@ fi
 echo 'PASS duplicate_verify_matches'
 
 psql_db >/dev/null <<'SQL'
-BEGIN;
-ALTER VIEW contributor_standing RENAME TO contributor_standing_kept;
-CREATE VIEW contributor_standing AS
-SELECT github_id, year, visibility, commit_count + 1 AS commit_count,
-  pull_request_count, issue_count, repository_count, star_count, observed_at
-FROM contributor_standing_kept;
-COMMIT;
+INSERT INTO "repo" ("github_repo_id", "owner_name", "source") VALUES
+  (1999, 'org/drift', 'ORG_PROVISIONED');
 SQL
 set +e
 mismatch_out="$(run_verify)"
@@ -239,10 +201,7 @@ printf '%s\n' "$mismatch_out" | grep -qx 'verify_mismatch'
 echo 'PASS mismatch_logs_verify_mismatch'
 assert_eq pipeline_exit "$pipeline_status" 1
 psql_db >/dev/null <<'SQL'
-BEGIN;
-DROP VIEW contributor_standing;
-ALTER VIEW contributor_standing_kept RENAME TO contributor_standing;
-COMMIT;
+DELETE FROM "repo" WHERE "github_repo_id" = 1999;
 SQL
 
 psql_db >/dev/null <<'SQL'

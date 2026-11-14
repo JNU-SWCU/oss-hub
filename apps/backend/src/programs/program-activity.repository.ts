@@ -271,15 +271,17 @@ const readRepositorySummaries = async (
   if (repositoryIds.length === 0) return new Map();
   const rows = await prisma.$queryRaw<readonly AuthorContributionRow[]>`
     SELECT
-      daily.repository_id AS "repositoryId",
-      daily.github_id AS "githubId",
-      SUM(daily.commit_count)::int AS "commitCount",
-      SUM(daily.pull_request_count)::int AS "pullRequestCount",
-      SUM(daily.release_count)::int AS "releaseCount"
-    FROM repo_contribution AS daily
-    WHERE daily.repository_id IN (${Prisma.join(repositoryIds)})
-      AND daily.github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
-    GROUP BY daily.repository_id, daily.github_id
+      repository.id AS "repositoryId",
+      event.author_github_id AS "githubId",
+      COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
+      COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
+      COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount"
+    FROM "contribution" AS event
+    JOIN "GithubRepository" AS repository
+      ON repository."githubRepositoryId" = event.repo_id
+    WHERE repository.id IN (${Prisma.join(repositoryIds)})
+      AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
+    GROUP BY repository.id, event.author_github_id
   `;
   const latest = await prisma.$queryRaw<
     readonly {

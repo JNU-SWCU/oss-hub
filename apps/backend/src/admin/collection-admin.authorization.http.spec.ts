@@ -8,7 +8,6 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import { CollectionCutoverRepository } from '../github/repository-provision-job.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
@@ -94,10 +93,6 @@ describe('Collection admin authorization HTTP characterization', () => {
           useValue: { run: work, runExternal: work },
         },
         { provide: CollectionUserActivityService, useValue: { run: work } },
-        {
-          provide: CollectionCutoverRepository,
-          useValue: { isQuiesced: () => false },
-        },
       ],
     }).compile();
     const config = module.get(AuthConfig);

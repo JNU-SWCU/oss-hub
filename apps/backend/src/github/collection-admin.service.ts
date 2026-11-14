@@ -1,12 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
-import { DomainException } from '../platform/error-code.error';
-import { CollectionCutoverRepository } from './repository-provision-job.repository';
-import {
-  COLLECTION_ERROR_CODES,
-  CollectionErrorCode,
-} from './collection-error-code.error';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 
@@ -19,8 +13,6 @@ export class CollectionAdminService {
   constructor(
     @Inject(CollectionSyncService)
     sync: Pick<CollectionSyncService, 'run' | 'runExternal'>,
-    @Inject(CollectionCutoverRepository)
-    private readonly cutover: Pick<CollectionCutoverRepository, 'isQuiesced'>,
     @Inject(CollectionUserActivityService)
     userActivity: Pick<CollectionUserActivityService, 'run'>,
   ) {
@@ -32,20 +24,15 @@ export class CollectionAdminService {
     );
   }
 
-  async trigger(
+  trigger(
     fullScan: boolean | undefined,
   ): Promise<{ runId: string; status: 'PENDING' }> {
-    if (await this.cutover.isQuiesced(new Date())) {
-      throw new DomainException(
-        COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
-      );
-    }
     const runId = randomUUID();
     this.sweeps.start(
       this.ownerId,
       runId,
       fullScan === true ? 'full' : 'hourly',
     );
-    return { runId, status: 'PENDING' };
+    return Promise.resolve({ runId, status: 'PENDING' });
   }
 }

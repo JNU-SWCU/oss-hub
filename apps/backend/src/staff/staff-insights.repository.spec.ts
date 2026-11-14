@@ -1,4 +1,4 @@
-import { ActivityVisibility } from '@prisma/client';
+import { ActivityVisibility, Prisma } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { StaffInsightsRepository } from './staff-insights.repository';
@@ -29,6 +29,8 @@ describe('StaffInsightsRepository standing read', () => {
     expect(call.slice(1)).toEqual(
       expect.arrayContaining([2026, ActivityVisibility.PUBLIC]),
     );
-    expect(strings.join('')).toContain('contributor_standing');
+    const sql = Prisma.sql(strings, ...(call.slice(1) as Prisma.Sql[])).sql;
+    expect(sql).toContain('DISTINCT ON');
+    expect(sql).toContain('github_user_activity_history');
   });
 });

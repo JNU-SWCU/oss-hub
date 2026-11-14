@@ -40,6 +40,45 @@ const STANDING_COLUMNS = Prisma.raw(`
   star_count AS "starCount"
 `);
 
+const STANDING = Prisma.raw(`(
+  SELECT
+    latest.github_id,
+    latest.year,
+    latest.visibility,
+    latest.commit_count,
+    latest.pull_request_count,
+    latest.issue_count,
+    latest.repository_count,
+    latest.star_count,
+    GREATEST(
+      latest.observed_at,
+      COALESCE(latest.clock_at, latest.observed_at)
+    ) AS observed_at
+  FROM (
+    SELECT DISTINCT ON (
+      observation.github_id,
+      observation.year,
+      observation.visibility
+    )
+      observation.github_id,
+      observation.year,
+      observation.visibility,
+      observation.commit_count,
+      observation.pull_request_count,
+      observation.issue_count,
+      observation.repository_count,
+      observation.star_count,
+      observation.observed_at,
+      observation.clock_at
+    FROM github_user_activity_history AS observation
+    ORDER BY
+      observation.github_id,
+      observation.year,
+      observation.visibility,
+      observation.observed_at DESC
+  ) AS latest
+) AS standing`);
+
 function visibilityOf(value: string): ActivityVisibility {
   if (value === ActivityVisibility.PUBLIC) return ActivityVisibility.PUBLIC;
   if (value === ActivityVisibility.PRIVATE) return ActivityVisibility.PRIVATE;
@@ -77,7 +116,7 @@ async function queryStandingRows(
   if (filter.year !== null && filter.visibility !== null) {
     return prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
-      FROM contributor_standing
+      FROM ${STANDING}
       WHERE year = ${filter.year}
         AND visibility = ${filter.visibility}::"ActivityVisibility"
     `;
@@ -85,20 +124,20 @@ async function queryStandingRows(
   if (filter.year !== null) {
     return prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
-      FROM contributor_standing
+      FROM ${STANDING}
       WHERE year = ${filter.year}
     `;
   }
   if (filter.visibility !== null) {
     return prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
-      FROM contributor_standing
+      FROM ${STANDING}
       WHERE visibility = ${filter.visibility}::"ActivityVisibility"
     `;
   }
   return prisma.$queryRaw<StandingSqlRow[]>`
     SELECT ${STANDING_COLUMNS}
-    FROM contributor_standing
+    FROM ${STANDING}
   `;
 }
 
@@ -183,12 +222,12 @@ async function queryStandingYears(
   }
   if (filter.visibility === null) {
     return prisma.$queryRaw<{ year: number }[]>`
-      SELECT DISTINCT year FROM contributor_standing
+      SELECT DISTINCT year FROM ${STANDING}
     `;
   }
   return prisma.$queryRaw<{ year: number }[]>`
     SELECT DISTINCT year
-    FROM contributor_standing
+    FROM ${STANDING}
     WHERE visibility = ${filter.visibility}::"ActivityVisibility"
   `;
 }
@@ -214,12 +253,12 @@ async function queryStandingObservedAt(
   }
   if (filter.visibility === null) {
     return prisma.$queryRaw<{ observedAt: Date | null }[]>`
-      SELECT MAX(observed_at) AS "observedAt" FROM contributor_standing
+      SELECT MAX(observed_at) AS "observedAt" FROM ${STANDING}
     `;
   }
   return prisma.$queryRaw<{ observedAt: Date | null }[]>`
     SELECT MAX(observed_at) AS "observedAt"
-    FROM contributor_standing
+    FROM ${STANDING}
     WHERE visibility = ${filter.visibility}::"ActivityVisibility"
   `;
 }

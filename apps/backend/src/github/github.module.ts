@@ -5,7 +5,6 @@ import { PlatformModule } from '../platform/platform.module';
 import { UsersModule } from '../users/users.module';
 import { CollectionAdminService } from './collection-admin.service';
 import {
-  CollectionCutoverRepository,
   CollectionUserActivityRepository,
   RepositoryProvisionJobRepository,
 } from './repository-provision-job.repository';
@@ -39,7 +38,6 @@ import { RepositoryProvisionGithubService } from './repository-provision-github.
     CollectionAdminService,
     CollectionTriggerService,
     CollectionIncrementalRepository,
-    CollectionCutoverRepository,
     CollectionUserActivityRepository,
     ...COLLECTION_PROVIDERS,
     RepositoryOwnEnrollmentService,

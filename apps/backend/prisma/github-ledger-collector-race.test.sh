@@ -85,16 +85,6 @@ CREATE TABLE "github_user_activity_history" (
   "clock_at" TIMESTAMPTZ(3),
   PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
-CREATE TABLE "CollectionCutoverLease" (
-  "appId" BIGINT NOT NULL,
-  "scope" TEXT NOT NULL,
-  "epoch" BIGINT NOT NULL DEFAULT 1,
-  "ownerId" TEXT NOT NULL,
-  "runId" TEXT NOT NULL,
-  "expiresAt" TIMESTAMP(3) NOT NULL,
-  "updatedAt" TIMESTAMP(3) NOT NULL,
-  PRIMARY KEY ("appId", "scope")
-);
 SQL
 
 assert_eq() {

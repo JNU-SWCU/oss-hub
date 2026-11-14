@@ -150,8 +150,8 @@ describe('SystemStatusScreen', () => {
       });
     });
 
-    it('COL_008(전환 중) 실패는 일반 문구가 아닌 전용 quiesce 안내를 보여준다', async () => {
-      api.triggerCollection.mockRejectedValue(new ApiError(problem('COL_008')));
+    it('ApiError 실패는 일반 오류 문구를 보여주고 상태를 다시 읽지 않는다', async () => {
+      api.triggerCollection.mockRejectedValue(new ApiError(problem('COL_006')));
       await renderScreen();
 
       await act(async () => {
@@ -159,21 +159,6 @@ describe('SystemStatusScreen', () => {
       });
 
       expect(api.fetchSystemStatus).toHaveBeenCalledTimes(1);
-      expect(props().triggerNotice).toEqual({
-        kind: 'error',
-        message:
-          '저장소 전환 작업이 진행 중이라 지금은 수집을 시작할 수 없습니다. 전환이 끝난 뒤 다시 시도해 주세요.',
-      });
-    });
-
-    it('COL_008이 아닌 ApiError는 일반 오류 문구를 보여준다', async () => {
-      api.triggerCollection.mockRejectedValue(new ApiError(problem('COL_099')));
-      await renderScreen();
-
-      await act(async () => {
-        await props().onTrigger();
-      });
-
       expect(props().triggerNotice).toEqual({
         kind: 'error',
         message: '수집을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.',

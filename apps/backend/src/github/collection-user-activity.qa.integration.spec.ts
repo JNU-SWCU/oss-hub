@@ -12,10 +12,7 @@ import {
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import {
-  CollectionCutoverRepository,
-  CollectionUserActivityRepository,
-} from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
 assertIsolatedIntegrationDatabase({
@@ -71,10 +68,7 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository(
-        prisma,
-        new CollectionCutoverRepository(prisma),
-      ),
+      new CollectionUserActivityRepository(prisma),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       () => NOW,
     );

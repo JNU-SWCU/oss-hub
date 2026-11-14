@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { PrismaClient, type UserType } from '@prisma/client';
 import { CollectionIncrementalRepository } from '../src/github/collection-incremental.repository';
 import { CollectionScheduleService } from '../src/github/collection-schedule.service';
@@ -26,10 +24,6 @@ const ACTIVITY_REPO_ID = 9_812_100_001n;
 const COLLECTION_REPO_ID = 9_812_100_002n;
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const VERIFY_SQL = readFileSync(
-  resolve(__dirname, 'github-ledger-verify.sql'),
-  'utf8',
-);
 
 const prisma = new PrismaClient();
 const database = prisma as unknown as PrismaService;
@@ -380,44 +374,5 @@ describe('github fact round 1', () => {
       authorGithubId: GAMMA_ID,
     });
     expect(timeline[0]?.commitDates).toHaveLength(3);
-  });
-
-  it('fails ledger verify when the standing view drifts from the ledger', async () => {
-    const verifySql = VERIFY_SQL.trim().replace(/;\s*$/, '');
-    try {
-      await prisma.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe(`
-          INSERT INTO github_user_activity_history (
-            github_id, year, visibility, commit_count, observed_at
-          ) VALUES (
-            9812000099, 2097, 'PUBLIC', 40, CURRENT_TIMESTAMP
-          )
-        `);
-        await tx.$executeRawUnsafe(`
-          CREATE OR REPLACE VIEW contributor_standing AS
-          SELECT
-            0::bigint AS github_id,
-            0::int AS year,
-            'PUBLIC'::"ActivityVisibility" AS visibility,
-            0::int AS commit_count,
-            0::int AS pull_request_count,
-            0::int AS issue_count,
-            0::int AS repository_count,
-            0::int AS star_count,
-            CURRENT_TIMESTAMP::timestamptz(3) AS observed_at
-          WHERE false
-        `);
-        const rows =
-          await tx.$queryRawUnsafe<
-            Array<{ check: string; expected: bigint; actual: bigint }>
-          >(verifySql);
-        const commitSum = rows.find((row) => row.check === 'latest_commit_sum');
-        expect(commitSum?.expected).not.toEqual(commitSum?.actual);
-        throw new Error('rollback-view');
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === 'rollback-view') return;
-      throw error;
-    }
   });
 });

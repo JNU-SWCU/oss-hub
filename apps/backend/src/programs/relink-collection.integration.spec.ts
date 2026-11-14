@@ -423,10 +423,11 @@ it('collects a repository linked into an empty slot right after the team route s
   ]);
   expect(
     await prisma.$queryRaw<{ commitCount: number }[]>`
-      SELECT commit_count AS "commitCount"
-      FROM repo_contribution
-      WHERE repository_id = ${targetId}
-        AND github_id = ${githubId}
+      SELECT COUNT(*)::int AS "commitCount"
+      FROM "contribution" AS event
+      WHERE event.repo_id = ${targetGithubId}
+        AND event.author_github_id = ${githubId}
+        AND event.kind = 'commit'::"contribution_kind"
     `,
   ).toEqual([{ commitCount: 1 }]);
   expect(
