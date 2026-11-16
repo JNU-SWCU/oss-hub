@@ -1,14 +1,11 @@
 import type { ReactElement } from 'react';
 import { FailureState, PageHeader } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { FadeUp } from './fade-up';
-import { MetricCard, ViewTabs, YearLinks } from './insights-controls';
-import { ActivityPanel, DepartmentPanel } from './insights-panels';
+import { GroupsTab } from './groups-panel';
+import { ViewTabs, YearLinks } from './insights-controls';
 import { StudentsTab } from './leaderboard-panel';
 import { ProgramsTab } from './participation-panel';
-import { cohortRow, rate } from './insights-model';
 import {
-  DEPARTMENT_COHORTS,
   type InsightsView,
   type InsightsYearScope,
   type StaffInsightsSummary,
@@ -95,76 +92,6 @@ export function StaffInsightsView({
       {view === 'groups' ? <GroupsTab summary={summary} /> : null}
       {view === 'programs' ? <ProgramsTab summary={summary} /> : null}
     </main>
-  );
-}
-
-function GroupsTab({
-  summary,
-}: {
-  readonly summary: StaffInsightsSummary;
-}): ReactElement {
-  const sw = cohortRow(summary, DEPARTMENT_COHORTS.SW_MAJOR);
-  const nonSw = cohortRow(summary, DEPARTMENT_COHORTS.NON_SW);
-  const unregistered = cohortRow(summary, DEPARTMENT_COHORTS.UNREGISTERED);
-
-  return (
-    <>
-      <section
-        className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(16rem,100%),1fr))]"
-        aria-label="요약"
-      >
-        <FadeUp delayMs={0}>
-          <MetricCard
-            title="가입 학생"
-            sw={sw.studentCount}
-            nonSw={nonSw.studentCount}
-            extra={`학과 미등록 ${unregistered.studentCount}명`}
-          />
-        </FadeUp>
-        <FadeUp delayMs={60}>
-          <MetricCard
-            title="활동 학생"
-            sw={sw.activeStudentCount}
-            nonSw={nonSw.activeStudentCount}
-            extra={
-              <>
-                <span className="block">활동 기준: 랭킹 합계 1 이상</span>
-                <span className="inline-block">
-                  SW 활동 학생 / SW 가입 학생:{' '}
-                  {rate(sw.activeStudentCount, sw.studentCount)}
-                </span>
-                {' · '}
-                <span className="inline-block">
-                  비SW 활동 학생 / 비SW 가입 학생:{' '}
-                  {rate(nonSw.activeStudentCount, nonSw.studentCount)}
-                </span>
-              </>
-            }
-          />
-        </FadeUp>
-        <FadeUp delayMs={120}>
-          <MetricCard
-            title="프로그램 참여자"
-            sw={sw.participantCount}
-            nonSw={nonSw.participantCount}
-            extra={
-              <>
-                <span className="inline-block">
-                  학과 미등록 {unregistered.participantCount}명
-                </span>
-                {' · '}
-                <span className="inline-block">
-                  SW 참여 학생 / SW 가입 학생:{' '}
-                  {rate(sw.participantCount, sw.studentCount)}
-                </span>
-              </>
-            }
-          />
-        </FadeUp>
-      </section>
-      <ActivityPanel sw={sw} nonSw={nonSw} />
-      <DepartmentPanel summary={summary} />
-    </>
   );
 }
 

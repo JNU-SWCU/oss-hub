@@ -256,6 +256,60 @@ function insightsUnregistered(): InsightsWire {
   });
 }
 
+const LONG_DEPARTMENT_NAME =
+  '전자컴퓨터공학부(컴퓨터공학전공) 융합소프트웨어연계전공';
+
+function departmentRow(
+  department: string,
+  cohort: InsightsCohortWire['cohort'],
+  studentCount: number,
+  activityPerStudent: number,
+): InsightsDepartmentWire {
+  const total = Math.round(studentCount * activityPerStudent);
+  return {
+    ...EMPTY_METRICS,
+    department,
+    cohort,
+    studentCount,
+    activeStudentCount: Math.ceil(studentCount / 2),
+    participantCount: Math.floor(studentCount / 2),
+    commitCount: total,
+    total,
+    activityPerStudent,
+    sampleTooSmall: studentCount < 3,
+  };
+}
+
+function insightsDepartments(): InsightsWire {
+  return insightsEnvelope({
+    cohorts: [
+      {
+        ...EMPTY_METRICS,
+        cohort: 'sw-major',
+        studentCount: 26,
+        activeStudentCount: 13,
+        participantCount: 13,
+      },
+      {
+        ...EMPTY_METRICS,
+        cohort: 'non-sw',
+        studentCount: 12,
+        activeStudentCount: 6,
+        participantCount: 6,
+      },
+      { ...EMPTY_METRICS, cohort: 'unregistered', studentCount: 3 },
+    ],
+    departments: [
+      departmentRow('소프트웨어공학과', 'sw-major', 20, 4.5),
+      departmentRow(LONG_DEPARTMENT_NAME, 'sw-major', 6, 12.3),
+      departmentRow('문헌정보학과(문헌정보SW트랙)', 'non-sw', 10, 8.1),
+      departmentRow('빅데이터융합학과', 'non-sw', 2, 30),
+      departmentRow('미등록', 'unregistered', 3, 0),
+    ],
+    programs: [],
+  });
+}
+
 async function fulfillJson(route: Route, body: unknown): Promise<void> {
   await route.fulfill({
     status: 200,
@@ -743,8 +797,11 @@ test.describe('staff insights comparison UX', () => {
   }, testInfo) => {
     const audit = installBrowserAudit(page);
     await openInsights(page, insightsZero(), 'groups');
-    await expect(page.getByText(/계산 불가|0\/0/).first()).toBeVisible();
+    const kpis = page.getByRole('region', { name: '전공별 지표' });
+    await expect(kpis.getByText('계산 불가', { exact: true })).toHaveCount(4);
+    await expect(page.getByText('학과별 학생이 없습니다')).toBeVisible();
     await expect(page.locator('main')).not.toContainText('NaN');
+    await expect(page.locator('main')).not.toContainText('0/0');
     await attachPng(testInfo, 'task-2-browser/all-zero.png', (path) =>
       page.screenshot({ path, fullPage: true }),
     );
@@ -771,24 +828,133 @@ test.describe('staff insights comparison UX', () => {
     audit.assertClean();
   });
 
-  test('renders unregistered disclosure and semantic parity', async ({
+  test('keeps unregistered students out of the department ranking', async ({
     page,
   }, testInfo) => {
     const audit = installBrowserAudit(page);
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openInsights(page, insightsUnregistered(), 'groups');
-    await expect(
-      page.getByText(/학과 미등록은 별도로 집계하며 아래 비교 막대에서는 제외/),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('table', { name: 'SW전공과 비SW전공의 랭킹 지표' }),
-    ).toBeAttached();
-    const legend = page.locator('.recharts-legend-wrapper');
-    await expect(legend.getByText('SW전공', { exact: true })).toBeVisible();
-    await expect(legend.getByText('비SW전공', { exact: true })).toBeVisible();
-    await expect(page.locator('main')).toContainText('x/0');
+    const kpis = page.getByRole('region', { name: '전공별 지표' });
+    await expect(kpis).toContainText('학과 미등록');
+    await expect(kpis).toContainText('3명');
+    await expect(kpis.getByText('계산 불가', { exact: true })).toHaveCount(4);
+    await expect(page.getByText('학과별 학생이 없습니다')).toBeVisible();
+    await expect(page.getByRole('table')).toHaveCount(0);
+    await expect(page.locator('main')).not.toContainText('NaN');
     await attachPng(testInfo, 'task-2-browser/unregistered-only.png', (path) =>
       page.screenshot({ path, fullPage: true }),
+    );
+    audit.assertClean();
+  });
+
+  test('reorders the department ranking by activity per student', async ({
+    page,
+  }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    for (const [name, width] of [
+      ['desktop', 1440],
+      ['mobile', 390],
+    ] as const) {
+      await page.setViewportSize({ width, height: 1000 });
+      await openInsights(page, insightsDepartments(), 'groups');
+      await hideNextDevTools(page);
+      const kpis = page.getByRole('region', { name: '전공별 지표' });
+      await expect(kpis).toContainText('13/26');
+      await expect(kpis).toContainText('50%');
+      const card = page
+        .getByText('학과 순위', { exact: true })
+        .locator('xpath=ancestor::*[@data-slot="card"][1]');
+      const table = card.getByRole('table');
+      const departmentCells = table.locator('tbody tr td:nth-child(2)');
+      const smallSamples = card.locator(
+        '[data-slot="department-small-samples"]',
+      );
+      const bars = card.locator(
+        '[data-slot="department-chart-viewport"] .recharts-bar-rectangle',
+      );
+      await expect(departmentCells).toHaveText([
+        '소프트웨어공학과',
+        '문헌정보학과(문헌정보SW트랙)',
+        LONG_DEPARTMENT_NAME,
+        '빅데이터융합학과',
+      ]);
+      await expect(smallSamples).toHaveCount(0);
+      await expect(bars.first()).toBeVisible();
+      await expect(card).not.toContainText('미등록,');
+      await expectNoHorizontalOverflow(page);
+      await page.mouse.move(0, 0);
+      await attachPng(testInfo, `groups-ranking/${name}-students.png`, (path) =>
+        page.screenshot({ path, fullPage: true }),
+      );
+      await attachPng(
+        testInfo,
+        `groups-ranking/${name}-students-card.png`,
+        (path) => card.screenshot({ path }),
+      );
+
+      const perStudent = card
+        .getByRole('group', { name: '학과 순위 기준' })
+        .getByRole('button', { name: '1인당 활동량', exact: true });
+      await perStudent.click();
+      await expect(perStudent).toHaveAttribute('aria-pressed', 'true');
+      await expect(departmentCells).toHaveText([
+        LONG_DEPARTMENT_NAME,
+        '문헌정보학과(문헌정보SW트랙)',
+        '소프트웨어공학과',
+      ]);
+      await expect(smallSamples).toHaveText(
+        '표본 적음 (가입 3명 미만): 빅데이터융합학과',
+      );
+      await expect(bars.first()).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await page.mouse.move(0, 0);
+      await attachPng(
+        testInfo,
+        `groups-ranking/${name}-per-student.png`,
+        (path) => page.screenshot({ path, fullPage: true }),
+      );
+      await attachPng(
+        testInfo,
+        `groups-ranking/${name}-per-student-card.png`,
+        (path) => card.screenshot({ path }),
+      );
+    }
+    audit.assertClean();
+  });
+
+  test('shows the per-student empty state when every department is too small', async ({
+    page,
+  }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    const base = insightsDepartments();
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await openInsights(
+      page,
+      {
+        ...base,
+        departments: base.departments.map((row) => ({
+          ...row,
+          sampleTooSmall: true,
+        })),
+      },
+      'groups',
+    );
+    await page
+      .getByRole('group', { name: '학과 순위 기준' })
+      .getByRole('button', { name: '1인당 활동량', exact: true })
+      .click();
+    await expect(
+      page.getByText('1인당 순위를 낼 학과가 없습니다'),
+    ).toBeVisible();
+    await expect(page.getByRole('table')).toHaveCount(0);
+    await expect(
+      page.locator('[data-slot="department-small-samples"]'),
+    ).toContainText('빅데이터융합학과');
+    await expectNoHorizontalOverflow(page);
+    await attachPng(
+      testInfo,
+      'groups-ranking/mobile-all-small-samples.png',
+      (path) => page.screenshot({ path, fullPage: true }),
     );
     audit.assertClean();
   });

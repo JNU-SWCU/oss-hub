@@ -64,15 +64,19 @@ describe('StaffInsightsView', () => {
     expect(html).not.toContain('프로그램 참여 순위');
   });
 
-  it('shows cohort KPIs, activity and departments on the groups tab', () => {
+  it('shows cohort KPI tiles and the department ranking on the groups tab', () => {
     const html = render('groups');
-    expect(html).toContain('SW 활동 학생 / SW 가입 학생:');
+    expect(html).toContain('aria-label="전공별 지표"');
+    expect(html).toContain('SW전공 활동률');
     expect(html).toContain('31/42');
+    expect(html).toContain('비SW전공 프로그램 참여율');
     expect(html).toContain('학과 미등록');
-    expect(html).toContain('활성 — 랭킹 지표');
-    expect(html).toContain('SW전공과 비SW전공의 랭킹 지표');
+    expect(html).toContain('학과 순위');
+    expect(html).toContain('aria-label="학과 순위 기준"');
+    expect(html).toContain('<caption>학과 순위 (가입 학생 수 기준)</caption>');
     expect(html).toContain('전자컴퓨터공학부(컴퓨터공학전공)');
-    expect(html).toContain('학과별 활성');
+    expect(html).not.toContain('활성 — 랭킹 지표');
+    expect(html).not.toContain('학과별 활성');
     expect(html).not.toContain('프로그램 참여 순위');
   });
 
