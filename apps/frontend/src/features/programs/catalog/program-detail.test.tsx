@@ -464,6 +464,8 @@ describe('ProgramDetailPage states', () => {
 
       expect(html).toContain('편집');
       expect(html).toContain('lucide-pencil');
+      expect(html).toContain('href="/programs/program-1/notifications"');
+      expect(html).toContain('lucide-mail');
       expect(html).not.toContain('신청자 목록');
       expect(html).not.toContain('/programs/program-1/applicants');
       expect(html).not.toContain('/programs/program-1/submissions');
@@ -494,6 +496,7 @@ describe('ProgramDetailPage states', () => {
       );
 
       expect(html).not.toContain('/edit"');
+      expect(html).not.toContain('/notifications"');
     },
   );
 
