@@ -21,6 +21,7 @@ import { ProgramEditMilestones } from './program-edit-milestones';
 import {
   type ProgramEditableField,
   type ProgramEditErrors,
+  type ProgramEditFieldValue,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
@@ -60,7 +61,7 @@ interface ProgramEditViewProps {
   readonly onProgramDeleted: (notice?: string) => void;
   readonly onFieldChange: (
     field: ProgramEditableField,
-    value: string | boolean,
+    value: ProgramEditFieldValue,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   readonly onAddMilestone: () => void;

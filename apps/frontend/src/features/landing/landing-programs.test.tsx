@@ -18,7 +18,7 @@ describe('server supplied recruiting programs', () => {
           {
             id: 'program_public_01',
             name: '공개 OSS 기여 프로그램',
-            organizer: 'JNU-SWCU',
+            organizers: ['JNU-SWCU'],
             trackType: 'EXTRACURRICULAR',
             applicationEndAt: '2026-08-14T00:00:00.000Z',
           },
@@ -38,7 +38,7 @@ describe('server supplied recruiting programs', () => {
           {
             id: 'program_public_02',
             name: '마감 경계 프로그램',
-            organizer: 'JNU-SWCU',
+            organizers: ['JNU-SWCU'],
             trackType: 'EXTRACURRICULAR',
             applicationEndAt: '2026-11-15T15:30:00.000Z',
           },
@@ -56,7 +56,7 @@ describe('server supplied recruiting programs', () => {
           {
             id: 'seed:intake:program-capstone',
             name: '캡스톤 시드',
-            organizer: 'seed-organizer',
+            organizers: ['seed-organizer'],
             trackType: 'CURRICULAR',
             applicationEndAt: '2026-08-14T00:00:00.000Z',
           },
@@ -79,7 +79,7 @@ describe('server supplied recruiting programs', () => {
           {
             id: 'program_owned_cover',
             name: '자체 이미지 프로그램',
-            organizer: 'JNU-SWCU',
+            organizers: ['JNU-SWCU'],
             trackType: 'EXTRACURRICULAR',
             applicationEndAt: '2026-08-14T00:00:00.000Z',
             coverImageUrl: '/programs/program_owned_cover/cover/cover_01',
@@ -87,7 +87,7 @@ describe('server supplied recruiting programs', () => {
           {
             id: 'program_notice_cover',
             name: '공지 포스터 프로그램',
-            organizer: 'JNU-SWCU',
+            organizers: ['JNU-SWCU'],
             trackType: 'EXTRACURRICULAR',
             applicationEndAt: '2026-08-14T00:00:00.000Z',
             coverImageUrl: external,
@@ -109,7 +109,7 @@ describe('server supplied recruiting programs', () => {
           {
             id: 'program_public_01',
             name: '공개 OSS 기여 프로그램',
-            organizer: 'JNU-SWCU',
+            organizers: ['JNU-SWCU'],
             trackType: 'EXTRACURRICULAR',
             applicationEndAt: '2026-08-14T00:00:00.000Z',
           },

@@ -80,7 +80,7 @@ describe('교직원 대시보드 모집 상태', () => {
       const publicItem: ProgramListItem = {
         id: program.id,
         name: program.name,
-        organizer: '',
+        organizers: [],
         trackType: program.trackType,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,

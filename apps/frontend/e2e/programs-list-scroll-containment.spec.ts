@@ -45,7 +45,7 @@ function programItem(index: number) {
   return {
     id: `scroll-program-${index}`,
     name: `${FIXTURE_TITLE} ${index + 1}`,
-    organizer: '합성 주관',
+    organizers: ['합성 주관'],
     trackType: 'CURRICULAR',
     applicationStartAt: '2026-01-01T00:00:00.000Z',
     applicationEndAt: '2026-12-31T00:00:00.000Z',

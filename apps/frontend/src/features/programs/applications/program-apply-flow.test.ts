@@ -16,7 +16,7 @@ import type { ProgramDetail } from '../catalog/dto';
 const baseProgram: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
-  organizer: '합성 주관',
+  organizers: ['합성 주관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '설명',

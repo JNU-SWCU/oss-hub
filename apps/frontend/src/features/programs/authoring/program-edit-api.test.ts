@@ -29,7 +29,7 @@ const fetchMock =
 const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
-  organizer: 'Center',
+  organizers: ['Center'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
@@ -97,7 +97,7 @@ describe('program edit API', () => {
 
     await updateProgram('program-1', {
       name: 'OSS',
-      organizer: 'Center',
+      organizers: ['Center'],
       trackType: 'EXTRACURRICULAR',
       applicationStartAt: '2026-08-01T00:00:00.000Z',
       applicationEndAt: '2026-08-15T00:00:00.000Z',
@@ -242,6 +242,11 @@ describe('program edit API', () => {
               code: PROGRAM_EDIT_ERROR_CODES.VALIDATION_ERROR,
               message: '운영 시작일을 확인해 주세요.',
             },
+            {
+              field: 'organizers',
+              code: PROGRAM_EDIT_ERROR_CODES.VALIDATION_ERROR,
+              message: '주관기관 이름은 50자 이하로 입력해 주세요.',
+            },
           ],
         }),
         {
@@ -254,7 +259,7 @@ describe('program edit API', () => {
 
     const updatePromise = updateProgram('program-1', {
       name: editableProgram.name,
-      organizer: editableProgram.organizer,
+      organizers: editableProgram.organizers,
       trackType: editableProgram.trackType ?? 'EXTRACURRICULAR',
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
@@ -274,6 +279,7 @@ describe('program edit API', () => {
       name: '프로그램명을 입력해 주세요.',
       period: '신청 종료일을 확인해 주세요.',
       startAt: '운영 시작일을 확인해 주세요.',
+      organizers: '주관기관 이름은 50자 이하로 입력해 주세요.',
     });
     expect(form.name).toBe('작성 중');
   });

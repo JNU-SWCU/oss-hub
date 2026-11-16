@@ -46,7 +46,7 @@ function archiveProgram(
   return {
     id: 'program-1',
     name: '예시 프로그램',
-    organizer: '합성 운영기관',
+    organizers: ['합성 운영기관'],
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'basic',
     description: '합성 설명',

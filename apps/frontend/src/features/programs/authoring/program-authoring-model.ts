@@ -1,3 +1,4 @@
+import { DEFAULT_PROGRAM_ORGANIZER } from '../program-contract';
 import type {
   ProgramAuthoringAction,
   ProgramAuthoringMilestone,
@@ -46,7 +47,7 @@ export function createInitialProgramAuthoringState(input: {
     idempotencyKey: input.idempotencyKey,
     trackType: '',
     name: '',
-    organizer: '',
+    organizers: [DEFAULT_PROGRAM_ORGANIZER],
     description: '',
     applicationStartAt: '',
     applicationEndAt: '',
@@ -80,6 +81,8 @@ export function programAuthoringReducer(
       return { ...state, currentStep: action.step };
     case 'set_track_type':
       return { ...state, trackType: action.trackType };
+    case 'set_organizers':
+      return { ...state, organizers: action.organizers };
     case 'set_repository_provisioning_enabled':
       return { ...state, repositoryProvisioningEnabled: action.enabled };
     case 'set_notify_on_deadline':

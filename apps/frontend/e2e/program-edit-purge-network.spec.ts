@@ -56,7 +56,7 @@ function editableProgram(counts: Counts, name = PROGRAM_NAME) {
   return {
     id: PROGRAM_ID,
     name,
-    organizer: '합성 운영팀',
+    organizers: ['합성 운영팀'],
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'oss-contest',
     applicationTemplateVersion: 1,

@@ -11,7 +11,7 @@ function item(
   partial: Partial<ProgramListItem> & Pick<ProgramListItem, 'id' | 'name'>,
 ): ProgramListItem {
   return {
-    organizer: 'SW Center',
+    organizers: ['SW Center'],
     trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2026-07-01T00:00:00.000Z',
     applicationEndAt: '2026-08-01T00:00:00.000Z',

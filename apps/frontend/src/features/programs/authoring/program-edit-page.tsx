@@ -32,6 +32,7 @@ import {
   validateProgramEditForm,
   type ProgramEditableField,
   type ProgramEditErrors,
+  type ProgramEditFieldValue,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
@@ -184,7 +185,7 @@ export function ProgramEditPage({
 
   const updateField = (
     field: ProgramEditableField,
-    value: string | boolean,
+    value: ProgramEditFieldValue,
   ) => {
     setForm((current) =>
       current ? updateProgramForm(current, field, value) : current,

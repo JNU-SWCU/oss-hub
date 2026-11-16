@@ -201,10 +201,17 @@ export function ProgramCreationPage({
           '이전 요청으로 생성된 프로그램이 있을 수 있습니다. 기존 프로그램을 먼저 확인해 주세요. 작성 내용은 유지됩니다.',
         );
         return;
-      case 'failure':
+      case 'failure': {
         setConfirmationOpen(false);
+        const firstIssue = result.issues?.[0];
+        if (result.issues !== undefined && firstIssue !== undefined) {
+          setIssues(result.issues);
+          dispatch({ type: 'go_to_step', step: firstIssue.step });
+          return;
+        }
         setServerError(result.message);
         return;
+      }
       default:
         return assertNever(result);
     }

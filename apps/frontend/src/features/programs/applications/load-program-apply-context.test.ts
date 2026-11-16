@@ -50,7 +50,7 @@ const program = {
   teamMaxSize: 4,
   id: 'program-1',
   name: 'Team Program',
-  organizer: 'Organizer',
+  organizers: ['Organizer'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',

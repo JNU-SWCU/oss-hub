@@ -26,7 +26,7 @@ export interface LandingProgram {
   readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: string | null;
   readonly applicationEndAt: string;
 }
@@ -70,6 +70,12 @@ function record(value: unknown): Record<string, unknown> {
 
 function nonEmptyString(value: unknown): string {
   if (typeof value === 'string' && value.trim().length > 0) return value;
+  return invalidResponse();
+}
+
+function nonEmptyStringList(value: unknown): readonly string[] {
+  if (Array.isArray(value) && value.length > 0)
+    return value.map(nonEmptyString);
   return invalidResponse();
 }
 
@@ -119,7 +125,7 @@ export function parseLandingProgramPage(
               input.coverImageUrl === null ? null : String(input.coverImageUrl),
           }),
       name: nonEmptyString(input.name),
-      organizer: nonEmptyString(input.organizer),
+      organizers: nonEmptyStringList(input.organizers),
       trackType: parsedTrackType === null ? null : String(parsedTrackType),
       applicationEndAt: isoDate(input.applicationEndAt),
     };

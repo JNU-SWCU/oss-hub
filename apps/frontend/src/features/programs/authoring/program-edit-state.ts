@@ -2,6 +2,7 @@
 import {
   changedMilestoneFields,
   type ProgramEditableField,
+  type ProgramEditFieldValue,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
@@ -20,9 +21,11 @@ export type ProgramEditLoadState =
 export function updateProgramForm(
   form: ProgramEditForm,
   field: ProgramEditableField,
-  value: string | boolean,
+  value: ProgramEditFieldValue,
 ): ProgramEditForm {
   switch (field) {
+    case 'organizers':
+      return typeof value === 'object' ? { ...form, organizers: value } : form;
     case 'repositoryProvisioningEnabled':
       return typeof value === 'boolean'
         ? { ...form, repositoryProvisioningEnabled: value }

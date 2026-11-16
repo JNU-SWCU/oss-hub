@@ -70,7 +70,7 @@ vi.mock('../documents/requirement-api', () => ({
 const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
-  organizer: 'Center',
+  organizers: ['Center'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',

@@ -336,7 +336,7 @@ describe('ActivityPanelBody', () => {
 const programWithoutMilestones: ProgramDetail = {
   id: 'program-1',
   name: 'OSS 경진대회',
-  organizer: '운영기관',
+  organizers: ['운영기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
   description: '프로그램 설명',
@@ -582,7 +582,7 @@ describe('ProgramDetailPage states', () => {
       return {
         id: program.id,
         name: program.name,
-        organizer: program.organizer,
+        organizers: program.organizers,
         trackType: program.trackType,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,

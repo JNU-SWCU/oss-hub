@@ -25,7 +25,10 @@ import {
   useProgramListUrlState,
 } from './program-list-url-state';
 import { ProgramListPagination } from './program-list-pagination';
-import { PROGRAM_TRACK_TYPE_LABELS } from '../program-contract';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  programOrganizersLabel,
+} from '../program-contract';
 import type {
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
@@ -178,8 +181,8 @@ function ProgramListPage({
               badgeText={badge.label}
               category={
                 program.trackType === null
-                  ? program.organizer
-                  : `${program.organizer} · ${PROGRAM_TRACK_TYPE_LABELS[program.trackType]}`
+                  ? programOrganizersLabel(program.organizers)
+                  : `${programOrganizersLabel(program.organizers)} · ${PROGRAM_TRACK_TYPE_LABELS[program.trackType]}`
               }
               href={programHref(program.id)}
               key={program.id}

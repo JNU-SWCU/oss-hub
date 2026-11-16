@@ -21,7 +21,7 @@ import { ProgramDetailReadyState } from './program-detail-view';
 const program = {
   id: 'program-anchor-review',
   name: '활동 위치 확인 프로그램',
-  organizer: '운영기관',
+  organizers: ['운영기관'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',

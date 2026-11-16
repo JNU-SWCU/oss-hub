@@ -27,7 +27,7 @@ import { ProgramNotificationsPage } from './program-notifications-page';
 const program: EditableProgram = {
   id: 'program-1',
   name: '마감 알림 프로그램',
-  organizer: '합성 주관기관',
+  organizers: ['합성 주관기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,

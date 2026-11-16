@@ -18,7 +18,10 @@ import {
 } from './program-schedule-calendar-model';
 import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
 import type { ProgramScheduleEditableRange } from './program-schedule-range-types';
-import { PROGRAM_TRACK_TYPE_LABELS } from '../program-contract';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  programOrganizersLabel,
+} from '../program-contract';
 
 export function ProgramAuthoringOperationsStep({
   state,
@@ -69,7 +72,10 @@ export function ProgramAuthoringReviewStep({
           <CardContent>
             <dl className="grid gap-4 text-body sm:grid-cols-2">
               <ReviewFact label="교과/비교과" value={trackLabel} />
-              <ReviewFact label="주관" value={state.organizer} />
+              <ReviewFact
+                label="주관기관"
+                value={programOrganizersLabel(state.organizers)}
+              />
               <ReviewFact
                 label="대표 이미지"
                 value={

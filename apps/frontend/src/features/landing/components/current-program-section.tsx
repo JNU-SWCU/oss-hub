@@ -84,7 +84,7 @@ export function CurrentProgramSection({
                         {program.name}
                       </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {program.organizer}
+                        {program.organizers.join(', ')}
                       </p>
                     </div>
                   </div>

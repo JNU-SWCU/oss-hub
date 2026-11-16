@@ -1,6 +1,7 @@
 import { ProgramCoverField } from './program-cover-field';
 import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramNoticeImport } from './program-notice-import';
+import { ProgramOrganizerField } from './program-organizer-field';
 import {
   Field,
   FieldDescription,
@@ -14,6 +15,7 @@ import type { EditableProgram } from './dto';
 import {
   type ProgramEditableField,
   type ProgramEditErrors,
+  type ProgramEditFieldValue,
   type ProgramEditForm,
 } from './program-edit-flow';
 import {
@@ -32,7 +34,7 @@ interface ProgramEditBasicFormProps {
   readonly errors: ProgramEditErrors;
   readonly onFieldChange: (
     field: ProgramEditableField,
-    value: string | boolean,
+    value: ProgramEditFieldValue,
   ) => void;
 }
 
@@ -94,21 +96,13 @@ export function ProgramEditBasicForm({
           serverError={errors.coverUploadId}
           onChange={onCoverChange}
         />
-        <Field>
-          <FieldLabel htmlFor="program-organizer">주관기관 *</FieldLabel>
-          <Input
-            id="program-organizer"
-            value={form.organizer}
-            aria-invalid={Boolean(errors.organizer)}
-            aria-describedby={
-              errors.organizer ? 'program-organizer-error' : undefined
-            }
-            onChange={(event) => onFieldChange('organizer', event.target.value)}
-          />
-          <FieldError id="program-organizer-error" role="alert">
-            {errors.organizer}
-          </FieldError>
-        </Field>
+        <ProgramOrganizerField
+          id="program-organizers"
+          value={form.organizers}
+          error={errors.organizers}
+          disabled={isSaving}
+          onChange={(organizers) => onFieldChange('organizers', organizers)}
+        />
         <Field>
           <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
           <select

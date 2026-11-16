@@ -6,7 +6,7 @@ export type ProgramAuthoringManifest = {
   readonly coverUploadId?: string;
   readonly externalCover?: ExternalProgramCover;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -67,7 +67,7 @@ export function buildProgramAuthoringManifest(
         ? { coverUploadId: uploadIds.get('program-cover') }
         : {}),
     name: state.name.trim(),
-    organizer: state.organizer.trim(),
+    organizers: state.organizers.map((organizer) => organizer.trim()),
     trackType: state.trackType as ProgramTrackType,
     applicationStartAt: seoulDateTimeToIso(state.applicationStartAt),
     applicationEndAt: seoulDateTimeToIso(state.applicationEndAt),

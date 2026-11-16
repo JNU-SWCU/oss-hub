@@ -34,7 +34,7 @@ vi.mock('next/link', () => ({
 const detail: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
-  organizer: '기관',
+  organizers: ['기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '',

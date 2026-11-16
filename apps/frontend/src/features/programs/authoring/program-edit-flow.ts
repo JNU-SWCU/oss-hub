@@ -12,7 +12,10 @@ import type {
   UpsertMilestoneInput,
 } from './dto';
 import { isProgramEndAtUndecided } from './program-end-at';
-import type { ProgramTrackType } from '../program-contract';
+import {
+  programOrganizersError,
+  type ProgramTrackType,
+} from '../program-contract';
 import { seoulDateTimeValue } from './seoul-date-time';
 import {
   toLocalRequirements,
@@ -21,7 +24,7 @@ import {
 
 export interface ProgramEditForm {
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | '';
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -51,10 +54,12 @@ export type ProgramEditableField = Exclude<
   | 'milestoneDueAts'
 >;
 
+export type ProgramEditFieldValue = string | boolean | readonly string[];
+
 export interface ProgramEditErrors {
   readonly coverUploadId?: string;
   readonly name?: string;
-  readonly organizer?: string;
+  readonly organizers?: string;
   readonly trackType?: string;
   readonly period?: string;
   readonly startAt?: string;
@@ -144,7 +149,7 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
   const endAt = isProgramEndAtUndecided(program.endAt) ? null : program.endAt;
   return {
     name: program.name,
-    organizer: program.organizer,
+    organizers: program.organizers,
     trackType: program.trackType ?? '',
     applicationStartAt: toDateTimeLocal(program.applicationStartAt),
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
@@ -253,7 +258,7 @@ export function buildProgramEditInput(
 
   return {
     name: form.name.trim(),
-    organizer: form.organizer.trim(),
+    organizers: form.organizers.map((organizer) => organizer.trim()),
     trackType: form.trackType as ProgramTrackType,
     applicationStartAt: dirtyFields.includes('applicationStartAt')
       ? toIsoString(form.applicationStartAt)
@@ -278,7 +283,7 @@ export function validateProgramEditForm(
   const endAt = seoulDateTimeValue(form.endAt);
   const errors: {
     name?: string;
-    organizer?: string;
+    organizers?: string;
     trackType?: string;
     period?: string;
     startAt?: string;
@@ -287,7 +292,8 @@ export function validateProgramEditForm(
   } = {};
 
   if (form.name.trim() === '') errors.name = '프로그램 이름을 입력해 주세요.';
-  if (form.organizer.trim() === '') errors.organizer = '주최를 입력해 주세요.';
+  const organizersError = programOrganizersError(form.organizers);
+  if (organizersError !== undefined) errors.organizers = organizersError;
   if (form.trackType !== 'CURRICULAR' && form.trackType !== 'EXTRACURRICULAR') {
     errors.trackType = '교과/비교과를 선택해 주세요.';
   }
@@ -466,7 +472,7 @@ function mapProblemFieldErrors(
   const errors: {
     coverUploadId?: string;
     name?: string;
-    organizer?: string;
+    organizers?: string;
     trackType?: string;
     period?: string;
     startAt?: string;
@@ -490,8 +496,8 @@ function mapProblemFieldErrors(
       case 'name':
         errors.name = fieldError.message;
         break;
-      case 'organizer':
-        errors.organizer = fieldError.message;
+      case 'organizers':
+        errors.organizers = fieldError.message;
         break;
       case 'trackType':
         errors.trackType = fieldError.message;

@@ -62,7 +62,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
         {
           id: 'ended-program',
           name: '합성 종료 프로그램',
-          organizer: '합성 운영처',
+          organizers: ['합성 운영처'],
           trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2025-01-01T00:00:00.000Z',
           applicationEndAt: '2025-02-01T00:00:00.000Z',
@@ -275,7 +275,7 @@ describe('ProgramListPage 등록 동선', () => {
         {
           id: 'program-1',
           name: '합성 프로그램',
-          organizer: '합성 운영처',
+          organizers: ['합성 운영처'],
           trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2026-08-01T00:00:00.000Z',
           applicationEndAt: '2026-08-31T00:00:00.000Z',
@@ -364,7 +364,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
         {
           id: 'program-1',
           name: '합성 프로그램',
-          organizer: '합성 운영처',
+          organizers: ['합성 운영처'],
           trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2026-08-01T00:00:00.000Z',
           applicationEndAt: '2026-08-31T00:00:00.000Z',
@@ -561,7 +561,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
         {
           id: 'program-ended',
           name: '종료된 합성 프로그램',
-          organizer: '합성 운영처',
+          organizers: ['합성 운영처'],
           trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2020-01-01T00:00:00.000Z',
           applicationEndAt: '2020-01-31T00:00:00.000Z',

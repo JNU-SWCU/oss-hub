@@ -96,7 +96,7 @@ function asRecruitmentInput(program: ProgramDetail): ProgramListItem {
   return {
     id: program.id,
     name: program.name,
-    organizer: program.organizer,
+    organizers: program.organizers,
     trackType: program.trackType,
     applicationStartAt: program.applicationPeriod.startsAt,
     applicationEndAt: program.applicationPeriod.endsAt,

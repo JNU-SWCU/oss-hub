@@ -78,7 +78,7 @@ import { ProgramDetailScreen } from './program-detail-screen';
 const DETAIL = {
   id: 'program-1',
   name: '합성 프로그램',
-  organizer: '합성 기관',
+  organizers: ['합성 기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '',

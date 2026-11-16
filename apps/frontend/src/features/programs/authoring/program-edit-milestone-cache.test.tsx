@@ -75,7 +75,7 @@ const originalMilestone: EditableMilestone = {
 const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS 프로그램',
-  organizer: 'SW중심대학사업단',
+  organizers: ['SW중심대학사업단'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',

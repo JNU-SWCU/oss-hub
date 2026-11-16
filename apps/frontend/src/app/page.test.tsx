@@ -26,7 +26,7 @@ describe('server landing page', () => {
         {
           id: 'recruiting:program',
           name: 'Recruiting fixture',
-          organizer: 'Public fixture',
+          organizers: ['Public fixture'],
           trackType: null,
           applicationEndAt: '2026-11-01T00:00:00.000Z',
         },

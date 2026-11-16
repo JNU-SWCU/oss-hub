@@ -36,7 +36,7 @@ for (const width of [1440, 390]) {
       const program = {
         id: programId,
         name: '합성 프로그램',
-        organizer: '합성 주관',
+        organizers: ['합성 주관'],
         trackType: 'EXTRACURRICULAR',
         applicationTemplateKey: 'basic',
         description: '',

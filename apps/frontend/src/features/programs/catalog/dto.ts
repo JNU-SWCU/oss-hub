@@ -17,7 +17,7 @@ export interface ProgramListItem {
   readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | null;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -70,7 +70,7 @@ export interface ProgramDetail {
   readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
   readonly description: string;

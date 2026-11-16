@@ -25,7 +25,7 @@ const milestone: EditableMilestone = {
 const program: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
-  organizer: 'Center',
+  organizers: ['Center'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
