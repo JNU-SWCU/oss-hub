@@ -165,7 +165,6 @@ export function programScopeSidebarGroups(
             href: programDocumentsHref(programId),
             icon: 'inbox',
             depth: 1,
-            count: `${teamCount}팀`,
           },
         ]
       : [];
@@ -179,7 +178,9 @@ export function programScopeSidebarGroups(
         depth: 1,
         count: summary
           ? isStaffView
-            ? `${summary.completed}/${teamCount}팀`
+            ? summary.total - summary.completed > 0
+              ? String(summary.total - summary.completed)
+              : undefined
             : `${summary.completed}/${summary.total}`
           : undefined,
       };

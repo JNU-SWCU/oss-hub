@@ -57,6 +57,24 @@ async function completedTeamsByMilestone(
 const syntheticProgramId = 'cuid-synthetic-program';
 
 describe('ProgramOverviewRepository', () => {
+  describe('findEligibleProgramTeams', () => {
+    it('단계 집계의 DB 조회는 해당 프로그램의 승인된 미보관 팀으로 제한한다', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const repository = staffOverviewRepository({ team: { findMany } });
+
+      await repository.findEligibleProgramTeams(syntheticProgramId);
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: {
+          programId: syntheticProgramId,
+          status: 'APPROVED',
+          archivedAt: null,
+        },
+        select: { id: true },
+      });
+    });
+  });
+
   describe('findMilestoneSchedules', () => {
     it('동일 dueAt에서도 id 보조 정렬로 마감 목록 순서를 고정한다', async () => {
       const milestoneFindMany = jest.fn().mockResolvedValue([

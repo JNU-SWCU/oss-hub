@@ -44,38 +44,46 @@ describe('ProgramScopeSidebar key', () => {
     errorSpy.mockRestore();
   });
 
-  it('학생 뷰에서 중복 key 경고가 나지 않는다', () => {
-    const groups = programScopeSidebarGroups({
-      programId: 'program-1',
-      viewerRole: 'STUDENT',
-      teamCount: 3,
-      boardPostCount: 2,
-      viewerDocuments: { completed: 1, total: 9 },
-      requirements: [
-        { milestoneId: 'm1', title: '계획서', completed: 1, total: 3 },
-        { milestoneId: 'm2', title: '중간 보고', completed: 0, total: 3 },
-        { milestoneId: 'm3', title: '최종', completed: 0, total: 3 },
-      ],
-    });
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '%s 뷰에서 중복 key 경고가 나지 않는다',
+    (viewerRole) => {
+      const groups = programScopeSidebarGroups({
+        programId: 'program-1',
+        viewerRole,
+        teamCount: 3,
+        boardPostCount: 2,
+        viewerDocuments: { completed: 1, total: 9 },
+        requirements: [
+          { milestoneId: 'm1', title: '계획서', completed: 1, total: 3 },
+          { milestoneId: 'm2', title: '중간 보고', completed: 0, total: 3 },
+          { milestoneId: 'm3', title: '최종', completed: 0, total: 3 },
+        ],
+        milestones: [
+          { milestoneId: 'm1', title: '계획서', submissionEnabled: true },
+          { milestoneId: 'm2', title: '중간 보고', submissionEnabled: true },
+          { milestoneId: 'm3', title: '최종', submissionEnabled: true },
+        ],
+      });
 
-    act(() => {
-      root.render(
-        <ProgramScopeSidebar
-          groups={groups}
-          programName="합성 프로그램"
-          pathname="/programs/program-1/documents"
-          search=""
-          collapsed={false}
-          backHref="/programs"
-        />,
+      act(() => {
+        root.render(
+          <ProgramScopeSidebar
+            groups={groups}
+            programName="합성 프로그램"
+            pathname="/programs/program-1/documents"
+            search=""
+            collapsed={false}
+            backHref="/programs"
+          />,
+        );
+      });
+
+      const duplicateKeyWarnings = errorSpy.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes('same key'),
       );
-    });
 
-    const duplicateKeyWarnings = errorSpy.mock.calls.filter(
-      ([message]) =>
-        typeof message === 'string' && message.includes('same key'),
-    );
-
-    expect(duplicateKeyWarnings).toEqual([]);
-  });
+      expect(duplicateKeyWarnings).toEqual([]);
+    },
+  );
 });

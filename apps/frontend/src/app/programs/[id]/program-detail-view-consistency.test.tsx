@@ -305,43 +305,52 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     expect(editLink()).toBeNull();
   });
 
-  it('운영 사이드바 집계에는 개인의 서류 수 대신 완료한 팀 수를 표시한다', async () => {
-    mocks.memberKind = 'STAFF';
-    mocks.getProgramOverview.mockImplementation(
-      async (
-        _programId: string,
-        operations: boolean,
-      ): Promise<ProgramOverview> => ({
-        programId: 'program-1',
-        name: DETAIL.name,
-        trackType: DETAIL.trackType,
-        milestoneCount: 1,
-        boardPostCount: 0,
-        participantCount: 5,
-        teamCount: 5,
-        connectedRepositoryCount: 0,
-        viewerRole: operations ? 'STAFF' : 'STUDENT',
-        viewerDocumentsCompleted: operations ? null : 3,
-        viewerDocumentsTotal: operations ? null : 4,
-        fullySubmittedParticipantCount: operations ? 2 : null,
-        scheduleMilestones: [],
-        requirements: [
-          {
-            milestoneId: 'milestone-1',
-            title: '합성 단계',
-            completed: operations ? 2 : 3,
-            total: operations ? 5 : 4,
-          },
-        ],
-      }),
-    );
-    await renderScreen();
-    const sidebar = container.querySelector(
-      '[data-slot="program-scope-sidebar"]',
-    );
-    expect(sidebar?.textContent).toContain('2/5팀');
-    expect(sidebar?.textContent).not.toContain('3/5팀');
-  });
+  it.each([
+    { completed: 2, count: '3' },
+    { completed: 5, count: undefined },
+  ])(
+    '운영 사이드바는 개인의 서류 수 대신 미제출 팀 수를 표시하고 0이면 숨긴다 (완료 $completed)',
+    async ({ completed, count }) => {
+      mocks.memberKind = 'STAFF';
+      mocks.getProgramOverview.mockImplementation(
+        async (
+          _programId: string,
+          operations: boolean,
+        ): Promise<ProgramOverview> => ({
+          programId: 'program-1',
+          name: DETAIL.name,
+          trackType: DETAIL.trackType,
+          milestoneCount: 1,
+          boardPostCount: 0,
+          participantCount: 5,
+          teamCount: 5,
+          connectedRepositoryCount: 0,
+          viewerRole: operations ? 'STAFF' : 'STUDENT',
+          viewerDocumentsCompleted: operations ? null : 3,
+          viewerDocumentsTotal: operations ? null : 4,
+          fullySubmittedParticipantCount: operations ? 2 : null,
+          scheduleMilestones: [],
+          requirements: [
+            {
+              milestoneId: 'milestone-1',
+              title: '합성 단계',
+              completed: operations ? completed : 3,
+              total: operations ? 5 : 4,
+            },
+          ],
+        }),
+      );
+      await renderScreen();
+      const stage = container.querySelector(
+        '[data-slot="program-scope-sidebar"] a[href="/programs/program-1/documents?milestoneId=milestone-1"]',
+      );
+      expect(stage).not.toBeNull();
+      expect(
+        stage?.querySelector('[data-slot="program-scope-sidebar-count"]')
+          ?.textContent,
+      ).toBe(count);
+    },
+  );
 
   it('교직원·운영자 권한이 없는 학생은 참여 조회 실패에도 학생 본문을 유지한다', async () => {
     mocks.hasStaffAccess = false;
