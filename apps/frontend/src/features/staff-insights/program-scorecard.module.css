@@ -1,0 +1,11 @@
+.container {
+  container-type: inline-size;
+}
+
+@container (min-width: 18rem) {
+  .programColumn {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+  }
+}

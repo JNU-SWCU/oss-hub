@@ -1,3 +1,4 @@
+import type { ProgramCategory } from '@prisma/client';
 import type {
   StaffInsightsCohortRow,
   StaffInsightsCohortLeaders,
@@ -6,6 +7,7 @@ import type {
   StaffInsightsLeaders,
   StaffInsightsMetrics,
   StaffInsightsProgramRow,
+  StaffInsightsProgramSummary,
   StaffInsightsRecentLeaderRow,
   StaffInsightsSummary,
 } from '../staff-insights.service';
@@ -192,19 +194,71 @@ export class StaffInsightsLeadersResponseDto {
 export class StaffInsightsProgramResponseDto {
   declare readonly programId: string;
   declare readonly name: string;
+  declare readonly category: ProgramCategory;
+  declare readonly startAt: string;
+  declare readonly endAt: string;
+  declare readonly recruiting: boolean;
   declare readonly swMajorCount: number;
   declare readonly nonSwCount: number;
   declare readonly unregisteredCount: number;
   declare readonly participantCount: number;
+  declare readonly appliedCount: number;
+  declare readonly approvedCount: number;
+  declare readonly competitionRatio: number | null;
+  declare readonly dueRequirementCount: number;
+  declare readonly submittedRequirementCount: number;
+  declare readonly completionRate: number | null;
+  declare readonly contributionCount: number;
+  declare readonly activeTeamCount: number;
+  declare readonly repoTeamCount: number;
+  declare readonly contributionsPerParticipant: number | null;
 
   static from(row: StaffInsightsProgramRow): StaffInsightsProgramResponseDto {
     return {
       programId: row.programId,
       name: row.name,
+      category: row.category,
+      startAt: row.startAt.toISOString(),
+      endAt: row.endAt.toISOString(),
+      recruiting: row.recruiting,
       swMajorCount: row.swMajorCount,
       nonSwCount: row.nonSwCount,
       unregisteredCount: row.unregisteredCount,
       participantCount: row.participantCount,
+      appliedCount: row.appliedCount,
+      approvedCount: row.approvedCount,
+      competitionRatio: row.competitionRatio,
+      dueRequirementCount: row.dueRequirementCount,
+      submittedRequirementCount: row.submittedRequirementCount,
+      completionRate: row.completionRate,
+      contributionCount: row.contributionCount,
+      activeTeamCount: row.activeTeamCount,
+      repoTeamCount: row.repoTeamCount,
+      contributionsPerParticipant: row.contributionsPerParticipant,
+    };
+  }
+}
+
+export class StaffInsightsProgramSummaryResponseDto {
+  declare readonly programCount: number;
+  declare readonly recruitingCount: number;
+  declare readonly approvedParticipantCount: number;
+  declare readonly uniqueParticipantCount: number;
+  declare readonly competitionRatio: number | null;
+  declare readonly repeatParticipantCount: number;
+  declare readonly repeatParticipantRate: number | null;
+
+  static from(
+    summary: StaffInsightsProgramSummary,
+  ): StaffInsightsProgramSummaryResponseDto {
+    return {
+      programCount: summary.programCount,
+      recruitingCount: summary.recruitingCount,
+      approvedParticipantCount: summary.approvedParticipantCount,
+      uniqueParticipantCount: summary.uniqueParticipantCount,
+      competitionRatio: summary.competitionRatio,
+      repeatParticipantCount: summary.repeatParticipantCount,
+      repeatParticipantRate: summary.repeatParticipantRate,
     };
   }
 }
@@ -216,6 +270,7 @@ export class StaffInsightsResponseDto {
   declare readonly cohorts: readonly StaffInsightsCohortResponseDto[];
   declare readonly departments: readonly StaffInsightsDepartmentResponseDto[];
   declare readonly programs: readonly StaffInsightsProgramResponseDto[];
+  declare readonly programSummary: StaffInsightsProgramSummaryResponseDto;
   declare readonly leaders: StaffInsightsLeadersResponseDto;
   declare readonly recentWindow: {
     readonly from: string;
@@ -236,6 +291,9 @@ export class StaffInsightsResponseDto {
       ),
       programs: summary.programs.map((row) =>
         StaffInsightsProgramResponseDto.from(row),
+      ),
+      programSummary: StaffInsightsProgramSummaryResponseDto.from(
+        summary.programSummary,
       ),
       leaders: StaffInsightsLeadersResponseDto.from(summary.leaders),
       recentWindow: {

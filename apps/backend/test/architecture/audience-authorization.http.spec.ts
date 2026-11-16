@@ -448,6 +448,10 @@ describe('Audience authorization HTTP characterization', () => {
             listActivityBaselines: () => Promise.resolve([]),
             listActivityByYear: () => Promise.resolve([]),
             findActivityDataAsOf: () => Promise.resolve(null),
+            listPublishedPrograms: () => Promise.resolve([]),
+            listProgramApplicationCounts: () => Promise.resolve([]),
+            listProgramCompletion: () => Promise.resolve([]),
+            listProgramOutcomes: () => Promise.resolve([]),
           },
         },
         {

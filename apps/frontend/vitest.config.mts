@@ -33,6 +33,7 @@ const happyDomTests = [
   'src/features/audit-log/audit-log-screen.test.tsx',
   'src/features/staff-insights/leaderboard-panel.test.tsx',
   'src/features/staff-insights/groups-panel.test.tsx',
+  'src/features/staff-insights/program-scorecard.test.tsx',
   'src/features/auth/login-destination.test.ts',
   'src/features/auth/components/{github-sign-in-link.test.tsx,login-button.logout.test.tsx}',
   'src/features/board/components/{board-delete-list-refetch.test.tsx,board-field-focus.test.tsx,board-query-invalidation.test.tsx}',

@@ -150,6 +150,15 @@ describe('StaffDashboardController', () => {
       cohorts: [],
       departments: [],
       programs: [],
+      programSummary: {
+        programCount: 0,
+        recruitingCount: 0,
+        approvedParticipantCount: 0,
+        uniqueParticipantCount: 0,
+        competitionRatio: null,
+        repeatParticipantCount: 0,
+        repeatParticipantRate: null,
+      },
       leaders: {
         period: { all: [], swMajor: [], nonSw: [] },
         recent: { all: [], swMajor: [], nonSw: [] },

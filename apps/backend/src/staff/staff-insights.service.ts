@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import type { ProgramCategory } from '@prisma/client';
 import {
   StaffInsightsRepository,
+  type StaffInsightsApplicationCountRecord,
   type StaffInsightsBaselineRecord,
+  type StaffInsightsCompletionRecord,
+  type StaffInsightsOutcomeRecord,
+  type StaffInsightsParticipationRecord,
+  type StaffInsightsProgramRecord,
   type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
 import {
@@ -70,10 +76,34 @@ export interface StaffInsightsLeaders {
 export interface StaffInsightsProgramRow {
   readonly programId: string;
   readonly name: string;
+  readonly category: ProgramCategory;
+  readonly startAt: Date;
+  readonly endAt: Date;
+  readonly recruiting: boolean;
   readonly swMajorCount: number;
   readonly nonSwCount: number;
   readonly unregisteredCount: number;
   readonly participantCount: number;
+  readonly appliedCount: number;
+  readonly approvedCount: number;
+  readonly competitionRatio: number | null;
+  readonly dueRequirementCount: number;
+  readonly submittedRequirementCount: number;
+  readonly completionRate: number | null;
+  readonly contributionCount: number;
+  readonly activeTeamCount: number;
+  readonly repoTeamCount: number;
+  readonly contributionsPerParticipant: number | null;
+}
+
+export interface StaffInsightsProgramSummary {
+  readonly programCount: number;
+  readonly recruitingCount: number;
+  readonly approvedParticipantCount: number;
+  readonly uniqueParticipantCount: number;
+  readonly competitionRatio: number | null;
+  readonly repeatParticipantCount: number;
+  readonly repeatParticipantRate: number | null;
 }
 
 export interface StaffInsightsSummary {
@@ -83,8 +113,19 @@ export interface StaffInsightsSummary {
   readonly cohorts: readonly StaffInsightsCohortRow[];
   readonly departments: readonly StaffInsightsDepartmentRow[];
   readonly programs: readonly StaffInsightsProgramRow[];
+  readonly programSummary: StaffInsightsProgramSummary;
   readonly leaders: StaffInsightsLeaders;
   readonly recentWindow: { readonly from: Date; readonly to: Date };
+}
+
+interface ProgramScorecardInput {
+  readonly programs: readonly StaffInsightsProgramRecord[];
+  readonly participations: readonly StaffInsightsParticipationRecord[];
+  readonly applications: readonly StaffInsightsApplicationCountRecord[];
+  readonly completion: readonly StaffInsightsCompletionRecord[];
+  readonly outcomes: readonly StaffInsightsOutcomeRecord[];
+  readonly studentsById: ReadonlyMap<string, StaffInsightsStudentRecord>;
+  readonly now: Date;
 }
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -154,6 +195,10 @@ export class StaffInsightsService {
       baselines,
       cutoffYearActivity,
       nowYearActivity,
+      programs,
+      applications,
+      completion,
+      outcomes,
     ] = await Promise.all([
       this.repository.listStudents(),
       this.repository.listApprovedParticipations(),
@@ -167,6 +212,10 @@ export class StaffInsightsService {
       nowYear === cutoffYear
         ? Promise.resolve([])
         : this.repository.listActivityByYear(nowYear),
+      this.repository.listPublishedPrograms(),
+      this.repository.listProgramApplicationCounts(),
+      this.repository.listProgramCompletion(now),
+      this.repository.listProgramOutcomes(now),
     ]);
 
     const activityByGithubId = new Map(
@@ -182,6 +231,15 @@ export class StaffInsightsService {
     const studentsById = new Map(
       students.map((student) => [student.id, student]),
     );
+    const programRows = this.buildProgramRows({
+      programs,
+      participations,
+      applications,
+      completion,
+      outcomes,
+      studentsById,
+      now,
+    });
 
     return {
       scope,
@@ -197,7 +255,8 @@ export class StaffInsightsService {
         activityByGithubId,
         participantIds,
       ),
-      programs: this.buildProgramRows(participations, studentsById),
+      programs: programRows,
+      programSummary: summarizePrograms(programRows, participations),
       leaders: {
         period: this.buildPeriodLeaders(students, activityByGithubId),
         recent: this.buildRecentLeaders(
@@ -414,37 +473,25 @@ export class StaffInsightsService {
   }
 
   private buildProgramRows(
-    participations: readonly {
-      readonly programId: string;
-      readonly programName: string;
-      readonly userIds: readonly string[];
-    }[],
-    studentsById: ReadonlyMap<string, StaffInsightsStudentRecord>,
+    input: ProgramScorecardInput,
   ): readonly StaffInsightsProgramRow[] {
-    const byProgram = new Map<
-      string,
-      {
-        readonly name: string;
-        readonly userIds: Set<string>;
-      }
-    >();
-    for (const participation of participations) {
-      const current = byProgram.get(participation.programId) ?? {
-        name: participation.programName,
-        userIds: new Set<string>(),
-      };
-      for (const userId of participation.userIds) {
-        current.userIds.add(userId);
-      }
-      byProgram.set(participation.programId, current);
-    }
-    return [...byProgram.entries()]
-      .map(([programId, row]) => {
+    const userIdsByProgram = participantsByProgram(input.participations);
+    const applications = new Map(
+      input.applications.map((row) => [row.programId, row]),
+    );
+    const completion = new Map(
+      input.completion.map((row) => [row.programId, row]),
+    );
+    const outcomes = new Map(input.outcomes.map((row) => [row.programId, row]));
+    const now = input.now.getTime();
+    return input.programs
+      .map((program) => {
+        const userIds = userIdsByProgram.get(program.id) ?? new Set<string>();
         let swMajorCount = 0;
         let nonSwCount = 0;
         let unregisteredCount = 0;
-        for (const userId of row.userIds) {
-          const student = studentsById.get(userId);
+        for (const userId of userIds) {
+          const student = input.studentsById.get(userId);
           const cohort = this.staffInsightsQueryService.classifyDepartment(
             student?.department ?? null,
           );
@@ -452,17 +499,108 @@ export class StaffInsightsService {
           else if (cohort === DEPARTMENT_COHORTS.NON_SW) nonSwCount += 1;
           else unregisteredCount += 1;
         }
+        const participantCount = userIds.size;
+        const appliedCount = applications.get(program.id)?.appliedCount ?? 0;
+        const approvedCount = applications.get(program.id)?.approvedCount ?? 0;
+        const due = completion.get(program.id)?.dueRequirementCount ?? 0;
+        const submitted =
+          completion.get(program.id)?.submittedRequirementCount ?? 0;
+        const outcome = outcomes.get(program.id);
+        const repoTeamCount = outcome?.repoTeamCount ?? 0;
+        const contributionCount = outcome?.contributionCount ?? 0;
         return {
-          programId,
-          name: row.name,
+          programId: program.id,
+          name: program.name,
+          category: program.category,
+          startAt: program.startAt,
+          endAt: program.endAt,
+          recruiting:
+            program.applicationStartAt.getTime() <= now &&
+            now < program.applicationEndAt.getTime(),
           swMajorCount,
           nonSwCount,
           unregisteredCount,
-          participantCount: row.userIds.size,
+          participantCount,
+          appliedCount,
+          approvedCount,
+          competitionRatio: ratio(appliedCount, approvedCount),
+          dueRequirementCount: due,
+          submittedRequirementCount: submitted,
+          completionRate: percent(submitted, due),
+          contributionCount,
+          activeTeamCount: outcome?.activeTeamCount ?? 0,
+          repoTeamCount,
+          contributionsPerParticipant:
+            repoTeamCount === 0
+              ? null
+              : ratio(contributionCount, participantCount),
         };
       })
-      .sort((left, right) => right.participantCount - left.participantCount);
+      .sort(
+        (left, right) =>
+          right.participantCount - left.participantCount ||
+          left.name.localeCompare(right.name, 'ko'),
+      );
   }
+}
+
+function participantsByProgram(
+  participations: readonly StaffInsightsParticipationRecord[],
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const byProgram = new Map<string, Set<string>>();
+  for (const participation of participations) {
+    const current = byProgram.get(participation.programId) ?? new Set<string>();
+    for (const userId of participation.userIds) {
+      current.add(userId);
+    }
+    byProgram.set(participation.programId, current);
+  }
+  return byProgram;
+}
+
+function summarizePrograms(
+  rows: readonly StaffInsightsProgramRow[],
+  participations: readonly StaffInsightsParticipationRecord[],
+): StaffInsightsProgramSummary {
+  const programIds = new Set(rows.map((row) => row.programId));
+  const programCountByUser = new Map<string, number>();
+  for (const [programId, userIds] of participantsByProgram(participations)) {
+    if (!programIds.has(programId)) continue;
+    for (const userId of userIds) {
+      programCountByUser.set(userId, (programCountByUser.get(userId) ?? 0) + 1);
+    }
+  }
+  const uniqueParticipantCount = programCountByUser.size;
+  const repeatParticipantCount = [...programCountByUser.values()].filter(
+    (count) => count >= 2,
+  ).length;
+  const sum = (pick: (row: StaffInsightsProgramRow) => number): number =>
+    rows.reduce((total, row) => total + pick(row), 0);
+  return {
+    programCount: rows.length,
+    recruitingCount: rows.filter((row) => row.recruiting).length,
+    approvedParticipantCount: sum((row) => row.participantCount),
+    uniqueParticipantCount,
+    competitionRatio: ratio(
+      sum((row) => row.appliedCount),
+      sum((row) => row.approvedCount),
+    ),
+    repeatParticipantCount,
+    repeatParticipantRate: percent(
+      repeatParticipantCount,
+      uniqueParticipantCount,
+    ),
+  };
+}
+
+function ratio(numerator: number, denominator: number): number | null {
+  return denominator === 0
+    ? null
+    : Math.round((numerator / denominator) * 10) / 10;
+}
+
+function percent(numerator: number, denominator: number): number | null {
+  return denominator === 0 ? null : Math.round((numerator / denominator) * 100);
 }
 
 function activityFor(
