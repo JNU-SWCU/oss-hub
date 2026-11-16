@@ -727,7 +727,7 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
         {collectionToolbar}
         <EmptyState
           title="이 페이지에는 더 이상 팀이 없습니다"
-          description={`조건에 맞는 팀이 ${total}팀으로 줄어 이 페이지가 사라졌습니다.`}
+          description={`조건에 맞는 팀이 ${total}개로 줄어 이 페이지가 사라졌습니다.`}
           action={
             <Button
               type="button"
@@ -750,7 +750,7 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
         id={SCROLL_HINT_ID}
         className="break-keep text-small text-muted-foreground"
       >
-        이 페이지 {rows.length}팀(조건에 맞는 전체 {total}팀) · 표는 좌우로{' '}
+        이 페이지 {rows.length}개 팀(조건에 맞는 전체 {total}개) · 표는 좌우로{' '}
         <span className="whitespace-nowrap">스크롤해 확인하세요.</span>
       </p>
       <CollectionTable

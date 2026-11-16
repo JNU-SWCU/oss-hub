@@ -58,6 +58,6 @@ it('reports zero approved teams without claiming full submission', () => {
     />,
   );
   expect(html).toContain('제출 0 / 0');
-  expect(html).toContain('전체 0팀');
+  expect(html).toContain('전체 0');
   expect(html).not.toContain('완료');
 });

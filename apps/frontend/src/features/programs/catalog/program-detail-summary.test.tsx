@@ -71,7 +71,7 @@ describe('ProgramFactBar', () => {
     expect(html).toContain('참여 학생');
     expect(html).toContain('12명');
     expect(html).toContain('참여 팀');
-    expect(html).toContain('4팀');
+    expect(html).toContain('>4</dd>');
     expect(html).toContain('연결 저장소');
     expect(html).toContain('3개');
     expect(html).toContain('내 제출');

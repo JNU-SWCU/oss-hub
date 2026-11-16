@@ -70,7 +70,7 @@ export function ProgramFactBar({
       k: '참여 학생',
       v: `${overview.participantCount}명`,
     },
-    { key: 'teams', k: '참여 팀', v: `${overview.teamCount}팀` },
+    { key: 'teams', k: '참여 팀', v: String(overview.teamCount) },
     {
       key: 'repositories',
       k: '연결 저장소',

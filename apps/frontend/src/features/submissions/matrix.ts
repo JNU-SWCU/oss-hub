@@ -23,8 +23,7 @@ export interface MatrixQueryInput {
 
 export const MATRIX_MODE_LABELS = {
   PERSONAL: '개인',
-  TEAM: '팀',
-} as const satisfies Readonly<Record<MatrixApplicationMode, string>>;
+} as const satisfies Readonly<Partial<Record<MatrixApplicationMode, string>>>;
 
 export function buildMatrixSearchParams(
   input: MatrixQueryInput,

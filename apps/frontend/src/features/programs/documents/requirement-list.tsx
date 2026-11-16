@@ -329,8 +329,8 @@ function StaffDocumentRow({
         <DocumentName document={document} />
         {document.teamSubmissionCount ? (
           <StatusBadge variant="recruiting">
-            {document.teamSubmissionCount.submitted} /{' '}
-            {document.teamSubmissionCount.total}팀 제출
+            {document.teamSubmissionCount.submitted}/
+            {document.teamSubmissionCount.total}개 팀 제출
           </StatusBadge>
         ) : null}
 

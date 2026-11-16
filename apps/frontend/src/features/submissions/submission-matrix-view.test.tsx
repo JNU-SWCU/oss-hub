@@ -134,7 +134,8 @@ describe('SubmissionMatrixView', () => {
     const html = render();
 
     expect(html).toContain('홍길동 · 개인');
-    expect(html).toContain('오픈소스팀(3) · 팀');
+    expect(html).toContain('오픈소스팀(3)');
+    expect(html).not.toContain('오픈소스팀(3) · 팀');
     expect(html).toContain('@hong');
     expect(html).toContain('@login-a @login-b @login-c');
 
@@ -372,7 +373,7 @@ describe('SubmissionMatrixView', () => {
     expect(html).toMatch(/보완 요청 중<\/dt><dd[^>]*>1<\/dd>/);
     expect(html).toMatch(/승인<\/dt><dd[^>]*>1<\/dd>/);
     expect(html).not.toContain('필수 서류 없음');
-    expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
+    expect(html).not.toContain('빠른 필터는');
     expect(html).not.toContain('이 페이지 2건(전체 2건) 중 2건 표시');
 
     expect(html).not.toContain('서류 칸');
@@ -417,16 +418,27 @@ describe('SubmissionMatrixView', () => {
     const html = render({ quickFilter: 'OVERDUE' });
 
     expect(html).not.toContain('홍길동 · 개인');
-    expect(html).toContain('오픈소스팀(3) · 팀');
-    expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
+    expect(html).toContain('오픈소스팀(3)');
+    expect(html).not.toContain('오픈소스팀(3) · 팀');
     expect(html).not.toContain('중 2건 표시');
   });
 
   it('여러 페이지에서는 전체 팀 수와 현재 페이지 범위를 구분한다', () => {
     const html = render({ data: { ...matrixData, total: 47 } });
-    expect(html).toContain('전체 47팀 중 이 페이지 2팀.');
-    expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
+    expect(html).toContain(
+      '전체 47개 팀 중 2개를 표시합니다. 빠른 필터는 이 페이지에만 적용됩니다.',
+    );
+    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다.');
     expect(html).not.toContain('중 2건 표시');
+  });
+
+  it('현재 페이지가 전체 결과와 같으면 페이지 안내 문구를 숨긴다', () => {
+    const html = render({
+      data: { ...matrixData, total: matrixData.rows.length },
+    });
+    expect(html).not.toContain('전체 2개 팀 중 2개를 표시합니다.');
+    expect(html).not.toContain('빠른 필터는');
+    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다.');
   });
 
   it('고른 상태에 해당하는 팀이 없으면 빈 상태를 보여준다', () => {

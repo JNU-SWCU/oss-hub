@@ -352,7 +352,7 @@ export function ProgramStaffTeamsPage({
         data={[...items]}
         rowKey={(item) => item.id}
         isLoading={state.kind === 'loading'}
-        caption={`${totalItems}팀 중 ${items.length}팀을 표시합니다. 표를 좌우로 스크롤할 수 있습니다.`}
+        caption={`${totalItems}개 팀 중 ${items.length}개를 표시합니다. 표를 좌우로 스크롤할 수 있습니다.`}
         emptyState={
           search === '' && filter === 'all' ? (
             <EmptyState
