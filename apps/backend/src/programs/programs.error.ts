@@ -178,6 +178,7 @@ export class ProgramAuthoringAttachmentRaceError extends Error {
 export type ProgramAuthoringValidationIssue = {
   readonly path: string;
   readonly code: string;
+  readonly message?: string;
 };
 
 export class ProgramAuthoringValidationError extends Error {

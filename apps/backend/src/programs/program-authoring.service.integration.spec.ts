@@ -190,6 +190,52 @@ describe('ProgramAuthoringService integration', () => {
     ).resolves.toEqual({ dueAt: new Date(input.endAt) });
   });
 
+  it.each([
+    ['an empty list', [], 'REQUIRED', '주관기관을 1개 이상 입력해 주세요.'],
+    [
+      'a whitespace-only label',
+      ['   '],
+      'REQUIRED',
+      '주관기관을 1개 이상 입력해 주세요.',
+    ],
+    [
+      'eleven labels',
+      Array.from({ length: 11 }, (_, index) => `기관 ${index}`),
+      'TOO_MANY',
+      '주관기관은 10개까지 입력할 수 있습니다.',
+    ],
+    [
+      'a 51-character label',
+      ['가'.repeat(51)],
+      'TOO_LONG',
+      '주관기관 이름은 50자 이하로 입력해 주세요.',
+    ],
+  ])(
+    'rejects organizers with %s as an organizers field error before any Program exists',
+    async (_label, organizers, code, message) => {
+      const actor = await harness.createActor(
+        `organizers-${code}-${organizers.length}`,
+      );
+      const request = {
+        ...authoringRequest(`organizers-${code}-${organizers.length}`, [
+          authoringMilestone('default-item', []),
+        ]),
+        organizers,
+      };
+
+      await expect(
+        service.createFromRequest(actor, `organizers-${code}-key`, request),
+      ).rejects.toMatchObject({
+        name: 'DomainException',
+        errorCode: { code: 'PRG_001', status: 400 },
+        extensions: { fieldErrors: [{ field: 'organizers', code, message }] },
+      });
+      await expect(
+        harness.prisma.program.count({ where: { name: request.name } }),
+      ).resolves.toBe(0);
+    },
+  );
+
   it('rejects a changed payload under the same actor idempotency key', async () => {
     const actor = await harness.createActor('conflict');
     const initial = authoringRequest('conflict', [

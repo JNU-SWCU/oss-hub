@@ -249,6 +249,39 @@ it('returns field errors for an invalid team range through the API ProblemDetail
   });
   expect(store.updateProgram.mock.calls).toHaveLength(0);
 });
+it.each([
+  ['an empty list', [], 'REQUIRED', '주관기관을 1개 이상 입력해 주세요.'],
+  [
+    'a whitespace-only label',
+    ['   '],
+    'REQUIRED',
+    '주관기관을 1개 이상 입력해 주세요.',
+  ],
+  [
+    'eleven labels',
+    Array.from({ length: 11 }, (_, index) => `기관 ${index}`),
+    'TOO_MANY',
+    '주관기관은 10개까지 입력할 수 있습니다.',
+  ],
+  [
+    'a 51-character label',
+    ['가'.repeat(51)],
+    'TOO_LONG',
+    '주관기관 이름은 50자 이하로 입력해 주세요.',
+  ],
+])(
+  'returns the organizers field error for %s through the API ProblemDetail contract',
+  async (_label, organizers, code, message) => {
+    const response = await patchProgram({ ...updateInput, organizers });
+    expect(response.status).toBe(400);
+    expect(await readJson(response)).toMatchObject({
+      status: 400,
+      code: 'PRG_001',
+      fieldErrors: [{ field: 'organizers', code, message }],
+    });
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  },
+);
 it('accepts metadata with explicit dates without selecting aggregate validation', async () => {
   const response = await patchMilestone({
     name: 'Updated milestone',

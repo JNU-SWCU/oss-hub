@@ -600,6 +600,17 @@ export class ProgramAuthoringService {
           extensions,
         );
       }
+      if (error instanceof ProgramAuthoringValidationError) {
+        const fieldErrors = error.issues.flatMap(({ path, code, message }) =>
+          message === undefined ? [] : [{ field: path, code, message }],
+        );
+        if (fieldErrors.length > 0) {
+          throw new DomainException(
+            PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+            { fieldErrors },
+          );
+        }
+      }
       if (
         error instanceof ProgramAuthoringValidationError ||
         error instanceof ProgramAuthoringUploadTokenError
@@ -763,7 +774,11 @@ export class ProgramAuthoringService {
     const { organizers, error: organizersError } =
       this.programOrganizersService.normalize(request.organizers);
     if (organizersError !== null)
-      issues.push({ path: organizersError.field, code: organizersError.code });
+      issues.push({
+        path: organizersError.field,
+        code: organizersError.code,
+        message: organizersError.message,
+      });
     const description = requiredString(
       request.description,
       'description',

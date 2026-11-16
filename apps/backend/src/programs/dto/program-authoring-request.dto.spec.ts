@@ -70,6 +70,15 @@ describe('ProgramAuthoringRequestDto', () => {
     ['empty', []],
     ['eleven labels', Array.from({ length: 11 }, (_, index) => `org-${index}`)],
     ['a 51-character label', ['a'.repeat(51)]],
+    ['a whitespace-only label', ['   ']],
+  ])(
+    'leaves organizers with %s to the service field errors',
+    async (_label, organizers) => {
+      await expect(errors({ ...request(), organizers })).resolves.toEqual([]);
+    },
+  );
+
+  it.each([
     ['a non-string label', [1]],
     ['a plain string', 'Synthetic Organizer'],
   ])('rejects organizers with %s', async (_label, organizers) => {
