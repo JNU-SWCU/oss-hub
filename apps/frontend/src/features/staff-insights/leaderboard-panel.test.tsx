@@ -91,7 +91,10 @@ describe('StudentsTab', () => {
       '공개 활동 기준 · Commit · PR · Issue · Repo · Star 합계',
     );
     expect(period).toContain('합성 학생 1');
-    expect(period).toContain('소프트웨어공학과 · @synthetic-1');
+    expect(period).toContain(
+      '<span class="min-w-0 truncate" title="소프트웨어공학과">소프트웨어공학과</span>',
+    );
+    expect(period).toContain('<span class="shrink-0">@synthetic-1</span>');
     expect(html).toContain('최근 30일 상위 10명');
     expect(html).toContain('aria-label="학생 구분"');
   });
@@ -117,7 +120,10 @@ describe('StudentsTab', () => {
     const html = render(STAFF_INSIGHTS_FIXTURE);
     const period = card(html, '기간 전체 상위 10명');
     expect(period).toContain('<p class="truncate font-medium">synthetic-b</p>');
-    expect(period).toContain('학과 미등록 · @synthetic-b');
+    expect(period).toContain(
+      '<span class="min-w-0 truncate" title="학과 미등록">학과 미등록</span>',
+    );
+    expect(period).toContain('<span class="shrink-0">@synthetic-b</span>');
   });
 
   it('describes the recent window without any Star count', () => {

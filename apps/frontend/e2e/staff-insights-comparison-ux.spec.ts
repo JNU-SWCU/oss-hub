@@ -816,6 +816,25 @@ test.describe('staff insights comparison UX', () => {
     expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(
       cardBox.x + cardBox.width,
     );
+    const login = card.getByText('@synthetic-1', { exact: true });
+    await expect(login).toBeVisible();
+    const loginBox = await login.boundingBox();
+    if (loginBox === null) {
+      throw new Error('GitHub 아이디의 화면 경계가 필요합니다.');
+    }
+    expect(loginBox.width).toBeGreaterThan(0);
+    expect(loginBox.x).toBeGreaterThanOrEqual(cardBox.x);
+    expect(loginBox.x + loginBox.width).toBeLessThanOrEqual(
+      cardBox.x + cardBox.width,
+    );
+    expect(
+      await login.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    await expect(
+      card.getByTitle(longDepartment, { exact: true }),
+    ).toHaveText(longDepartment);
     await expect(card.getByRole('listitem').first()).toContainText('43');
     await expectNoHorizontalOverflow(page);
     await attachPng(

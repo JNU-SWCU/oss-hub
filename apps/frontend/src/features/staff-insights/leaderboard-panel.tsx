@@ -117,6 +117,7 @@ function LeaderRow({
   readonly row: StaffInsightsRecentLeaderRow;
   readonly maxTotal: number;
 }): ReactElement {
+  const department = row.department ?? '학과 미등록';
   const share =
     maxTotal > 0 ? Math.min(100, Math.max(0, (row.total / maxTotal) * 100)) : 0;
 
@@ -135,8 +136,12 @@ function LeaderRow({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{row.name ?? row.githubLogin}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {row.department ?? '학과 미등록'} · @{row.githubLogin}
+          <p className="flex min-w-0 gap-1 text-xs text-muted-foreground">
+            <span className="min-w-0 truncate" title={department}>
+              {department}
+            </span>
+            <span className="shrink-0">·</span>
+            <span className="shrink-0">@{row.githubLogin}</span>
           </p>
         </div>
         <span className="shrink-0 text-lg font-semibold tabular-nums">
