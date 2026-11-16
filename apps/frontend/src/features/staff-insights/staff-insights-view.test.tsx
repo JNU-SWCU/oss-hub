@@ -23,13 +23,48 @@ describe('StaffInsightsView', () => {
     expect(html).toContain('인사이트');
     expect(html).toContain('기간');
     expect(html).toContain('aria-labelledby="insights-period-label"');
-    expect(html).not.toContain('비교 관점');
-    expect(html).not.toContain('학생 활성');
     const tabs = tabBar(html);
     expect(tabs.match(/<a /g)).toHaveLength(3);
     expect(tabs).toContain('>학생</a>');
     expect(tabs).toContain('>학과·전공</a>');
     expect(tabs).toContain('>프로그램</a>');
+  });
+
+  it.each([
+    ['students', '기간 전체 상위 10명'],
+    ['groups', '학과 순위'],
+    ['programs', '프로그램 참여 순위'],
+  ] as const)('renders only the %s tab body', (view, title) => {
+    const html = render(view);
+    const titles = ['기간 전체 상위 10명', '학과 순위', '프로그램 참여 순위'];
+    for (const other of titles) {
+      if (other === title) {
+        expect(html).toContain(other);
+      } else {
+        expect(html).not.toContain(other);
+      }
+    }
+  });
+
+  it('renders the loading and error states without tabs', () => {
+    const loading = renderToStaticMarkup(
+      <StaffInsightsView state={{ kind: 'loading' }} />,
+    );
+    expect(loading).toContain('인사이트를 불러오는 중');
+    expect(loading).not.toContain('aria-label="인사이트 보기"');
+
+    const error = renderToStaticMarkup(
+      <StaffInsightsView
+        state={{
+          kind: 'error',
+          message: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
+          onRetry: () => undefined,
+        }}
+      />,
+    );
+    expect(error).toContain('인사이트를 불러오지 못했습니다');
+    expect(error).toContain('승인된 교직원 또는 관리자만 조회할 수 있습니다.');
+    expect(error).not.toContain('aria-label="인사이트 보기"');
   });
 
   it('marks the current tab and keeps the year in tab links', () => {

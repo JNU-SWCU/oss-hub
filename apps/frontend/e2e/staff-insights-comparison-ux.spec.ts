@@ -326,10 +326,25 @@ function rejectUnexpectedApi(route: Route): never {
   );
 }
 
-async function openInsights(
+const INSIGHTS_API = '/api/v1/dashboard/staff/insights';
+
+const VIEW_TAB_LABELS = {
+  students: '학생',
+  groups: '학과·전공',
+  programs: '프로그램',
+} as const;
+
+type InsightsTab = keyof typeof VIEW_TAB_LABELS;
+
+function viewTab(page: Page, view: InsightsTab): Locator {
+  return page
+    .getByRole('group', { name: '인사이트 보기' })
+    .getByRole('link', { name: VIEW_TAB_LABELS[view], exact: true });
+}
+
+async function routeInsightsApi(
   page: Page,
-  insights: InsightsWire,
-  view?: 'groups' | 'programs',
+  respondInsights: (route: Route) => Promise<void>,
 ): Promise<void> {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -351,20 +366,52 @@ async function openInsights(
       await fulfillJson(route, CONSENTED_RESPONSE);
       return;
     }
-    if (
-      request.method() === 'GET' &&
-      url.pathname === '/api/v1/dashboard/staff/insights'
-    ) {
+    if (request.method() === 'GET' && url.pathname === INSIGHTS_API) {
       if (url.search !== '') {
         rejectUnexpectedApi(route);
       }
-      await fulfillJson(route, insights);
+      await respondInsights(route);
       return;
     }
     rejectUnexpectedApi(route);
   });
-  await page.goto(view === undefined ? target : `${target}?view=${view}`);
-  await expect(page.getByRole('heading', { name: '인사이트' })).toBeVisible();
+}
+
+async function gotoInsights(page: Page, view?: InsightsTab): Promise<void> {
+  await page.goto(view === undefined ? target : `${target}?view=${view}`, {
+    waitUntil: 'commit',
+  });
+}
+
+async function openInsights(
+  page: Page,
+  insights: InsightsWire,
+  view?: 'groups' | 'programs',
+): Promise<void> {
+  await routeInsightsApi(page, (route) => fulfillJson(route, insights));
+  await gotoInsights(page, view);
+  await expect(
+    page.getByRole('heading', { name: '인사이트', exact: true }),
+  ).toBeVisible();
+  await expect(viewTab(page, view ?? 'students')).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+}
+
+async function openFailedInsights(
+  page: Page,
+  status: number,
+  contentType: string,
+  body: unknown,
+): Promise<void> {
+  await routeInsightsApi(page, (route) =>
+    route.fulfill({ status, contentType, body: JSON.stringify(body) }),
+  );
+  await gotoInsights(page);
+  await expect(
+    page.getByText('인사이트를 불러오지 못했습니다', { exact: true }),
+  ).toBeVisible();
 }
 
 function countInsightsRequests(page: Page): { readonly count: () => number } {
@@ -637,11 +684,13 @@ test.describe('staff insights comparison UX', () => {
         document.documentElement.style.fontSize = '200%';
       });
 
-      for (const label of ['학생', '학과·전공', '프로그램'] as const) {
-        const button = page
-          .getByRole('group', { name: '인사이트 보기' })
-          .getByRole('link', { name: label, exact: true });
+      for (const view of ['students', 'groups', 'programs'] as const) {
+        const button = viewTab(page, view);
         await button.click();
+        await expect(page).toHaveURL(
+          view === 'students' ? target : `${target}?view=${view}`,
+        );
+        await expect(button).toHaveAttribute('aria-current', 'page');
         await page.evaluate(() => {
           (document.activeElement as HTMLElement | null)?.blur();
         });
@@ -775,6 +824,61 @@ test.describe('staff insights comparison UX', () => {
       (path) => card.screenshot({ path }),
     );
     audit.assertClean();
+  });
+
+  test('deep links each tab to its card titles', async ({ page }) => {
+    const audit = installBrowserAudit(page);
+    await openInsights(page, insightsDepartments(), 'groups');
+    await expect(
+      page.getByRole('region', { name: '전공별 지표' }),
+    ).toBeVisible();
+    await expect(page.getByText('학과 순위', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('기간 전체 상위 10명', { exact: true }),
+    ).toHaveCount(0);
+
+    await openInsights(page, insightsLong(), 'programs');
+    await expect(
+      page.getByText('프로그램 참여 순위', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('학과 순위', { exact: true })).toHaveCount(0);
+    audit.assertClean();
+  });
+
+  test('shows the failure state when the insights API fails', async ({
+    page,
+  }) => {
+    const audit = installBrowserAudit(page);
+    await openFailedInsights(page, 500, 'application/json', {
+      message: 'boom',
+    });
+    await expect(
+      page.getByText('인사이트를 불러오지 못했습니다.', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: '인사이트 보기' }),
+    ).toHaveCount(0);
+    audit.assertClean([{ status: 500, path: INSIGHTS_API }]);
+  });
+
+  test('explains staff-only access when the insights API returns 403', async ({
+    page,
+  }) => {
+    const audit = installBrowserAudit(page);
+    await openFailedInsights(page, 403, 'application/problem+json', {
+      type: 'about:blank',
+      title: 'Forbidden',
+      status: 403,
+      detail: '권한이 없습니다.',
+      instance: INSIGHTS_API,
+      code: 'AUTH_403',
+    });
+    await expect(
+      page.getByText('승인된 교직원 또는 관리자만 조회할 수 있습니다.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    audit.assertClean([{ status: 403, path: INSIGHTS_API }]);
   });
 
   test('renders both leaderboard empty states', async ({ page }, testInfo) => {
