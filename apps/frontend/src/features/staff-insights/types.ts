@@ -35,6 +35,36 @@ export interface StaffInsightsCohortRow extends StaffInsightsMetrics {
 export interface StaffInsightsDepartmentRow extends StaffInsightsMetrics {
   readonly department: string;
   readonly cohort: DepartmentCohort;
+  readonly activityPerStudent: number;
+  readonly sampleTooSmall: boolean;
+}
+
+export interface StaffInsightsRecentLeaderRow {
+  readonly rank: number;
+  readonly name: string | null;
+  readonly githubLogin: string;
+  readonly department: string | null;
+  readonly cohort: DepartmentCohort;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly total: number;
+}
+
+export interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
+  readonly starCount: number;
+}
+
+export interface StaffInsightsCohortLeaders<Row> {
+  readonly all: readonly Row[];
+  readonly swMajor: readonly Row[];
+  readonly nonSw: readonly Row[];
+}
+
+export interface StaffInsightsLeaders {
+  readonly period: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
+  readonly recent: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>;
 }
 
 export interface StaffInsightsProgramRow {
@@ -53,6 +83,8 @@ export interface StaffInsightsSummary {
   readonly cohorts: readonly StaffInsightsCohortRow[];
   readonly departments: readonly StaffInsightsDepartmentRow[];
   readonly programs: readonly StaffInsightsProgramRow[];
+  readonly leaders: StaffInsightsLeaders;
+  readonly recentWindow: { readonly from: Date; readonly to: Date };
 }
 
 export const COHORT_LABELS: Readonly<Record<DepartmentCohort, string>> = {

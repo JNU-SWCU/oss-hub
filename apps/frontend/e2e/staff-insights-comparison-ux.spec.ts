@@ -36,6 +36,31 @@ interface InsightsCohortWire extends InsightsMetricsWire {
 interface InsightsDepartmentWire extends InsightsMetricsWire {
   readonly department: string;
   readonly cohort: InsightsCohortWire['cohort'];
+  readonly activityPerStudent: number;
+  readonly sampleTooSmall: boolean;
+}
+
+interface InsightsRecentLeaderWire {
+  readonly rank: number;
+  readonly name: string | null;
+  readonly githubLogin: string;
+  readonly department: string | null;
+  readonly cohort: InsightsCohortWire['cohort'];
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly total: number;
+}
+
+interface InsightsPeriodLeaderWire extends InsightsRecentLeaderWire {
+  readonly starCount: number;
+}
+
+interface InsightsLeadersByCohortWire<Row> {
+  readonly all: readonly Row[];
+  readonly swMajor: readonly Row[];
+  readonly nonSw: readonly Row[];
 }
 
 interface InsightsProgramWire {
@@ -54,6 +79,11 @@ interface InsightsWire {
   readonly cohorts: readonly InsightsCohortWire[];
   readonly departments: readonly InsightsDepartmentWire[];
   readonly programs: readonly InsightsProgramWire[];
+  readonly leaders: {
+    readonly period: InsightsLeadersByCohortWire<InsightsPeriodLeaderWire>;
+    readonly recent: InsightsLeadersByCohortWire<InsightsRecentLeaderWire>;
+  };
+  readonly recentWindow: { readonly from: string; readonly to: string };
 }
 
 const EMPTY_METRICS: InsightsMetricsWire = {
@@ -83,13 +113,51 @@ const LONG_PROGRAM_NAMES = [
   '프로그램 12 — 다학제 팀 프로젝트 성과 공유회',
 ] as const;
 
+const NO_LEADERS: InsightsWire['leaders'] = {
+  period: { all: [], swMajor: [], nonSw: [] },
+  recent: { all: [], swMajor: [], nonSw: [] },
+};
+
+function leaderRow(rank: number): InsightsRecentLeaderWire {
+  return {
+    rank,
+    name: `합성 학생 ${rank}`,
+    githubLogin: `synthetic-${rank}`,
+    department: '소프트웨어공학과',
+    cohort: 'sw-major',
+    commitCount: 30 - rank,
+    pullRequestCount: 6,
+    issueCount: 2,
+    repositoryCount: 1,
+    total: 39 - rank,
+  };
+}
+
+function leaderRows(): InsightsRecentLeaderWire[] {
+  return [1, 2, 3].map(leaderRow);
+}
+
+function periodLeaderRows(): InsightsPeriodLeaderWire[] {
+  return leaderRows().map((row) => ({
+    ...row,
+    starCount: 5,
+    total: row.total + 5,
+  }));
+}
+
 function insightsEnvelope(
-  overrides: Pick<InsightsWire, 'cohorts' | 'departments' | 'programs'>,
+  overrides: Pick<InsightsWire, 'cohorts' | 'departments' | 'programs'> &
+    Partial<Pick<InsightsWire, 'leaders'>>,
 ): InsightsWire {
   return {
     scope: { kind: 'all' },
     dataAsOf: '2026-08-01T00:00:00.000Z',
     years: [2026],
+    leaders: NO_LEADERS,
+    recentWindow: {
+      from: '2026-07-02T00:00:00.000Z',
+      to: '2026-08-01T00:00:00.000Z',
+    },
     ...overrides,
   };
 }
@@ -98,6 +166,18 @@ function insightsLong(): InsightsWire {
   return insightsEnvelope({
     cohorts: [],
     departments: [],
+    leaders: {
+      period: {
+        all: periodLeaderRows(),
+        swMajor: periodLeaderRows(),
+        nonSw: periodLeaderRows(),
+      },
+      recent: {
+        all: leaderRows(),
+        swMajor: leaderRows(),
+        nonSw: leaderRows(),
+      },
+    },
     programs: LONG_PROGRAM_NAMES.map((name, index) => ({
       programId: `program-long-${index + 1}`,
       name,
@@ -149,6 +229,8 @@ function insightsUnregistered(): InsightsWire {
       {
         department: '미등록',
         cohort: 'unregistered',
+        activityPerStudent: 0,
+        sampleTooSmall: false,
         studentCount: 3,
         activeStudentCount: 0,
         commitCount: 0,
