@@ -23,7 +23,15 @@ export function parseSubmissionMatrixSearchParams(
     pageSize: MATRIX_PAGE_SIZE,
     quickFilter: parseListEnum(
       params.get('quickFilter'),
-      ['ALL', 'MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'],
+      [
+        'ALL',
+        'OVERDUE',
+        'NOT_SUBMITTED',
+        'SUBMITTED',
+        'CHANGES_REQUESTED',
+        'APPROVED',
+        'REJECTED',
+      ],
       'ALL',
     ),
   };

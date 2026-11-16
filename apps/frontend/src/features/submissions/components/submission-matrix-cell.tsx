@@ -3,15 +3,13 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { StatusBadge } from '@/components';
 import {
-  DOCUMENT_DELIVERY_LABELS,
-  DOCUMENT_DELIVERY_VARIANTS,
-} from '@/lib/document-delivery';
+  SUBMISSION_DISPLAY_BADGE,
+  submissionStatusLabel,
+} from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
 import {
   formatSubmittedAt,
-  MATRIX_CELL_DISPLAY_LABELS,
-  MATRIX_CELL_DISPLAY_VARIANTS,
-  matrixCellDisplay,
+  matrixCellAction,
   notSubmittedDeadline,
 } from '../matrix';
 import type { MatrixCell, MatrixMilestone } from '../types';
@@ -20,21 +18,30 @@ export function MatrixCellContent({
   cell,
   milestone,
   now,
+  focused,
 }: {
   readonly cell: MatrixCell;
   readonly milestone: MatrixMilestone;
   readonly now: Date;
+  readonly focused: boolean;
 }): ReactElement {
-  const display = matrixCellDisplay(cell);
+  const action = matrixCellAction(cell, milestone, now);
+  if (action.status === 'NONE') {
+    return (
+      <span aria-label="필수 서류 없음" className="text-muted-foreground">
+        —
+      </span>
+    );
+  }
   const badge = (
-    <StatusBadge variant={MATRIX_CELL_DISPLAY_VARIANTS[display]}>
-      {MATRIX_CELL_DISPLAY_LABELS[display]}
-    </StatusBadge>
-  );
-  const deliveryBadge = (
-    <StatusBadge variant={DOCUMENT_DELIVERY_VARIANTS[cell.deliveryStatus]}>
-      {DOCUMENT_DELIVERY_LABELS[cell.deliveryStatus]}
-    </StatusBadge>
+    <span className="flex flex-wrap items-center gap-1">
+      <StatusBadge variant={SUBMISSION_DISPLAY_BADGE[action.status]}>
+        {submissionStatusLabel(action.status, 'staff')}
+      </StatusBadge>
+      {action.late ? (
+        <span className="text-small text-muted-foreground">· 지각</span>
+      ) : null}
+    </span>
   );
   const changeRequests =
     cell.changesRequestedCount > 0 ? (
@@ -43,26 +50,11 @@ export function MatrixCellContent({
       </span>
     ) : null;
 
-  if (cell.status === 'NOT_SUBMITTED') {
-    const deadline = notSubmittedDeadline(milestone.dueAt, now);
-    return (
-      <span className="flex flex-col items-start gap-1">
-        {deliveryBadge}
-        {cell.deliveryStatus === 'MISSING' ? (
-          <span
-            className={
-              deadline.overdue
-                ? 'text-small font-semibold text-destructive'
-                : 'text-small text-muted-foreground'
-            }
-          >
-            {deadline.label}
-          </span>
-        ) : null}
-        {changeRequests}
-      </span>
-    );
-  }
+  const deadline =
+    action.status === 'OVERDUE' ||
+    (action.status === 'NOT_SUBMITTED' && !focused)
+      ? notSubmittedDeadline(milestone.dueAt, now)
+      : null;
 
   const submittedAtLabel =
     cell.submittedAt !== null ? formatSubmittedAt(cell.submittedAt) : null;
@@ -72,10 +64,18 @@ export function MatrixCellContent({
     .join(' · ');
   const meta = (
     <span className="flex flex-col items-start gap-1">
-      <span className="flex flex-wrap items-center gap-1">
-        {deliveryBadge}
-        {badge}
-      </span>
+      {badge}
+      {deadline !== null ? (
+        <span
+          className={
+            deadline.overdue
+              ? 'text-small font-semibold text-destructive'
+              : 'text-small text-muted-foreground'
+          }
+        >
+          {deadline.label}
+        </span>
+      ) : null}
       {secondaryLine !== '' ? (
         <span className="text-small text-muted-foreground">
           {secondaryLine}
@@ -85,7 +85,7 @@ export function MatrixCellContent({
     </span>
   );
 
-  if (cell.reviewUrl === null) return meta;
+  if (cell.status === 'NOT_SUBMITTED' || cell.reviewUrl === null) return meta;
   return (
     <Link
       href={cell.reviewUrl}

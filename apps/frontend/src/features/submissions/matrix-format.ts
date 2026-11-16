@@ -64,7 +64,7 @@ export function notSubmittedDeadline(
   if (now.getTime() > due.getTime()) {
     return {
       overdue: true,
-      label: dDay < 0 ? `마감 초과 D+${-dDay}` : '마감 초과',
+      label: dDay < 0 ? `${-dDay}일 지남` : '마감 초과',
     };
   }
   return { overdue: false, label: dDay === 0 ? '오늘 마감' : `D-${dDay}` };

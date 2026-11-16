@@ -5,11 +5,12 @@ import {
   cellForMilestone,
   formatMatrixDueDateTime,
   formatSubmittedAt,
-  isLateSubmission,
   isMatrixFilterActive,
-  matrixCellDisplay,
+  isMilestoneWithoutRequiredItems,
+  matrixCellAction,
   matrixEmptyKind,
   matrixPageStats,
+  matrixRowAction,
   matrixRowHasEmptyCell,
   matrixRowTitle,
   matrixTotalPages,
@@ -130,13 +131,13 @@ describe('notSubmittedDeadline', () => {
     expect(result).toEqual({ overdue: true, label: '마감 초과' });
   });
 
-  it('마감이 지난 날짜는 마감 초과 D+n을 표시한다', () => {
+  it('마감이 지난 날짜는 N일 지남을 표시한다', () => {
     const result = notSubmittedDeadline(
       dueAt,
       new Date('2026-08-22T00:30:00+09:00'),
     );
 
-    expect(result).toEqual({ overdue: true, label: '마감 초과 D+2' });
+    expect(result).toEqual({ overdue: true, label: '2일 지남' });
   });
 });
 
@@ -171,43 +172,15 @@ describe('formatMatrixDueDateTime', () => {
   });
 });
 
-describe('isLateSubmission', () => {
-  it('제출 시각이 마감 이후면 지각이다', () => {
-    expect(
-      isLateSubmission({
-        ...submittedCell,
-        submittedAt: '2026-08-20T00:00:01+09:00',
-        deliveryStatus: 'LATE',
-      }),
-    ).toBe(true);
-  });
-
-  it('제출 시각이 마감 이전이면 지각이 아니다', () => {
-    expect(
-      isLateSubmission({
-        ...submittedCell,
-        submittedAt: '2026-08-19T10:00:00+09:00',
-      }),
-    ).toBe(false);
-  });
-
-  it('NOT_SUBMITTED 셀은 지각 판정 대상이 아니다', () => {
-    const empty: MatrixCell = {
-      milestoneId: 'milestone-plan',
-      submissionId: null,
-      revision: null,
-      status: 'NOT_SUBMITTED',
-      deliveryStatus: 'MISSING',
-      submittedAt: null,
-      reviewUrl: null,
-      changesRequestedCount: 0,
-    };
-    expect(isLateSubmission(empty)).toBe(false);
-  });
-});
-
-describe('matrixCellDisplay', () => {
-  const notSubmitted: MatrixCell = {
+describe('matrixCellAction', () => {
+  const milestone: MatrixMilestone = {
+    id: 'milestone-plan',
+    name: '기획서',
+    dueAt: '2026-08-20T23:59:59+09:00',
+  };
+  const before = new Date('2026-08-19T12:00:00+09:00');
+  const after = new Date('2026-08-22T12:00:00+09:00');
+  const missing: MatrixCell = {
     milestoneId: 'milestone-plan',
     submissionId: null,
     revision: null,
@@ -218,46 +191,141 @@ describe('matrixCellDisplay', () => {
     changesRequestedCount: 0,
   };
 
-  it('저장 상태를 접지 않고 화면 값으로 그대로 옮긴다(QA49)', () => {
-    expect(matrixCellDisplay(notSubmitted)).toBe('NOT_SUBMITTED');
-    expect(matrixCellDisplay({ ...submittedCell, status: 'APPROVED' })).toBe(
-      'APPROVED',
-    );
+  it('(a) 필수 서류가 빠졌으면 마감 전은 미제출, 마감 후는 기한 지남이다', () => {
+    expect(matrixCellAction(missing, milestone, before)).toEqual({
+      status: 'NOT_SUBMITTED',
+      late: false,
+    });
+    expect(matrixCellAction(missing, milestone, after)).toEqual({
+      status: 'OVERDUE',
+      late: false,
+    });
     expect(
-      matrixCellDisplay({ ...submittedCell, status: 'CHANGES_REQUESTED' }),
-    ).toBe('CHANGES_REQUESTED');
-    expect(matrixCellDisplay({ ...submittedCell, status: 'REJECTED' })).toBe(
-      'REJECTED',
-    );
+      matrixCellAction(
+        { ...submittedCell, status: 'APPROVED', deliveryStatus: 'MISSING' },
+        milestone,
+        after,
+      ).status,
+    ).toBe('OVERDUE');
   });
 
-  it('검토 배지는 지각 제출 여부와 별도로 검토 대기를 표시한다', () => {
+  it('(b) 필수 서류가 없고 제출도 없으면 상태가 없다', () => {
     expect(
-      matrixCellDisplay({
-        ...submittedCell,
-        status: 'SUBMITTED',
-        submittedAt: '2026-08-19T10:00:00+09:00',
-      }),
-    ).toBe('SUBMITTED');
-
+      matrixCellAction(
+        { ...missing, deliveryStatus: 'NO_REQUIRED_ITEMS' },
+        milestone,
+        after,
+      ),
+    ).toEqual({ status: 'NONE', late: false });
     expect(
-      matrixCellDisplay({
-        ...submittedCell,
-        status: 'SUBMITTED',
-        submittedAt: '2026-08-20T00:00:01+09:00',
-        deliveryStatus: 'LATE',
-      }),
+      matrixCellAction(
+        { ...submittedCell, deliveryStatus: 'NO_REQUIRED_ITEMS' },
+        milestone,
+        after,
+      ).status,
     ).toBe('SUBMITTED');
   });
 
-  it('이미 검토를 거친 승인·반려는 지각 여부와 무관하게 판정 그대로 보여준다', () => {
-    const lateApproved: MatrixCell = {
-      ...submittedCell,
-      status: 'APPROVED',
-      submittedAt: '2026-08-20T00:00:01+09:00',
-      deliveryStatus: 'LATE',
+  it.each([
+    'NOT_SUBMITTED',
+    'SUBMITTED',
+    'CHANGES_REQUESTED',
+    'APPROVED',
+    'REJECTED',
+  ] as const)('(c) 그 밖에는 검토 상태 %s를 그대로 쓴다', (status) => {
+    expect(
+      matrixCellAction({ ...submittedCell, status }, milestone, after),
+    ).toEqual({ status, late: false });
+  });
+
+  it.each(['SUBMITTED', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED'] as const)(
+    '지각이어도 %s 판정은 유지하고 태그로 붙인다',
+    (status) => {
+      expect(
+        matrixCellAction(
+          { ...submittedCell, status, deliveryStatus: 'LATE' },
+          milestone,
+          after,
+        ),
+      ).toEqual({ status, late: true });
+    },
+  );
+});
+
+describe('matrixRowAction', () => {
+  const first: MatrixMilestone = {
+    id: 'm1',
+    name: '1차',
+    dueAt: '2026-08-20T23:59:59+09:00',
+  };
+  const second: MatrixMilestone = {
+    id: 'm2',
+    name: '2차',
+    dueAt: '2026-09-20T23:59:59+09:00',
+  };
+  const milestones = [first, second];
+  const now = new Date('2026-08-22T12:00:00+09:00');
+  function rowWith(
+    ...cells: readonly Pick<MatrixCell, 'status' | 'deliveryStatus'>[]
+  ): MatrixRow {
+    return {
+      ...teamRow,
+      cells: cells.map((item, index) => ({
+        ...submittedCell,
+        milestoneId: index === 0 ? 'm1' : 'm2',
+        ...item,
+      })),
     };
-    expect(matrixCellDisplay(lateApproved)).toBe('APPROVED');
+  }
+
+  it.each([
+    [
+      'OVERDUE',
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'MISSING' },
+      { status: 'SUBMITTED', deliveryStatus: 'COMPLETE' },
+    ],
+    [
+      'SUBMITTED',
+      { status: 'SUBMITTED', deliveryStatus: 'COMPLETE' },
+      { status: 'CHANGES_REQUESTED', deliveryStatus: 'COMPLETE' },
+    ],
+    [
+      'CHANGES_REQUESTED',
+      { status: 'CHANGES_REQUESTED', deliveryStatus: 'COMPLETE' },
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'MISSING' },
+    ],
+    [
+      'NOT_SUBMITTED',
+      { status: 'REJECTED', deliveryStatus: 'COMPLETE' },
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'MISSING' },
+    ],
+    [
+      'REJECTED',
+      { status: 'APPROVED', deliveryStatus: 'COMPLETE' },
+      { status: 'REJECTED', deliveryStatus: 'COMPLETE' },
+    ],
+    [
+      'APPROVED',
+      { status: 'APPROVED', deliveryStatus: 'LATE' },
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'NO_REQUIRED_ITEMS' },
+    ],
+    [
+      'NONE',
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'NO_REQUIRED_ITEMS' },
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'NO_REQUIRED_ITEMS' },
+    ],
+  ] as const)('가장 급한 칸 상태 %s를 행 상태로 고른다', (expected, a, b) => {
+    expect(matrixRowAction(rowWith(a, b), milestones, now)).toBe(expected);
+  });
+
+  it('필수 서류가 없는 단계를 상태 없음으로 판정한다', () => {
+    const none = rowWith(
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'NO_REQUIRED_ITEMS' },
+      { status: 'NOT_SUBMITTED', deliveryStatus: 'MISSING' },
+    );
+    expect(isMilestoneWithoutRequiredItems([none], first, now)).toBe(true);
+    expect(isMilestoneWithoutRequiredItems([none], second, now)).toBe(false);
+    expect(isMilestoneWithoutRequiredItems([], first, now)).toBe(false);
   });
 });
 
@@ -274,38 +342,31 @@ describe('matrixPageStats', () => {
       dueAt: '2026-09-12T23:59:59+09:00',
     },
   ];
+  const now = new Date('2026-08-25T12:00:00+09:00');
 
-  it('로드된 행 기준으로 채운 칸·빈 칸·미제출 팀·지각 건수를 센다', () => {
+  it('로드된 행의 칸마다 행동 상태를 센다', () => {
     const late: MatrixRow = {
       ...teamRow,
-      cells: [
-        {
-          ...submittedCell,
-          submittedAt: '2026-08-20T09:00:00+09:00',
-          deliveryStatus: 'LATE',
-        },
-      ],
+      cells: [{ ...submittedCell, deliveryStatus: 'LATE' }],
     };
 
-    const stats = matrixPageStats([late, personalRow], milestones);
-
-    expect(stats).toEqual({
-      totalCells: 4,
-      filledCells: 1,
-      emptyCells: 3,
-      noRequiredCells: 0,
-      lateCells: 1,
+    expect(matrixPageStats([late, personalRow], milestones, now)).toEqual({
+      OVERDUE: 1,
+      NOT_SUBMITTED: 2,
+      SUBMITTED: 1,
+      CHANGES_REQUESTED: 0,
+      APPROVED: 0,
+      REJECTED: 0,
+      NONE: 0,
     });
   });
 
   it('행이 없으면 모든 값이 0이다', () => {
-    expect(matrixPageStats([], milestones)).toEqual({
-      totalCells: 0,
-      filledCells: 0,
-      emptyCells: 0,
-      noRequiredCells: 0,
-      lateCells: 0,
-    });
+    expect(
+      Object.values(matrixPageStats([], milestones, now)).every(
+        (count) => count === 0,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -357,18 +418,21 @@ describe('applyMatrixQuickFilter', () => {
     },
   ];
   const rows = [teamRow, personalRow];
+  const now = new Date('2026-08-25T12:00:00+09:00');
 
   it('ALL은 행을 그대로 돌려준다', () => {
-    expect(applyMatrixQuickFilter(rows, milestones, 'ALL')).toEqual(rows);
+    expect(applyMatrixQuickFilter(rows, milestones, 'ALL', now)).toEqual(rows);
   });
 
-  it('MISSING은 빈 칸이 하나라도 있는 행만 남긴다', () => {
-    expect(applyMatrixQuickFilter(rows, milestones, 'MISSING')).toEqual(rows);
+  it('행 상태가 고른 상태와 같은 행만 남긴다', () => {
+    expect(applyMatrixQuickFilter(rows, milestones, 'OVERDUE', now)).toEqual([
+      personalRow,
+    ]);
   });
 
-  it('COMPLETE는 현재 보고 있는 단계의 필수 서류 제출 완료 행만 남긴다', () => {
+  it('현재 보고 있는 단계만으로 행 상태를 판정한다', () => {
     expect(
-      applyMatrixQuickFilter(rows, milestones.slice(0, 1), 'COMPLETE'),
+      applyMatrixQuickFilter(rows, milestones.slice(0, 1), 'SUBMITTED', now),
     ).toEqual([teamRow]);
   });
 });

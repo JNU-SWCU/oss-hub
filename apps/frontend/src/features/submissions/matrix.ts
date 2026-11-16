@@ -1,4 +1,5 @@
-import type { DocumentDeliveryStatus } from '@/lib/document-delivery';
+import type { SubmissionDisplayStatus } from '@/lib/status-vocabulary';
+import { notSubmittedDeadline } from './matrix-format';
 import type {
   MatrixApplicationMode,
   MatrixCell,
@@ -18,35 +19,6 @@ export interface MatrixQueryInput {
   readonly q: string;
   readonly page: number;
   readonly pageSize: number;
-}
-
-export const MATRIX_CELL_DISPLAY_LABELS = {
-  NOT_SUBMITTED: '미제출',
-  SUBMITTED: '검토 대기',
-  LATE: '지각 제출',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 요청',
-  REJECTED: '반려',
-} as const;
-
-export type MatrixCellDisplay = keyof typeof MATRIX_CELL_DISPLAY_LABELS;
-
-export const MATRIX_CELL_DISPLAY_VARIANTS = {
-  NOT_SUBMITTED: 'closed',
-  SUBMITTED: 'recruiting',
-  LATE: 'pending',
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'pending',
-  REJECTED: 'rejected',
-} as const satisfies Readonly<
-  Record<
-    MatrixCellDisplay,
-    'closed' | 'recruiting' | 'approved' | 'pending' | 'rejected'
-  >
->;
-
-export function matrixCellDisplay(cell: MatrixCell): MatrixCellDisplay {
-  return cell.status;
 }
 
 export const MATRIX_MODE_LABELS = {
@@ -112,24 +84,74 @@ export function matrixEmptyKind(input: {
   return input.filterActive ? 'no-results' : 'no-applications';
 }
 
-export function isLateSubmission(cell: MatrixCell): boolean {
-  return cell.deliveryStatus === 'LATE';
+export type MatrixActionStatus = SubmissionDisplayStatus | 'NONE';
+
+export interface MatrixCellAction {
+  readonly status: MatrixActionStatus;
+  readonly late: boolean;
 }
 
-export function matrixRowDeliveryStatus(
+export function matrixCellAction(
+  cell: MatrixCell,
+  milestone: MatrixMilestone,
+  now: Date,
+): MatrixCellAction {
+  const late = cell.deliveryStatus === 'LATE';
+  if (cell.deliveryStatus === 'MISSING') {
+    const overdue = notSubmittedDeadline(milestone.dueAt, now).overdue;
+    return { status: overdue ? 'OVERDUE' : 'NOT_SUBMITTED', late };
+  }
+  if (
+    cell.deliveryStatus === 'NO_REQUIRED_ITEMS' &&
+    cell.status === 'NOT_SUBMITTED'
+  ) {
+    return { status: 'NONE', late };
+  }
+  return { status: cell.status, late };
+}
+
+const MATRIX_ACTION_PRIORITY = [
+  'OVERDUE',
+  'SUBMITTED',
+  'CHANGES_REQUESTED',
+  'NOT_SUBMITTED',
+  'REJECTED',
+  'APPROVED',
+] as const satisfies readonly Exclude<MatrixActionStatus, 'NONE'>[];
+
+export function matrixRowAction(
   row: MatrixRow,
   milestones: readonly MatrixMilestone[],
-): DocumentDeliveryStatus {
-  const statuses = milestones.map(
-    (milestone) => cellForMilestone(row, milestone.id).deliveryStatus,
+  now: Date,
+): MatrixActionStatus {
+  const statuses = new Set(
+    milestones.map(
+      (milestone) =>
+        matrixCellAction(cellForMilestone(row, milestone.id), milestone, now)
+          .status,
+    ),
   );
-  if (statuses.includes('MISSING')) return 'MISSING';
-  if (statuses.includes('LATE')) return 'LATE';
-  if (statuses.includes('COMPLETE')) return 'COMPLETE';
-  return 'NO_REQUIRED_ITEMS';
+  return (
+    MATRIX_ACTION_PRIORITY.find((status) => statuses.has(status)) ?? 'NONE'
+  );
 }
 
-export type MatrixQuickFilter = 'ALL' | DocumentDeliveryStatus;
+export type MatrixQuickFilter = 'ALL' | Exclude<MatrixActionStatus, 'NONE'>;
+
+export function isMilestoneWithoutRequiredItems(
+  rows: readonly MatrixRow[],
+  milestone: MatrixMilestone,
+  now: Date,
+): boolean {
+  return (
+    rows.length > 0 &&
+    rows.every(
+      (row) =>
+        matrixCellAction(cellForMilestone(row, milestone.id), milestone, now)
+          .status === 'NONE',
+    )
+  );
+}
 
 export function matrixRowHasEmptyCell(
   row: MatrixRow,
@@ -145,48 +167,37 @@ export function applyMatrixQuickFilter(
   rows: readonly MatrixRow[],
   milestones: readonly MatrixMilestone[],
   filter: MatrixQuickFilter,
+  now: Date,
 ): readonly MatrixRow[] {
-  if (filter !== 'ALL')
-    return rows.filter(
-      (row) => matrixRowDeliveryStatus(row, milestones) === filter,
-    );
-  return rows;
+  if (filter === 'ALL') return rows;
+  return rows.filter((row) => matrixRowAction(row, milestones, now) === filter);
 }
 
-export interface MatrixPageStats {
-  readonly totalCells: number;
-  readonly filledCells: number;
-  readonly emptyCells: number;
-  readonly noRequiredCells: number;
-
-  readonly lateCells: number;
-}
+export type MatrixPageStats = Readonly<Record<MatrixActionStatus, number>>;
 
 export function matrixPageStats(
   rows: readonly MatrixRow[],
   milestones: readonly MatrixMilestone[],
+  now: Date,
 ): MatrixPageStats {
-  let totalCells = 0;
-  let filledCells = 0;
-  let noRequiredCells = 0;
-  let lateCells = 0;
+  const stats: Record<MatrixActionStatus, number> = {
+    OVERDUE: 0,
+    NOT_SUBMITTED: 0,
+    SUBMITTED: 0,
+    CHANGES_REQUESTED: 0,
+    APPROVED: 0,
+    REJECTED: 0,
+    NONE: 0,
+  };
   for (const row of rows) {
     for (const milestone of milestones) {
-      const status = cellForMilestone(row, milestone.id).deliveryStatus;
-      if (status === 'NO_REQUIRED_ITEMS') {
-        noRequiredCells += 1;
-        continue;
-      }
-      totalCells += 1;
-      if (status === 'COMPLETE' || status === 'LATE') filledCells += 1;
-      if (status === 'LATE') lateCells += 1;
+      const { status } = matrixCellAction(
+        cellForMilestone(row, milestone.id),
+        milestone,
+        now,
+      );
+      stats[status] += 1;
     }
   }
-  return {
-    totalCells,
-    filledCells,
-    emptyCells: totalCells - filledCells,
-    noRequiredCells,
-    lateCells,
-  };
+  return stats;
 }

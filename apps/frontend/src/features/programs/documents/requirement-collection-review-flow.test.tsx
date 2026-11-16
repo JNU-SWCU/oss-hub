@@ -555,7 +555,7 @@ describe('수합 표에서 판정하기', () => {
     await openPanelForGaTeam();
     expect(panel()).not.toBeNull();
 
-    await click(byText('미제출 있음 12'));
+    await click(byText('미제출 12'));
 
     expect(panel()).toBeNull();
   });
@@ -580,7 +580,7 @@ describe('수합 표에서 판정하기', () => {
 
     await click(byText('승인'));
     await click(byText('저장'));
-    await click(byText('미제출 있음 12'));
+    await click(byText('미제출 12'));
     const loadsAfterFilter = getRequirementCollectionMock.mock.calls.length;
 
     await act(async () => {
@@ -622,7 +622,7 @@ describe('수합 표에서 판정하기', () => {
 
     await click(byText('승인'));
     await click(byText('저장'));
-    await click(byText('미제출 있음 12'));
+    await click(byText('미제출 12'));
     const loadsAfterFilter = getRequirementCollectionMock.mock.calls.length;
 
     await act(async () => {
@@ -787,7 +787,7 @@ describe('수합 표에서 판정하기', () => {
       collection([row('b', '나팀', [cell('d1'), cell('d2')])]),
     );
 
-    await click(byText('미제출 있음 12'));
+    await click(byText('미제출 12'));
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toContain('가팀');

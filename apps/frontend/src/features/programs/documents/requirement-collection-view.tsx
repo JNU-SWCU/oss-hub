@@ -287,16 +287,23 @@ function CollectionFilterButtons({
       <p className="w-full text-small font-semibold">
         팀별 필수 서류 제출 상태
       </p>
-      {REQUIREMENT_COLLECTION_FILTERS.map((option) => (
-        <FilterChip
-          key={option}
-          pressed={filter === option}
-          onClick={() => onFilterChange(option)}
-        >
-          {REQUIREMENT_COLLECTION_FILTER_LABELS[option]}{' '}
-          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}
-        </FilterChip>
-      ))}
+      {REQUIREMENT_COLLECTION_FILTERS.map((option) => {
+        const count = collectionFilterCountFor(
+          filterCounts,
+          option,
+          deliveryCounts,
+        );
+        if (option === 'NO_REQUIRED_ITEMS' && count === 0) return null;
+        return (
+          <FilterChip
+            key={option}
+            pressed={filter === option}
+            onClick={() => onFilterChange(option)}
+          >
+            {REQUIREMENT_COLLECTION_FILTER_LABELS[option]} {count}
+          </FilterChip>
+        );
+      })}
     </FilterChipGroup>
   );
 }

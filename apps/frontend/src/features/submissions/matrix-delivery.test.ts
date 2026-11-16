@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyMatrixQuickFilter,
-  matrixRowDeliveryStatus,
+  matrixCellAction,
   matrixPageStats,
-  isLateSubmission,
+  matrixRowAction,
 } from './matrix';
 import type { MatrixCell, MatrixRow } from './types';
 
@@ -11,6 +11,7 @@ const milestones = [
   { id: 'first', name: '1차', dueAt: '2026-08-01T00:00:00Z' },
   { id: 'second', name: '2차', dueAt: '2026-08-01T00:00:00Z' },
 ];
+const NOW = new Date('2026-09-02T00:00:00Z');
 function row(
   statuses: readonly ('MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS')[],
 ): MatrixRow {
@@ -32,44 +33,34 @@ function row(
   };
 }
 
-describe('delivery status filters', () => {
+describe('delivery status in matrix actions', () => {
   it('uses first-submission server status even when a revision was submitted late', () => {
-    const cell = row(['COMPLETE']).cells[0];
-    if (cell === undefined) throw new TypeError('Missing fixture');
-    expect(isLateSubmission(cell)).toBe(false);
+    const [cell] = row(['COMPLETE']).cells;
+    const [milestone] = milestones;
+    if (cell === undefined || milestone === undefined)
+      throw new TypeError('Missing fixture');
+    expect(matrixCellAction(cell, milestone, NOW).late).toBe(false);
   });
-  it('gives missing precedence over late and keeps approval separate', () => {
-    expect(matrixRowDeliveryStatus(row(['LATE', 'MISSING']), milestones)).toBe(
-      'MISSING',
+  it('gives an overdue missing document precedence over a late approval', () => {
+    expect(matrixRowAction(row(['LATE', 'MISSING']), milestones, NOW)).toBe(
+      'OVERDUE',
     );
   });
-  it('ignores optional-only milestones when aggregating completed delivery', () => {
+  it('keeps the review decision when the other stage has no required documents', () => {
     expect(
-      matrixRowDeliveryStatus(
-        row(['COMPLETE', 'NO_REQUIRED_ITEMS']),
-        milestones,
-      ),
-    ).toBe('COMPLETE');
+      matrixRowAction(row(['COMPLETE', 'NO_REQUIRED_ITEMS']), milestones, NOW),
+    ).toBe('APPROVED');
   });
-  it('keeps optional submissions in no-required state and excludes them from required totals', () => {
+  it('keeps optional submissions as their review decision', () => {
     const source = row(['NO_REQUIRED_ITEMS', 'NO_REQUIRED_ITEMS']);
-    expect(matrixRowDeliveryStatus(source, milestones)).toBe(
-      'NO_REQUIRED_ITEMS',
-    );
+    expect(matrixRowAction(source, milestones, NOW)).toBe('APPROVED');
     expect(
-      applyMatrixQuickFilter([source], milestones, 'NO_REQUIRED_ITEMS'),
+      applyMatrixQuickFilter([source], milestones, 'APPROVED', NOW),
     ).toEqual([source]);
-    expect(matrixPageStats([source], milestones)).toEqual({
-      totalCells: 0,
-      filledCells: 0,
-      emptyCells: 0,
-      lateCells: 0,
-      noRequiredCells: 2,
-    });
   });
-  it('counts modern required submissions even without a legacy submission', () => {
-    const source = row(['COMPLETE', 'MISSING']);
-    const modernOnly = {
+  it('shows no status for stages without required documents or submissions', () => {
+    const source = row(['NO_REQUIRED_ITEMS', 'NO_REQUIRED_ITEMS']);
+    const unsubmitted = {
       ...source,
       cells: source.cells.map((cell) => ({
         ...cell,
@@ -77,19 +68,16 @@ describe('delivery status filters', () => {
         submissionId: null,
       })),
     };
-    expect(matrixPageStats([modernOnly], milestones)).toEqual({
-      totalCells: 2,
-      filledCells: 1,
-      emptyCells: 1,
-      lateCells: 0,
-      noRequiredCells: 0,
-    });
+    expect(matrixRowAction(unsubmitted, milestones, NOW)).toBe('NONE');
+    expect(matrixPageStats([unsubmitted], milestones, NOW).NONE).toBe(2);
   });
-  it('filters the visible milestone scope by server delivery status', () => {
+  it('filters the visible milestone scope by row action', () => {
     const source = row(['LATE', 'MISSING']);
     expect(
-      applyMatrixQuickFilter([source], milestones.slice(0, 1), 'LATE'),
+      applyMatrixQuickFilter([source], milestones.slice(0, 1), 'APPROVED', NOW),
     ).toEqual([source]);
-    expect(applyMatrixQuickFilter([source], milestones, 'LATE')).toEqual([]);
+    expect(
+      applyMatrixQuickFilter([source], milestones, 'APPROVED', NOW),
+    ).toEqual([]);
   });
 });

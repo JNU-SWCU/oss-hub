@@ -146,6 +146,7 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('보완 요청');
     expect(html).toContain('반려');
     expect(html).toContain('검토 대기');
+    expect(html).toContain('기한 지남');
 
     expect(html).not.toContain('제출 전');
     expect(html).not.toContain('보완 필요');
@@ -160,7 +161,8 @@ describe('SubmissionMatrixView', () => {
     expect(table).not.toContain('기획서');
     expect(table).not.toContain('최종 제출');
     expect(html).toContain('data-slot="matrix-focus-summary"');
-    expect(html).toContain('선택한 제출 단계의 현황만 한눈에 확인합니다.');
+    expect(html).not.toContain('선택한 제출 단계의 현황');
+    expect(html).not.toContain('필수 서류가 없는 단계라');
     expect(html).toContain('2026년 9월 12일 (토) 오후 11:59');
     expect(html).not.toContain('표를 좌우로 스크롤할 수 있습니다.');
   });
@@ -190,21 +192,106 @@ describe('SubmissionMatrixView', () => {
     expect(html).not.toContain('<select');
   });
 
-  it('집중 보기에서는 선택한 단계의 필수 서류 상태를 센다', () => {
+  it('선택한 단계에서는 0건이 아닌 상태 칩만 보이고 통계 상자와 D-n을 숨긴다', () => {
     const html = render({ selectedMilestoneId: 'milestone-mid' });
 
-    expect(html).toContain('필수 서류 없는 단계');
-    expect(html).toContain('필수 서류 없음 0');
-    expect(html).toContain('미제출 있음 1');
+    expect(html).not.toContain('단계별 상태');
+    expect(html).toContain('보완 요청 중 1');
+    expect(html).toContain('기한 지남 1');
+    expect(html).not.toContain('반려 0');
+    expect(html).not.toContain('미제출 0');
+
+    const upcoming = render({ selectedMilestoneId: 'milestones-upcoming' });
+    expect(upcoming).toContain('>미제출<');
+    expect(upcoming).not.toContain('D-45');
   });
 
-  it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(마감 초과/D-n)를 붙인다', () => {
+  it('미제출 칸은 기한 지남이면 N일 지남을, 모든 단계 보기에서는 D-n을 붙인다', () => {
     const html = render();
 
-    expect(html).toContain('마감 초과 D+3');
-
+    expect(html).toContain('3일 지남');
     expect(html).toContain('D-45');
   });
+
+  it.each(['ALL', 'OVERDUE'] as const)(
+    '필수 서류가 없는 단계는 %s 필터에서도 —와 안내를 보여 주고 칩을 숨긴다',
+    (quickFilter) => {
+      const html = render({
+        selectedMilestoneId: 'milestone-mid',
+        quickFilter,
+        data: {
+          ...matrixData,
+          rows: matrixData.rows.map((row) => ({
+            ...row,
+            cells: row.cells.map((item) =>
+              item.milestoneId === 'milestone-mid'
+                ? {
+                    ...cell({
+                      milestoneId: 'milestone-mid',
+                      status: 'NOT_SUBMITTED',
+                    }),
+                    deliveryStatus: 'NO_REQUIRED_ITEMS' as const,
+                  }
+                : item,
+            ),
+          })),
+        },
+      });
+
+      expect(html).toContain('필수 서류가 없는 단계라 챙길 미제출이 없어요.');
+      expect(html.match(/aria-label="필수 서류 없음"/g)).toHaveLength(2);
+      expect(html).toContain('>—<');
+      expect(html).not.toContain('>상태</p>');
+      expect(html).not.toContain('data-slot="status-badge"');
+    },
+  );
+
+  it.each([
+    [null, NOW, '기한 지남', '5일 지남'],
+    ['milestones-overdue', NOW, '기한 지남', '5일 지남'],
+    [null, new Date('2026-09-09T12:00:00+09:00'), '미제출', 'D-1'],
+    [
+      'milestones-overdue',
+      new Date('2026-09-09T12:00:00+09:00'),
+      '미제출',
+      null,
+    ],
+  ] as const)(
+    '일부 제출한 셀도 행동 상태의 마감을 표시한다 (%s, %s)',
+    (selectedMilestoneId, now, status, deadline) => {
+      const html = render({
+        selectedMilestoneId,
+        now,
+        data: {
+          ...matrixData,
+          rows: matrixData.rows.map((row) => ({
+            ...row,
+            cells: row.cells.map((item) =>
+              item.status === 'APPROVED'
+                ? {
+                    ...item,
+                    deliveryStatus: 'MISSING' as const,
+                    changesRequestedCount: 2,
+                  }
+                : item,
+            ),
+          })),
+        },
+      });
+      const link = html.match(
+        /<a\b[^>]*href="\/programs\/program-1\/submissions\/submission-approved\/review"[^>]*>[\s\S]*?<\/a>/,
+      )?.[0];
+      expect(link?.match(/data-slot="status-badge"/g)).toHaveLength(1);
+      expect(link).toContain(status);
+      expect(link).toContain('열어 보기');
+      expect(link).toContain('보완 요청 중 2건');
+      if (deadline === null) {
+        expect(link).not.toContain('D-1');
+      } else {
+        expect(link).toContain(deadline);
+      }
+    },
+  );
 
   it('보완 요청 중인 서류가 있는 칸에만 그 건수를 함께 보인다', () => {
     const [personal, team] = matrixData.rows;
@@ -256,33 +343,35 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('08.19 10:00 · v2');
   });
 
-  it('서버의 최초 제출 기준 지각 배지와 승인 판정을 함께 표시한다', () => {
+  it.each([
+    ['APPROVED', '승인'],
+    ['SUBMITTED', '검토 대기'],
+  ] as const)('지각은 %s 배지 뒤의 태그로 붙는다', (status, label) => {
     const lateData: SubmissionMatrixPage = {
       ...matrixData,
       rows: matrixData.rows.map((row) => ({
         ...row,
         cells: row.cells.map((cell) =>
-          cell.status === 'APPROVED'
-            ? { ...cell, deliveryStatus: 'LATE' }
-            : cell,
+          cell.status === status ? { ...cell, deliveryStatus: 'LATE' } : cell,
         ),
       })),
     };
     const html = render({ data: lateData });
-    expect(html).toContain('>지각 제출<');
-    expect(html).toContain('>승인<');
+    expect(html).toMatch(
+      new RegExp(`>${label}</span><span[^>]*>· 지각</span>`),
+    );
+    expect(html).not.toContain('지각 제출');
   });
 
-  it('현재 페이지 로드분을 기준으로 통계 요약 4종을 보여준다', () => {
+  it('모든 단계 보기에서만 현재 페이지 칸을 상태별로 센 통계를 보여준다', () => {
     const html = render();
 
-    expect(html).toContain('제출');
-    expect(html).toContain('4/6');
-    expect(html).toContain('미제출');
-    expect(html).toMatch(/미제출 단계<\/dt><dd[^>]*>2<\/dd>/);
-    expect(html).toContain('필수 서류 없는 단계');
-    expect(html).toContain('필수 서류 없음 0');
-    expect(html).toMatch(/지각 제출 단계<\/dt><dd[^>]*>0<\/dd>/);
+    expect(html).toContain('단계별 상태');
+    expect(html).toMatch(/기한 지남<\/dt><dd[^>]*>1<\/dd>/);
+    expect(html).toMatch(/검토 대기<\/dt><dd[^>]*>1<\/dd>/);
+    expect(html).toMatch(/보완 요청 중<\/dt><dd[^>]*>1<\/dd>/);
+    expect(html).toMatch(/승인<\/dt><dd[^>]*>1<\/dd>/);
+    expect(html).not.toContain('필수 서류 없음');
     expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
     expect(html).not.toContain('이 페이지 2건(전체 2건) 중 2건 표시');
 
@@ -305,36 +394,29 @@ describe('SubmissionMatrixView', () => {
     const html = render();
 
     expect(html).toContain('전체 2');
-    expect(html).toContain('미제출 있음 2');
-    expect(html).toContain('필수 서류 없음 0');
-    expect(html).toContain('제출 완료 0');
-    expect(html).toContain('지각 제출 0');
+    expect(html).toContain('기한 지남 1');
+    expect(html).toContain('보완 요청 중 1');
+    expect(chipFor(html, '반려')).toBeNull();
+    expect(chipFor(html, '승인')).toBeNull();
     expect(html).not.toContain('선택됨');
 
-    for (const label of [
-      '전체 2',
-      '미제출 있음 2',
-      '지각 제출 0',
-      '제출 완료 0',
-      '필수 서류 없음 0',
-    ]) {
+    for (const label of ['전체 2', '기한 지남 1', '보완 요청 중 1']) {
       expect(chipFor(html, label)).toContain('data-variant="toggle"');
     }
 
     expect(ariaPressedFor(html, '전체 2')).toBe('true');
-    expect(ariaPressedFor(html, '미제출 있음 2')).toBe('false');
-    expect(ariaPressedFor(html, '필수 서류 없음 0')).toBe('false');
+    expect(ariaPressedFor(html, '기한 지남 1')).toBe('false');
 
-    const hasEmptyHtml = render({ quickFilter: 'MISSING' });
+    const hasEmptyHtml = render({ quickFilter: 'OVERDUE' });
 
     expect(ariaPressedFor(hasEmptyHtml, '전체 2')).toBe('false');
-    expect(ariaPressedFor(hasEmptyHtml, '미제출 있음 2')).toBe('true');
+    expect(ariaPressedFor(hasEmptyHtml, '기한 지남 1')).toBe('true');
   });
 
-  it('빈 칸 있는 팀 필터를 고르면 해당 행만 표를 채운다', () => {
-    const html = render({ quickFilter: 'MISSING' });
+  it('기한 지남 필터를 고르면 해당 행만 표를 채운다', () => {
+    const html = render({ quickFilter: 'OVERDUE' });
 
-    expect(html).toContain('홍길동 · 개인');
+    expect(html).not.toContain('홍길동 · 개인');
     expect(html).toContain('오픈소스팀(3) · 팀');
     expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
     expect(html).not.toContain('중 2건 표시');
@@ -347,8 +429,8 @@ describe('SubmissionMatrixView', () => {
     expect(html).not.toContain('중 2건 표시');
   });
 
-  it('필수 서류 없음 필터에 해당하는 팀이 없으면 빈 상태를 보여준다', () => {
-    const html = render({ quickFilter: 'NO_REQUIRED_ITEMS' });
+  it('고른 상태에 해당하는 팀이 없으면 빈 상태를 보여준다', () => {
+    const html = render({ quickFilter: 'REJECTED' });
 
     expect(html).toContain('조건에 맞는 팀이 없습니다');
     expect(html).toContain('전체 보기');
@@ -436,14 +518,23 @@ describe('SubmissionMatrixView', () => {
 
     expect(withSearch).toContain('>초기화<');
 
-    const withQuickFilter = render({ quickFilter: 'MISSING' });
+    const withQuickFilter = render({ quickFilter: 'OVERDUE' });
 
     expect(withQuickFilter).toContain('>초기화<');
   });
 });
 
-it('필수 서류 필터와 제출 칸의 완료·승인 상태를 구분한다', () => {
+it('칸마다 다음 행동 상태 배지를 하나만 보여 준다', () => {
   const html = render();
-  expect(html).toContain('>팀별 필수 서류 제출 상태</p>');
-  expect(html).toMatch(/제출 완료<\/span><span[^>]*>승인<\/span>/);
+  expect(html).toContain('>상태</p>');
+  expect(html).not.toContain('제출 완료');
+  const body = html.match(/<tbody[\s\S]*?<\/tbody>/)?.[0] ?? '';
+  const rows = body.match(/<tr\b[\s\S]*?<\/tr>/g) ?? [];
+  const cells = rows.flatMap((row) =>
+    (row.match(/<td\b[\s\S]*?<\/td>/g) ?? []).slice(1),
+  );
+  expect(cells).toHaveLength(6);
+  for (const cell of cells) {
+    expect(cell.match(/data-slot="status-badge"/g)).toHaveLength(1);
+  }
 });

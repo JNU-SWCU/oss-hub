@@ -7,6 +7,7 @@ import {
   applyMatrixQuickFilter,
   cellForMilestone,
   formatMatrixDueDate,
+  isMilestoneWithoutRequiredItems,
   MATRIX_MODE_LABELS,
   matrixEmptyKind,
   matrixRowTitle,
@@ -27,6 +28,7 @@ const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
 function matrixColumns(
   milestones: readonly MatrixMilestone[],
   now: Date,
+  focused: boolean,
 ): DataTableColumn<MatrixRow>[] {
   return [
     {
@@ -64,6 +66,7 @@ function matrixColumns(
           cell={cellForMilestone(row, milestone.id)}
           milestone={milestone}
           now={now}
+          focused={focused}
         />
       ),
     })),
@@ -135,21 +138,32 @@ export function MatrixBody(
   const visibleMilestones = selectedMilestone
     ? [selectedMilestone]
     : milestones;
-  const quickFiltered = applyMatrixQuickFilter(
-    rows,
-    visibleMilestones,
-    props.quickFilter,
-  );
+  const noRequiredItems =
+    selectedMilestone !== null &&
+    isMilestoneWithoutRequiredItems(rows, selectedMilestone, props.now);
+  const quickFiltered = noRequiredItems
+    ? rows
+    : applyMatrixQuickFilter(
+        rows,
+        visibleMilestones,
+        props.quickFilter,
+        props.now,
+      );
 
   return (
     <>
-      <MatrixStatsStrip rows={rows} visibleMilestones={visibleMilestones} />
-      <MatrixQuickFilterButtons
-        rows={rows}
-        visibleMilestones={visibleMilestones}
-        quickFilter={props.quickFilter}
-        onQuickFilterChange={props.onQuickFilterChange}
-      />
+      {selectedMilestone === null ? (
+        <MatrixStatsStrip rows={rows} milestones={milestones} now={props.now} />
+      ) : null}
+      {noRequiredItems ? null : (
+        <MatrixQuickFilterButtons
+          rows={rows}
+          visibleMilestones={visibleMilestones}
+          now={props.now}
+          quickFilter={props.quickFilter}
+          onQuickFilterChange={props.onQuickFilterChange}
+        />
+      )}
       <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
         {total > rows.length ? (
           <>
@@ -180,7 +194,11 @@ export function MatrixBody(
           className={TABLE_CARD}
           aria-describedby="matrix-scroll-hint"
           scrollRegionLabel="마일스톤 제출 현황 표"
-          columns={matrixColumns(visibleMilestones, props.now)}
+          columns={matrixColumns(
+            visibleMilestones,
+            props.now,
+            selectedMilestone !== null,
+          )}
           data={[...quickFiltered]}
           rowKey={(row) => row.teamId}
         />
