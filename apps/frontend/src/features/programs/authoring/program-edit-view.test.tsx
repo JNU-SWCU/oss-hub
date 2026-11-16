@@ -106,11 +106,15 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('비교과');
     expect(html).not.toContain('id="program-application-start-at"');
     expect(html).toContain('data-program-schedule-summaries');
-    const basicFieldsEnd = html.indexOf('마감 알림');
+    const basicSection = html.indexOf('기본 정보');
+    const operationsSection = html.indexOf('운영 설정');
+    const deadlineToggle = html.indexOf('마감 알림');
     const scheduleSection = html.indexOf('신청 · 운영 일정');
     const programSave = html.indexOf('프로그램 정보 저장');
-    expect(basicFieldsEnd).toBeGreaterThan(-1);
-    expect(scheduleSection).toBeGreaterThan(basicFieldsEnd);
+    expect(basicSection).toBeGreaterThan(-1);
+    expect(operationsSection).toBeGreaterThan(basicSection);
+    expect(deadlineToggle).toBeGreaterThan(operationsSection);
+    expect(scheduleSection).toBeGreaterThan(deadlineToggle);
     expect(programSave).toBeGreaterThan(scheduleSection);
     expect(html).toContain(
       '기본 정보, 신청·운영 일정, 저장소와 알림 설정을 함께 저장합니다.',

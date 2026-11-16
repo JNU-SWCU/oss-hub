@@ -81,6 +81,11 @@ describe('ProgramAuthoringOperationsStep — 마감 알림 스위치', () => {
     expect(container.textContent).toContain(
       '켜면 마감까지 24시간 이내인 필수 서류의 미제출 참여자에게 알림을 보냅니다.',
     );
+    expect(container.textContent).not.toContain('알림 페이지에서 보내기');
+    expect(container.textContent).not.toContain(
+      '저장하면 알림 페이지에서 발송할 수 있습니다.',
+    );
+    expect(container.querySelector('a')).toBeNull();
   });
 
   it('체크를 풀면 그 선택이 서버로 보낼 manifest 까지 내려간다', async () => {

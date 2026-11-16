@@ -158,7 +158,7 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
     expect(payload().notifyOnDeadline).toBe(false);
   });
 
-  it('저장 전에는 발송 대상 미리보기를 열지 않는다고 화면이 알려 준다', async () => {
+  it('저장 전에는 알림 페이지 링크 대신 저장 안내만 보여 준다', async () => {
     await render(editableProgram);
 
     await act(async () => {
@@ -166,7 +166,34 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
     });
 
     expect(container.textContent).toContain(
-      '설정을 저장한 뒤 발송 대상을 미리볼 수 있습니다.',
+      '저장하면 알림 페이지에서 발송할 수 있습니다.',
     );
+    expect(notificationsLink()).toBeNull();
+    expect(container.querySelector('#operations button')).toBeNull();
   });
+
+  it('저장된 켜짐 상태에서는 운영 설정 안에 알림 페이지 링크를 보여 준다', async () => {
+    await render({ ...editableProgram, notifyOnDeadline: true });
+
+    expect(container.textContent).toContain('운영 설정');
+    const link = notificationsLink();
+    expect(link?.textContent).toContain('알림 페이지에서 보내기');
+    expect(link?.closest('fieldset')?.id).toBe('operations');
+    expect(container.textContent).not.toContain(
+      '저장하면 알림 페이지에서 발송할 수 있습니다.',
+    );
+
+    await act(async () => {
+      deadlineCheckbox().click();
+    });
+
+    expect(notificationsLink()).toBeNull();
+    expect(container.textContent).toContain('자동 알림을 사용하지 않습니다.');
+  });
+
+  function notificationsLink(): HTMLAnchorElement | null {
+    return container.querySelector<HTMLAnchorElement>(
+      'a[href="/programs/program-1/notifications"]',
+    );
+  }
 });

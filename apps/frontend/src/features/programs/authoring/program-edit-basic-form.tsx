@@ -20,6 +20,7 @@ import {
   PROGRAM_TRACK_TYPE_LABELS,
   PROGRAM_TRACK_TYPES,
 } from '../program-contract';
+import { programHref } from '../program-paths';
 import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
@@ -201,31 +202,44 @@ export function ProgramEditBasicForm({
             {errors.description}
           </FieldError>
         </Field>
-        <Field orientation="horizontal">
-          <input
-            id="repository-provisioning"
-            type="checkbox"
-            checked={form.repositoryProvisioningEnabled}
-            onChange={(event) =>
-              onFieldChange(
-                'repositoryProvisioningEnabled',
-                event.target.checked,
-              )
-            }
-          />
-          <FieldLabel htmlFor="repository-provisioning">
-            신청 승인 시 GitHub 저장소 자동 생성
-          </FieldLabel>
-        </Field>
-        <ProgramDeadlineControl
-          enabled={form.notifyOnDeadline}
-          persistedEnabled={program.notifyOnDeadline}
-          programId={program.id}
-          onEnabledChange={(enabled) =>
-            onFieldChange('notifyOnDeadline', enabled)
+      </FieldGroup>
+    </FormSection>
+  );
+}
+
+export function ProgramEditOperationsSection({
+  program,
+  form,
+  onFieldChange,
+}: Pick<ProgramEditBasicFormProps, 'program' | 'form' | 'onFieldChange'>) {
+  return (
+    <FormSection
+      id="operations"
+      title="운영 설정"
+      description="신청 승인 이후의 저장소 발급과 제출 마감 알림을 설정하세요."
+    >
+      <Field orientation="horizontal">
+        <input
+          id="repository-provisioning"
+          type="checkbox"
+          checked={form.repositoryProvisioningEnabled}
+          onChange={(event) =>
+            onFieldChange('repositoryProvisioningEnabled', event.target.checked)
           }
         />
-      </FieldGroup>
+        <FieldLabel htmlFor="repository-provisioning">
+          신청 승인 시 GitHub 저장소 자동 생성
+        </FieldLabel>
+      </Field>
+      <ProgramDeadlineControl
+        id="program-deadline-notification"
+        enabled={form.notifyOnDeadline}
+        persistedEnabled={program.notifyOnDeadline}
+        notificationsHref={programHref(program.id, '/notifications')}
+        onEnabledChange={(enabled) =>
+          onFieldChange('notifyOnDeadline', enabled)
+        }
+      />
     </FormSection>
   );
 }

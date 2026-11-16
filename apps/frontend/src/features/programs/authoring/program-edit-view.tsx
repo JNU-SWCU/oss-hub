@@ -10,7 +10,10 @@ import type {
   EditableMilestoneEditSnapshot,
   EditableRequirement,
 } from './dto';
-import { ProgramEditBasicForm } from './program-edit-basic-form';
+import {
+  ProgramEditBasicForm,
+  ProgramEditOperationsSection,
+} from './program-edit-basic-form';
 import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
@@ -201,6 +204,11 @@ export function ProgramEditView({
             program={program}
             form={form}
             errors={errors}
+            onFieldChange={onFieldChange}
+          />
+          <ProgramEditOperationsSection
+            program={program}
+            form={form}
             onFieldChange={onFieldChange}
           />
           <FormSection title="신청 · 운영 일정">

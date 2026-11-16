@@ -39,6 +39,7 @@ export function ProgramAuthoringOperationsStep({
         }
       />
       <ProgramDeadlineControl
+        id="authoring-deadline-notification"
         enabled={state.notifyOnDeadline}
         onEnabledChange={(enabled) =>
           dispatch({ type: 'set_notify_on_deadline', enabled })
