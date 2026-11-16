@@ -43,7 +43,7 @@ export type ProgramAuthoringState = {
   readonly idempotencyKey: string;
   readonly trackType: ProgramTrackType | '';
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly description: string;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -61,6 +61,7 @@ type ProgramTextField = Exclude<
   | 'currentStep'
   | 'idempotencyKey'
   | 'trackType'
+  | 'organizers'
   | 'repositoryProvisioningEnabled'
   | 'notifyOnDeadline'
   | 'milestones'
@@ -79,6 +80,10 @@ export type ProgramAuthoringAction =
     }
   | { readonly type: 'go_to_step'; readonly step: ProgramAuthoringStep }
   | { readonly type: 'set_track_type'; readonly trackType: ProgramTrackType }
+  | {
+      readonly type: 'set_organizers';
+      readonly organizers: readonly string[];
+    }
   | {
       readonly type: 'set_repository_provisioning_enabled';
       readonly enabled: boolean;

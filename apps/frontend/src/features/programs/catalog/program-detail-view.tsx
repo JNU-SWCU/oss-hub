@@ -4,7 +4,7 @@ import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program/program-cover-source';
 
 import Link from 'next/link';
-import { Pencil } from 'lucide-react';
+import { Mail, Pencil } from 'lucide-react';
 import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
@@ -96,7 +96,7 @@ function asRecruitmentInput(program: ProgramDetail): ProgramListItem {
   return {
     id: program.id,
     name: program.name,
-    organizer: program.organizer,
+    organizers: program.organizers,
     trackType: program.trackType,
     applicationStartAt: program.applicationPeriod.startsAt,
     applicationEndAt: program.applicationPeriod.endsAt,
@@ -196,6 +196,21 @@ function ProgramEditAction({ programId }: { readonly programId: string }) {
       <Link href={programEditHref(programId)}>
         <Pencil aria-hidden="true" />
         편집
+      </Link>
+    </Button>
+  );
+}
+
+function ProgramNotificationsAction({
+  programId,
+}: {
+  readonly programId: string;
+}) {
+  return (
+    <Button asChild variant="outline" size="sm">
+      <Link href={programHref(programId, '/notifications')}>
+        <Mail aria-hidden="true" />
+        알림
       </Link>
     </Button>
   );
@@ -413,7 +428,10 @@ export function ProgramDetailReadyState({
             actions={
               <>
                 {program.viewer.role === 'STAFF' ? (
-                  <ProgramEditAction programId={program.id} />
+                  <>
+                    <ProgramEditAction programId={program.id} />
+                    <ProgramNotificationsAction programId={program.id} />
+                  </>
                 ) : null}
                 <ProgramActions
                   program={program}

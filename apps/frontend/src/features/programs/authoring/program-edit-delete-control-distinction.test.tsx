@@ -25,7 +25,7 @@ const noOp = () => undefined;
 const program: EditableProgram = {
   id: 'program-1',
   name: 'OSS 경진대회',
-  organizer: 'SW중심대학사업단',
+  organizers: ['SW중심대학사업단'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,

@@ -336,7 +336,7 @@ describe('ActivityPanelBody', () => {
 const programWithoutMilestones: ProgramDetail = {
   id: 'program-1',
   name: 'OSS 경진대회',
-  organizer: '운영기관',
+  organizers: ['운영기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
   description: '프로그램 설명',
@@ -464,6 +464,8 @@ describe('ProgramDetailPage states', () => {
 
       expect(html).toContain('편집');
       expect(html).toContain('lucide-pencil');
+      expect(html).toContain('href="/programs/program-1/notifications"');
+      expect(html).toContain('lucide-mail');
       expect(html).not.toContain('신청자 목록');
       expect(html).not.toContain('/programs/program-1/applicants');
       expect(html).not.toContain('/programs/program-1/submissions');
@@ -494,6 +496,7 @@ describe('ProgramDetailPage states', () => {
       );
 
       expect(html).not.toContain('/edit"');
+      expect(html).not.toContain('/notifications"');
     },
   );
 
@@ -579,7 +582,7 @@ describe('ProgramDetailPage states', () => {
       return {
         id: program.id,
         name: program.name,
-        organizer: program.organizer,
+        organizers: program.organizers,
         trackType: program.trackType,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,

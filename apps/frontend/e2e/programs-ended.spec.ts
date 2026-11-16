@@ -5,7 +5,7 @@ import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 const ended = [2026, 2025].map((year) => ({
   id: `program-ended-${year}`,
   name: `${year} 합성 오픈소스 프로그램`,
-  organizer: '합성 운영처',
+  organizers: ['합성 운영처'],
   trackType: 'EXTRACURRICULAR',
   applicationStartAt: `${year}-01-01T00:00:00.000Z`,
   applicationEndAt: `${year}-02-01T00:00:00.000Z`,
@@ -110,7 +110,7 @@ async function mockPrograms(page: Page, staff = false) {
         json: {
           id: program.id,
           name: program.name,
-          organizer: program.organizer,
+          organizers: program.organizers,
           trackType: program.trackType,
           description: program.description,
           repositoryProvisioningEnabled: false,

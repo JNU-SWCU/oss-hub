@@ -158,7 +158,7 @@ async function createPreservedAssets(
       ),
       id: `${prefix}program`,
       name: 'Synthetic PR04H Program',
-      organizer: 'Synthetic Organizer',
+      organizers: ['Synthetic Organizer'],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-pr04h-template',

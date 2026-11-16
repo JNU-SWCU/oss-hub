@@ -29,7 +29,7 @@ const REJECTED_PROGRAM = {
   teamMaxSize: 4,
   id: PROGRAM_ID,
   name: '합성 반려 도달 프로그램',
-  organizer: '합성 운영기관',
+  organizers: ['합성 운영기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '반려 사유 도달을 보기 위한 합성 프로그램.',

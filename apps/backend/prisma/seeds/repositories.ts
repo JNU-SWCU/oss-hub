@@ -34,7 +34,7 @@ async function ensureProgram(stats: SeedStats): Promise<void> {
         create: {
           id: PROGRAM_ID,
           name: 'seed-repositories-program',
-          organizer: 'seed-organizer',
+          organizers: ['seed-organizer'],
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: applicationTemplateKey(
             ProgramCategory.OSS_CONTEST,

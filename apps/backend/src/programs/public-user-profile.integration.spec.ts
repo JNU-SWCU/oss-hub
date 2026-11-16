@@ -73,7 +73,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       data: repoKeys.map((key) => ({
         id: `${PROGRAM_ID}-${key}`,
         name: `${PREFIX}-program`,
-        organizer: 'synthetic-organizer',
+        organizers: ['synthetic-organizer'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',

@@ -11,7 +11,7 @@ async function installProgram(page: Page) {
   const program = {
     id: PROGRAM_ID,
     name: 'x 프로그램',
-    organizer: '합성 운영처',
+    organizers: ['합성 운영처'],
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'basic',
     description: '합성 프로그램',
@@ -113,7 +113,7 @@ async function mockPrograms(page: Page, programId: string) {
           {
             id: programId,
             name: 'x 프로그램',
-            organizer: '합성 운영처',
+            organizers: ['합성 운영처'],
             trackType: 'EXTRACURRICULAR',
             applicationStartAt: '2026-01-01T00:00:00.000Z',
             applicationEndAt: '2026-12-01T00:00:00.000Z',

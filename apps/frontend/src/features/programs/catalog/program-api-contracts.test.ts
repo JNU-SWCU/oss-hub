@@ -70,7 +70,7 @@ describe('listPrograms', () => {
         {
           id: 'program-1',
           name: '2026 동계 오픈소스 해커톤',
-          organizer: '오픈소스활동지원',
+          organizers: ['오픈소스활동지원'],
           trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2026-12-01T00:00:00.000Z',
           applicationEndAt: '2026-12-05T00:00:00.000Z',
@@ -82,7 +82,7 @@ describe('listPrograms', () => {
         {
           id: 'program-2',
           name: '2026-2학기 오픈소스 SW 프로젝트',
-          organizer: 'SW중심대학사업단',
+          organizers: ['SW중심대학사업단'],
           trackType: 'EXTRACURRICULAR',
           applicationStartAt: '2026-09-01T00:00:00.000Z',
           applicationEndAt: '2026-09-08T00:00:00.000Z',

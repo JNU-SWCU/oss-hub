@@ -129,7 +129,7 @@ export class AuthRouteStatusHarness {
         id: 'synthetic-program',
         coverImageUrl: null,
         name: 'Synthetic program',
-        organizer: 'Synthetic organizer',
+        organizers: ['Synthetic organizer'],
         trackType: null,
         applicationTemplateKey: 'basic',
         description: 'Synthetic description',

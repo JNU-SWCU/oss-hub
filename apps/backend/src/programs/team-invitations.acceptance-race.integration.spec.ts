@@ -59,7 +59,7 @@ async function seedFixture(): Promise<void> {
       ),
       id: PROGRAM_ID,
       name: 'Invitation acceptance race program',
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       trackType: ProgramTrackType.CURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',

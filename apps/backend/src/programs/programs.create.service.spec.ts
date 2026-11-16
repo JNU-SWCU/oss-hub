@@ -17,10 +17,11 @@ import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 import { ProgramCreationService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
-  organizer: '  SW Center  ',
+  organizers: ['  SW Center  '],
   trackType: ProgramTrackType.EXTRACURRICULAR,
   applicationStartAt: '2026-08-01T00:00:00+09:00',
   applicationEndAt: '2026-08-15T23:59:59+09:00',
@@ -69,6 +70,7 @@ describe('ProgramsService', () => {
     new HistoryMetadataService(),
     new ProgramScheduleService(),
     new ProgramTemplatesService(),
+    new ProgramOrganizersService(),
   );
 
   beforeEach(() => {
@@ -104,7 +106,7 @@ describe('ProgramsService', () => {
         createdBy: 'USER',
         creator: { connect: { githubId: 101n } },
         name: '2026 OSS Contest',
-        organizer: 'SW Center',
+        organizers: ['SW Center'],
         category: ProgramCategory.BASIC,
         trackType: ProgramTrackType.EXTRACURRICULAR,
         description: 'Program overview',
@@ -140,7 +142,7 @@ describe('ProgramsService', () => {
         createdBy: 'USER',
         creator: { connect: { githubId: 101n } },
         name: '2026 OSS Contest',
-        organizer: 'SW Center',
+        organizers: ['SW Center'],
         category: ProgramCategory.BASIC,
         trackType: ProgramTrackType.CURRICULAR,
         description: 'Program overview',

@@ -15,6 +15,7 @@ import {
 } from './files.config';
 import { ProgramAuthoringService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
@@ -29,12 +30,13 @@ const programAuthoringService = new ProgramAuthoringService(
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
+  new ProgramOrganizersService(),
 );
 
 function request(): ProgramAuthoringRequest {
   return {
     name: '  Synthetic Program  ',
-    organizer: '  Synthetic Organizer  ',
+    organizers: ['  Synthetic Organizer  '],
     trackType: ProgramTrackType.EXTRACURRICULAR,
     applicationStartAt: '2026-08-01T09:00:00+09:00',
     applicationEndAt: '2026-08-10T09:00:00+09:00',
@@ -138,7 +140,7 @@ describe('buildProgramAuthoringPlan', () => {
 
     expect(plan.program).toMatchObject({
       name: 'Synthetic Program',
-      organizer: 'Synthetic Organizer',
+      organizers: ['Synthetic Organizer'],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

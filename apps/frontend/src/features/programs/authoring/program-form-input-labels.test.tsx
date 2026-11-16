@@ -17,7 +17,7 @@ function programFixture(participation: 'individual' | 'team'): EditableProgram {
   return {
     id: 'synthetic-program',
     name: '합성 프로그램',
-    organizer: '합성 사업단',
+    organizers: ['합성 사업단'],
     trackType: 'CURRICULAR',
     applicationTemplateKey: participation === 'team' ? 'capstone' : 'basic',
     applicationTemplateVersion: 1,
@@ -38,7 +38,7 @@ function programFixture(participation: 'individual' | 'team'): EditableProgram {
 function formFixture(): ProgramEditForm {
   return {
     name: '합성 프로그램',
-    organizer: '합성 사업단',
+    organizers: ['합성 사업단'],
     trackType: 'CURRICULAR',
     applicationStartAt: '2026-08-01T09:00',
     applicationEndAt: '2026-08-31T18:00',

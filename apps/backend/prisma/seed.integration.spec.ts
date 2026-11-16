@@ -1304,7 +1304,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           ),
           id: survivorProgramId,
           name: 'teardown guard 비-demo 프로그램(fixture)',
-          organizer: 'teardown guard fixture',
+          organizers: ['teardown guard fixture'],
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'basic',
           applicationTemplateVersion: 1,

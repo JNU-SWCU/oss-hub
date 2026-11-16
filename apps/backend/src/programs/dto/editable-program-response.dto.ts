@@ -91,7 +91,7 @@ export class EditableProgramResponseDto {
   declare readonly coverImageUrl: string | null;
   declare readonly id: string;
   declare readonly name: string;
-  declare readonly organizer: string;
+  declare readonly organizers: readonly string[];
   declare readonly trackType: EditableProgramView['trackType'];
   declare readonly applicationTemplateKey: string;
   declare readonly applicationTemplateVersion: number;
@@ -113,7 +113,7 @@ export class EditableProgramResponseDto {
       coverImageUrl: program.coverImageUrl ?? null,
       id: program.id,
       name: program.name,
-      organizer: program.organizer,
+      organizers: program.organizers,
       trackType: program.trackType,
       applicationTemplateKey: program.applicationTemplateKey,
       applicationTemplateVersion: program.applicationTemplateVersion,

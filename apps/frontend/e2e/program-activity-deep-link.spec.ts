@@ -33,7 +33,7 @@ async function installProgramRoutes(
   const program: ProgramDetail = {
     id: programId,
     name: '활동 이동 확인 프로그램',
-    organizer: 'JNU SWCU',
+    organizers: ['JNU SWCU'],
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'oss-contest',
     repositoryProvisioningEnabled: true,

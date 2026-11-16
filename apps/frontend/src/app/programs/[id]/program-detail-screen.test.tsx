@@ -62,7 +62,7 @@ function ReportedName({ programId }: { readonly programId: string }) {
 const program: ProgramDetail = {
   id: 'program:basic',
   name: '합성 프로그램',
-  organizer: '합성 기관',
+  organizers: ['합성 기관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '합성 설명',

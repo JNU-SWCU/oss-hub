@@ -37,7 +37,7 @@ export type ProgramAuthoringRequest = {
   readonly coverUploadId?: string | null;
   readonly externalCover?: ProgramExternalCover | null;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -52,7 +52,7 @@ export type ProgramAuthoringRequest = {
 };
 export type ProgramAuthoringProgramPlan = {
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: string[];
   readonly category: ProgramCategory;
   readonly trackType: ProgramTrackType;
   readonly applicationTemplateKey: string;

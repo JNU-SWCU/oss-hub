@@ -195,7 +195,7 @@ async function seedDurableFixturesOnce(): Promise<void> {
         ),
         id: programId,
         name: `Team deletion program ${programId}`,
-        organizer: 'Synthetic organizer',
+        organizers: ['Synthetic organizer'],
         trackType: ProgramTrackType.CURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'capstone-v1',

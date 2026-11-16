@@ -18,7 +18,7 @@ const noOp = () => undefined;
 const individualProgram: EditableProgram = {
   id: 'program-1',
   name: '신입생 SW역량 강화 캠프',
-  organizer: 'SW중심대학사업단',
+  organizers: ['SW중심대학사업단'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',

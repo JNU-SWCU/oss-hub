@@ -66,7 +66,7 @@ async function upsertProgram(
         },
         create: {
           id,
-          organizer: 'seed-organizer',
+          organizers: ['seed-organizer'],
           applicationTemplateKey: applicationTemplateKey(rest.category),
           applicationTemplateVersion: 1,
           description: `#110 시드 fixture — ${rest.name}`,

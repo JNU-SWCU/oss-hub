@@ -87,7 +87,7 @@ function program(
   return {
     id: 'program-1',
     name: '합성 기초 스터디',
-    organizer: '운영기관',
+    organizers: ['운영기관'],
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'oss-contest',
     description: '프로그램 설명',

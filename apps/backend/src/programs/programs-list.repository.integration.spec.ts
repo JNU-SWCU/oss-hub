@@ -60,7 +60,7 @@ describe('ProgramsRepository list ordering integration', () => {
         ...Array.from({ length: 20 }, (_, index) => ({
           id: `${TEST_PREFIX}later-${index.toString().padStart(2, '0')}`,
           name: `Page boundary later ${index.toString().padStart(2, '0')}`,
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -76,7 +76,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}urgent`,
           name: 'Page boundary urgent deadline',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -108,7 +108,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}recruiting`,
           name: 'Partition recruiting',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -124,7 +124,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}upcoming`,
           name: 'Partition upcoming',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -140,7 +140,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}in-progress`,
           name: 'Partition in progress',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -156,7 +156,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}ended-overlap`,
           name: 'Partition ended overlap',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -172,7 +172,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}deleted`,
           name: 'Partition deleted',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -246,7 +246,7 @@ describe('ProgramsRepository list ordering integration', () => {
       data: reversedIndexes.map((nameIndex, insertOrder) => ({
         id: `${TEST_PREFIX}name-${insertOrder.toString().padStart(2, '0')}`,
         name: `Sort by name ${nameIndex.toString().padStart(2, '0')}`,
-        organizer: 'OSS Hub',
+        organizers: ['OSS Hub'],
         trackType: 'CURRICULAR' as const,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'capstone-v1',
@@ -298,7 +298,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}period-late`,
           name: 'Period late start',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -314,7 +314,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}period-early`,
           name: 'Period early start',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -330,7 +330,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}period-mid`,
           name: 'Period mid start',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -371,7 +371,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}status-ended`,
           name: 'Status ended',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -387,7 +387,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}status-upcoming`,
           name: 'Status upcoming',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -403,7 +403,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}status-recruiting`,
           name: 'Status recruiting',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -419,7 +419,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}status-in-progress`,
           name: 'Status in progress',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -461,7 +461,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}legacy-in-progress`,
           name: 'Legacy in progress',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -477,7 +477,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}legacy-upcoming`,
           name: 'Legacy upcoming',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -493,7 +493,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}legacy-recruiting`,
           name: 'Legacy recruiting',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -527,7 +527,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}combo-recruiting-b`,
           name: 'Combo recruiting B',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -543,7 +543,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}combo-recruiting-a`,
           name: 'Combo recruiting A',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -559,7 +559,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           id: `${TEST_PREFIX}combo-ended`,
           name: 'Combo ended',
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
@@ -603,7 +603,7 @@ describe('ProgramsRepository list ordering integration', () => {
       readonly applicationStartAt?: string;
       readonly applicationEndAt?: string;
     }) => ({
-      organizer: 'OSS Hub',
+      organizers: ['OSS Hub'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

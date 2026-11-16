@@ -7,7 +7,7 @@ import { ProgramAuthoringRequestDto } from './program-authoring-request.dto';
 function request() {
   return {
     name: 'Synthetic Program',
-    organizer: 'Synthetic Organizer',
+    organizers: ['Synthetic Organizer'],
     trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-10T00:00:00.000Z',
@@ -64,6 +64,26 @@ describe('ProgramAuthoringRequestDto', () => {
 
   it('accepts the complete nested aggregate request', async () => {
     await expect(errors(request())).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['empty', []],
+    ['eleven labels', Array.from({ length: 11 }, (_, index) => `org-${index}`)],
+    ['a 51-character label', ['a'.repeat(51)]],
+    ['a whitespace-only label', ['   ']],
+  ])(
+    'leaves organizers with %s to the service field errors',
+    async (_label, organizers) => {
+      await expect(errors({ ...request(), organizers })).resolves.toEqual([]);
+    },
+  );
+
+  it.each([
+    ['a non-string label', [1]],
+    ['a plain string', 'Synthetic Organizer'],
+  ])('rejects organizers with %s', async (_label, organizers) => {
+    const result = await errors({ ...request(), organizers });
+    expect(result.map((error) => error.property)).toEqual(['organizers']);
   });
 
   it('rejects unknown nested fields', async () => {

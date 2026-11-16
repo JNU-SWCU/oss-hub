@@ -9,7 +9,7 @@ vi.mock('next/cache', () => ({
 const program = {
   id: 'seed:program',
   name: 'Test program',
-  organizer: 'Test organizer',
+  organizers: ['Test organizer'],
   trackType: null,
   applicationEndAt: '2026-11-01T00:00:00.000Z',
 };

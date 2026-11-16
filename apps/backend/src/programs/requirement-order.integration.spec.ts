@@ -104,7 +104,7 @@ describe('RequirementsService durable document order', () => {
 
         id: PROGRAM_ID,
         name: 'Synthetic document ordering',
-        organizer: 'OSS',
+        organizers: ['OSS'],
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,

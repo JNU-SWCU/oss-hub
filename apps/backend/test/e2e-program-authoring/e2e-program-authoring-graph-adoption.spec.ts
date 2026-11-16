@@ -15,6 +15,7 @@ import {
 } from './e2e-program-authoring-graph-adoption';
 import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { HistoryMetadataService } from '../../src/platform/history-metadata.service';
+import { ProgramOrganizersService } from '../../src/programs/program-organizers.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
@@ -29,6 +30,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
+  new ProgramOrganizersService(),
 );
 
 const PREFIX = 'e2e:program-authoring:';
@@ -36,14 +38,14 @@ const PROGRAM_ID = 'generated-program-id';
 const AUTHOR_GITHUB_ID = 9_600_000_000_000_001n;
 
 type PersistedAuthoredCandidate = E2eProgramAdoptionCandidate & {
-  readonly organizer: string;
+  readonly organizers: string[];
   readonly description: string;
 };
 
 function authoredCandidate(): PersistedAuthoredCandidate {
   const plan = programAuthoringService.buildProgramAuthoringPlan({
     name: `${PREFIX}happy-program`,
-    organizer: `${PREFIX}organizer`,
+    organizers: [`${PREFIX}organizer`],
     trackType: ProgramTrackType.EXTRACURRICULAR,
     applicationStartAt: '2026-08-19T00:00:00.000Z',
     applicationEndAt: '2026-08-20T00:00:00.000Z',
@@ -83,7 +85,7 @@ function authoredCandidate(): PersistedAuthoredCandidate {
   return {
     id: PROGRAM_ID,
     name: plan.program.name,
-    organizer: plan.program.organizer,
+    organizers: plan.program.organizers,
     description: plan.program.description,
     creator: { githubId: AUTHOR_GITHUB_ID },
     milestones: plan.milestones.map((milestone, milestoneIndex) => ({
@@ -133,7 +135,7 @@ describe('adoptPersistedE2eProgramGraph', () => {
   it('treats organizer and description as authored content rather than graph markers', () => {
     const candidate = {
       ...authoredCandidate(),
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       description: 'Synthetic description',
     };
 

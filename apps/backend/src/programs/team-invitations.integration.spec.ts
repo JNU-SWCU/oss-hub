@@ -43,7 +43,7 @@ describe('team invitation without legacy team columns', () => {
       data: {
         id: prefix,
         name: 'Synthetic program',
-        organizer: 'Synthetic organizer',
+        organizers: ['Synthetic organizer'],
         category: 'BASIC',
         applicationTemplateKey: 'capstone-v1',
         applicationTemplateVersion: 1,

@@ -33,6 +33,7 @@ import {
 } from './files.config';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
@@ -47,6 +48,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
+  new ProgramOrganizersService(),
 );
 
 describe('program-notice-preview.service', () => {
@@ -134,7 +136,7 @@ const ACTOR = { id: ACTOR_ID, githubId: GITHUB_ID };
 function request(templateUploadId?: string): ProgramAuthoringRequest {
   return {
     name: 'Program',
-    organizer: 'OSS Center',
+    organizers: ['OSS Center'],
     trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-05T00:00:00.000Z',
@@ -166,7 +168,7 @@ function program(): ProgramAuthoringProgram {
   return {
     id: 'program-id',
     name: 'Program',
-    organizer: 'OSS Center',
+    organizers: ['OSS Center'],
     category: ProgramCategory.BASIC,
     trackType: ProgramTrackType.CURRICULAR,
     lifecycle: ProgramLifecycle.PUBLISHED,
@@ -225,11 +227,48 @@ function setup() {
         new ProgramNoticeFetchClient(),
       ),
       new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramOrganizersService(),
     ),
   };
 }
 
 describe('ProgramAuthoringService', () => {
+  it.each([
+    ['an empty list', [], 'REQUIRED', '주관기관을 1개 이상 입력해 주세요.'],
+    [
+      'a whitespace-only label',
+      ['   '],
+      'REQUIRED',
+      '주관기관을 1개 이상 입력해 주세요.',
+    ],
+    [
+      'eleven labels',
+      Array.from({ length: 11 }, (_, index) => `기관 ${index}`),
+      'TOO_MANY',
+      '주관기관은 10개까지 입력할 수 있습니다.',
+    ],
+    [
+      'a 51-character label',
+      ['가'.repeat(51)],
+      'TOO_LONG',
+      '주관기관 이름은 50자 이하로 입력해 주세요.',
+    ],
+  ])(
+    'returns the organizers field error for %s',
+    async (_label, organizers, code, message) => {
+      const { service, transaction } = setup();
+
+      await expect(
+        service.createFromRequest(ACTOR, 'key', { ...request(), organizers }),
+      ).rejects.toMatchObject({
+        name: 'DomainException',
+        errorCode: { code: 'PRG_001', status: 400 },
+        extensions: { fieldErrors: [{ field: 'organizers', code, message }] },
+      });
+      expect(transaction.createProgram.mock.calls).toHaveLength(0);
+    },
+  );
+
   it('rejects a changed track on a retry instead of returning the first program', async () => {
     const { service, repository, transaction } = setup();
     repository.findReplay.mockResolvedValue({

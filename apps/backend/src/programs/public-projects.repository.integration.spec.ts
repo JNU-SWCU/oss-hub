@@ -40,7 +40,7 @@ describe('PublicProjectsRepository integration', () => {
         ),
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
-        organizer: 'synthetic-organizer',
+        organizers: ['synthetic-organizer'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',

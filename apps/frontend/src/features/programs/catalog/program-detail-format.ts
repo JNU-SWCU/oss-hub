@@ -3,6 +3,7 @@ import type { ProgramDetail } from './dto';
 import type { SubmissionStatus } from '../program-contract';
 import {
   PROGRAM_TRACK_TYPE_LABELS,
+  programOrganizersLabel,
   type ProgramTrackType,
 } from '../program-contract';
 
@@ -21,12 +22,16 @@ function trackTypeLabel(trackType: ProgramTrackType): string {
 }
 
 export function programDetailMeta(
-  program: Pick<ProgramDetail, 'organizer' | 'trackType' | 'applicationPeriod'>,
+  program: Pick<
+    ProgramDetail,
+    'organizers' | 'trackType' | 'applicationPeriod'
+  >,
 ): { readonly context: string; readonly period: string } {
+  const organizers = programOrganizersLabel(program.organizers);
   const context =
     program.trackType === null
-      ? program.organizer
-      : `${program.organizer} · ${trackTypeLabel(program.trackType)}`;
+      ? organizers
+      : `${organizers} · ${trackTypeLabel(program.trackType)}`;
   const period = `신청 기간 ${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`;
   return { context, period };
 }

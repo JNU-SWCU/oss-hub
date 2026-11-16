@@ -119,7 +119,7 @@ export async function seedOssHub(
         where: { id: PROGRAM_ID },
         update: {
           name: PROGRAM_NAME,
-          organizer: PROGRAM_ORGANIZER,
+          organizers: [PROGRAM_ORGANIZER],
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: applicationTemplateKey(
             ProgramCategory.OSS_CONTEST,
@@ -138,7 +138,7 @@ export async function seedOssHub(
         create: {
           id: PROGRAM_ID,
           name: PROGRAM_NAME,
-          organizer: PROGRAM_ORGANIZER,
+          organizers: [PROGRAM_ORGANIZER],
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: applicationTemplateKey(
             ProgramCategory.OSS_CONTEST,
@@ -604,7 +604,7 @@ export async function seedOssHub(
         where: { id: PRACTICE_PROGRAM_ID },
         update: {
           name: PRACTICE_PROGRAM_NAME,
-          organizer: PROGRAM_ORGANIZER,
+          organizers: [PROGRAM_ORGANIZER],
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: 'oss-contest',
           applicationTemplateVersion: 1,
@@ -621,7 +621,7 @@ export async function seedOssHub(
         create: {
           id: PRACTICE_PROGRAM_ID,
           name: PRACTICE_PROGRAM_NAME,
-          organizer: PROGRAM_ORGANIZER,
+          organizers: [PROGRAM_ORGANIZER],
           category: ProgramCategory.OSS_CONTEST,
           applicationTemplateKey: 'oss-contest',
           applicationTemplateVersion: 1,

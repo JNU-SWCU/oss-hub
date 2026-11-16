@@ -83,7 +83,7 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
         ),
         id: PROGRAM_ID,
         name: '합성 프로그램',
-        organizer: '합성 조직',
+        organizers: ['합성 조직'],
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic',
         applicationTemplateVersion: 1,

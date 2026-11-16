@@ -22,6 +22,7 @@ import {
 } from '../../test/program-editor-service-fixtures';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './programs.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programEditorService = new ProgramEditorService(
   undefined as never,
@@ -34,6 +35,7 @@ const programEditorService = new ProgramEditorService(
     new ProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
+  new ProgramOrganizersService(),
 );
 
 describe('ProgramEditorService authority', () => {

@@ -70,7 +70,7 @@ vi.mock('../documents/requirement-api', () => ({
 const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
-  organizer: 'Center',
+  organizers: ['Center'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
@@ -927,5 +927,54 @@ describe('ProgramEditPage 컴포넌트', () => {
       document.querySelector('[role="alertdialog"] [role="alert"]')
         ?.textContent,
     ).toBe('제출물이 있는 마일스톤은 삭제할 수 없습니다.');
+  });
+
+  describe('#operations 해시 진입', () => {
+    const scrolled: Element[] = [];
+
+    beforeEach(() => {
+      scrolled.length = 0;
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+        configurable: true,
+        value: function scrollIntoView(this: Element) {
+          scrolled.push(this);
+        },
+      });
+    });
+
+    afterEach(() => {
+      window.location.hash = '';
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    });
+
+    it('프로그램이 로드된 뒤 운영 설정 섹션으로 스크롤한다', async () => {
+      getEditableProgramMock.mockResolvedValue(editableProgram);
+      window.location.hash = '#operations';
+
+      await act(async () => {
+        root.render(
+          <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+        );
+        await Promise.resolve();
+      });
+
+      const operations = container.querySelector('#operations');
+      expect(operations).not.toBeNull();
+      expect(scrolled).toEqual([operations]);
+    });
+
+    it('해시가 없으면 로드 뒤에도 스크롤하지 않는다', async () => {
+      getEditableProgramMock.mockResolvedValue(editableProgram);
+
+      await act(async () => {
+        root.render(
+          <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+        );
+        await Promise.resolve();
+      });
+
+      expect(container.querySelector('#operations')).not.toBeNull();
+      expect(scrolled).toEqual([]);
+    });
   });
 });

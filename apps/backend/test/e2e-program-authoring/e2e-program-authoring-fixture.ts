@@ -151,7 +151,7 @@ export class E2eProgramAuthoringFixture {
         create: {
           id: E2E_PROGRAM_ID,
           name: `${PREFIX}program`,
-          organizer: `${PREFIX}organizer`,
+          organizers: [`${PREFIX}organizer`],
           category: ProgramCategory.BASIC,
           lifecycle: ProgramLifecycle.PUBLISHED,
           applicationTemplateKey: 'basic',

@@ -10,7 +10,10 @@ import type {
   EditableMilestoneEditSnapshot,
   EditableRequirement,
 } from './dto';
-import { ProgramEditBasicForm } from './program-edit-basic-form';
+import {
+  ProgramEditBasicForm,
+  ProgramEditOperationsSection,
+} from './program-edit-basic-form';
 import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
@@ -18,6 +21,7 @@ import { ProgramEditMilestones } from './program-edit-milestones';
 import {
   type ProgramEditableField,
   type ProgramEditErrors,
+  type ProgramEditFieldValue,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
@@ -57,7 +61,7 @@ interface ProgramEditViewProps {
   readonly onProgramDeleted: (notice?: string) => void;
   readonly onFieldChange: (
     field: ProgramEditableField,
-    value: string | boolean,
+    value: ProgramEditFieldValue,
   ) => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   readonly onAddMilestone: () => void;
@@ -201,6 +205,11 @@ export function ProgramEditView({
             program={program}
             form={form}
             errors={errors}
+            onFieldChange={onFieldChange}
+          />
+          <ProgramEditOperationsSection
+            program={program}
+            form={form}
             onFieldChange={onFieldChange}
           />
           <FormSection title="신청 · 운영 일정">

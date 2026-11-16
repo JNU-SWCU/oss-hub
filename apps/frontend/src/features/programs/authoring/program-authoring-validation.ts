@@ -16,6 +16,7 @@ import {
   required,
   type ProgramAuthoringIssue,
 } from './program-authoring-validation-helpers';
+import { programOrganizersError } from '../program-contract';
 
 export type { ProgramAuthoringIssue } from './program-authoring-validation-helpers';
 
@@ -80,7 +81,9 @@ function validateBasic(
 ): readonly ProgramAuthoringIssue[] {
   const issues: ProgramAuthoringIssue[] = [];
   required(issues, state.name, 'name', '프로그램명을 입력해 주세요.');
-  required(issues, state.organizer, 'organizer', '주관기관을 입력해 주세요.');
+  const organizersError = programOrganizersError(state.organizers);
+  if (organizersError !== undefined)
+    issues.push(issue('organizers', 'basic', organizersError));
   if (
     state.trackType !== 'CURRICULAR' &&
     state.trackType !== 'EXTRACURRICULAR'

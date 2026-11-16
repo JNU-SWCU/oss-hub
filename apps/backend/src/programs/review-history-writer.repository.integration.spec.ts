@@ -84,7 +84,7 @@ async function seed(): Promise<void> {
       ),
       id: PROGRAM_ID,
       name: '이력 writer 검증 프로그램',
-      organizer: 'OSS Center',
+      organizers: ['OSS Center'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

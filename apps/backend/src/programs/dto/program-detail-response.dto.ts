@@ -69,7 +69,7 @@ export class ProgramDetailResponseDto {
   declare readonly id: string;
   declare readonly coverImageUrl: string | null;
   declare readonly name: string;
-  declare readonly organizer: string;
+  declare readonly organizers: readonly string[];
   declare readonly trackType: ProgramTrackType | null;
   declare readonly applicationTemplateKey: string;
   declare readonly description: string;
@@ -92,7 +92,7 @@ export class ProgramDetailResponseDto {
       id: result.id,
       coverImageUrl: result.coverImageUrl,
       name: result.name,
-      organizer: result.organizer,
+      organizers: result.organizers,
       trackType: result.trackType,
       applicationTemplateKey: result.applicationTemplateKey,
       teamMinSize: result.teamMinSize,

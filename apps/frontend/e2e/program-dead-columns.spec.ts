@@ -46,7 +46,7 @@ const overview = {
 const program: ProgramDetail = {
   id: programId,
   name: '합성 프로그램',
-  organizer: '합성 주관',
+  organizers: ['합성 주관'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '',

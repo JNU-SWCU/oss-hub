@@ -45,7 +45,7 @@ async function createProgram(key: string, name: string): Promise<void> {
       endAt: new Date(new Date('2026-01-02').getTime() + 365 * 86400000),
       id: `${prefix}-${key}-program`,
       name,
-      organizer: 'OSS Hub',
+      organizers: ['OSS Hub'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,

@@ -211,7 +211,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         create: {
           id: PROGRAM_ID,
           name: 'seed-milestones-program',
-          organizer: 'seed-organizer',
+          organizers: ['seed-organizer'],
           category: ProgramCategory.BASIC,
           applicationTemplateKey: applicationTemplateKey(ProgramCategory.BASIC),
           applicationTemplateVersion: 1,

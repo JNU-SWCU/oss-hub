@@ -109,11 +109,23 @@ describe('program authoring validation', () => {
 
     const basicIssues = validateProgramAuthoringStep(incomplete, 'basic');
 
+    expect(incomplete.organizers).toEqual(['전남대학교 SW중심대학사업단']);
     expect(basicIssues.map((issue) => issue.path)).toEqual([
       'name',
-      'organizer',
       'trackType',
       'description',
+    ]);
+  });
+
+  it('requires at least one organizer once the default label is removed', () => {
+    const state = { ...completedAuthoringState(), organizers: [] };
+
+    expect(validateProgramAuthoringStep(state, 'basic')).toEqual([
+      {
+        path: 'organizers',
+        step: 'basic',
+        message: '주관기관을 1개 이상 입력해 주세요.',
+      },
     ]);
   });
 

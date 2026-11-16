@@ -253,9 +253,63 @@ describe('ProgramCreationPage guided authoring', () => {
     await act(async () => buttonNamed('기본 정보').click());
     await act(async () => buttonNamed('계속').click());
 
-    expect(container.textContent).toContain('주관기관을 입력해 주세요.');
+    expect(container.textContent).toContain('프로그램명을 입력해 주세요.');
     expect(container.textContent).not.toContain('입력 내용을 확인해 주세요');
     expect(container.textContent).not.toContain('표시된 입력란을 고친 뒤');
+  });
+
+  it('새 프로그램은 SW중심대학사업단 라벨로 시작하고, 모두 지우면 계속을 막는다', async () => {
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
+
+    const remove = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="전남대학교 SW중심대학사업단 삭제"]',
+    );
+    if (remove === null) throw new TypeError('Missing default organizer chip.');
+    await act(async () => remove.click());
+    await act(async () => buttonNamed('계속').click());
+
+    expect(container.textContent).toContain(
+      '주관기관을 1개 이상 입력해 주세요.',
+    );
+    expect(container.querySelector('#authoring-organizers')).not.toBeNull();
+    expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(true);
+  });
+
+  it('서버가 organizers 필드 오류를 돌려주면 기본 정보 단계의 주관기관 입력 옆에 보여준다', async () => {
+    const completed = completedAuthoringState();
+    mocks.createAuthoringProgram.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Bad Request',
+        status: 400,
+        detail: '입력값을 확인해 주세요.',
+        instance: '/program-authoring/programs',
+        code: 'PRG_001',
+        fieldErrors: [
+          {
+            field: 'organizers',
+            code: 'PRG_001',
+            message: '주관기관은 10개까지 입력할 수 있습니다.',
+          },
+        ],
+      }),
+    );
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={completed} />),
+    );
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+
+    const field = container.querySelector<HTMLInputElement>(
+      '#authoring-organizers',
+    );
+    expect(field?.getAttribute('aria-invalid')).toBe('true');
+    expect(
+      container.querySelector('#authoring-organizers-error')?.textContent,
+    ).toBe('주관기관은 10개까지 입력할 수 있습니다.');
+    expect(container.textContent).not.toContain('프로그램 생성에 실패했습니다');
+    expect(mocks.completeAndNavigate).not.toHaveBeenCalled();
   });
 
   it('navigates without persisting dirty form content', async () => {

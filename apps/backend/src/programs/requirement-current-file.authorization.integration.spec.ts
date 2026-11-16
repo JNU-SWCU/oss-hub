@@ -207,7 +207,7 @@ async function createProgram(
     data: {
       id,
       name: `synthetic ${id}`,
-      organizer: 'OSS Hub',
+      organizers: ['OSS Hub'],
       category: 'CAPSTONE',
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,

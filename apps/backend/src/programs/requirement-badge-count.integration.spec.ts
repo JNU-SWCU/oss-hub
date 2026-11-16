@@ -190,7 +190,7 @@ describe('교직원 서류 제출 카운트 — 배지와 수합 표 합계', ()
       data: {
         id: programId,
         name: 'synthetic badge count program',
-        organizer: 'OSS Hub',
+        organizers: ['OSS Hub'],
         category: 'CAPSTONE',
         applicationTemplateKey: 'capstone-v1',
         applicationTemplateVersion: 1,

@@ -51,7 +51,7 @@ describe('programDetailMeta', () => {
   it('날짜 범위 앞에 무슨 기간인지 이름을 붙인다', () => {
     expect(
       programDetailMeta({
-        organizer: '운영기관',
+        organizers: ['운영기관'],
         trackType: 'EXTRACURRICULAR',
         applicationPeriod,
       }),
@@ -64,7 +64,7 @@ describe('programDetailMeta', () => {
   it('유형이 없는 프로그램도 같은 이름을 붙인다', () => {
     expect(
       programDetailMeta({
-        organizer: '운영기관',
+        organizers: ['운영기관'],
         trackType: null,
         applicationPeriod,
       }),
@@ -72,5 +72,15 @@ describe('programDetailMeta', () => {
       context: '운영기관',
       period: '신청 기간 2026.10.05 ~ 2026.10.16',
     });
+  });
+
+  it('주관기관이 여러 곳이면 쉼표로 이어 붙인 뒤 유형을 덧붙인다', () => {
+    expect(
+      programDetailMeta({
+        organizers: ['전남대학교 SW중심대학사업단', 'OSS Hub 운영팀'],
+        trackType: 'CURRICULAR',
+        applicationPeriod,
+      }).context,
+    ).toBe('전남대학교 SW중심대학사업단, OSS Hub 운영팀 · 교과');
   });
 });

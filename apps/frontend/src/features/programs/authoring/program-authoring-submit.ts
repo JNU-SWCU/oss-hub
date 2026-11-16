@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/api-client';
 import type { ProgramAuthoringUpload } from './program-authoring-dto';
 import { buildProgramAuthoringManifest } from './program-authoring-manifest';
 import type { ProgramAuthoringState } from './program-authoring-model';
+import type { ProgramAuthoringIssue } from './program-authoring-validation-helpers';
 
 export interface ProgramAuthoringSubmitApi {
   readonly uploadCoverFile: (file: File) => Promise<ProgramAuthoringUpload>;
@@ -32,7 +33,18 @@ export type ProgramAuthoringSubmitResult =
       readonly kind: 'failure';
       readonly stage: 'upload' | 'aggregate';
       readonly message: string;
+      readonly issues?: readonly ProgramAuthoringIssue[];
     };
+
+function organizerIssues(error: ApiError): readonly ProgramAuthoringIssue[] {
+  return (error.problem.fieldErrors ?? [])
+    .filter((fieldError) => fieldError.field === 'organizers')
+    .map((fieldError) => ({
+      path: 'organizers',
+      step: 'basic',
+      message: fieldError.message,
+    }));
+}
 
 export function createProgramSubmissionRuntime(): ProgramSubmissionRuntime {
   return { submitting: false, uploads: new Map(), uploadFiles: new Map() };
@@ -76,11 +88,13 @@ export async function submitProgramAuthoring(options: {
             : null;
         return { kind: 'conflict', existingProgramId };
       }
+      const issues = error instanceof ApiError ? organizerIssues(error) : [];
       return {
         kind: 'failure',
         stage: 'aggregate',
         message:
           '프로그램 생성에 실패했습니다. 같은 내용으로 다시 시도해 주세요.',
+        ...(issues.length > 0 ? { issues } : {}),
       };
     }
   } finally {

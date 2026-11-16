@@ -32,6 +32,7 @@ import {
   validateProgramEditForm,
   type ProgramEditableField,
   type ProgramEditErrors,
+  type ProgramEditFieldValue,
   type ProgramEditForm,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
@@ -66,6 +67,8 @@ import {
   ProgramEditView,
 } from './program-edit-view';
 import { useProgramExitGuard } from './use-program-exit-guard';
+
+const OPERATIONS_SECTION_HASH = '#operations';
 
 export function ProgramEditPage({
   programId,
@@ -146,6 +149,14 @@ export function ProgramEditPage({
     };
   }, [load]);
 
+  const isReady = state.kind === 'ready' && form !== null;
+  useEffect(() => {
+    if (!isReady || window.location.hash !== OPERATIONS_SECTION_HASH) return;
+    editRegionRef.current
+      ?.querySelector<HTMLElement>(OPERATIONS_SECTION_HASH)
+      ?.scrollIntoView?.({ block: 'start' });
+  }, [isReady]);
+
   useEffect(() => {
     if (Object.keys(errors).length === 0) return;
     const firstInvalidField =
@@ -174,7 +185,7 @@ export function ProgramEditPage({
 
   const updateField = (
     field: ProgramEditableField,
-    value: string | boolean,
+    value: ProgramEditFieldValue,
   ) => {
     setForm((current) =>
       current ? updateProgramForm(current, field, value) : current,

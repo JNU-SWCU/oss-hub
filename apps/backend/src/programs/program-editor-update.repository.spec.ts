@@ -18,7 +18,7 @@ describe('ProgramEditorRepository updates', () => {
       .mockResolvedValue({
         id: 'program-1',
         name: 'OSS',
-        organizer: 'Center',
+        organizers: ['Center'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         applicationTemplateKey: 'oss-contest',
         applicationTemplateVersion: 1,
@@ -62,7 +62,7 @@ describe('ProgramEditorRepository updates', () => {
       store.updateProgram({
         programId: 'program-1',
         name: 'OSS',
-        organizer: 'Center',
+        organizers: ['Center'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         applicationTemplateKey: 'oss-contest',
         applicationTemplateVersion: 1,

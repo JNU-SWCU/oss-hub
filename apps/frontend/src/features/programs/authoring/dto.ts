@@ -1,7 +1,7 @@
 import type { ProgramTrackType } from '../program-contract';
 interface CreateProgramInput {
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -84,7 +84,7 @@ export interface EditableProgram {
     import('./program-cover-selection').ExternalProgramCover | null;
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;

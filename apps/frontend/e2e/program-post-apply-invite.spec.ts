@@ -15,7 +15,7 @@ const program: ProgramDetail = {
   teamMaxSize: 3,
   id: programId,
   name: '합성 팀 프로젝트',
-  organizer: '합성 운영처',
+  organizers: ['합성 운영처'],
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
   description: '',

@@ -22,7 +22,7 @@ const programScheduleService = new ProgramScheduleService();
 const publicProgram = {
   id: 'program-1',
   name: 'OSS 경진대회',
-  organizer: '운영기관',
+  organizers: ['운영기관'],
   trackType: ProgramTrackType.EXTRACURRICULAR,
   category: ProgramCategory.BASIC,
   description: '프로그램 설명',

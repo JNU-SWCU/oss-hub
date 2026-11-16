@@ -183,7 +183,7 @@ async function seedEligibilityFixture(): Promise<void> {
 
       id: PROGRAM_ID,
       name: 'Invitation eligibility program',
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       trackType: ProgramTrackType.CURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',

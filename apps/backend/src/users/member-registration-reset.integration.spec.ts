@@ -150,7 +150,7 @@ describe('registration reset persistence', () => {
       data: {
         id: programId,
         name: 'Synthetic rollback program',
-        organizer: 'Synthetic',
+        organizers: ['Synthetic'],
         category: 'BASIC',
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,

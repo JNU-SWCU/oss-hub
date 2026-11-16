@@ -76,7 +76,7 @@ describe('program authoring conflict HTTP contract', () => {
       },
       body: JSON.stringify({
         name: '합성 프로그램',
-        organizer: '합성 조직',
+        organizers: ['합성 조직'],
         trackType: 'CURRICULAR',
         applicationStartAt: '2026-11-01T00:00:00.000Z',
         applicationEndAt: '2026-11-05T00:00:00.000Z',

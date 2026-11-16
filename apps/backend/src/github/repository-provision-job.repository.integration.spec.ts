@@ -475,7 +475,7 @@ async function createJob(
       ),
       id: program,
       name: `program-${teamId}`,
-      organizer: 'synthetic-organizer',
+      organizers: ['synthetic-organizer'],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',

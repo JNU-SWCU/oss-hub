@@ -130,10 +130,9 @@ export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
   @MaxLength(200)
   declare readonly name: string;
 
-  @IsString()
-  @Matches(/\S/u)
-  @MaxLength(200)
-  declare readonly organizer: string;
+  @IsArray()
+  @IsString({ each: true })
+  declare readonly organizers: readonly string[];
 
   @IsIn(Object.values(ProgramTrackType))
   declare readonly trackType: ProgramTrackType;
@@ -188,9 +187,9 @@ export class UpdateProgramRequestDto
   @IsNotEmpty()
   declare name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  declare organizer: string;
+  @IsArray()
+  @IsString({ each: true })
+  declare organizers: string[];
 
   @IsEnum(ProgramTrackType)
   declare trackType: ProgramTrackType;

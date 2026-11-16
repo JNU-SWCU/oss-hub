@@ -63,7 +63,7 @@ function programWith(
   return {
     id: 'program-1',
     name: 'OSS 경진대회',
-    organizer: '운영기관',
+    organizers: ['운영기관'],
     trackType: 'CURRICULAR',
     applicationTemplateKey: 'basic',
     description: '프로그램 설명',

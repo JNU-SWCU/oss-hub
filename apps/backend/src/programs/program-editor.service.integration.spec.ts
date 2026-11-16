@@ -242,4 +242,54 @@ describe('ProgramEditorService integration', () => {
       }),
     ).resolves.toEqual({ name: 'Issue 101 Same Name Program' });
   });
+  it.each([
+    ['an empty list', [], 'REQUIRED', '주관기관을 1개 이상 입력해 주세요.'],
+    [
+      'a whitespace-only label',
+      ['   '],
+      'REQUIRED',
+      '주관기관을 1개 이상 입력해 주세요.',
+    ],
+    [
+      'eleven labels',
+      Array.from({ length: 11 }, (_, index) => `기관 ${index}`),
+      'TOO_MANY',
+      '주관기관은 10개까지 입력할 수 있습니다.',
+    ],
+    [
+      'a 51-character label',
+      ['가'.repeat(51)],
+      'TOO_LONG',
+      '주관기관 이름은 50자 이하로 입력해 주세요.',
+    ],
+  ])(
+    'rejects organizers with %s as an organizers field error and keeps the stored labels',
+    async (_label, organizers, code, message) => {
+      const programId = `${TEST_PREFIX}program:organizers-${code}-${organizers.length}`;
+      await createProgram(programId, false);
+
+      const rejected = await editor
+        .updateProgram(STAFF_GITHUB_ID, programId, {
+          ...updateInput,
+          repositoryProvisioningEnabled: false,
+          organizers,
+        })
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+
+      expect(rejected).toBeInstanceOf(DomainException);
+      expect(domainCode(rejected)).toBe(ProgramErrorCode.VALIDATION_ERROR);
+      expect((rejected as DomainException).extensions.fieldErrors).toEqual([
+        { field: 'organizers', code, message },
+      ]);
+      await expect(
+        prisma.program.findUniqueOrThrow({
+          where: { id: programId },
+          select: { organizers: true },
+        }),
+      ).resolves.toEqual({ organizers: ['OSS Center'] });
+    },
+  );
 });

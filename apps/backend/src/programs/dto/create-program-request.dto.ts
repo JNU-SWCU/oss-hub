@@ -1,5 +1,6 @@
 import { ProgramTrackType } from '@prisma/client';
 import {
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -14,9 +15,9 @@ export class CreateProgramRequestDto implements CreateProgramCommand {
   @IsNotEmpty()
   declare name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  declare organizer: string;
+  @IsArray()
+  @IsString({ each: true })
+  declare organizers: string[];
 
   @IsEnum(ProgramTrackType)
   declare trackType: ProgramTrackType;

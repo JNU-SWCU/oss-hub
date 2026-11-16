@@ -1,5 +1,6 @@
 import { ProgramCoverField } from './program-cover-field';
 import { ProgramNoticeImport } from './program-notice-import';
+import { ProgramOrganizerField } from './program-organizer-field';
 import { FormSection } from '@/components/form-section';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
@@ -60,13 +61,12 @@ export function ProgramAuthoringBasicStep({
           dispatch({ type: 'set_cover_file', file: file ?? null })
         }
       />
-      <ProgramAuthoringTextField
-        id="authoring-organizer"
-        label="주관기관/학과 *"
-        value={state.organizer}
-        error={messageFor(issues, 'organizer')}
-        onChange={(value) =>
-          dispatch({ type: 'set_program_field', field: 'organizer', value })
+      <ProgramOrganizerField
+        id="authoring-organizers"
+        value={state.organizers}
+        error={messageFor(issues, 'organizers')}
+        onChange={(organizers) =>
+          dispatch({ type: 'set_organizers', organizers })
         }
       />
       <Field>

@@ -98,7 +98,7 @@ export function createDeadlineDigestIntegrationHarness() {
         ),
         id: String(id),
         name: `synthetic ${id}`,
-        organizer: 'synthetic-center',
+        organizers: ['synthetic-center'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'basic',

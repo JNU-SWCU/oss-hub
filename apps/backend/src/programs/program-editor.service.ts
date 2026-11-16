@@ -37,6 +37,7 @@ import {
 } from './files.config';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramAuthoringUploadService } from './files.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
   readonly endAt?: string | null;
@@ -172,6 +173,7 @@ export class ProgramEditorService {
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
     private readonly userProfileService: UserProfileService,
+    private readonly programOrganizersService: ProgramOrganizersService,
   ) {}
   private toEditableProgramView(row: EditableProgramRow): EditableProgramView {
     const { coverId, coverExternalImageUrl, ...program } = row;
@@ -202,7 +204,8 @@ export class ProgramEditorService {
       const existing = await store.findEditableProgramForUpdate(programId);
       if (existing === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
       const name = input.name.trim();
-      const organizer = input.organizer.trim();
+      const { organizers, error: organizersError } =
+        this.programOrganizersService.normalize(input.organizers);
       const description = input.description.trim();
       const applicationStartAt = new Date(input.applicationStartAt);
       const applicationEndAt = new Date(input.applicationEndAt);
@@ -230,12 +233,8 @@ export class ProgramEditorService {
           message: '프로그램 이름을 입력해 주세요.',
         });
       }
-      if (!organizer) {
-        emptyFieldErrors.push({
-          field: 'organizer',
-          code: 'REQUIRED',
-          message: '주최를 입력해 주세요.',
-        });
+      if (organizersError !== null) {
+        emptyFieldErrors.push(organizersError);
       }
       if (!description) {
         emptyFieldErrors.push({
@@ -332,7 +331,7 @@ export class ProgramEditorService {
                 }),
           programId,
           name,
-          organizer,
+          organizers,
           trackType: input.trackType,
           applicationTemplateKey: existing.applicationTemplateKey,
           applicationTemplateVersion: existing.applicationTemplateVersion,

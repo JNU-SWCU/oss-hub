@@ -7,7 +7,7 @@ const programId = 'qa170-program';
 const programDetail = {
   id: programId,
   name: title,
-  organizer: '합성 주관',
+  organizers: ['합성 주관'],
   trackType: 'EXTRACURRICULAR',
   description: '합성 카드 검증',
   applicationPeriod: {
@@ -52,7 +52,7 @@ async function installRoutes(page: Page) {
             {
               id: programId,
               name: title,
-              organizer: '합성 주관',
+              organizers: ['합성 주관'],
               trackType: 'EXTRACURRICULAR',
               applicationStartAt: '2026-01-01T00:00:00.000Z',
               applicationEndAt: '2026-12-31T00:00:00.000Z',

@@ -120,7 +120,7 @@ function readyContext(
       teamMaxSize: 4,
       id: programId,
       name: `${programId} 프로그램`,
-      organizer: '합성 운영처',
+      organizers: ['합성 운영처'],
       trackType: 'EXTRACURRICULAR',
 
       applicationTemplateKey: 'basic',

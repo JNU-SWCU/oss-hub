@@ -6,7 +6,7 @@ import type { ProgramDetail } from './dto';
 const publicDetail: ProgramDetail = {
   id: 'program-1',
   name: '합성 프로그램',
-  organizer: '합성 운영기관',
+  organizers: ['합성 운영기관'],
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
@@ -49,7 +49,7 @@ describe('배포 순서 호환성: 목록', () => {
   const item = {
     id: 'program-1',
     name: '합성 프로그램',
-    organizer: '합성 운영기관',
+    organizers: ['합성 운영기관'],
     trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-31T00:00:00.000Z',

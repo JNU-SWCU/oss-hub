@@ -263,7 +263,7 @@ function programListStatusSortRankSql(now: Date): Prisma.Sql {
 export type ProgramListRecord = {
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
   readonly applicationStartAt: Date;
@@ -342,7 +342,7 @@ export class ProgramsRepository {
         SELECT
           p."id",
           p."name",
-          p."organizer",
+          p."organizers",
           p."trackType",
           p."applicationTemplateKey",
           p."applicationStartAt",
@@ -405,7 +405,7 @@ export class ProgramsRepository {
         coverImageUrl: true,
         id: true,
         name: true,
-        organizer: true,
+        organizers: true,
         trackType: true,
         applicationTemplateKey: true,
         teamMinSize: true,
@@ -572,7 +572,7 @@ export class ProgramsRepository {
     data: {
       readonly createdByGithubId: bigint;
       readonly name: string;
-      readonly organizer: string;
+      readonly organizers: string[];
       readonly category: ProgramCategory;
       readonly trackType: Program['trackType'];
       readonly applicationTemplateKey: string;

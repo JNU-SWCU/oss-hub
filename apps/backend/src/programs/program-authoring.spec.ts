@@ -18,6 +18,7 @@ import { signatureValidZip } from './submission-zip-builder.fixture';
 import { type ProgramAuthoringRequest } from './files.config';
 import { ProgramAuthoringService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
@@ -32,6 +33,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
+  new ProgramOrganizersService(),
 );
 const programAuthoringUploadService = new ProgramAuthoringUploadService(
   {} as never,
@@ -44,7 +46,7 @@ describe('program-authoring-payload-hash', () => {
   function request(): ProgramAuthoringRequest {
     return {
       name: ' Program ',
-      organizer: ' Organizer ',
+      organizers: [' Organizer '],
       trackType: ProgramTrackType.CURRICULAR,
       applicationStartAt: '2026-08-01T09:00:00+09:00',
       applicationEndAt: '2026-08-10T09:00:00+09:00',
@@ -167,7 +169,7 @@ describe('program-authoring-payload-hash', () => {
       const explicit = programAuthoringService.buildProgramAuthoringPlan({
         ...request(),
         name: 'Program',
-        organizer: 'Organizer',
+        organizers: ['Organizer'],
         description: 'Description',
         applicationStartAt: '2026-08-01T00:00:00.000Z',
         applicationEndAt: '2026-08-10T00:00:00.000Z',

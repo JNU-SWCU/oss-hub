@@ -50,7 +50,7 @@ describe('notice import authoring contract', () => {
         milestoneId: 'milestone',
       }),
       name: '직접 입력한 이름',
-      organizer: '합성 운영팀',
+      organizers: ['합성 운영팀'],
       description: '직접 쓴 설명',
       applicationStartAt: '2099-01-01T09:00',
       applicationEndAt: '2099-01-02T18:00',

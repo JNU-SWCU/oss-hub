@@ -145,7 +145,7 @@ describe('authenticated milestone document list filename contract', () => {
       data: {
         id: programId,
         name: 'synthetic milestone list program',
-        organizer: 'OSS Hub',
+        organizers: ['OSS Hub'],
         trackType: 'CURRICULAR',
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'capstone-v1',
