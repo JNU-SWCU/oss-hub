@@ -132,6 +132,10 @@ function DeadlineNoticeSendFlow({ programId }: { readonly programId: string }) {
     void latestLoadPreview.current();
   }, [programId]);
 
+  useEffect(() => {
+    if (preview === null) setConfirming(false);
+  }, [preview]);
+
   const recipientTotal =
     preview === null ? 0 : preview.recipientCount + preview.staffRecipientCount;
   const canSend =

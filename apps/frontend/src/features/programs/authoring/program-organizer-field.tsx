@@ -1,7 +1,12 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import {
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type KeyboardEvent,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -35,15 +40,17 @@ const ORGANIZER_CHIP_CLASS = cn(
 function addOrganizers(
   current: readonly string[],
   candidates: readonly string[],
-): string[] | null {
+): { readonly next: string[]; readonly rejected: string[] } {
   const next = [...current];
+  const rejected: string[] = [];
   for (const candidate of candidates) {
     const label = candidate.trim().slice(0, PROGRAM_ORGANIZER_MAX_LENGTH);
-    if (label === '' || next.includes(label)) continue;
-    if (next.length >= PROGRAM_ORGANIZER_MAX_COUNT) break;
-    next.push(label);
+    if (label === '' || next.includes(label) || rejected.includes(label))
+      continue;
+    if (next.length >= PROGRAM_ORGANIZER_MAX_COUNT) rejected.push(label);
+    else next.push(label);
   }
-  return next.length === current.length ? null : next;
+  return { next, rejected };
 }
 
 export function ProgramOrganizerField({
@@ -58,17 +65,17 @@ export function ProgramOrganizerField({
   const errorId = `${id}-error`;
   const full = value.length >= PROGRAM_ORGANIZER_MAX_COUNT;
 
-  const commitLabels = (candidates: readonly string[]) => {
-    const next = addOrganizers(value, candidates);
-    if (next !== null) onChange(next);
+  const commitSegments = (segments: readonly string[], rest: string) => {
+    const { next, rejected } = addOrganizers(value, segments);
+    if (next.length !== value.length) onChange(next);
+    setDraft(
+      rejected.length === 0
+        ? rest.slice(0, PROGRAM_ORGANIZER_MAX_LENGTH)
+        : [...rejected, rest.trim()].filter((part) => part !== '').join(', '),
+    );
   };
 
-  const commitDraft = () => {
-    const label = draft.trim();
-    if (label !== '' && full && !value.includes(label)) return;
-    commitLabels([label]);
-    setDraft('');
-  };
+  const commitDraft = () => commitSegments(draft.split(','), '');
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const text = event.target.value;
@@ -76,10 +83,22 @@ export function ProgramOrganizerField({
       setDraft(text.slice(0, PROGRAM_ORGANIZER_MAX_LENGTH));
       return;
     }
-    const parts = text.split(',');
-    const rest = parts.pop() ?? '';
-    commitLabels(parts);
-    setDraft(rest.slice(0, PROGRAM_ORGANIZER_MAX_LENGTH));
+    const segments = text.split(',');
+    const rest = segments.pop() ?? '';
+    commitSegments(segments, rest);
+  };
+
+  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = event.clipboardData.getData('text/plain');
+    if (!pasted.includes(',')) return;
+    event.preventDefault();
+    const { value: text, selectionStart, selectionEnd } = event.currentTarget;
+    const start = selectionStart ?? text.length;
+    const end = selectionEnd ?? start;
+    commitSegments(
+      `${text.slice(0, start)}${pasted}${text.slice(end)}`.split(','),
+      '',
+    );
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -130,6 +149,7 @@ export function ProgramOrganizerField({
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
         onChange={handleChange}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onBlur={commitDraft}
       />

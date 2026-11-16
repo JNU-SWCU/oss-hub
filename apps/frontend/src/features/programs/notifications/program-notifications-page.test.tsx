@@ -290,6 +290,35 @@ describe('ProgramNotificationsPage', () => {
     expect(container.textContent).toContain('만료');
   });
 
+  it('closes the confirmation on expiry and keeps it closed after the next refresh', async () => {
+    fetchMock.mockResolvedValueOnce(response(preview)).mockResolvedValueOnce(
+      response({
+        ...preview,
+        previewedAt: '2026-08-14T00:10:00.001Z',
+        expiresAt: '2026-08-14T00:20:00.001Z',
+      }),
+    );
+    await mount();
+
+    await act(async () => sendButton().click());
+    await act(async () => dialogButton('취소').click());
+    await act(async () => sendButton().click());
+    expect(dialog()).not.toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(600_001);
+    });
+    expect(dialog()).toBeNull();
+    expect(container.textContent).toContain('만료');
+
+    await act(async () => button('미리보기 새로고침').click());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sendButton().disabled).toBe(false);
+    expect(dialog()).toBeNull();
+
+    await act(async () => sendButton().click());
+    expect(dialog()?.textContent).toContain('학생 4명, 교직원 2명');
+  });
+
   it('waits for an in-flight send result instead of replacing it with local expiry', async () => {
     let resolveSend: (response: Response) => void = () => undefined;
     fetchMock.mockResolvedValueOnce(response(preview)).mockReturnValueOnce(
