@@ -1,7 +1,7 @@
-import { FilterChipGroup } from '@/components';
 import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { insightsPageHref } from './insights-year';
 import {
   INSIGHTS_VIEWS,
@@ -14,6 +14,13 @@ const VIEW_LABELS: Readonly<Record<InsightsView, string>> = {
   groups: '학과·전공',
   programs: '프로그램',
 };
+
+const VIEW_TAB_CLASS = cn(
+  '-mb-px border-b-2 border-transparent py-2 text-sm font-medium text-muted-foreground',
+  'outline-none transition-colors hover:text-foreground',
+  'focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50',
+  'aria-[current=page]:border-primary aria-[current=page]:font-semibold aria-[current=page]:text-foreground',
+);
 
 export function YearLinks({
   state: { scope, view },
@@ -67,16 +74,21 @@ export function ViewTabs({
   readonly state: StaffInsightsUrlState;
 }): ReactElement {
   return (
-    <FilterChipGroup aria-label="인사이트 보기">
+    <div
+      role="group"
+      aria-label="인사이트 보기"
+      className="flex flex-wrap gap-x-6 border-b border-border"
+    >
       {INSIGHTS_VIEWS.map((view) => (
-        <ToggleLink
+        <Link
           key={view}
           href={insightsPageHref({ scope: state.scope, view })}
-          current={state.view === view}
+          aria-current={state.view === view ? 'page' : undefined}
+          className={VIEW_TAB_CLASS}
         >
           {VIEW_LABELS[view]}
-        </ToggleLink>
+        </Link>
       ))}
-    </FilterChipGroup>
+    </div>
   );
 }
