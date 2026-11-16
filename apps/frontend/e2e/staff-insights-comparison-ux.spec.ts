@@ -271,7 +271,11 @@ function rejectUnexpectedApi(route: Route): never {
   );
 }
 
-async function openInsights(page: Page, insights: InsightsWire): Promise<void> {
+async function openInsights(
+  page: Page,
+  insights: InsightsWire,
+  view?: 'groups' | 'programs',
+): Promise<void> {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -304,8 +308,8 @@ async function openInsights(page: Page, insights: InsightsWire): Promise<void> {
     }
     rejectUnexpectedApi(route);
   });
-  await page.goto(target);
-  await expect(page.getByRole('heading', { name: '학생 활성' })).toBeVisible();
+  await page.goto(view === undefined ? target : `${target}?view=${view}`);
+  await expect(page.getByRole('heading', { name: '인사이트' })).toBeVisible();
 }
 
 async function attachPng(
@@ -329,7 +333,7 @@ test.describe('staff insights comparison UX', () => {
       ['mobile', 375],
     ] as const) {
       await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsLong());
+      await openInsights(page, insightsLong(), 'programs');
       await hideNextDevTools(page);
       const card = page
         .getByText('참여 — 프로그램별', { exact: true })
@@ -479,7 +483,7 @@ test.describe('staff insights comparison UX', () => {
       }
       window.ResizeObserver = DeferredResizeObserver;
     });
-    await openInsights(page, insightsLong());
+    await openInsights(page, insightsLong(), 'programs');
     await hideNextDevTools(page);
     const card = page
       .getByText('참여 — 프로그램별', { exact: true })
@@ -508,7 +512,7 @@ test.describe('staff insights comparison UX', () => {
       ['mobile', 375],
     ] as const) {
       await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsLong());
+      await openInsights(page, insightsLong(), 'programs');
       await page.keyboard.press('Tab');
       await expect(
         page
@@ -523,7 +527,7 @@ test.describe('staff insights comparison UX', () => {
       });
       await expectProgramChartLayout(page);
       await expect(
-        page.getByRole('group', { name: '비교 관점' }),
+        page.getByRole('group', { name: '인사이트 보기' }),
       ).toBeVisible();
       await attachPng(
         testInfo,
@@ -548,8 +552,10 @@ test.describe('staff insights comparison UX', () => {
         document.documentElement.style.fontSize = '200%';
       });
 
-      for (const label of ['전공·비전공', '학과'] as const) {
-        const button = page.getByRole('button', { name: label });
+      for (const label of ['학생', '학과·전공', '프로그램'] as const) {
+        const button = page
+          .getByRole('group', { name: '인사이트 보기' })
+          .getByRole('link', { name: label, exact: true });
         await button.click();
         await page.evaluate(() => {
           (document.activeElement as HTMLElement | null)?.blur();
@@ -587,7 +593,7 @@ test.describe('staff insights comparison UX', () => {
     page,
   }, testInfo) => {
     const audit = installBrowserAudit(page);
-    await openInsights(page, insightsZero());
+    await openInsights(page, insightsZero(), 'groups');
     await expect(page.getByText(/계산 불가|0\/0/).first()).toBeVisible();
     await expect(page.locator('main')).not.toContainText('NaN');
     await attachPng(testInfo, 'task-2-browser/all-zero.png', (path) =>
@@ -596,13 +602,21 @@ test.describe('staff insights comparison UX', () => {
     audit.assertClean();
   });
 
-  test('renders empty state', async ({ page }, testInfo) => {
+  test('renders the programs empty state', async ({ page }, testInfo) => {
     const audit = installBrowserAudit(page);
-    await openInsights(page, insightsEmpty());
+    await openInsights(page, insightsEmpty(), 'programs');
     await expect(page.getByText('승인된 참여가 없습니다')).toBeVisible();
-    await page.getByRole('button', { name: '학과' }).click();
+    await attachPng(testInfo, 'task-2-browser/empty-programs.png', (path) =>
+      page.screenshot({ path, fullPage: true }),
+    );
+    audit.assertClean();
+  });
+
+  test('renders the department empty state', async ({ page }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    await openInsights(page, insightsEmpty(), 'groups');
     await expect(page.getByText('학과별 학생이 없습니다')).toBeVisible();
-    await attachPng(testInfo, 'task-2-browser/empty.png', (path) =>
+    await attachPng(testInfo, 'task-2-browser/empty-groups.png', (path) =>
       page.screenshot({ path, fullPage: true }),
     );
     audit.assertClean();
@@ -612,7 +626,8 @@ test.describe('staff insights comparison UX', () => {
     page,
   }, testInfo) => {
     const audit = installBrowserAudit(page);
-    await openInsights(page, insightsUnregistered());
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await openInsights(page, insightsUnregistered(), 'groups');
     await expect(
       page.getByText(/학과 미등록은 별도로 집계하며 아래 비교 막대에서는 제외/),
     ).toBeVisible();

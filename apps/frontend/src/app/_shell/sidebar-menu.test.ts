@@ -139,10 +139,10 @@ describe('sidebarGroupsFor (context)', () => {
     );
   });
 
-  it('교직원 대시보드 메뉴는 운영·학생 활성·가입 신청을 보여 준다', () => {
+  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청을 보여 준다', () => {
     expect(STAFF_MENU).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
-      { label: '학생 활성', href: '/dashboard/insights' },
+      { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
     ]);
     const groups = sidebarGroupsFor('dashboard', STAFF);
@@ -162,7 +162,7 @@ describe('sidebarGroupsFor (context)', () => {
       groups[0]?.items.map(({ label, href }) => ({ label, href })),
     ).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
-      { label: '학생 활성', href: '/dashboard/insights' },
+      { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
     ]);
     expect(groups[1]?.label).toBe('관리자');

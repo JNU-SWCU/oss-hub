@@ -1,4 +1,4 @@
-import type { InsightsYearScope } from './types';
+import type { InsightsYearScope, StaffInsightsUrlState } from './types';
 
 export function parseInsightsYearSearchParam(
   raw: string | null | undefined,
@@ -15,11 +15,19 @@ export function parseInsightsYearSearchParam(
   return { kind: 'calendar', year: Number(raw) };
 }
 
-export function insightsPageHref(scope: InsightsYearScope): string {
-  if (scope.kind === 'all') {
-    return '/dashboard/insights';
-  }
-  return `/dashboard/insights?year=${scope.year}`;
+export function insightsSearchParams({
+  scope,
+  view,
+}: StaffInsightsUrlState): URLSearchParams {
+  const params = new URLSearchParams();
+  if (scope.kind === 'calendar') params.set('year', String(scope.year));
+  if (view !== 'students') params.set('view', view);
+  return params;
+}
+
+export function insightsPageHref(state: StaffInsightsUrlState): string {
+  const query = insightsSearchParams(state).toString();
+  return query === '' ? '/dashboard/insights' : `/dashboard/insights?${query}`;
 }
 
 export function insightsRequestPath(scope: InsightsYearScope): string {

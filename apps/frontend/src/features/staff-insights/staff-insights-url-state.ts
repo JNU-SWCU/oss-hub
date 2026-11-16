@@ -1,22 +1,25 @@
 import { useSearchParams } from 'next/navigation';
 import {
+  parseListEnum,
   useListUrlNavigation,
   useParsedListUrlState,
 } from '@/lib/list-url-state';
-import { parseInsightsYearSearchParam } from './insights-year';
-import type { InsightsYearScope } from './types';
+import {
+  insightsSearchParams,
+  parseInsightsYearSearchParam,
+} from './insights-year';
+import { INSIGHTS_VIEWS, type StaffInsightsUrlState } from './types';
 export function parseStaffInsightsSearchParams(
   params: URLSearchParams,
-): InsightsYearScope {
-  return parseInsightsYearSearchParam(params.get('year'));
+): StaffInsightsUrlState {
+  return {
+    scope: parseInsightsYearSearchParam(params.get('year')),
+    view: parseListEnum(params.get('view'), INSIGHTS_VIEWS, 'students'),
+  };
 }
-export function buildStaffInsightsSearchParams(state: InsightsYearScope) {
-  const params = new URLSearchParams();
-  if (state.kind === 'calendar') params.set('year', String(state.year));
-  return params;
-}
+export const buildStaffInsightsSearchParams = insightsSearchParams;
 
-const OWNED_PARAMS = ['year'] as const;
+const OWNED_PARAMS = ['year', 'view'] as const;
 
 export function useStaffInsightsUrlState() {
   const serialized = useSearchParams().toString();

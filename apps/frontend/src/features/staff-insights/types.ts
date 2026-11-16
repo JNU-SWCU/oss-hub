@@ -5,16 +5,18 @@ import {
 
 export { DEPARTMENT_COHORTS, type DepartmentCohort };
 
-export const INSIGHTS_CUTS = {
-  COHORT: 'cohort',
-  DEPARTMENT: 'department',
-} as const;
+export const INSIGHTS_VIEWS = ['students', 'groups', 'programs'] as const;
 
-export type InsightsCut = (typeof INSIGHTS_CUTS)[keyof typeof INSIGHTS_CUTS];
+export type InsightsView = (typeof INSIGHTS_VIEWS)[number];
 
 export type InsightsYearScope =
   | { readonly kind: 'all' }
   | { readonly kind: 'calendar'; readonly year: number };
+
+export interface StaffInsightsUrlState {
+  readonly scope: InsightsYearScope;
+  readonly view: InsightsView;
+}
 
 export interface StaffInsightsMetrics {
   readonly studentCount: number;
