@@ -67,6 +67,8 @@ import {
 } from './program-edit-view';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
+const OPERATIONS_SECTION_HASH = '#operations';
+
 export function ProgramEditPage({
   programId,
   canDeleteProgram,
@@ -145,6 +147,14 @@ export function ProgramEditPage({
       latestLoadId.current += 1;
     };
   }, [load]);
+
+  const isReady = state.kind === 'ready' && form !== null;
+  useEffect(() => {
+    if (!isReady || window.location.hash !== OPERATIONS_SECTION_HASH) return;
+    editRegionRef.current
+      ?.querySelector<HTMLElement>(OPERATIONS_SECTION_HASH)
+      ?.scrollIntoView?.({ block: 'start' });
+  }, [isReady]);
 
   useEffect(() => {
     if (Object.keys(errors).length === 0) return;
