@@ -245,11 +245,11 @@ export class StaffInsightsService {
       const key = student.githubId.toString();
       const current = cutoffYearActivity.get(key);
       const baseline = baselines.get(key);
-      if (current !== undefined && baseline === undefined) continue;
-      const sinceCutoff =
-        current === undefined || baseline === undefined
-          ? EMPTY_ACTIVITY
-          : recentDelta(current, baseline);
+      let sinceCutoff = EMPTY_ACTIVITY;
+      if (current !== undefined) {
+        if (baseline === undefined) continue;
+        sinceCutoff = recentDelta(current, baseline);
+      }
       const activity = addCounts(
         sinceCutoff,
         nowYearActivity.get(key) ?? EMPTY_ACTIVITY,
@@ -258,10 +258,7 @@ export class StaffInsightsService {
         this.candidate(
           student,
           activity,
-          activity.commitCount +
-            activity.pullRequestCount +
-            activity.issueCount +
-            activity.repositoryCount,
+          this.rankingYearService.activityTotal({ ...activity, starCount: 0 }),
         ),
       );
     }

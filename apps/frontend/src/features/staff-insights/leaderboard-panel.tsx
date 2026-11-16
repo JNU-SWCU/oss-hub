@@ -95,7 +95,7 @@ function LeaderboardCard({
         {rows.length === 0 ? (
           <EmptyState title={emptyTitle} />
         ) : (
-          <ol className="grid list-none grid-cols-1 gap-4">
+          <ol role="list" className="grid list-none grid-cols-1 gap-4">
             {rows.map((row) => (
               <LeaderRow
                 key={`${row.rank}-${row.githubLogin}`}
@@ -118,8 +118,7 @@ function LeaderRow({
   readonly maxTotal: number;
 }): ReactElement {
   const department = row.department ?? '학과 미등록';
-  const share =
-    maxTotal > 0 ? Math.min(100, Math.max(0, (row.total / maxTotal) * 100)) : 0;
+  const share = maxTotal > 0 ? (row.total / maxTotal) * 100 : 0;
 
   return (
     <li className="grid grid-cols-1 gap-2">
