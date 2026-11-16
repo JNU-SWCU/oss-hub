@@ -32,7 +32,7 @@ export function CurrentClock({ clock }: { readonly clock: Date }) {
       <time
         data-slot="program-countdown-clock"
         dateTime={clock.toISOString()}
-        className="mt-1 text-section font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums"
+        className="mt-1 font-mono text-section font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums"
       >
         {formatClockTime(clock)}
       </time>
