@@ -8,11 +8,13 @@ import type {
   StaffInsightsLeaderRow,
   StaffInsightsLeaders,
   StaffInsightsMetrics,
+  ProgramCategory,
   StaffInsightsProgramRow,
+  StaffInsightsProgramSummary,
   StaffInsightsRecentLeaderRow,
   StaffInsightsSummary,
 } from './types';
-import { DEPARTMENT_COHORTS } from './types';
+import { DEPARTMENT_COHORTS, PROGRAM_CATEGORIES } from './types';
 
 const MAX_LEADERS = 10;
 
@@ -25,6 +27,21 @@ class StaffInsightsResponseError extends Error {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isNullableRatio(value: unknown): value is number | null {
+  return (
+    value === null ||
+    (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+  );
+}
+
+function isNullablePercent(value: unknown): value is number | null {
+  return value === null || (isNonNegativeInteger(value) && value <= 100);
+}
+
+function isProgramCategory(value: unknown): value is ProgramCategory {
+  return PROGRAM_CATEGORIES.some((category) => category === value);
 }
 
 function isCohort(value: unknown): value is DepartmentCohort {
@@ -217,20 +234,77 @@ function parseProgram(value: unknown): StaffInsightsProgramRow | null {
     !isRecord(value) ||
     typeof value.programId !== 'string' ||
     typeof value.name !== 'string' ||
+    !isProgramCategory(value.category) ||
+    typeof value.recruiting !== 'boolean' ||
     !isNonNegativeInteger(value.swMajorCount) ||
     !isNonNegativeInteger(value.nonSwCount) ||
     !isNonNegativeInteger(value.unregisteredCount) ||
-    !isNonNegativeInteger(value.participantCount)
+    !isNonNegativeInteger(value.participantCount) ||
+    !isNonNegativeInteger(value.appliedCount) ||
+    !isNonNegativeInteger(value.approvedCount) ||
+    !isNullableRatio(value.competitionRatio) ||
+    !isNonNegativeInteger(value.dueRequirementCount) ||
+    !isNonNegativeInteger(value.submittedRequirementCount) ||
+    !isNullablePercent(value.completionRate) ||
+    !isNonNegativeInteger(value.contributionCount) ||
+    !isNonNegativeInteger(value.activeTeamCount) ||
+    !isNonNegativeInteger(value.repoTeamCount) ||
+    !isNullableRatio(value.contributionsPerParticipant)
   ) {
+    return null;
+  }
+  const startAt = parseIsoDate(value.startAt);
+  const endAt = parseIsoDate(value.endAt);
+  if (startAt === null || endAt === null) {
     return null;
   }
   return {
     programId: value.programId,
     name: value.name,
+    category: value.category,
+    startAt,
+    endAt,
+    recruiting: value.recruiting,
     swMajorCount: value.swMajorCount,
     nonSwCount: value.nonSwCount,
     unregisteredCount: value.unregisteredCount,
     participantCount: value.participantCount,
+    appliedCount: value.appliedCount,
+    approvedCount: value.approvedCount,
+    competitionRatio: value.competitionRatio,
+    dueRequirementCount: value.dueRequirementCount,
+    submittedRequirementCount: value.submittedRequirementCount,
+    completionRate: value.completionRate,
+    contributionCount: value.contributionCount,
+    activeTeamCount: value.activeTeamCount,
+    repoTeamCount: value.repoTeamCount,
+    contributionsPerParticipant: value.contributionsPerParticipant,
+  };
+}
+
+function parseProgramSummary(
+  value: unknown,
+): StaffInsightsProgramSummary | null {
+  if (
+    !isRecord(value) ||
+    !isNonNegativeInteger(value.programCount) ||
+    !isNonNegativeInteger(value.recruitingCount) ||
+    !isNonNegativeInteger(value.approvedParticipantCount) ||
+    !isNonNegativeInteger(value.uniqueParticipantCount) ||
+    !isNullableRatio(value.competitionRatio) ||
+    !isNonNegativeInteger(value.repeatParticipantCount) ||
+    !isNullablePercent(value.repeatParticipantRate)
+  ) {
+    return null;
+  }
+  return {
+    programCount: value.programCount,
+    recruitingCount: value.recruitingCount,
+    approvedParticipantCount: value.approvedParticipantCount,
+    uniqueParticipantCount: value.uniqueParticipantCount,
+    competitionRatio: value.competitionRatio,
+    repeatParticipantCount: value.repeatParticipantCount,
+    repeatParticipantRate: value.repeatParticipantRate,
   };
 }
 
@@ -253,10 +327,12 @@ export function parseStaffInsightsSummary(
   const cohorts = value.cohorts.map(parseCohort);
   const departments = value.departments.map(parseDepartment);
   const programs = value.programs.map(parseProgram);
+  const programSummary = parseProgramSummary(value.programSummary);
   const leaders = parseLeaders(value.leaders);
   const recentWindow = parseRecentWindow(value.recentWindow);
   if (
     scope === null ||
+    programSummary === null ||
     leaders === null ||
     recentWindow === null ||
     cohorts.some((row) => row === null) ||
@@ -279,6 +355,7 @@ export function parseStaffInsightsSummary(
     cohorts: cohorts as readonly StaffInsightsCohortRow[],
     departments: departments as readonly StaffInsightsDepartmentRow[],
     programs: programs as readonly StaffInsightsProgramRow[],
+    programSummary,
     leaders,
     recentWindow,
   };

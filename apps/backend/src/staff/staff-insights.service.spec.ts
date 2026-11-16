@@ -2,6 +2,7 @@ import { StaffInsightsService } from './staff-insights.service';
 import type {
   StaffInsightsActivityRecord,
   StaffInsightsBaselineRecord,
+  StaffInsightsProgramRecord,
   StaffInsightsRepository,
   StaffInsightsStudentRecord,
 } from './staff-insights.repository';
@@ -21,6 +22,10 @@ type Store = Pick<
   | 'listActivityYears'
   | 'listActivityBaselines'
   | 'listActivityByYear'
+  | 'listPublishedPrograms'
+  | 'listProgramApplicationCounts'
+  | 'listProgramCompletion'
+  | 'listProgramOutcomes'
 >;
 
 function repository(): Store {
@@ -79,6 +84,29 @@ function repository(): Store {
     listActivityYears: jest.fn().mockResolvedValue([2026, 2025]),
     listActivityBaselines: jest.fn().mockResolvedValue([]),
     listActivityByYear: jest.fn().mockResolvedValue([]),
+    listPublishedPrograms: jest
+      .fn()
+      .mockResolvedValue([program('program-basic', '합성 기초')]),
+    listProgramApplicationCounts: jest.fn().mockResolvedValue([]),
+    listProgramCompletion: jest.fn().mockResolvedValue([]),
+    listProgramOutcomes: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function program(
+  id: string,
+  name: string,
+  overrides: Partial<StaffInsightsProgramRecord> = {},
+): StaffInsightsProgramRecord {
+  return {
+    id,
+    name,
+    category: 'BASIC',
+    applicationStartAt: new Date('2026-02-01T00:00:00.000Z'),
+    applicationEndAt: new Date('2026-02-28T00:00:00.000Z'),
+    startAt: new Date('2026-03-02T00:00:00.000Z'),
+    endAt: new Date('2026-06-30T00:00:00.000Z'),
+    ...overrides,
   };
 }
 
@@ -219,6 +247,192 @@ describe('StaffInsightsService', () => {
       nonSwCount: 1,
       unregisteredCount: 0,
       participantCount: 2,
+    });
+  });
+
+  describe('program scorecard', () => {
+    function scorecardStore(): Store {
+      const store = repository();
+      (store.listPublishedPrograms as jest.Mock).mockResolvedValue([
+        program('program-full', '가 성과 프로그램', {
+          category: 'CAPSTONE',
+          applicationStartAt: new Date('2026-11-01T00:00:00+09:00'),
+          applicationEndAt: new Date('2026-11-30T00:00:00+09:00'),
+        }),
+        program('program-empty', '나 모집 프로그램'),
+      ]);
+      (store.listApprovedParticipations as jest.Mock).mockResolvedValue([
+        {
+          programId: 'program-full',
+          programName: '가 성과 프로그램',
+          userIds: ['student-sw', 'student-non'],
+        },
+        {
+          programId: 'program-full',
+          programName: '가 성과 프로그램',
+          userIds: ['student-empty', 'student-sw'],
+        },
+        {
+          programId: 'program-deleted',
+          programName: '삭제된 프로그램',
+          userIds: ['student-non'],
+        },
+      ]);
+      (store.listProgramApplicationCounts as jest.Mock).mockResolvedValue([
+        { programId: 'program-full', appliedCount: 5, approvedCount: 2 },
+        { programId: 'program-empty', appliedCount: 3, approvedCount: 0 },
+      ]);
+      (store.listProgramCompletion as jest.Mock).mockResolvedValue([
+        {
+          programId: 'program-full',
+          dueRequirementCount: 6,
+          submittedRequirementCount: 5,
+        },
+      ]);
+      (store.listProgramOutcomes as jest.Mock).mockResolvedValue([
+        {
+          programId: 'program-full',
+          repoTeamCount: 2,
+          activeTeamCount: 1,
+          contributionCount: 10,
+        },
+      ]);
+      return store;
+    }
+
+    it('scores every published program including ones without approvals', async () => {
+      const store = scorecardStore();
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(store.listProgramCompletion).toHaveBeenCalledWith(NOW_2026);
+      expect(store.listProgramOutcomes).toHaveBeenCalledWith(NOW_2026);
+      expect(summary.programs).toEqual([
+        {
+          programId: 'program-full',
+          name: '가 성과 프로그램',
+          category: 'CAPSTONE',
+          startAt: new Date('2026-03-02T00:00:00.000Z'),
+          endAt: new Date('2026-06-30T00:00:00.000Z'),
+          recruiting: true,
+          swMajorCount: 1,
+          nonSwCount: 1,
+          unregisteredCount: 1,
+          participantCount: 3,
+          appliedCount: 5,
+          approvedCount: 2,
+          competitionRatio: 2.5,
+          dueRequirementCount: 6,
+          submittedRequirementCount: 5,
+          completionRate: 83,
+          contributionCount: 10,
+          activeTeamCount: 1,
+          repoTeamCount: 2,
+          contributionsPerParticipant: 3.3,
+        },
+        {
+          programId: 'program-empty',
+          name: '나 모집 프로그램',
+          category: 'BASIC',
+          startAt: new Date('2026-03-02T00:00:00.000Z'),
+          endAt: new Date('2026-06-30T00:00:00.000Z'),
+          recruiting: false,
+          swMajorCount: 0,
+          nonSwCount: 0,
+          unregisteredCount: 0,
+          participantCount: 0,
+          appliedCount: 3,
+          approvedCount: 0,
+          competitionRatio: null,
+          dueRequirementCount: 0,
+          submittedRequirementCount: 0,
+          completionRate: null,
+          contributionCount: 0,
+          activeTeamCount: 0,
+          repoTeamCount: 0,
+          contributionsPerParticipant: null,
+        },
+      ]);
+    });
+
+    it('summarizes pooled ratio and repeat participants across published programs', async () => {
+      const store = scorecardStore();
+      (store.listPublishedPrograms as jest.Mock).mockResolvedValue([
+        program('program-full', '가 성과 프로그램'),
+        program('program-empty', '나 모집 프로그램'),
+        program('program-other', '다 다른 프로그램'),
+      ]);
+      (store.listApprovedParticipations as jest.Mock).mockResolvedValue([
+        {
+          programId: 'program-full',
+          programName: '가 성과 프로그램',
+          userIds: ['student-sw', 'student-non', 'student-empty'],
+        },
+        {
+          programId: 'program-other',
+          programName: '다 다른 프로그램',
+          userIds: ['student-sw'],
+        },
+        {
+          programId: 'program-deleted',
+          programName: '삭제된 프로그램',
+          userIds: ['student-non'],
+        },
+      ]);
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(summary.programSummary).toEqual({
+        programCount: 3,
+        recruitingCount: 0,
+        approvedParticipantCount: 4,
+        uniqueParticipantCount: 3,
+        competitionRatio: 4,
+        repeatParticipantCount: 1,
+        repeatParticipantRate: 33,
+      });
+    });
+
+    it('keeps outcome null when repos exist but no student is approved', async () => {
+      const store = scorecardStore();
+      (store.listApprovedParticipations as jest.Mock).mockResolvedValue([]);
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(summary.programs[0]).toMatchObject({
+        participantCount: 0,
+        repoTeamCount: 2,
+        contributionsPerParticipant: null,
+      });
+      expect(summary.programSummary).toMatchObject({
+        uniqueParticipantCount: 0,
+        repeatParticipantRate: null,
+      });
+    });
+
+    it('serializes program dates and the summary through the response DTO', async () => {
+      const summary = await serviceFor(scorecardStore()).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      const dto = StaffInsightsResponseDto.from(summary);
+
+      expect(dto.programs[0]).toMatchObject({
+        startAt: '2026-03-02T00:00:00.000Z',
+        endAt: '2026-06-30T00:00:00.000Z',
+        competitionRatio: 2.5,
+      });
+      expect(dto.programSummary.programCount).toBe(2);
     });
   });
 

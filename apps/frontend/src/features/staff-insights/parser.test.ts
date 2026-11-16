@@ -91,6 +91,41 @@ describe('parseStaffInsightsSummary', () => {
     expect(summary.leaders.recent.all[0]).not.toHaveProperty('starCount');
   });
 
+  it('parses program scorecard rows with null metrics and the summary', () => {
+    const summary = parseStaffInsightsSummary(wirePayload());
+
+    expect(summary.programs[0].startAt).toEqual(
+      new Date('2026-03-01T15:00:00.000Z'),
+    );
+    expect(summary.programs[3]).toMatchObject({
+      category: 'CORPORATE_INTERNSHIP',
+      recruiting: true,
+      competitionRatio: null,
+      completionRate: null,
+      contributionsPerParticipant: null,
+    });
+    expect(summary.programSummary.repeatParticipantRate).toBe(15);
+  });
+
+  it.each([
+    ['an unknown category', 'category', 'WORKSHOP'],
+    ['a negative competition ratio', 'competitionRatio', -1],
+    ['a fractional completion rate', 'completionRate', 83.5],
+    ['an invalid start date', 'startAt', 'not-a-date'],
+  ])('throws on %s', (_label, field, value) => {
+    const payload = wirePayload();
+    firstRecord(payload.programs)[field] = value;
+
+    expect(() => parseStaffInsightsSummary(payload)).toThrow();
+  });
+
+  it('throws when programSummary is missing', () => {
+    const payload = wirePayload();
+    delete payload.programSummary;
+
+    expect(() => parseStaffInsightsSummary(payload)).toThrow();
+  });
+
   it('requires starCount on a period leader row', () => {
     const payload = wirePayload();
     const leaders = payload.leaders as Record<string, Record<string, unknown>>;

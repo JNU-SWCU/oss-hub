@@ -497,6 +497,15 @@ const insightsBody = {
     },
   ],
   programs: [],
+  programSummary: {
+    programCount: 0,
+    recruitingCount: 0,
+    approvedParticipantCount: 0,
+    uniqueParticipantCount: 0,
+    competitionRatio: null,
+    repeatParticipantCount: 0,
+    repeatParticipantRate: null,
+  },
   leaders: {
     period: { all: [insightsLeader], swMajor: [insightsLeader], nonSw: [] },
     recent: { all: [], swMajor: [], nonSw: [] },
@@ -600,6 +609,10 @@ const listActivityBaselines = jest.fn().mockResolvedValue([]);
 const listActivityByYear = jest.fn().mockResolvedValue([]);
 const findActivityDataAsOf = jest.fn().mockResolvedValue(null);
 const listActivityYears = jest.fn().mockResolvedValue([]);
+const listPublishedPrograms = jest.fn().mockResolvedValue([]);
+const listProgramApplicationCounts = jest.fn().mockResolvedValue([]);
+const listProgramCompletion = jest.fn().mockResolvedValue([]);
+const listProgramOutcomes = jest.fn().mockResolvedValue([]);
 const staffInsightsService = new StaffInsightsService(
   {
     listStudents,
@@ -609,6 +622,10 @@ const staffInsightsService = new StaffInsightsService(
     listActivityYears,
     listActivityBaselines,
     listActivityByYear,
+    listPublishedPrograms,
+    listProgramApplicationCounts,
+    listProgramCompletion,
+    listProgramOutcomes,
   } as unknown as StaffInsightsRepository,
   new RankingYearService(),
   new StaffInsightsQueryService(),

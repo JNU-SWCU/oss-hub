@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { cohortRow, rate } from './insights-model';
+import { KpiTile } from './kpi-tile';
 import {
   COHORT_LABELS,
   DEPARTMENT_COHORTS,
@@ -50,41 +51,6 @@ const SORT_OPTIONS: readonly {
 function percent(numerator: number, denominator: number): string {
   if (denominator === 0) return '계산 불가';
   return `${Math.round((numerator / denominator) * 100)}%`;
-}
-
-function KpiTile({
-  label,
-  value,
-  ratio,
-  note,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly ratio?: string;
-  readonly note?: string;
-}): ReactElement {
-  return (
-    <Card>
-      <CardHeader>
-        <CardDescription className="break-keep">{label}</CardDescription>
-        <CardTitle className="text-2xl font-semibold tabular-nums">
-          {value}
-        </CardTitle>
-      </CardHeader>
-      {ratio === undefined && note === undefined ? null : (
-        <CardContent className="space-y-2">
-          {ratio === undefined ? null : (
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground tabular-nums">
-              {ratio}
-            </span>
-          )}
-          {note === undefined ? null : (
-            <p className="break-keep text-xs text-muted-foreground">{note}</p>
-          )}
-        </CardContent>
-      )}
-    </Card>
-  );
 }
 
 function CohortKpiGrid({
