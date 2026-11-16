@@ -119,6 +119,27 @@ describe('GroupsTab', () => {
     );
   });
 
+  it('marks registered-student and unregistered tiles as current sign-up state, not period-scoped', async () => {
+    await render(STAFF_INSIGHTS_FIXTURE);
+    const tiles = Array.from(
+      container.querySelectorAll('[aria-label="전공별 지표"] > *'),
+    ).map((tile) => tile.textContent ?? '');
+    const withNote = tiles.filter((text) =>
+      text.includes('현재 가입 기준 · 기간 미적용'),
+    );
+
+    expect(withNote).toEqual([
+      'SW전공 가입 학생42명현재 가입 기준 · 기간 미적용',
+      '비SW전공 가입 학생18명현재 가입 기준 · 기간 미적용',
+      '학과 미등록3명현재 가입 기준 · 기간 미적용',
+    ]);
+    expect(
+      tiles
+        .filter((text) => text.includes('활동률'))
+        .some((text) => text.includes('기간 미적용')),
+    ).toBe(false);
+  });
+
   it('renders 계산 불가 when a cohort has no registered students', async () => {
     await render({
       ...STAFF_INSIGHTS_FIXTURE,

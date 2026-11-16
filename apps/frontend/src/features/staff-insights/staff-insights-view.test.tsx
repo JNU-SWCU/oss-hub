@@ -28,6 +28,9 @@ describe('StaffInsightsView', () => {
     expect(tabs).toContain('>학생</a>');
     expect(tabs).toContain('>학과·전공</a>');
     expect(tabs).toContain('>프로그램</a>');
+    expect(html.indexOf('aria-label="인사이트 보기"')).toBeLessThan(
+      html.indexOf('aria-label="필터"'),
+    );
   });
 
   it.each([
@@ -71,7 +74,10 @@ describe('StaffInsightsView', () => {
     const html = render('groups');
     const current = tabBar(html).match(/<a[^>]*aria-current="page"[^>]*>/g);
     expect(current).toHaveLength(1);
-    expect(current?.[0]).toContain('data-variant="toggle"');
+    expect(current?.[0]).toContain('aria-[current=page]:border-primary');
+    expect(current?.[0]).toContain('aria-[current=page]:text-foreground');
+    expect(tabBar(html)).toContain('border-b border-border');
+    expect(tabBar(html)).not.toContain('data-variant="toggle"');
     expect(current?.[0]).toContain('href="/dashboard/insights?view=groups"');
     expect(tabBar(html)).toContain('href="/dashboard/insights"');
   });
