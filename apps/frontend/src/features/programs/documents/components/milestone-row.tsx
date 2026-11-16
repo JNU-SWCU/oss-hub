@@ -7,12 +7,12 @@ import {
   programDocumentsHref,
   programRequirementsHref,
 } from '@/lib/program-route';
-import { SUBMISSION_STATUS_BADGE } from '@/lib/status-vocabulary';
-import { cn } from '@/lib/utils';
 import {
-  formatSeoulDate,
-  submissionLabel,
-} from '../../catalog/program-detail-format';
+  SUBMISSION_STATUS_BADGE,
+  submissionStatusLabel,
+} from '@/lib/status-vocabulary';
+import { cn } from '@/lib/utils';
+import { formatSeoulDate } from '../../catalog/program-detail-format';
 import type {
   BlockedMilestoneSubmissionAccess,
   MilestoneSubmissionAccess,
@@ -112,7 +112,7 @@ function StudentState({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <StatusBadge variant={SUBMISSION_STATUS_BADGE[gate.status]}>
-        {submissionLabel(gate.status)}
+        {submissionStatusLabel(gate.status, 'student')}
       </StatusBadge>
       {gate.kind === 'open' ? (
         <Button asChild size="sm" variant="outline">

@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { programEditHref } from '@/lib/program-route';
+import { submissionStatusLabel } from '@/lib/status-vocabulary';
 import {
   collectionCellFor,
   collectionDocumentTotalFor,
@@ -212,7 +213,9 @@ function CollectionCellContent({
   const display = requirementCellDisplay(cell);
   const badge = (
     <StatusBadge variant={REQUIREMENT_REVIEW_DISPLAY_VARIANTS[display]}>
-      {REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
+      {display === 'CHANGES_REQUESTED'
+        ? submissionStatusLabel('CHANGES_REQUESTED', 'staff')
+        : REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
     </StatusBadge>
   );
 

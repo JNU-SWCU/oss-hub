@@ -4,6 +4,7 @@ import { FilterChip, FilterChipGroup, StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { submissionStatusLabel } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
 import type {
   RequirementCollectionCell,
@@ -150,7 +151,9 @@ export function RequirementReviewPanel(
           {props.teamName} — {props.documentName}
         </h3>
         <StatusBadge variant={REQUIREMENT_REVIEW_DISPLAY_VARIANTS[display]}>
-          {REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
+          {display === 'CHANGES_REQUESTED'
+            ? submissionStatusLabel('CHANGES_REQUESTED', 'staff')
+            : REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
         </StatusBadge>
         {cell.submittedAt === null ? null : (
           <span className="text-small text-muted-foreground">

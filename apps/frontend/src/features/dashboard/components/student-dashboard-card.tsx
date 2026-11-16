@@ -15,6 +15,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import {
   SUBMISSION_STATUS_BADGE,
   SUBMISSION_STATUS_LABELS,
+  submissionStatusLabel,
 } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
 import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
@@ -255,7 +256,7 @@ export function ActiveProgramCard({
             <StatusBadge
               variant={SUBMISSION_STATUS_BADGE[milestone.submissionStatus]}
             >
-              {SUBMISSION_STATUS_LABELS[milestone.submissionStatus]}
+              {submissionStatusLabel(milestone.submissionStatus, 'student')}
             </StatusBadge>
             {remainingItemCount > 0 ? (
               <span className="font-semibold text-status-pending-fg">

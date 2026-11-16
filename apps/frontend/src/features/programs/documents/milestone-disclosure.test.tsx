@@ -265,6 +265,14 @@ describe('마일스톤 접기', () => {
     ).toContain('1');
   });
 
+  it('보완을 요청받은 마일스톤 줄은 학생 말로 보완 필요라고 읽는다', async () => {
+    const groups = await renderMilestones();
+
+    const row = groups[2]?.querySelector('[data-testid="milestone-row"]');
+    expect(row?.textContent).toContain('보완 필요');
+    expect(row?.textContent).not.toContain('보완 요청');
+  });
+
   it('접힌 마일스톤도 경계선과 묶음을 그대로 갖는다', async () => {
     const groups = await renderMilestones();
 

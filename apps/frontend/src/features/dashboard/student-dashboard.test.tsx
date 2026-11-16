@@ -581,6 +581,19 @@ describe('StudentDashboardView 프로그램 묶음', () => {
     expect(html.match(/data-variant="default"/g)).toHaveLength(1);
   });
 
+  it('보완을 요청받은 다음 마일스톤 배지는 학생 말로 보완 필요라고 읽는다', () => {
+    const html = renderView({
+      data: {
+        items: [
+          active('resubmit', '2026-07-27T23:59:59+09:00', 'CHANGES_REQUESTED'),
+        ],
+      },
+    });
+
+    expect(html).toMatch(/data-variant="pending"[^>]*>보완 필요</);
+    expect(html).not.toContain('보완 요청');
+  });
+
   it('낼 서류가 없으면 주 행동을 두지 않는다', () => {
     const html = renderView({
       data: {
