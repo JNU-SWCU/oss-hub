@@ -113,7 +113,7 @@ describe('Audit history feed', () => {
         name: PROGRAM_NAME,
         startAt: new Date('2026-12-31T00:00:00.000Z'),
         endAt: new Date('2027-12-31T00:00:00.000Z'),
-        organizer: 'synthetic',
+        organizers: ['synthetic'],
         trackType: 'EXTRACURRICULAR',
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic',

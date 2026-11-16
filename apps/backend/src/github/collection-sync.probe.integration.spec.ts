@@ -132,7 +132,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
         endAt: new Date('2027-12-31T00:00:00.000Z'),
         id: PROGRAM_ID,
         name: 'synthetic probe program',
-        organizer: 'synthetic',
+        organizers: ['synthetic'],
         trackType: 'EXTRACURRICULAR',
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic',

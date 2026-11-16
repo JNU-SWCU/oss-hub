@@ -80,7 +80,7 @@ export async function exercisePrismaFailure(
 function prismaAggregateRequest(uploadId: string): ProgramAuthoringRequest {
   return {
     name: `${E2E_PROGRAM_ID}:aggregate`,
-    organizer: `${E2E_PROGRAM_ID}:organizer`,
+    organizers: [`${E2E_PROGRAM_ID}:organizer`],
     trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-20T00:00:00.000Z',

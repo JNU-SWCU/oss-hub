@@ -22,6 +22,10 @@ import {
 } from 'class-validator';
 import { ProgramTrackType } from '@prisma/client';
 import { type UpdateProgramCommand } from '../program-editor.service';
+import {
+  PROGRAM_ORGANIZER_MAX_LENGTH,
+  PROGRAM_ORGANIZERS_MAX_COUNT,
+} from '../program-organizers.config';
 
 function isUnknownArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);
@@ -130,10 +134,12 @@ export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
   @MaxLength(200)
   declare readonly name: string;
 
-  @IsString()
-  @Matches(/\S/u)
-  @MaxLength(200)
-  declare readonly organizer: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(PROGRAM_ORGANIZERS_MAX_COUNT)
+  @IsString({ each: true })
+  @MaxLength(PROGRAM_ORGANIZER_MAX_LENGTH, { each: true })
+  declare readonly organizers: readonly string[];
 
   @IsIn(Object.values(ProgramTrackType))
   declare readonly trackType: ProgramTrackType;
@@ -188,9 +194,12 @@ export class UpdateProgramRequestDto
   @IsNotEmpty()
   declare name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  declare organizer: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(PROGRAM_ORGANIZERS_MAX_COUNT)
+  @IsString({ each: true })
+  @MaxLength(PROGRAM_ORGANIZER_MAX_LENGTH, { each: true })
+  declare organizers: string[];
 
   @IsEnum(ProgramTrackType)
   declare trackType: ProgramTrackType;

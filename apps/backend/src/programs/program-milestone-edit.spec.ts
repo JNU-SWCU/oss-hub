@@ -8,6 +8,7 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramMilestoneEditValidationError } from './programs.error';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './programs.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programEditorService = new ProgramEditorService(
   undefined as never,
@@ -20,6 +21,7 @@ const programEditorService = new ProgramEditorService(
     new ProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
+  new ProgramOrganizersService(),
 );
 const operation = {
   startAt: new Date('2026-08-16T00:00:00.000Z'),

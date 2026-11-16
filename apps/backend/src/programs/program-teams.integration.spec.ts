@@ -17,7 +17,7 @@ const now = new Date('2026-08-10T00:00:00Z');
 const program = {
   id: prefix,
   name: 'Synthetic program',
-  organizer: 'Synthetic organizer',
+  organizers: ['Synthetic organizer'],
   category: 'BASIC' as const,
   applicationTemplateKey: 'capstone-v1',
   applicationTemplateVersion: 1,
@@ -231,11 +231,11 @@ describe('program storage invariants', () => {
     await expect(
       prisma.$executeRaw`
         INSERT INTO "Program" (
-          "id", "name", "organizer", "category", "applicationTemplateKey",
+          "id", "name", "organizers", "category", "applicationTemplateKey",
           "applicationTemplateVersion", "applicationStartAt", "applicationEndAt",
           "startAt", "endAt", "description", "updatedAt"
         ) VALUES (
-          ${prefix}, 'Synthetic program', 'Synthetic organizer', 'BASIC', 'capstone-v1',
+          ${prefix}, 'Synthetic program', ARRAY['Synthetic organizer'], 'BASIC', 'capstone-v1',
           1, ${program.applicationStartAt}, ${program.applicationEndAt},
           TIMESTAMP '0001-01-01', ${program.endAt}, 'Synthetic fixture', ${now}
         )

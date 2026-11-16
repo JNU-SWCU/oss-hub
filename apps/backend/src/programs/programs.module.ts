@@ -144,6 +144,7 @@ import {
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 @Module({
   imports: [PlatformModule, GithubModule, UsersModule],
@@ -186,6 +187,7 @@ import { ProgramScheduleService } from './program-schedule.service';
     RequirementFileNameService,
     SubmissionWindowService,
     ProgramScheduleService,
+    ProgramOrganizersService,
     ProgramTemplatesService,
     SubmissionFileAdmissionService,
     ProgramsService,

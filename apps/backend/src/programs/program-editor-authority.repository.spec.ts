@@ -62,7 +62,7 @@ describe('ProgramEditorRepository edit counts', () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'program-1',
       name: 'OSS',
-      organizer: 'Center',
+      organizers: ['Center'],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',

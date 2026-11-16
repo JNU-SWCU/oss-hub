@@ -18,6 +18,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './programs.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9101000001n;
@@ -43,6 +44,7 @@ export const editor = new ProgramEditorService(
     new ProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
+  new ProgramOrganizersService(),
 );
 export async function runTogether<T, U>(
   first: () => Promise<T>,
@@ -71,7 +73,7 @@ export async function createProgram(
     data: {
       id: programId,
       name: PROGRAM_NAME,
-      organizer: 'OSS Center',
+      organizers: ['OSS Center'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

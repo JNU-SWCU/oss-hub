@@ -1640,7 +1640,7 @@ async function createApplicationAndEvent(
       ),
       id: program,
       name: 'Synthetic Program',
-      organizer: 'synthetic-organizer',
+      organizers: ['synthetic-organizer'],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',

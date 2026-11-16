@@ -102,7 +102,7 @@ beforeEach(async () => {
 
       id: programId,
       name: 'Synthetic compatibility program',
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       category: ProgramCategory.CAPSTONE,
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,

@@ -81,7 +81,7 @@ async function seedPendingInvitation(): Promise<void> {
       ),
       id: PROGRAM_ID,
       name: 'Invitation atomicity program',
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       trackType: ProgramTrackType.CURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'capstone-v1',

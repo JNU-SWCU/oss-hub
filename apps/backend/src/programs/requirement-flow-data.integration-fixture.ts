@@ -54,7 +54,7 @@ export async function seedRequirementFlow(
     data: {
       id: flowIds.program,
       name: '합성 프로그램',
-      organizer: 'OSS Hub',
+      organizers: ['OSS Hub'],
       category: 'CAPSTONE',
       applicationTemplateKey: 'capstone-v1',
       applicationTemplateVersion: 1,

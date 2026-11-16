@@ -83,7 +83,7 @@ function programRow(programId: string) {
     ),
     id: programId,
     name: `synthetic ${programId}`,
-    organizer: 'synthetic-center',
+    organizers: ['synthetic-center'],
     category: ProgramCategory.BASIC,
     applicationTemplateKey: 'basic',
     applicationTemplateVersion: 1,

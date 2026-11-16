@@ -52,6 +52,7 @@ import {
 } from './program-editor.integration-fixtures';
 import { RequirementMissingError } from './submissions.error';
 import { ProgramCoverUrlService } from './programs.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -1297,6 +1298,7 @@ function createFaultingEditor(
       new ProgramNoticeFetchClient(),
     ),
     new UserProfileService(),
+    new ProgramOrganizersService(),
   );
 }
 function pausingAggregateEditor(
@@ -1372,6 +1374,7 @@ function pausingAggregateEditorAt(
       new ProgramNoticeFetchClient(),
     ),
     new UserProfileService(),
+    new ProgramOrganizersService(),
   );
 }
 function instrumentStore(

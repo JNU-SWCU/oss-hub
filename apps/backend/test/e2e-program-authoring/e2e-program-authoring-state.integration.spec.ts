@@ -126,7 +126,7 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
       idempotencyKey: AGGREGATE_IDEMPOTENCY_KEY,
       payloadHash: 'a'.repeat(64),
       name: `${E2E_PROGRAM_ID}:aggregate`,
-      organizer: `${E2E_PROGRAM_ID}:organizer`,
+      organizers: [`${E2E_PROGRAM_ID}:organizer`],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       lifecycle: ProgramLifecycle.PUBLISHED,

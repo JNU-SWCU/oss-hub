@@ -153,7 +153,7 @@ describe('archived teams leave staff and student aggregates', () => {
       data: {
         id: programId,
         name: 'Archived aggregate program',
-        organizer: 'Synthetic organizer',
+        organizers: ['Synthetic organizer'],
         category: ProgramCategory.BASIC,
         trackType: ProgramTrackType.CURRICULAR,
         applicationTemplateKey: 'capstone-v1',

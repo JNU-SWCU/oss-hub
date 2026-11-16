@@ -132,7 +132,7 @@ async function installLiveFixture(): Promise<void> {
     data: {
       id: PROGRAM_ID,
       name: '합성 스토리지 정합성 프로그램',
-      organizer: '합성 운영자',
+      organizers: ['합성 운영자'],
       trackType: 'EXTRACURRICULAR',
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',

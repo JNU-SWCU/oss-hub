@@ -94,7 +94,7 @@ it('projects current repository facts and URL audit history without reading or m
     data: {
       id: programId,
       name: 'Synthetic program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'synthetic',
       applicationTemplateVersion: 1,
@@ -240,7 +240,7 @@ it('reads contributions of a program that never set an end date', async () => {
       endAt: new Date('9999-12-31T23:59:59.999Z'),
       id: scopedProgramId,
       name: 'Synthetic program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'synthetic',
       applicationTemplateVersion: 1,
@@ -350,7 +350,7 @@ it('counts issues for team members, so an issue-only member has observations', a
     data: {
       id: scopedProgramId,
       name: 'Synthetic program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'synthetic',
       applicationTemplateVersion: 1,
@@ -486,7 +486,7 @@ it('counts only student authors in team, program and public totals', async () =>
     data: {
       id: scopedProgramId,
       name: 'Synthetic program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'synthetic',
       applicationTemplateVersion: 1,

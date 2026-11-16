@@ -116,7 +116,7 @@ async function seed(): Promise<void> {
         data: {
           id: programId,
           name: 'Program read baseline',
-          organizer: 'Synthetic integration fixture',
+          organizers: ['Synthetic integration fixture'],
           category: 'BASIC',
           applicationTemplateKey: 'baseline',
           applicationTemplateVersion: 1,

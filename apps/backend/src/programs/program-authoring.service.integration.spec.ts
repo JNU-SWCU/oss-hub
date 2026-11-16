@@ -30,6 +30,7 @@ import {
 } from './program-authoring.integration-support';
 import { type ProgramAuthoringDocumentRequest } from './files.config';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
@@ -44,6 +45,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
+  new ProgramOrganizersService(),
 );
 
 describe('ProgramAuthoringService integration', () => {
@@ -68,6 +70,7 @@ describe('ProgramAuthoringService integration', () => {
       new ProgramNoticeFetchClient(),
     ),
     new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramOrganizersService(),
   );
 
   beforeAll(async () => {

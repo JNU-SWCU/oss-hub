@@ -601,7 +601,7 @@ async function upsertDemoProgram(
   params: {
     readonly id: string;
     readonly name: string;
-    readonly organizer: string;
+    readonly organizers: string[];
     readonly category: ProgramCategory;
     readonly description: string;
     readonly applicationStartAt: Date;
@@ -621,7 +621,7 @@ async function upsertDemoProgram(
         where: { id: params.id },
         update: {
           name: params.name,
-          organizer: params.organizer,
+          organizers: params.organizers,
           category: params.category,
           description: params.description,
           applicationStartAt: params.applicationStartAt,
@@ -634,7 +634,7 @@ async function upsertDemoProgram(
         create: {
           id: params.id,
           name: params.name,
-          organizer: params.organizer,
+          organizers: params.organizers,
           category: params.category,
           applicationTemplateKey: applicationTemplateKey(params.category),
           applicationTemplateVersion: 1,
@@ -678,7 +678,7 @@ export async function seedDemo(
   await upsertDemoProgram(stats, {
     id: internshipProgramId,
     name: '2026 하계 SW 현장실습 연계 프로그램',
-    organizer: '오픈소스 SW 개발 사업단',
+    organizers: ['오픈소스 SW 개발 사업단'],
     category: ProgramCategory.CORPORATE_INTERNSHIP,
     description:
       '모집 배경: 오픈소스 SW 개발 사업단은 참여 기업과 연계한 하계 현장실습 프로그램을 ' +
@@ -784,7 +784,7 @@ export async function seedDemo(
   await upsertDemoProgram(stats, {
     id: contestProgramId,
     name: '2026 오픈소스 SW개발자 대회 (에코노베이션 연계)',
-    organizer: '오픈소스 SW 개발 사업단',
+    organizers: ['오픈소스 SW 개발 사업단'],
     category: ProgramCategory.OSS_CONTEST,
     description:
       '모집 배경: 오픈소스 SW 개발 사업단은 교내 오픈소스 개발자 대회를 통해 학생들이 ' +
@@ -1074,7 +1074,7 @@ export async function seedDemo(
   await upsertDemoProgram(stats, {
     id: freshmenProgramId,
     name: '2026 신입생 SW역량 강화 캠프',
-    organizer: '오픈소스 SW 개발 사업단',
+    organizers: ['오픈소스 SW 개발 사업단'],
     category: ProgramCategory.SW_VALUE_SPREAD,
     description:
       '모집 배경: 오픈소스 SW 개발 사업단은 신입생이 입학 초기부터 협업 기반 프로젝트 ' +
@@ -1169,7 +1169,7 @@ export async function seedDemo(
   await upsertDemoProgram(stats, {
     id: mileageProgramId,
     name: '2026 소중마일리지 연계 오픈소스 비교과',
-    organizer: '오픈소스 SW 개발 사업단',
+    organizers: ['오픈소스 SW 개발 사업단'],
     category: ProgramCategory.BASIC,
     description:
       '모집 배경: 오픈소스 SW 개발 사업단은 소중마일리지와 연계해 교내 오픈소스 저장소 ' +

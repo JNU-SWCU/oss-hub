@@ -206,7 +206,7 @@ beforeEach(async () => {
       endAt: new Date(new Date('2099-12-31').getTime() + 365 * 86400000),
       id: programId,
       name: 'Synthetic open program',
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

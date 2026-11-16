@@ -115,7 +115,7 @@ beforeEach(async () => {
       startAt: new Date('2026-01-01'),
       id: programId,
       name: 'Synthetic relink program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

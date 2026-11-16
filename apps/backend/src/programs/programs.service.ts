@@ -55,6 +55,7 @@ import {
   PROGRAM_PARTICIPATION,
 } from './team-application.service';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
+import { ProgramOrganizersService } from './program-organizers.service';
 import {
   ProgramNoticeFetchClient,
   type ProgramNoticePreview,
@@ -137,7 +138,7 @@ export interface ProgramDetailResult {
   readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
   readonly description: string;
@@ -352,7 +353,7 @@ export class ProgramsService {
           program.coverImageUrl,
         ),
         name: program.name,
-        organizer: program.organizer,
+        organizers: program.organizers,
         trackType: program.trackType,
         applicationTemplateKey: program.applicationTemplateKey,
         teamMinSize: program.teamMinSize,
@@ -574,6 +575,7 @@ export class ProgramAuthoringService {
     private readonly programTemplatesService: ProgramTemplatesService,
     private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    private readonly programOrganizersService: ProgramOrganizersService,
   ) {}
   async createFromRequest(
     actor: {
@@ -713,7 +715,7 @@ export class ProgramAuthoringService {
       ...(plan.externalCover ? { externalCover: plan.externalCover } : {}),
       program: {
         name: plan.program.name,
-        organizer: plan.program.organizer,
+        organizers: plan.program.organizers,
         trackType: plan.program.trackType,
         category: plan.program.category,
         applicationTemplateKey: plan.program.applicationTemplateKey,
@@ -758,7 +760,10 @@ export class ProgramAuthoringService {
       this.programAuthoringUploadService.validateProgramCoverChoice(request);
     const issues: ProgramAuthoringValidationIssue[] = [];
     const name = requiredString(request.name, 'name', issues);
-    const organizer = requiredString(request.organizer, 'organizer', issues);
+    const { organizers, error: organizersError } =
+      this.programOrganizersService.normalize(request.organizers);
+    if (organizersError !== null)
+      issues.push({ path: organizersError.field, code: organizersError.code });
     const description = requiredString(
       request.description,
       'description',
@@ -901,7 +906,7 @@ export class ProgramAuthoringService {
     return {
       program: {
         name,
-        organizer,
+        organizers,
         category: ProgramCategory.BASIC,
         trackType: request.trackType,
         applicationTemplateKey: template.key,
@@ -1089,7 +1094,7 @@ export type CreatedProgram = {
 
 export type CreateProgramCommand = {
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
@@ -1157,11 +1162,13 @@ export class ProgramCreationService {
     private readonly historyMetadataService: HistoryMetadataService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programTemplatesService: ProgramTemplatesService,
+    private readonly programOrganizersService: ProgramOrganizersService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
     const name = input.name.trim();
-    const organizer = input.organizer.trim();
+    const { organizers, error: organizersError } =
+      this.programOrganizersService.normalize(input.organizers);
     const description = input.description.trim();
     const applicationStartAt = new Date(input.applicationStartAt);
     const applicationEndAt = new Date(input.applicationEndAt);
@@ -1187,9 +1194,15 @@ export class ProgramCreationService {
       teamMinSize >= 1 &&
       teamMinSize <= teamMaxSize;
 
+    if (organizersError !== null) {
+      throw new DomainException(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+        { fieldErrors: [organizersError] },
+      );
+    }
+
     if (
       !name ||
-      !organizer ||
       !description ||
       !hasValidApplicationPeriod ||
       !hasValidTeamSize
@@ -1216,7 +1229,7 @@ export class ProgramCreationService {
         {
           createdByGithubId: githubId,
           name,
-          organizer,
+          organizers,
           category: ProgramCategory.BASIC,
           trackType: input.trackType,
           applicationTemplateKey: template.key,

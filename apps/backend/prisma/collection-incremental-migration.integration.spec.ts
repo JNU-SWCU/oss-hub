@@ -153,7 +153,7 @@ describe('collection incremental migration — DB invariants', () => {
 
         id: `${TEST_PREFIX}program`,
         name: 'p',
-        organizer: 'org',
+        organizers: ['org'],
         category: 'BASIC',
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,

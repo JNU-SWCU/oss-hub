@@ -21,6 +21,7 @@ import { ApplicationsRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -91,7 +92,7 @@ it.each(['delete', 'purge'] as const)(
       data: {
         id: `${prefix}${operation}`,
         name: `${prefix}${operation}`,
-        organizer: 'Synthetic center',
+        organizers: ['Synthetic center'],
         category: 'BASIC',
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,
@@ -185,10 +186,11 @@ it('legacy POST /programs records its known actor without an invented idempotenc
     metadata,
     new ProgramScheduleService(),
     new ProgramTemplatesService(),
+    new ProgramOrganizersService(),
   );
   const program = await creation.create(githubId, {
     name: `${prefix}legacy-create`,
-    organizer: 'Synthetic center',
+    organizers: ['Synthetic center'],
     trackType: 'EXTRACURRICULAR',
     applicationStartAt: '2026-11-01T00:00:00Z',
     applicationEndAt: '2026-11-05T00:00:00Z',

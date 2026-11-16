@@ -29,6 +29,7 @@ import {
 } from './programs.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;
@@ -55,6 +56,7 @@ export const editor = new ProgramEditorService(
     new ProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
+  new ProgramOrganizersService(),
 );
 export const publicCovers = new ProgramCoverRepository(
   prisma,
@@ -69,7 +71,7 @@ export function authoring(): ProgramAuthoringService {
 export function request() {
   return {
     name: `${PREFIX}program`,
-    organizer: 'Synthetic Center',
+    organizers: ['Synthetic Center'],
     trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-05T00:00:00.000Z',

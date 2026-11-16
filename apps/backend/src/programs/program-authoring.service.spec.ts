@@ -33,6 +33,7 @@ import {
 } from './files.config';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
@@ -47,6 +48,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
+  new ProgramOrganizersService(),
 );
 
 describe('program-notice-preview.service', () => {
@@ -134,7 +136,7 @@ const ACTOR = { id: ACTOR_ID, githubId: GITHUB_ID };
 function request(templateUploadId?: string): ProgramAuthoringRequest {
   return {
     name: 'Program',
-    organizer: 'OSS Center',
+    organizers: ['OSS Center'],
     trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-05T00:00:00.000Z',
@@ -166,7 +168,7 @@ function program(): ProgramAuthoringProgram {
   return {
     id: 'program-id',
     name: 'Program',
-    organizer: 'OSS Center',
+    organizers: ['OSS Center'],
     category: ProgramCategory.BASIC,
     trackType: ProgramTrackType.CURRICULAR,
     lifecycle: ProgramLifecycle.PUBLISHED,
@@ -225,6 +227,7 @@ function setup() {
         new ProgramNoticeFetchClient(),
       ),
       new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramOrganizersService(),
     ),
   };
 }

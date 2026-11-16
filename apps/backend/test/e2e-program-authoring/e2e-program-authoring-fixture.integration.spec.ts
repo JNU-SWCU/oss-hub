@@ -185,7 +185,7 @@ it('removes detached fixture repository facts while preserving a neighboring pro
       endAt: new Date(new Date('2026-01-31Z').getTime() + 365 * 86400000),
       id: neighborId,
       name: 'Synthetic neighboring program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

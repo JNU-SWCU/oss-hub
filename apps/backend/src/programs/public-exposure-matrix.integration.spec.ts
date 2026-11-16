@@ -337,7 +337,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       data: {
         id: PROGRAM_ENDED_ID,
         name: `${PREFIX}-program-ended`,
-        organizer: 'synthetic-organizer',
+        organizers: ['synthetic-organizer'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',
@@ -353,7 +353,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       data: {
         id: PROGRAM_NOT_ENDED_ID,
         name: `${PREFIX}-program-not-ended`,
-        organizer: 'synthetic-organizer',
+        organizers: ['synthetic-organizer'],
         trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',

@@ -103,7 +103,7 @@ beforeAll(async () => {
     data: {
       id: programId,
       name: 'Synthetic program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'synthetic',
       applicationTemplateVersion: 1,

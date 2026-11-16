@@ -28,6 +28,7 @@ import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
 import { ProgramCoverUrlService } from './programs.service';
+import { ProgramOrganizersService } from './program-organizers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -66,6 +67,7 @@ const editor = new ProgramEditorService(
     new ProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
+  new ProgramOrganizersService(),
 );
 const sentMails: DeadlineDigestMail[] = [];
 const digest = new DeadlineDigestService(
@@ -82,7 +84,7 @@ const digest = new DeadlineDigestService(
 function updateRequest(notifyOnDeadline: boolean) {
   return {
     name: '마감 알림 검증 프로그램',
-    organizer: 'OSS Center',
+    organizers: ['OSS Center'],
     trackType: ProgramTrackType.EXTRACURRICULAR,
     category: ProgramCategory.BASIC,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
@@ -152,7 +154,7 @@ async function seed(): Promise<void> {
     data: {
       id: PROGRAM_ID,
       name: '마감 알림 검증 프로그램',
-      organizer: 'OSS Center',
+      organizers: ['OSS Center'],
       trackType: ProgramTrackType.EXTRACURRICULAR,
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',

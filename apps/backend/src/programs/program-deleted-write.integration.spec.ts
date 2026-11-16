@@ -100,7 +100,7 @@ async function seed(lifecycle: ProgramLifecycle): Promise<void> {
       id: programId,
       name: 'Deleted program write boundary',
       lifecycle,
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       trackType: 'CURRICULAR',
       category: 'BASIC',
       description: 'Synthetic fixture',

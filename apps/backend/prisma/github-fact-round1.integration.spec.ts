@@ -100,7 +100,7 @@ const createProgram = async (): Promise<void> => {
     data: {
       id: `${PREFIX}program`,
       name: 'p',
-      organizer: 'org',
+      organizers: ['org'],
       category: 'BASIC',
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,
@@ -294,7 +294,7 @@ describe('github fact round 1', () => {
       data: {
         id: `${PREFIX}activity-program`,
         name: 'p',
-        organizer: 'org',
+        organizers: ['org'],
         category: 'BASIC',
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,

@@ -57,7 +57,7 @@ async function createProgram(
     data: {
       id,
       name: id,
-      organizer: 'synthetic-organizer',
+      organizers: ['synthetic-organizer'],
       category: 'BASIC',
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

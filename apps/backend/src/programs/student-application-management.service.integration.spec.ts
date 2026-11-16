@@ -58,7 +58,7 @@ async function seedApplication(): Promise<void> {
       ),
       id: PROGRAM_ID,
       name: 'Student application race program',
-      organizer: 'Synthetic organizer',
+      organizers: ['Synthetic organizer'],
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'basic',
       applicationTemplateVersion: 1,

@@ -535,7 +535,7 @@ function listRecord(
   return {
     id: 'program-1',
     name: '프로그램',
-    organizer: '운영기관',
+    organizers: ['운영기관'],
     trackType: ProgramTrackType.CURRICULAR,
     applicationTemplateKey: 'capstone',
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),

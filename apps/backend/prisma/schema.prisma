@@ -229,7 +229,7 @@ model Program {
   files          File[]            @relation("ProgramFiles")
   id             String            @id @default(cuid())
   name           String
-  organizer      String
+  organizers     String[]          @default([])
   category       ProgramCategory
   trackType      ProgramTrackType?
   lifecycle      ProgramLifecycle  @default(PUBLISHED)

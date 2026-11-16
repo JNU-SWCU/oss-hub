@@ -60,7 +60,7 @@ describe('application named invitees integration', () => {
       data: {
         id: programId,
         name: 'Synthetic program',
-        organizer: 'Synthetic organizer',
+        organizers: ['Synthetic organizer'],
         category: 'BASIC',
         applicationTemplateKey: 'basic',
         applicationTemplateVersion: 1,

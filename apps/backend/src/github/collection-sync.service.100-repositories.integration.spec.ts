@@ -182,7 +182,7 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
       data: seeds.map((seed) => ({
         id: `${PROGRAM_PREFIX}${seed.id}`,
         name: `Synthetic scale ${seed.id}`,
-        organizer: 'Synthetic',
+        organizers: ['Synthetic'],
         category: 'BASIC',
         trackType: 'EXTRACURRICULAR',
         description: 'Synthetic',

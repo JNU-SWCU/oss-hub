@@ -68,7 +68,7 @@ export class ProgramArchiveIntegrationFixture {
         data: {
           id: archiveId(suffix),
           name: `합성 프로그램 ${suffix}`,
-          organizer: 'OSS Hub',
+          organizers: ['OSS Hub'],
           category: 'CAPSTONE',
           applicationTemplateKey: 'capstone-v1',
           applicationTemplateVersion: 1,

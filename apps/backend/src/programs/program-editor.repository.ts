@@ -92,7 +92,7 @@ export type EditableProgramView = {
   readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
@@ -131,7 +131,7 @@ type ProgramUpdateInput = {
   readonly coverChange?: ProgramCoverChange;
   readonly programId: string;
   readonly name: string;
-  readonly organizer: string;
+  readonly organizers: readonly string[];
   readonly trackType: ProgramTrackType;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
@@ -348,7 +348,7 @@ export class ProgramEditorRepository {
       where: { id: input.programId },
       data: {
         name: input.name,
-        organizer: input.organizer,
+        organizers: [...input.organizers],
         trackType: input.trackType,
         applicationTemplateKey: input.applicationTemplateKey,
         applicationTemplateVersion: input.applicationTemplateVersion,
@@ -803,7 +803,7 @@ function toEditableProgramView(
         : null,
     id: program.id,
     name: program.name,
-    organizer: program.organizer,
+    organizers: program.organizers,
     trackType: program.trackType,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,

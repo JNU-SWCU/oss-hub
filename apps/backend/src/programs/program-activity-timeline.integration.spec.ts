@@ -49,7 +49,7 @@ it('counts only current linked activity and never substitutes detached or unrela
       endAt: new Date(new Date('2026-07-31Z').getTime() + 365 * 86400000),
       id: programId,
       name: 'Synthetic program',
-      organizer: 'Synthetic',
+      organizers: ['Synthetic'],
       category: 'BASIC',
       applicationTemplateKey: 'synthetic',
       applicationTemplateVersion: 1,

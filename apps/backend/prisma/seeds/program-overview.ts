@@ -308,7 +308,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         create: {
           id: PROGRAM_ID,
           name: 'seed-program-overview-project',
-          organizer: 'seed-organizer-sw-center',
+          organizers: ['seed-organizer-sw-center'],
           category: ProgramCategory.CAPSTONE,
           applicationTemplateKey: applicationTemplateKey(
             ProgramCategory.CAPSTONE,

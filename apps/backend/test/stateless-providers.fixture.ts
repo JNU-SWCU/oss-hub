@@ -31,6 +31,7 @@ import {
 } from '../src/programs/files.service';
 import { ProgramCoverUrlService } from '../src/programs/programs.service';
 import { ProgramScheduleService } from '../src/programs/program-schedule.service';
+import { ProgramOrganizersService } from '../src/programs/program-organizers.service';
 import { RankingYearService } from '../src/ranking/ranking-year.service';
 import { StaffInsightsQueryService } from '../src/staff/staff-insights-query.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
@@ -62,6 +63,7 @@ export const STATELESS_PROVIDERS = [
   SubmissionWindowService,
   ProgramCoverUrlService,
   ProgramScheduleService,
+  ProgramOrganizersService,
   ProgramTemplatesService,
   SubmissionFileAdmissionService,
   RankingYearService,

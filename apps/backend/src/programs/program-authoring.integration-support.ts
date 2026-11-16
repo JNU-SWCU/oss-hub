@@ -161,7 +161,7 @@ export function authoringRequest(
 ): ProgramAuthoringRequest {
   return {
     name: `${AUTHORING_TEST_PREFIX}program:${label}`,
-    organizer: 'Synthetic OSS Center',
+    organizers: ['Synthetic OSS Center'],
     trackType: ProgramTrackType.CURRICULAR,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-05T00:00:00.000Z',

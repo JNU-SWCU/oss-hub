@@ -73,7 +73,7 @@ function programData(
 
     id,
     name,
-    organizer: 'Synthetic organizer',
+    organizers: ['Synthetic organizer'],
     trackType: ProgramTrackType.CURRICULAR,
     category: ProgramCategory.BASIC,
     applicationTemplateKey: 'capstone-v1',

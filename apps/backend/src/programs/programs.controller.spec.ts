@@ -68,7 +68,7 @@ describe('program-editor.controller', () => {
       const editable = {
         id: 'program-1',
         name: 'OSS',
-        organizer: 'Center',
+        organizers: ['Center'],
         trackType: 'EXTRACURRICULAR',
         applicationTemplateKey: 'oss-contest',
         applicationTemplateVersion: 1,
@@ -269,7 +269,7 @@ const publicDetail: ProgramDetailResult = {
   id: 'program-1',
   coverImageUrl: null,
   name: 'Synthetic program',
-  organizer: 'Synthetic organizer',
+  organizers: ['Synthetic organizer'],
   trackType: null,
   applicationTemplateKey: 'basic',
   description: 'Synthetic description',

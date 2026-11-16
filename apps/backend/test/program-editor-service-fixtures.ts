@@ -16,10 +16,11 @@ import {
   type ProgramEditorTransactionStore,
 } from '../src/programs/program-editor.repository';
 import { ProgramCoverUrlService } from '../src/programs/programs.service';
+import { ProgramOrganizersService } from '../src/programs/program-organizers.service';
 
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',
-  organizer: '  SW Center  ',
+  organizers: ['  SW Center  '],
   trackType: ProgramTrackType.EXTRACURRICULAR,
   applicationStartAt: '2026-08-01T00:00:00.000Z',
   applicationEndAt: '2026-08-15T00:00:00.000Z',
@@ -42,7 +43,7 @@ export const editableProgram = {
   coverExternalImageUrl: null,
   id: 'program-1',
   name: 'OSS',
-  organizer: 'Center',
+  organizers: ['Center'],
   trackType: ProgramTrackType.CURRICULAR,
   applicationTemplateKey: 'basic',
   applicationTemplateVersion: 1,
@@ -123,6 +124,7 @@ export function createProgramEditorServiceHarness(): {
         new ProgramNoticeFetchClient(),
       ),
       new UserProfileService(),
+      new ProgramOrganizersService(),
     ),
     store,
     withTransaction,

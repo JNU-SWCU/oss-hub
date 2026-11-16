@@ -10,7 +10,7 @@ export class ProgramListResponseDto {
   declare readonly coverImageUrl: string | null;
   declare readonly id: string;
   declare readonly name: string;
-  declare readonly organizer: string;
+  declare readonly organizers: readonly string[];
   declare readonly trackType: PersonalizedProgramListItem['trackType'];
   declare readonly applicationStartAt: string;
   declare readonly applicationEndAt: string;
@@ -30,7 +30,7 @@ export class ProgramListResponseDto {
       coverImageUrl: program.coverImageUrl,
       id: program.id,
       name: program.name,
-      organizer: program.organizer,
+      organizers: program.organizers,
       trackType: program.trackType,
       applicationStartAt: program.applicationStartAt.toISOString(),
       applicationEndAt: program.applicationEndAt.toISOString(),
