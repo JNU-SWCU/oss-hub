@@ -104,6 +104,21 @@ describe('GroupsTab', () => {
     expect(text).toContain('학과 미등록3명');
   });
 
+  it('marks participation-rate tiles as current approved state, not period-scoped', async () => {
+    await render(STAFF_INSIGHTS_FIXTURE);
+    const tiles = Array.from(
+      container.querySelectorAll('[aria-label="전공별 지표"] > *'),
+    ).map((tile) => tile.textContent ?? '');
+    const withNote = tiles.filter((text) =>
+      text.includes('현재 승인 기준 · 기간 미적용'),
+    );
+
+    expect(withNote).toHaveLength(2);
+    expect(withNote.every((text) => text.includes('프로그램 참여율'))).toBe(
+      true,
+    );
+  });
+
   it('renders 계산 불가 when a cohort has no registered students', async () => {
     await render({
       ...STAFF_INSIGHTS_FIXTURE,

@@ -791,12 +791,23 @@ test.describe('staff insights comparison UX', () => {
       '아주긴이름을가진합성학생오픈소스기여자가나다라마바사아자차카타파하';
     const longDepartment =
       '전자컴퓨터공학부(컴퓨터공학전공) 융합소프트웨어연계전공';
+    const maxLogin = 'synthetic-longest-github-login-abcdefgh';
+    expect(maxLogin).toHaveLength(39);
+    const maxLoginDepartment = '인공지능학부 데이터사이언스연계전공 융합트랙';
     const base = insightsLong();
-    const period = periodLeaderRows().map((row, index) =>
-      index === 0
-        ? { ...row, name: longName, department: longDepartment }
-        : row,
-    );
+    const period = periodLeaderRows().map((row, index) => {
+      if (index === 0) {
+        return { ...row, name: longName, department: longDepartment };
+      }
+      if (index === 1) {
+        return {
+          ...row,
+          githubLogin: maxLogin,
+          department: maxLoginDepartment,
+        };
+      }
+      return row;
+    });
     await page.setViewportSize({ width: 390, height: 1000 });
     await openInsights(page, {
       ...base,
@@ -836,6 +847,30 @@ test.describe('staff insights comparison UX', () => {
       longDepartment,
     );
     await expect(card.getByRole('listitem').first()).toContainText('43');
+    const maxLoginRow = card.getByRole('listitem').nth(1);
+    const maxLoginText = maxLoginRow.getByText(`@${maxLogin}`, {
+      exact: true,
+    });
+    await expect(maxLoginText).toBeVisible();
+    const maxLoginBox = await maxLoginText.boundingBox();
+    const maxLoginDepartmentText = maxLoginRow.getByTitle(maxLoginDepartment, {
+      exact: true,
+    });
+    await expect(maxLoginDepartmentText).toBeVisible();
+    const maxLoginDepartmentBox = await maxLoginDepartmentText.boundingBox();
+    if (maxLoginBox === null || maxLoginDepartmentBox === null) {
+      throw new Error('최대 길이 아이디 줄의 화면 경계가 필요합니다.');
+    }
+    expect(maxLoginDepartmentBox.width).toBeGreaterThan(0);
+    expect(maxLoginBox.x).toBeGreaterThanOrEqual(cardBox.x);
+    expect(maxLoginBox.x + maxLoginBox.width).toBeLessThanOrEqual(
+      cardBox.x + cardBox.width,
+    );
+    expect(
+      await maxLoginText.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
     await expectNoHorizontalOverflow(page);
     await attachPng(
       testInfo,
