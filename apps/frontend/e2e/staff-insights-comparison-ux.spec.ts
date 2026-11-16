@@ -6,11 +6,7 @@ import {
   type Route,
   type TestInfo,
 } from '@playwright/test';
-import {
-  expectProgramChartLayout,
-  hideNextDevTools,
-  PROGRAM_TICK_SELECTOR,
-} from './staff-insights-chart-layout';
+import { hideNextDevTools } from './staff-insights-chart-layout';
 import { installBrowserAudit } from './support/browser-audit';
 import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 import { authenticatedSessionBody } from './support/session-mock';
@@ -67,10 +63,34 @@ interface InsightsLeadersByCohortWire<Row> {
 interface InsightsProgramWire {
   readonly programId: string;
   readonly name: string;
+  readonly category: string;
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly recruiting: boolean;
   readonly swMajorCount: number;
   readonly nonSwCount: number;
   readonly unregisteredCount: number;
   readonly participantCount: number;
+  readonly appliedCount: number;
+  readonly approvedCount: number;
+  readonly competitionRatio: number | null;
+  readonly dueRequirementCount: number;
+  readonly submittedRequirementCount: number;
+  readonly completionRate: number | null;
+  readonly contributionCount: number;
+  readonly activeTeamCount: number;
+  readonly repoTeamCount: number;
+  readonly contributionsPerParticipant: number | null;
+}
+
+interface InsightsProgramSummaryWire {
+  readonly programCount: number;
+  readonly recruitingCount: number;
+  readonly approvedParticipantCount: number;
+  readonly uniqueParticipantCount: number;
+  readonly competitionRatio: number | null;
+  readonly repeatParticipantCount: number;
+  readonly repeatParticipantRate: number | null;
 }
 
 interface InsightsWire {
@@ -80,6 +100,7 @@ interface InsightsWire {
   readonly cohorts: readonly InsightsCohortWire[];
   readonly departments: readonly InsightsDepartmentWire[];
   readonly programs: readonly InsightsProgramWire[];
+  readonly programSummary: InsightsProgramSummaryWire;
   readonly leaders: {
     readonly period: InsightsLeadersByCohortWire<InsightsPeriodLeaderWire>;
     readonly recent: InsightsLeadersByCohortWire<InsightsRecentLeaderWire>;
@@ -113,6 +134,79 @@ const LONG_PROGRAM_NAMES = [
   '프로그램 11 — 지역 연계 공개 소프트웨어 집중 과정',
   '프로그램 12 — 다학제 팀 프로젝트 성과 공유회',
 ] as const;
+
+const PROGRAM_CATEGORIES = [
+  'BASIC',
+  'SW_VALUE_SPREAD',
+  'OSS_CONTEST',
+  'CAPSTONE',
+  'SW_CONVERGENCE',
+  'GLOBAL_MAKERTHON',
+  'CORPORATE_INTERNSHIP',
+] as const;
+
+const PROGRAM_SUMMARY: InsightsProgramSummaryWire = {
+  programCount: 12,
+  recruitingCount: 4,
+  approvedParticipantCount: 96,
+  uniqueParticipantCount: 80,
+  competitionRatio: 1.4,
+  repeatParticipantCount: 12,
+  repeatParticipantRate: 15,
+};
+
+function oneDecimal(numerator: number, denominator: number): number | null {
+  return denominator === 0
+    ? null
+    : Math.round((numerator / denominator) * 10) / 10;
+}
+
+function programWire(
+  name: string,
+  index: number,
+  overrides: Partial<InsightsProgramWire> = {},
+): InsightsProgramWire {
+  const empty = index % 4 === 3;
+  const swMajorCount = empty ? 0 : index + 1;
+  const nonSwCount = empty ? 0 : index;
+  const unregisteredCount = empty ? 0 : index % 2;
+  const participantCount = swMajorCount + nonSwCount + unregisteredCount;
+  const approvedCount = empty ? 0 : index + 2;
+  const appliedCount = approvedCount + (index % 3) + 1;
+  const dueRequirementCount = empty || index % 5 === 2 ? 0 : 12;
+  const submittedRequirementCount = Math.min(dueRequirementCount, 5 + index);
+  const repoTeamCount = empty || index % 5 === 1 ? 0 : approvedCount;
+  const contributionCount = repoTeamCount === 0 ? 0 : 20 * (index + 1);
+  return {
+    programId: `program-long-${index + 1}`,
+    name,
+    category: PROGRAM_CATEGORIES[index % PROGRAM_CATEGORIES.length],
+    startAt: '2026-03-01T15:00:00.000Z',
+    endAt: '2026-06-29T15:00:00.000Z',
+    recruiting: index === 0 || empty,
+    swMajorCount,
+    nonSwCount,
+    unregisteredCount,
+    participantCount,
+    appliedCount,
+    approvedCount,
+    competitionRatio: oneDecimal(appliedCount, approvedCount),
+    dueRequirementCount,
+    submittedRequirementCount,
+    completionRate:
+      dueRequirementCount === 0
+        ? null
+        : Math.round((submittedRequirementCount / dueRequirementCount) * 100),
+    contributionCount,
+    activeTeamCount: Math.min(repoTeamCount, (index % 3) + 1),
+    repoTeamCount,
+    contributionsPerParticipant:
+      repoTeamCount === 0
+        ? null
+        : oneDecimal(contributionCount, participantCount),
+    ...overrides,
+  };
+}
 
 const NO_LEADERS: InsightsWire['leaders'] = {
   period: { all: [], swMajor: [], nonSw: [] },
@@ -154,6 +248,7 @@ function insightsEnvelope(
     scope: { kind: 'all' },
     dataAsOf: '2026-08-01T00:00:00.000Z',
     years: [2026],
+    programSummary: PROGRAM_SUMMARY,
     leaders: NO_LEADERS,
     recentWindow: {
       from: '2026-07-02T00:00:00.000Z',
@@ -179,14 +274,7 @@ function insightsLong(): InsightsWire {
         nonSw: leaderRows(),
       },
     },
-    programs: LONG_PROGRAM_NAMES.map((name, index) => ({
-      programId: `program-long-${index + 1}`,
-      name,
-      swMajorCount: index + 1,
-      nonSwCount: index,
-      unregisteredCount: index % 2,
-      participantCount: index * 2 + 1 + (index % 2),
-    })),
+    programs: LONG_PROGRAM_NAMES.map((name, index) => programWire(name, index)),
   });
 }
 
@@ -244,14 +332,13 @@ function insightsUnregistered(): InsightsWire {
       },
     ],
     programs: [
-      {
+      programWire('합성 기초 오픈소스 스터디', 0, {
         programId: 'program-unregistered-only',
-        name: '합성 기초 오픈소스 스터디',
         swMajorCount: 0,
         nonSwCount: 0,
         unregisteredCount: 2,
         participantCount: 2,
-      },
+      }),
     ],
   });
 }
@@ -379,7 +466,7 @@ async function routeInsightsApi(
 
 async function gotoInsights(page: Page, view?: InsightsTab): Promise<void> {
   await page.goto(view === undefined ? target : `${target}?view=${view}`, {
-    waitUntil: 'commit',
+    waitUntil: 'load',
   });
 }
 
@@ -427,6 +514,37 @@ function countInsightsRequests(page: Page): { readonly count: () => number } {
   return { count: () => count };
 }
 
+function scorecardRegion(page: Page): Locator {
+  return page.getByRole('region', { name: '프로그램 성과표' });
+}
+
+async function expectFirstColumnReadable(page: Page): Promise<void> {
+  const region = scorecardRegion(page);
+  const names = region.locator('[data-slot="program-name"]');
+  await expect(names).toHaveCount(LONG_PROGRAM_NAMES.length);
+  const regionBox = await region.boundingBox();
+  if (regionBox === null) {
+    throw new Error('성과표 영역의 화면 경계가 필요합니다.');
+  }
+  for (const index of [0, LONG_PROGRAM_NAMES.length - 1]) {
+    const nameCell = names.nth(index);
+    const box = await nameCell.boundingBox();
+    if (box === null) {
+      throw new Error('프로그램 이름의 화면 경계가 필요합니다.');
+    }
+    expect(box.width).toBeGreaterThanOrEqual(120);
+    expect(box.x).toBeGreaterThanOrEqual(regionBox.x - 1);
+    expect(box.x + box.width).toBeLessThanOrEqual(
+      regionBox.x + regionBox.width + 1,
+    );
+    expect(
+      await nameCell.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+  }
+}
+
 function leaderCard(page: Page, title: string): Locator {
   return page
     .getByText(title, { exact: true })
@@ -454,221 +572,141 @@ async function attachPng(
 }
 
 test.describe('staff insights comparison UX', () => {
-  test('keeps dense program labels separate at responsive widths', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    for (const [name, width] of [
-      ['desktop', 1280],
-      ['tablet', 768],
-      ['mobile', 375],
-    ] as const) {
+  test.beforeAll(async ({ request }) => {
+    test.setTimeout(180_000);
+    const response = await request.get(target, { timeout: 180_000 });
+    expect(response.status()).toBe(200);
+  });
+
+  for (const [name, width] of [
+    ['1440', 1440],
+    ['768', 768],
+    ['390', 390],
+  ] as const) {
+    test(`reads the program scorecard at ${name}px with keyboard and 200% text`, async ({
+      page,
+    }, testInfo) => {
+      const audit = installBrowserAudit(page);
       await page.setViewportSize({ width, height: 1000 });
       await openInsights(page, insightsLong(), 'programs');
       await hideNextDevTools(page);
-      const card = page
-        .getByText('프로그램 참여 순위', { exact: true })
-        .locator('xpath=ancestor::*[@data-slot="card"][1]');
-
-      await card.scrollIntoViewIfNeeded();
-      const chartViewport = card.locator(
-        '[data-slot="participation-chart-viewport"]',
-      );
-
-      await expectProgramChartLayout(page);
-      const baseProgramLabelFontSize = await page
-        .locator(PROGRAM_TICK_SELECTOR)
-        .filter({ hasText: '프로그램' })
-        .first()
-        .evaluate((element) =>
-          Number.parseFloat(getComputedStyle(element).fontSize),
-        );
-      const scrollBounds = await chartViewport.evaluate((element) => ({
-        clientHeight: element.clientHeight,
-        scrollHeight: element.scrollHeight,
-      }));
-      expect(scrollBounds.clientHeight).toBeLessThanOrEqual(560);
-      expect(scrollBounds.scrollHeight).toBeGreaterThan(
-        scrollBounds.clientHeight,
-      );
+      const kpis = page.getByRole('region', { name: '프로그램 지표' });
+      await expect(kpis).toContainText('운영 프로그램');
+      await expect(kpis).toContainText('1.4:1');
+      const region = scorecardRegion(page);
+      await expect(region).toBeVisible();
       await expect(
-        card.locator('[data-slot="participation-chart-legend"]'),
+        region.getByRole('columnheader', { name: /구성/ }),
+      ).toHaveAttribute('aria-sort', 'descending');
+      await expect(
+        page.locator('[data-slot="program-scorecard-legend"]'),
       ).toHaveText(/SW전공.*비SW전공.*학과 미등록/);
-      await expect(card).toContainText('기간 필터는 적용되지 않습니다.');
-      await expect(
-        card.locator('[data-slot="participation-chart-scroll-hint"]'),
-      ).toBeVisible();
-      await expect(chartViewport).toHaveAttribute('role', 'region');
-      await expect(chartViewport).toHaveAttribute(
-        'aria-label',
-        '프로그램별 참여 차트',
-      );
-      await expect(chartViewport).toHaveAttribute(
-        'aria-describedby',
-        'participation-chart-scroll-hint',
-      );
+      await expect(page.locator('main')).not.toContainText(/\d\s*팀/);
+      await expectNoHorizontalOverflow(page);
+      await expectFirstColumnReadable(page);
       await page.mouse.move(0, 0);
+      await page.setViewportSize({
+        width,
+        height: width === 390 ? 3200 : 2000,
+      });
       await attachPng(
         testInfo,
-        `participation-program-labels/${name}.png`,
-        (path) => card.screenshot({ path }),
-      );
-      const keyboardScroll = chartViewport.evaluate(
-        (element) =>
-          new Promise<number>((resolve, reject) => {
-            const timeout = window.setTimeout(() => {
-              reject(new Error('키보드 스크롤 이벤트가 발생하지 않았습니다.'));
-            }, 2_000);
-            element.addEventListener(
-              'scrollend',
-              () => {
-                window.clearTimeout(timeout);
-                resolve(element.scrollTop);
-              },
-              { once: true },
-            );
-          }),
-      );
-      await chartViewport.press('PageDown');
-      await expect(chartViewport).toBeFocused();
-      expect(await keyboardScroll).toBeGreaterThan(0);
-      await chartViewport.evaluate((element) => {
-        element.scrollTop = element.scrollHeight;
-      });
-      expect(
-        await chartViewport.evaluate(
-          (element) => getComputedStyle(element).outlineStyle,
-        ),
-      ).not.toBe('none');
-      expect(
-        await chartViewport.evaluate(
-          (element) => getComputedStyle(element).outlineWidth,
-        ),
-      ).not.toBe('0px');
-      const lastTickBounds = await page
-        .locator(PROGRAM_TICK_SELECTOR)
-        .filter({ hasText: '프로그램 12' })
-        .boundingBox();
-      const viewportBounds = await chartViewport.boundingBox();
-      if (lastTickBounds === null || viewportBounds === null) {
-        throw new Error('차트와 마지막 프로그램의 화면 경계가 필요합니다.');
-      }
-      expect(lastTickBounds.y).toBeGreaterThanOrEqual(viewportBounds.y);
-      expect(lastTickBounds.y + lastTickBounds.height).toBeLessThanOrEqual(
-        viewportBounds.y + viewportBounds.height + 2,
-      );
-      await page.mouse.move(0, 0);
-      await attachPng(
-        testInfo,
-        `participation-program-labels/${name}-scrolled.png`,
-        (path) => chartViewport.screenshot({ path }),
-      );
-      await chartViewport.evaluate((element) => {
-        element.scrollTop = 0;
-      });
-      expect(
-        await chartViewport.evaluate((element) => element.scrollTop),
-      ).toBeLessThanOrEqual(1);
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = '200%';
-      });
-      await expectProgramChartLayout(page);
-      expect(
-        await page
-          .locator(PROGRAM_TICK_SELECTOR)
-          .filter({ hasText: '프로그램' })
-          .first()
-          .evaluate((element) =>
-            Number.parseFloat(getComputedStyle(element).fontSize),
-          ),
-      ).toBeGreaterThanOrEqual(baseProgramLabelFontSize * 1.9);
-      await page.mouse.move(0, 0);
-      await attachPng(
-        testInfo,
-        `participation-program-labels/${name}-200-text.png`,
-        (path) => card.screenshot({ path }),
-      );
-    }
-    audit.assertClean();
-  });
-
-  test('keeps dense program labels separate with pending 200% text resize delivery', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    await page.setViewportSize({ width: 375, height: 1000 });
-    await page.addInitScript(() => {
-      const NativeResizeObserver = window.ResizeObserver;
-      const deferredDeliveryMs = 250;
-      class DeferredResizeObserver extends NativeResizeObserver {
-        constructor(callback: ResizeObserverCallback) {
-          super((entries, observer) => {
-            if (document.documentElement.style.fontSize === '200%') {
-              window.setTimeout(() => {
-                callback(entries, observer);
-              }, deferredDeliveryMs);
-              return;
-            }
-            callback(entries, observer);
-          });
-        }
-      }
-      window.ResizeObserver = DeferredResizeObserver;
-    });
-    await openInsights(page, insightsLong(), 'programs');
-    await hideNextDevTools(page);
-    const card = page
-      .getByText('프로그램 참여 순위', { exact: true })
-      .locator('xpath=ancestor::*[@data-slot="card"][1]');
-    await card.scrollIntoViewIfNeeded();
-    await expectProgramChartLayout(page);
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = '200%';
-    });
-    await expectProgramChartLayout(page);
-    await page.mouse.move(0, 0);
-    await attachPng(
-      testInfo,
-      'participation-program-labels/mobile-pending-resize-200-text.png',
-      (path) => card.screenshot({ path }),
-    );
-    audit.assertClean();
-  });
-
-  test('renders long Korean labels at desktop and mobile with keyboard and 200% text', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    for (const [name, width] of [
-      ['desktop', 1440],
-      ['mobile', 375],
-    ] as const) {
-      await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsLong(), 'programs');
-      await page.keyboard.press('Tab');
-      await expect(
-        page
-          .getByRole('cell', {
-            name: '프로그램 1 — 전공·비전공 오픈소스 협업 기초 과정',
-          })
-          .first(),
-      ).toBeVisible();
-      await expectProgramChartLayout(page);
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = '200%';
-      });
-      await expectProgramChartLayout(page);
-      await expect(
-        page.getByRole('group', { name: '인사이트 보기' }),
-      ).toBeVisible();
-      await attachPng(
-        testInfo,
-        `task-2-browser/${name}-long-200-text.png`,
+        `programs-scorecard/programs-${name}.png`,
         (path) => page.screenshot({ path, fullPage: true }),
       );
-    }
-    audit.assertClean();
-  });
+      await page.setViewportSize({ width, height: 1000 });
+
+      if (width === 390) {
+        const bounds = await region.evaluate((element) => ({
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+        }));
+        expect(bounds.scrollWidth).toBeGreaterThan(bounds.clientWidth);
+        await region.focus();
+        await expect(region).toBeFocused();
+        const keyboardScroll = region.evaluate(
+          (element) =>
+            new Promise<number>((resolve, reject) => {
+              const timeout = window.setTimeout(() => {
+                reject(new Error('키보드 가로 스크롤이 일어나지 않았습니다.'));
+              }, 2_000);
+              element.addEventListener(
+                'scrollend',
+                () => {
+                  window.clearTimeout(timeout);
+                  resolve(element.scrollLeft);
+                },
+                { once: true },
+              );
+            }),
+        );
+        await region.press('ArrowRight');
+        expect(await keyboardScroll).toBeGreaterThan(0);
+        await expectFirstColumnReadable(page);
+        await expectNoHorizontalOverflow(page);
+        await page.mouse.move(0, 0);
+        await attachPng(
+          testInfo,
+          'programs-scorecard/programs-390-scrolled.png',
+          (path) => page.screenshot({ path, fullPage: true }),
+        );
+      }
+
+      await region.evaluate((element) => {
+        element.scrollLeft = 0;
+      });
+      await page.getByRole('button', { name: '완주율', exact: true }).click();
+      await expect(
+        region.getByRole('columnheader', { name: /완주/ }),
+      ).toHaveAttribute('aria-sort', 'descending');
+      await expect(page).toHaveURL(`${target}?view=programs`);
+
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%';
+      });
+      await region.evaluate((element) => {
+        element.scrollLeft = 0;
+      });
+      await expect(kpis).toBeVisible();
+      await expect(region).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await expectFirstColumnReadable(page);
+      await page.getByRole('button', { name: '성과', exact: true }).click();
+      await expect(
+        region.getByRole('columnheader', { name: '성과', exact: true }),
+      ).toHaveAttribute('aria-sort', 'descending');
+      const outcomeValue = region
+        .locator('tbody tr td:last-child > div > span')
+        .first();
+      await outcomeValue.evaluate((element) =>
+        element.scrollIntoView({ block: 'center', inline: 'nearest' }),
+      );
+      expect(
+        await outcomeValue.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return element.contains(
+            document.elementFromPoint(
+              box.x + box.width / 2,
+              box.y + box.height / 2,
+            ),
+          );
+        }),
+      ).toBe(true);
+      await region.evaluate((element) => {
+        element.scrollLeft = 0;
+      });
+      await page.mouse.move(0, 0);
+      await page
+        .getByText('프로그램 성과표', { exact: true })
+        .evaluate((element) => element.scrollIntoView({ block: 'start' }));
+      await attachPng(
+        testInfo,
+        `programs-scorecard/programs-${name}-200-text.png`,
+        (path) => page.screenshot({ path, fullPage: true }),
+      );
+      audit.assertClean();
+    });
+  }
 
   test('shows keyboard-only focus indicators without mouse emphasis', async ({
     page,
@@ -924,7 +962,7 @@ test.describe('staff insights comparison UX', () => {
 
     await openInsights(page, insightsLong(), 'programs');
     await expect(
-      page.getByText('프로그램 참여 순위', { exact: true }),
+      page.getByText('프로그램 성과표', { exact: true }),
     ).toBeVisible();
     await expect(page.getByText('학과 순위', { exact: true })).toHaveCount(0);
     audit.assertClean();
@@ -1000,7 +1038,7 @@ test.describe('staff insights comparison UX', () => {
   test('renders the programs empty state', async ({ page }, testInfo) => {
     const audit = installBrowserAudit(page);
     await openInsights(page, insightsEmpty(), 'programs');
-    await expect(page.getByText('승인된 참여가 없습니다')).toBeVisible();
+    await expect(page.getByText('운영 중인 프로그램이 없습니다')).toBeVisible();
     await attachPng(testInfo, 'task-2-browser/empty-programs.png', (path) =>
       page.screenshot({ path, fullPage: true }),
     );

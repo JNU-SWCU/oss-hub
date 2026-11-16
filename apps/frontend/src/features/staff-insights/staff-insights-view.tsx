@@ -4,7 +4,7 @@ import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { GroupsTab } from './groups-panel';
 import { ViewTabs, YearLinks } from './insights-controls';
 import { StudentsTab } from './leaderboard-panel';
-import { ProgramsTab } from './participation-panel';
+import { ProgramsTab } from './program-scorecard';
 import {
   type InsightsView,
   type InsightsYearScope,

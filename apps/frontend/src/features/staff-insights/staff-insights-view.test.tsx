@@ -36,10 +36,10 @@ describe('StaffInsightsView', () => {
   it.each([
     ['students', '기간 전체 상위 10명'],
     ['groups', '학과 순위'],
-    ['programs', '프로그램 참여 순위'],
+    ['programs', '프로그램 성과표'],
   ] as const)('renders only the %s tab body', (view, title) => {
     const html = render(view);
-    const titles = ['기간 전체 상위 10명', '학과 순위', '프로그램 참여 순위'];
+    const titles = ['기간 전체 상위 10명', '학과 순위', '프로그램 성과표'];
     for (const other of titles) {
       if (other === title) {
         expect(html).toContain(other);
@@ -102,7 +102,7 @@ describe('StaffInsightsView', () => {
     expect(html).toContain('기간 전체 상위 10명');
     expect(html).toContain('최근 30일 상위 10명');
     expect(html).toContain('합성 학생 가');
-    expect(html).not.toContain('프로그램 참여 순위');
+    expect(html).not.toContain('프로그램 성과표');
   });
 
   it('shows cohort KPI tiles and the department ranking on the groups tab', () => {
@@ -118,28 +118,31 @@ describe('StaffInsightsView', () => {
     expect(html).toContain('전자컴퓨터공학부(컴퓨터공학전공)');
     expect(html).not.toContain('활성 — 랭킹 지표');
     expect(html).not.toContain('학과별 활성');
-    expect(html).not.toContain('프로그램 참여 순위');
+    expect(html).not.toContain('프로그램 성과표');
   });
 
-  it('shows ranked program participation on the programs tab', () => {
+  it('shows the program KPI strip and scorecard on the programs tab', () => {
     const html = render('programs');
-    expect(html).toContain('프로그램 참여 순위');
-    expect(html).toContain('기간 필터는 적용되지 않습니다.');
+    expect(html).toContain('aria-label="프로그램 지표"');
+    expect(html).toContain('프로그램 성과표');
+    expect(html).toContain('현재 기준 · 기간 미적용');
+    expect(html).toContain('aria-label="프로그램 성과표"');
     expect(html).toContain('학과 미등록');
-    expect(html).not.toContain('활성 — 랭킹 지표');
-    const table = html.slice(html.indexOf('<table>'), html.indexOf('</table>'));
-    expect(table).toContain('<th>순위</th>');
-    const rows = Array.from(
-      table.matchAll(/<tr><td>(\d+)<\/td><td>([^<]+)<\/td>/g),
-      ([, rank, name]) => [rank, name],
+    expect(html).not.toContain('recharts');
+    expect(html).not.toContain('class="sr-only"><table');
+    const names = Array.from(
+      html.matchAll(/data-slot="program-name"[^>]*>([^<]+)</g),
+      ([, name]) => name,
     );
-    expect(rows).toEqual([
-      ['1', '합성 기초 오픈소스 스터디'],
-      ['2', '합성 캡스톤 2026'],
+    expect(names).toEqual([
+      '합성 기초 오픈소스 스터디',
+      '합성 캡스톤 2026',
+      '합성 OSS 경진대회',
+      '합성 기업인턴십 모집',
     ]);
   });
 
-  it('keeps the programs empty state when no participation is approved', () => {
+  it('keeps the programs empty state when no program is published', () => {
     const html = renderToStaticMarkup(
       <StaffInsightsView
         state={{
@@ -149,7 +152,7 @@ describe('StaffInsightsView', () => {
         }}
       />,
     );
-    expect(html).toContain('승인된 참여가 없습니다');
-    expect(html).not.toContain('<table>');
+    expect(html).toContain('운영 중인 프로그램이 없습니다');
+    expect(html).not.toContain('<table');
   });
 });
