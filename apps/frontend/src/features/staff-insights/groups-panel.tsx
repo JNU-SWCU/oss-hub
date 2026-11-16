@@ -188,8 +188,9 @@ function DepartmentChart({
     data.length * departmentRowHeight,
   );
   const isScrollable = chartHeight > chartMaximumHeight;
-  const metricLabel = SORT_OPTIONS.find((option) => option.value === sort)
-    ?.label;
+  const metricLabel = SORT_OPTIONS.find(
+    (option) => option.value === sort,
+  )?.label;
   return (
     <>
       {isScrollable ? (

@@ -832,9 +832,9 @@ test.describe('staff insights comparison UX', () => {
         (element) => element.scrollWidth <= element.clientWidth,
       ),
     ).toBe(true);
-    await expect(
-      card.getByTitle(longDepartment, { exact: true }),
-    ).toHaveText(longDepartment);
+    await expect(card.getByTitle(longDepartment, { exact: true })).toHaveText(
+      longDepartment,
+    );
     await expect(card.getByRole('listitem').first()).toContainText('43');
     await expectNoHorizontalOverflow(page);
     await attachPng(

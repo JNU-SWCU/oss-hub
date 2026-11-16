@@ -102,7 +102,10 @@ describe('StudentsTab', () => {
   it('emphasises only the top three rank badges', () => {
     const rows = Array.from({ length: 4 }, (_, index) => leader(index + 1));
     const html = render(
-      withLeaders({ ...EMPTY_LEADERS, period: { ...EMPTY_LEADERS.period, all: rows } }),
+      withLeaders({
+        ...EMPTY_LEADERS,
+        period: { ...EMPTY_LEADERS.period, all: rows },
+      }),
     );
     const badges = [
       ...html.matchAll(/<span class="(inline-flex[^"]*)">(\d+)<\/span>/g),
@@ -149,7 +152,10 @@ describe('StudentsTab', () => {
       leader(index + 1, { total: 7 }),
     );
     const html = render(
-      withLeaders({ ...EMPTY_LEADERS, period: { ...EMPTY_LEADERS.period, all: rows } }),
+      withLeaders({
+        ...EMPTY_LEADERS,
+        period: { ...EMPTY_LEADERS.period, all: rows },
+      }),
     );
     expect(barWidths(html)).toEqual(Array.from({ length: 10 }, () => 100));
   });

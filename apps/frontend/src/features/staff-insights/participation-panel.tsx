@@ -89,8 +89,8 @@ export function ProgramsTab({
       <CardHeader>
         <CardTitle>프로그램 참여 순위</CardTitle>
         <CardDescription>
-          현재 승인된 신청자와 팀원을 프로그램별로 중복 없이 셉니다. 기간
-          필터는 적용되지 않습니다.
+          현재 승인된 신청자와 팀원을 프로그램별로 중복 없이 셉니다. 기간 필터는
+          적용되지 않습니다.
         </CardDescription>
       </CardHeader>
       <CardContent>

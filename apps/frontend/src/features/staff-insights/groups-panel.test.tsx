@@ -65,9 +65,9 @@ describe('GroupsTab', () => {
       '컴퓨터정보통신공학과',
       '전자컴퓨터공학부(컴퓨터공학전공)',
     ]);
-    expect(container.querySelector('.sr-only table')?.textContent).not.toContain(
-      '미등록',
-    );
+    expect(
+      container.querySelector('.sr-only table')?.textContent,
+    ).not.toContain('미등록');
     expect(container.textContent).not.toContain('표본 적음');
   });
 
@@ -86,9 +86,9 @@ describe('GroupsTab', () => {
       container.querySelector('[data-slot="department-small-samples"]')
         ?.textContent,
     ).toBe('표본 적음 (가입 3명 미만): 전자컴퓨터공학부(컴퓨터공학전공)');
-    expect(container.querySelector('.sr-only table')?.textContent).not.toContain(
-      '미등록',
-    );
+    expect(
+      container.querySelector('.sr-only table')?.textContent,
+    ).not.toContain('미등록');
   });
 
   it('shows cohort KPI tiles with ratio chips and the unregistered count', async () => {
