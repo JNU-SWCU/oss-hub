@@ -109,6 +109,7 @@ function CohortKpiGrid({
             key={`${row.cohort}-registered`}
             label={`${label} 가입 학생`}
             value={`${registered}명`}
+            note="현재 가입 기준 · 기간 미적용"
           />,
           <KpiTile
             key={`${row.cohort}-active`}
@@ -136,6 +137,7 @@ function CohortKpiGrid({
       <KpiTile
         label={COHORT_LABELS[DEPARTMENT_COHORTS.UNREGISTERED]}
         value={`${unregistered.studentCount}명`}
+        note="현재 가입 기준 · 기간 미적용"
       />
     </section>
   );

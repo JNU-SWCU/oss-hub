@@ -61,6 +61,7 @@ export function StaffInsightsView({
         title="인사이트"
         description="학생·학과·프로그램 단위로 GitHub 활동과 참여를 봅니다."
       />
+      <ViewTabs state={urlState} />
       <section className="flex flex-wrap items-end gap-4" aria-label="필터">
         <div
           className="grid gap-2"
@@ -76,7 +77,6 @@ export function StaffInsightsView({
           <YearLinks state={urlState} years={summary.years} />
         </div>
       </section>
-      <ViewTabs state={urlState} />
       <p className="text-sm text-muted-foreground">
         {scopeCaption(summary.scope)}
         {summary.dataAsOf === null

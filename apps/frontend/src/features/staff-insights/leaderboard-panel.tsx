@@ -136,10 +136,10 @@ function LeaderRow({
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{row.name ?? row.githubLogin}</p>
           <p className="flex min-w-0 flex-wrap gap-x-1 text-xs text-muted-foreground">
-            <span className="min-w-0 max-w-full truncate" title={department}>
-              {department}
+            <span className="min-w-0 max-w-full truncate">
+              <span title={department}>{department}</span>
+              {' ·'}
             </span>
-            <span className="shrink-0">·</span>
             <span className="shrink-0">@{row.githubLogin}</span>
           </p>
         </div>
