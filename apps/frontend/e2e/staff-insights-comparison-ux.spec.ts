@@ -871,6 +871,37 @@ test.describe('staff insights comparison UX', () => {
         (element) => element.scrollWidth <= element.clientWidth,
       ),
     ).toBe(true);
+    expect(maxLoginBox.y).toBeGreaterThan(maxLoginDepartmentBox.y);
+    await expect(maxLoginText).toHaveText(/^@/);
+    const lineStarts = await card.evaluate((element) =>
+      Array.from(element.querySelectorAll('li p:last-child')).flatMap(
+        (line) => {
+          const starts = new Map<number, { left: number; char: string }>();
+          const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const text = node.textContent ?? '';
+            for (let index = 0; index < text.length; index += 1) {
+              const char = text[index] ?? '';
+              if (char.trim() === '') continue;
+              const range = document.createRange();
+              range.setStart(node, index);
+              range.setEnd(node, index + 1);
+              const rect = range.getBoundingClientRect();
+              const top = Math.round(rect.top);
+              const current = starts.get(top);
+              if (current === undefined || rect.left < current.left) {
+                starts.set(top, { left: rect.left, char });
+              }
+            }
+          }
+          return Array.from(starts.values(), (start) => start.char);
+        },
+      ),
+    );
+    expect(lineStarts.length).toBeGreaterThan(
+      await card.getByRole('listitem').count(),
+    );
+    expect(lineStarts).not.toContain('·');
     await expectNoHorizontalOverflow(page);
     await attachPng(
       testInfo,
