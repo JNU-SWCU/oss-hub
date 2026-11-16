@@ -47,6 +47,8 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
     hasText: '프로그램',
   });
   await expect(ticks).toHaveCount(denseProgramCount);
+  await expect(ticks.first()).toHaveText(/^1\. 프로그램 1 /);
+  await expect(ticks.last()).toHaveText(/^12\. 프로그램 12 /);
   const result = await ticks.evaluateAll((elements) => {
     const visibleText = (element: Element): string => element.textContent ?? '';
     const hasBrokenUnicode = (text: string): boolean => {
@@ -123,13 +125,13 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
   expect(result.clipped).toEqual([]);
   expect(result.emojiVisible).toBe(true);
   const chartCard = page
-    .getByText('참여 — 프로그램별', { exact: true })
+    .getByText('프로그램 참여 순위', { exact: true })
     .locator('xpath=ancestor::*[@data-slot="card"][1]');
   const numericTicks = chartCard.locator(
     'svg text.recharts-cartesian-axis-tick-value',
   );
   await expect(numericTicks).toHaveCount(3);
-  await expect(numericTicks).toHaveText(['0', '6', '12']);
+  await expect(numericTicks).toHaveText(['0', '15', '30']);
   const { numericTickBounds, cardBounds } = await chartCard.evaluate((card) => {
     const { x, width } = card.getBoundingClientRect();
     return {

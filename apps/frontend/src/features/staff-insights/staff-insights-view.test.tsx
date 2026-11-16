@@ -57,7 +57,7 @@ describe('StaffInsightsView', () => {
   it('shows the interim students placeholder on the students tab', () => {
     const html = render('students');
     expect(html).toContain('학생 순위를 준비 중입니다');
-    expect(html).not.toContain('참여 — 프로그램별');
+    expect(html).not.toContain('프로그램 참여 순위');
   });
 
   it('shows cohort KPIs, activity and departments on the groups tab', () => {
@@ -69,13 +69,38 @@ describe('StaffInsightsView', () => {
     expect(html).toContain('SW전공과 비SW전공의 랭킹 지표');
     expect(html).toContain('전자컴퓨터공학부(컴퓨터공학전공)');
     expect(html).toContain('학과별 활성');
-    expect(html).not.toContain('참여 — 프로그램별');
+    expect(html).not.toContain('프로그램 참여 순위');
   });
 
-  it('shows program participation on the programs tab', () => {
+  it('shows ranked program participation on the programs tab', () => {
     const html = render('programs');
-    expect(html).toContain('참여 — 프로그램별');
-    expect(html).toContain('합성 기초 오픈소스 스터디');
+    expect(html).toContain('프로그램 참여 순위');
+    expect(html).toContain('기간 필터는 적용되지 않습니다.');
+    expect(html).toContain('학과 미등록');
     expect(html).not.toContain('활성 — 랭킹 지표');
+    const table = html.slice(html.indexOf('<table>'), html.indexOf('</table>'));
+    expect(table).toContain('<th>순위</th>');
+    const rows = Array.from(
+      table.matchAll(/<tr><td>(\d+)<\/td><td>([^<]+)<\/td>/g),
+      ([, rank, name]) => [rank, name],
+    );
+    expect(rows).toEqual([
+      ['1', '합성 기초 오픈소스 스터디'],
+      ['2', '합성 캡스톤 2026'],
+    ]);
+  });
+
+  it('keeps the programs empty state when no participation is approved', () => {
+    const html = renderToStaticMarkup(
+      <StaffInsightsView
+        state={{
+          kind: 'ready',
+          summary: { ...STAFF_INSIGHTS_FIXTURE, programs: [] },
+          view: 'programs',
+        }}
+      />,
+    );
+    expect(html).toContain('승인된 참여가 없습니다');
+    expect(html).not.toContain('<table>');
   });
 });

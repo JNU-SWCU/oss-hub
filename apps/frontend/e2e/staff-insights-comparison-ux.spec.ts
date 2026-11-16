@@ -336,7 +336,7 @@ test.describe('staff insights comparison UX', () => {
       await openInsights(page, insightsLong(), 'programs');
       await hideNextDevTools(page);
       const card = page
-        .getByText('참여 — 프로그램별', { exact: true })
+        .getByText('프로그램 참여 순위', { exact: true })
         .locator('xpath=ancestor::*[@data-slot="card"][1]');
 
       await card.scrollIntoViewIfNeeded();
@@ -362,7 +362,8 @@ test.describe('staff insights comparison UX', () => {
       );
       await expect(
         card.locator('[data-slot="participation-chart-legend"]'),
-      ).toBeVisible();
+      ).toHaveText(/SW전공.*비SW전공.*학과 미등록/);
+      await expect(card).toContainText('기간 필터는 적용되지 않습니다.');
       await expect(
         card.locator('[data-slot="participation-chart-scroll-hint"]'),
       ).toBeVisible();
@@ -486,7 +487,7 @@ test.describe('staff insights comparison UX', () => {
     await openInsights(page, insightsLong(), 'programs');
     await hideNextDevTools(page);
     const card = page
-      .getByText('참여 — 프로그램별', { exact: true })
+      .getByText('프로그램 참여 순위', { exact: true })
       .locator('xpath=ancestor::*[@data-slot="card"][1]');
     await card.scrollIntoViewIfNeeded();
     await expectProgramChartLayout(page);

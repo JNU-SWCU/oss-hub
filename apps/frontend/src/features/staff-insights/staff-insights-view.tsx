@@ -4,7 +4,7 @@ import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { FadeUp } from './fade-up';
 import { MetricCard, ViewTabs, YearLinks } from './insights-controls';
 import { ActivityPanel, DepartmentPanel } from './insights-panels';
-import { ParticipationPanel } from './participation-panel';
+import { ProgramsTab } from './participation-panel';
 import { cohortRow, rate } from './insights-model';
 import {
   DEPARTMENT_COHORTS,
@@ -89,7 +89,7 @@ export function StaffInsightsView({
         <EmptyState title="학생 순위를 준비 중입니다" />
       ) : null}
       {view === 'groups' ? <GroupsTab summary={summary} /> : null}
-      {view === 'programs' ? <ParticipationPanel summary={summary} /> : null}
+      {view === 'programs' ? <ProgramsTab summary={summary} /> : null}
     </main>
   );
 }
