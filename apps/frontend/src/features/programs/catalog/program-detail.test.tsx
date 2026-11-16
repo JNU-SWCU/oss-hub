@@ -760,7 +760,7 @@ const overviewBase: ProgramOverview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
-  remainingMilestones: [],
+  scheduleMilestones: [],
   requirements: [],
 };
 

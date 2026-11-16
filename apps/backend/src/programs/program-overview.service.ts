@@ -30,14 +30,14 @@ export interface ProgramOverviewRequirement {
   total: number;
 }
 
-export interface ProgramOverviewRemainingMilestone {
+export interface ProgramOverviewScheduleMilestone {
   readonly label: string;
   readonly dueAt: Date;
 }
 
 export interface ProgramOverviewView extends ProgramOverviewRecord {
   viewer: ProgramOverviewViewerStats;
-  remainingMilestones: readonly ProgramOverviewRemainingMilestone[];
+  scheduleMilestones: readonly ProgramOverviewScheduleMilestone[];
 }
 
 const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
@@ -48,12 +48,10 @@ const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
   requirements: [],
 };
 
-function remainingMilestones(
+function scheduleMilestones(
   schedules: readonly MilestoneSchedule[],
-  now: Date,
-): ProgramOverviewRemainingMilestone[] {
+): ProgramOverviewScheduleMilestone[] {
   return schedules
-    .filter((schedule) => schedule.dueAt.getTime() > now.getTime())
     .toSorted((left, right) => left.dueAt.getTime() - right.dueAt.getTime())
     .map((schedule) => ({ label: schedule.label, dueAt: schedule.dueAt }));
 }
@@ -130,7 +128,7 @@ export class ProgramOverviewService {
     return {
       ...overview,
       viewer,
-      remainingMilestones: remainingMilestones(milestoneSchedules, new Date()),
+      scheduleMilestones: scheduleMilestones(milestoneSchedules),
     };
   }
 

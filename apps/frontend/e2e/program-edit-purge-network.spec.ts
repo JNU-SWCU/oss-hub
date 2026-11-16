@@ -177,7 +177,7 @@ async function openEdit(
         viewerDocumentsCompleted: null,
         viewerDocumentsTotal: null,
         fullySubmittedParticipantCount: 0,
-        remainingMilestones: [],
+        scheduleMilestones: [],
         requirements: [],
       });
       return;

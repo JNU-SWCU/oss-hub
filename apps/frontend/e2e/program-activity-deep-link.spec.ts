@@ -95,7 +95,7 @@ async function installProgramRoutes(
           viewerDocumentsCompleted: null,
           viewerDocumentsTotal: null,
           fullySubmittedParticipantCount: 0,
-          remainingMilestones: [],
+          scheduleMilestones: [],
           requirements: [],
         } satisfies ProgramOverview,
       });

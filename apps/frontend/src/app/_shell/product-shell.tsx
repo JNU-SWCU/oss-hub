@@ -70,17 +70,17 @@ function sidebarBottomFor({
   pathname,
   programDetailId,
   overviewStatus,
-  remainingMilestones,
+  scheduleMilestones,
 }: {
   readonly pathname: string;
   readonly programDetailId: string | null;
   readonly overviewStatus: ShellDataStatus;
-  readonly remainingMilestones: readonly CountdownMilestone[] | undefined;
+  readonly scheduleMilestones: readonly CountdownMilestone[] | undefined;
 }): ReactNode {
   if (programDetailId !== null) {
     if (overviewStatus === 'pending') return <SidebarBottomSkeleton />;
-    return remainingMilestones === undefined ? undefined : (
-      <ProgramCountdown mode="program" milestones={remainingMilestones} />
+    return scheduleMilestones === undefined ? undefined : (
+      <ProgramCountdown mode="program" milestones={scheduleMilestones} />
     );
   }
   if (pathname === '/ranking') return <RankingCycleCountdown />;
@@ -248,7 +248,7 @@ export function ProductShell({
     pathname,
     programDetailId,
     overviewStatus: scopeOverviewStatus,
-    remainingMilestones: scopeOverview?.remainingMilestones,
+    scheduleMilestones: scopeOverview?.scheduleMilestones,
   });
 
   const sidebar = programDetailId ? (

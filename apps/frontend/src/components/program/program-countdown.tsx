@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import {
+  CountdownDivider,
+  CountdownPanel,
+  CurrentClock,
+} from './program-countdown-panel';
+import {
   ProgramSchedule,
   type CountdownMilestone,
 } from './program-countdown-program-schedule';
-import { remainingUntil } from './program-countdown-time';
+import { formatUntilDeadline, remainingUntil } from './program-countdown-time';
 
 export { type CountdownMilestone } from './program-countdown-program-schedule';
 export { formatCountdownDate, remainingUntil } from './program-countdown-time';
@@ -43,13 +48,7 @@ export function ProgramCountdown(props: ProgramCountdownProps) {
   }, [nowOverride]);
 
   if (clock === null) {
-    return (
-      <div
-        data-slot="program-countdown"
-        aria-hidden
-        className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
-      />
-    );
+    return <CountdownPanel aria-hidden />;
   }
 
   if (props.mode === 'program') {
@@ -67,21 +66,22 @@ function SingleCountdown({
 }: SingleCountdownProps & { readonly clock: Date }) {
   const remaining = remainingUntil(new Date(dueAt), clock);
   const untilText =
-    untilLabel === undefined ? `${nextMilestoneLabel} 마감까지` : untilLabel;
+    untilLabel === undefined
+      ? formatUntilDeadline(nextMilestoneLabel)
+      : untilLabel;
 
   return (
-    <div
-      data-slot="program-countdown"
-      className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
-    >
-      <p className="text-xs text-muted-foreground">{untilText}</p>
-      <div className="mt-1 flex items-baseline gap-2">
+    <CountdownPanel>
+      <CurrentClock clock={clock} />
+      <CountdownDivider />
+      <p className="text-center text-xs text-muted-foreground">{untilText}</p>
+      <div className="mt-1 flex items-baseline justify-center gap-2">
         <CountdownUnit value={remaining.days} unit="일" />
         <CountdownUnit value={remaining.hours} unit="시간" />
         <CountdownUnit value={remaining.minutes} unit="분" />
         <CountdownUnit value={remaining.seconds} unit="초" />
       </div>
-    </div>
+    </CountdownPanel>
   );
 }
 

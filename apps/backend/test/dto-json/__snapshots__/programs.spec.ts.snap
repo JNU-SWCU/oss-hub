@@ -92,7 +92,7 @@ exports[`programs response DTO JSON ProgramMilestoneResponseDto 1`] = `"{"id":"m
 
 exports[`programs response DTO JSON ProgramNoticePreviewResponseDto 1`] = `"{"sourceUrl":"https://notice.example/1","name":"Notice","description":"Body","coverImages":["https://images.example/1.png"],"warnings":["MULTIPLE_IMAGES"]}"`;
 
-exports[`programs response DTO JSON ProgramOverviewResponseDto 1`] = `"{"programId":"program-1","name":"Program A","trackType":null,"milestoneCount":2,"boardPostCount":3,"participantCount":10,"teamCount":4,"connectedRepositoryCount":3,"remainingMilestones":[{"label":"Kickoff","dueAt":"2026-02-10T00:00:00.000Z"}],"viewerRole":"STAFF","viewerDocumentsCompleted":null,"viewerDocumentsTotal":null,"fullySubmittedParticipantCount":4,"requirements":[{"milestoneId":"milestone-1","title":"Kickoff","completed":1,"total":2}]}"`;
+exports[`programs response DTO JSON ProgramOverviewResponseDto 1`] = `"{"programId":"program-1","name":"Program A","trackType":null,"milestoneCount":2,"boardPostCount":3,"participantCount":10,"teamCount":4,"connectedRepositoryCount":3,"scheduleMilestones":[{"label":"Kickoff","dueAt":"2026-02-10T00:00:00.000Z"}],"viewerRole":"STAFF","viewerDocumentsCompleted":null,"viewerDocumentsTotal":null,"fullySubmittedParticipantCount":4,"requirements":[{"milestoneId":"milestone-1","title":"Kickoff","completed":1,"total":2}]}"`;
 
 exports[`programs response DTO JSON ProgramOverviewTeamMemberResponseDto 1`] = `"{"userId":"user-1","displayName":"Octo","isLeader":true}"`;
 
@@ -113,8 +113,6 @@ exports[`programs response DTO JSON PublicUserProfileResponseDto 1`] = `"{"userI
 exports[`programs response DTO JSON PurgeProgramResponseDto 1`] = `"{"id":"program-1","deleted":true,"deletedCounts":{"files":10}}"`;
 
 exports[`programs response DTO JSON ReceivedTeamInvitationResponseDto 1`] = `"{"id":"invitation-1","teamId":"team-1","programId":"program-1","invitedById":"user-1","invitedAt":"2026-01-10T00:00:00.000Z","teamName":"Team A","programName":"Program A","invitedByDisplayName":"Octo","memberCount":2,"teamMaxSize":4}"`;
-
-exports[`programs response DTO JSON RemainingMilestoneResponseDto 1`] = `"{"label":"Kickoff","dueAt":"2026-02-10T00:00:00.000Z"}"`;
 
 exports[`programs response DTO JSON RenameTeamResponseDto 1`] = `"{"teamId":"team-1","name":"Renamed"}"`;
 
@@ -145,6 +143,8 @@ exports[`programs response DTO JSON RequirementSummaryResponseDto 1`] = `"{"mile
 exports[`programs response DTO JSON RequirementUploadPolicyResponseDto 1`] = `"{"maxBytes":5242880,"maxLabel":"5 MB","accept":".pdf,.hwp,.zip","formatLabel":"PDF, HWP, ZIP"}"`;
 
 exports[`programs response DTO JSON ReviewHistoryEntryResponseDto 1`] = `"{"id":"review-entry-1","eventKind":"REJECTED","revision":2,"actor":{"name":null,"nickname":"staff"},"occurredAt":"2026-01-07T00:00:00.000Z","rejectionReason":"Incomplete"}"`;
+
+exports[`programs response DTO JSON ScheduleMilestoneResponseDto 1`] = `"{"label":"Kickoff","dueAt":"2026-02-10T00:00:00.000Z"}"`;
 
 exports[`programs response DTO JSON StaffProgramTeamResponseDto 1`] = `"{"teamId":"team-1","name":"Team A","memberCount":2,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}"`;
 

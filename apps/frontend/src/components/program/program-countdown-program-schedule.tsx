@@ -1,6 +1,13 @@
+import { cn } from '@/lib/utils';
 import {
-  formatCountdownDateTime,
-  formatCountdownListDate,
+  CountdownDivider,
+  CountdownPanel,
+  CurrentClock,
+} from './program-countdown-panel';
+import {
+  formatDueDateTime,
+  formatScheduleDateTime,
+  formatUntilDeadline,
   remainingUntil,
 } from './program-countdown-time';
 
@@ -9,9 +16,12 @@ export interface CountdownMilestone {
   readonly dueAt: string;
 }
 
-type ParsedCountdownMilestone = CountdownMilestone & {
+type ScheduleMilestoneState = 'past' | 'nearest' | 'future';
+
+type ScheduleRow = CountdownMilestone & {
   readonly dueDate: Date;
   readonly sourceIndex: number;
+  readonly state: ScheduleMilestoneState;
 };
 
 type ProgramScheduleProps = {
@@ -29,12 +39,12 @@ class InvalidCountdownMilestoneDateError extends RangeError {
   }
 }
 
-function activeMilestones(
+function scheduleRows(
   milestones: readonly CountdownMilestone[],
   now: Date,
-): readonly ParsedCountdownMilestone[] {
+): readonly ScheduleRow[] {
   const nowTime = now.getTime();
-  return milestones
+  const sorted = milestones
     .map((milestone, sourceIndex) => {
       const dueDate = new Date(milestone.dueAt);
       if (Number.isNaN(dueDate.getTime())) {
@@ -42,81 +52,84 @@ function activeMilestones(
       }
       return { ...milestone, dueDate, sourceIndex };
     })
-    .filter(({ dueDate }) => dueDate.getTime() > nowTime)
     .sort(
       (left, right) =>
         left.dueDate.getTime() - right.dueDate.getTime() ||
         left.sourceIndex - right.sourceIndex,
     );
+  const nearestIndex = sorted.findIndex(
+    ({ dueDate }) => dueDate.getTime() > nowTime,
+  );
+  return sorted.map((row, index) => ({
+    ...row,
+    state:
+      nearestIndex === -1 || index < nearestIndex
+        ? 'past'
+        : index === nearestIndex
+          ? 'nearest'
+          : 'future',
+  }));
 }
 
 export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
-  let active: readonly ParsedCountdownMilestone[];
+  let rows: readonly ScheduleRow[];
   try {
-    active = activeMilestones(milestones, clock);
+    rows = scheduleRows(milestones, clock);
   } catch (error) {
     if (error instanceof InvalidCountdownMilestoneDateError) {
       return <InvalidProgramSchedule />;
     }
     throw error;
   }
-  const nearest = active[0];
+  const nearest = rows.find((row) => row.state === 'nearest');
 
   return (
-    <div
-      data-slot="program-countdown"
-      className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
-    >
+    <CountdownPanel>
+      <CurrentClock clock={clock} />
+      <CountdownDivider />
       {nearest === undefined ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           마감 일정이 종료되었습니다.
         </p>
       ) : (
-        <ActiveProgramSchedule
-          active={active}
-          nearest={nearest}
-          clock={clock}
-        />
+        <NearestCountdown nearest={nearest} clock={clock} />
       )}
-    </div>
+      {rows.length > 0 ? (
+        <>
+          <CountdownDivider />
+          <ScheduleList rows={rows} />
+        </>
+      ) : null}
+    </CountdownPanel>
   );
 }
 
 function InvalidProgramSchedule() {
   return (
-    <div
-      data-slot="program-countdown"
-      className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
-    >
+    <CountdownPanel>
       <p role="alert" className="text-sm text-muted-foreground">
         마감 일정을 표시할 수 없습니다.
       </p>
-    </div>
+    </CountdownPanel>
   );
 }
 
-type ActiveProgramScheduleProps = {
-  readonly active: readonly ParsedCountdownMilestone[];
-  readonly nearest: ParsedCountdownMilestone;
+type NearestCountdownProps = {
+  readonly nearest: ScheduleRow;
   readonly clock: Date;
 };
 
-function ActiveProgramSchedule({
-  active,
-  nearest,
-  clock,
-}: ActiveProgramScheduleProps) {
+function NearestCountdown({ nearest, clock }: NearestCountdownProps) {
   const remaining = remainingUntil(nearest.dueDate, clock);
-  const laterMilestones = active.slice(1);
 
   return (
-    <>
-      <p className="min-w-0 truncate text-sm font-semibold text-sidebar-foreground">
-        {nearest.label}
+    <div className="text-center">
+      <p className="line-clamp-2 text-xs font-medium break-keep text-muted-foreground">
+        {formatUntilDeadline(nearest.label)}
       </p>
-      <div className="mt-2 grid grid-cols-4 gap-1">
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
         <CountdownCell value={remaining.days} unit="일" />
-        <CountdownCell value={remaining.hours} unit="시간" />
+        <CountdownCell value={remaining.hours} unit="시" />
         <CountdownCell value={remaining.minutes} unit="분" />
         <CountdownCell value={remaining.seconds} unit="초" />
       </div>
@@ -124,30 +137,43 @@ function ActiveProgramSchedule({
         dateTime={nearest.dueAt}
         className="mt-2 block whitespace-nowrap text-xs font-medium text-sidebar-foreground tabular-nums"
       >
-        {formatCountdownDateTime(nearest.dueDate)}
+        {formatDueDateTime(nearest.dueDate)} 마감
       </time>
-      {laterMilestones.length > 0 ? (
-        <ul aria-label="이후 마감 일정" className="mt-3 space-y-1">
-          {laterMilestones.map((milestone) => (
-            <li
-              key={`${milestone.dueAt}:${milestone.label}:${milestone.sourceIndex}`}
-              className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground"
-            >
-              <span className="min-w-0 truncate">{milestone.label}</span>
-              <span aria-hidden className="shrink-0">
-                —
-              </span>
-              <time
-                dateTime={milestone.dueAt}
-                className="shrink-0 whitespace-nowrap tabular-nums"
-              >
-                {formatCountdownListDate(milestone.dueDate)}
-              </time>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </>
+    </div>
+  );
+}
+
+const SCHEDULE_ROW_CLASS: Readonly<Record<ScheduleMilestoneState, string>> = {
+  past: 'line-through text-muted-foreground',
+  nearest: 'font-semibold text-primary',
+  future: 'text-sidebar-foreground',
+};
+
+function ScheduleList({ rows }: { readonly rows: readonly ScheduleRow[] }) {
+  return (
+    <ol aria-label="마감 일정" className="space-y-1.5">
+      {rows.map((row) => (
+        <li
+          key={`${row.dueAt}:${row.label}:${row.sourceIndex}`}
+          data-schedule-state={row.state}
+          className={cn(
+            'flex items-baseline justify-between gap-2 text-xs',
+            SCHEDULE_ROW_CLASS[row.state],
+          )}
+        >
+          <span className="min-w-0 truncate">{row.label}</span>
+          <time
+            dateTime={row.dueAt}
+            className={cn(
+              'shrink-0 font-mono whitespace-nowrap tabular-nums',
+              row.state === 'past' && 'text-destructive line-through',
+            )}
+          >
+            {formatScheduleDateTime(row.dueDate)}
+          </time>
+        </li>
+      ))}
+    </ol>
   );
 }
 

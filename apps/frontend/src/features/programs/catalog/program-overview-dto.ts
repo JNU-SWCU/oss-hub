@@ -24,7 +24,7 @@ export interface ProgramOverview {
 
   readonly fullySubmittedParticipantCount: number | null;
 
-  readonly remainingMilestones: readonly {
+  readonly scheduleMilestones: readonly {
     readonly label: string;
     readonly dueAt: string;
   }[];

@@ -60,7 +60,7 @@ import { ProgramNoticePreviewResponseDto } from '../../src/programs/dto/program-
 import {
   RequirementSummaryResponseDto,
   ProgramOverviewResponseDto,
-  RemainingMilestoneResponseDto,
+  ScheduleMilestoneResponseDto,
 } from '../../src/programs/dto/program-overview-response.dto';
 import {
   ProgramOverviewTeamMemberResponseDto,
@@ -447,7 +447,7 @@ const overview: ProgramOverviewView = {
   participantCount: 10,
   teamCount: 4,
   connectedRepositoryCount: 3,
-  remainingMilestones: [
+  scheduleMilestones: [
     { label: 'Kickoff', dueAt: at('2026-02-10T00:00:00.000Z') },
   ],
   viewer: {
@@ -1109,8 +1109,8 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'RemainingMilestoneResponseDto',
-    () => RemainingMilestoneResponseDto.from(overview.remainingMilestones[0]!),
+    'ScheduleMilestoneResponseDto',
+    () => ScheduleMilestoneResponseDto.from(overview.scheduleMilestones[0]!),
   ],
   [
     'RequirementSummaryResponseDto',
