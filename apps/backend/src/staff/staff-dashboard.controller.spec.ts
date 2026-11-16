@@ -150,6 +150,14 @@ describe('StaffDashboardController', () => {
       cohorts: [],
       departments: [],
       programs: [],
+      leaders: {
+        period: { all: [], swMajor: [], nonSw: [] },
+        recent: { all: [], swMajor: [], nonSw: [] },
+      },
+      recentWindow: {
+        from: new Date('2026-07-02T00:00:00.000Z'),
+        to: new Date('2026-08-01T00:00:00.000Z'),
+      },
     });
     const controller = new StaffDashboardController(
       { summary: jest.fn() },
@@ -172,7 +180,7 @@ describe('StaffDashboardController', () => {
       scope: { kind: 'all' },
       years: [2026],
     });
-    expect(summarize).toHaveBeenCalledWith({ kind: 'all' });
+    expect(summarize).toHaveBeenCalledWith({ kind: 'all' }, expect.any(Date));
     expect(
       readGuards(StaffDashboardController.prototype, 'insightsSummary'),
     ).toEqual([RolesGuard]);

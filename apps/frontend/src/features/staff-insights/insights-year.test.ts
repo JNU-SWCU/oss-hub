@@ -26,17 +26,34 @@ describe('parseInsightsYearSearchParam', () => {
 });
 
 describe('insights hrefs', () => {
+  it('keeps the selected view when building year links', () => {
+    expect(
+      insightsPageHref({
+        scope: { kind: 'calendar', year: 2026 },
+        view: 'programs',
+      }),
+    ).toBe('/dashboard/insights?year=2026&view=programs');
+    expect(insightsPageHref({ scope: { kind: 'all' }, view: 'groups' })).toBe(
+      '/dashboard/insights?view=groups',
+    );
+  });
+
   it('omits year from the all-time URL so the server default stays all', () => {
-    expect(insightsPageHref({ kind: 'all' })).toBe('/dashboard/insights');
+    expect(insightsPageHref({ scope: { kind: 'all' }, view: 'students' })).toBe(
+      '/dashboard/insights',
+    );
     expect(insightsRequestPath({ kind: 'all' })).toBe(
       'dashboard/staff/insights',
     );
   });
 
   it('sends only a numeric year when a calendar year is selected', () => {
-    expect(insightsPageHref({ kind: 'calendar', year: 2026 })).toBe(
-      '/dashboard/insights?year=2026',
-    );
+    expect(
+      insightsPageHref({
+        scope: { kind: 'calendar', year: 2026 },
+        view: 'students',
+      }),
+    ).toBe('/dashboard/insights?year=2026');
     expect(insightsRequestPath({ kind: 'calendar', year: 2026 })).toBe(
       'dashboard/staff/insights?year=2026',
     );

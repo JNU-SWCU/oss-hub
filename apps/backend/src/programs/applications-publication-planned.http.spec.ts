@@ -446,17 +446,65 @@ const zeroMetrics = {
   total: 0,
   participantCount: 0,
 };
+const insightsLeader = {
+  rank: 1,
+  name: '김학생',
+  githubLogin: 'insights-octocat',
+  department: '소프트웨어공학과',
+  cohort: 'sw-major',
+  commitCount: 5,
+  pullRequestCount: 2,
+  issueCount: 1,
+  repositoryCount: 3,
+  starCount: 4,
+  total: 15,
+};
 const insightsBody = {
   scope: { kind: 'all' },
   dataAsOf: null,
   years: [],
   cohorts: [
-    { cohort: 'sw-major', ...zeroMetrics },
+    {
+      cohort: 'sw-major',
+      studentCount: 1,
+      activeStudentCount: 1,
+      commitCount: 5,
+      pullRequestCount: 2,
+      issueCount: 1,
+      repositoryCount: 3,
+      starCount: 4,
+      total: 15,
+      participantCount: 0,
+    },
     { cohort: 'non-sw', ...zeroMetrics },
     { cohort: 'unregistered', ...zeroMetrics },
   ],
-  departments: [],
+  departments: [
+    {
+      department: '소프트웨어공학과',
+      cohort: 'sw-major',
+      studentCount: 1,
+      activeStudentCount: 1,
+      commitCount: 5,
+      pullRequestCount: 2,
+      issueCount: 1,
+      repositoryCount: 3,
+      starCount: 4,
+      total: 15,
+      participantCount: 0,
+      activityPerStudent: 15,
+      sampleTooSmall: true,
+    },
+  ],
   programs: [],
+  leaders: {
+    period: { all: [insightsLeader], swMajor: [insightsLeader], nonSw: [] },
+    recent: { all: [], swMajor: [], nonSw: [] },
+  },
+  recentWindow: {
+    from: expect.any(String) as string,
+    to: expect.any(String) as string,
+  },
 };
 const decisionBody = {
   teamId: APPLICATION_ID,
@@ -526,9 +574,30 @@ const staffDashboardService = new StaffDashboardService(
   { listByProgram: listSubmissionsByProgram },
   new ProgramCoverUrlService(),
 );
-const listStudents = jest.fn().mockResolvedValue([]);
+const INSIGHTS_STUDENT_ID = 'insights-student-user-id';
+const INSIGHTS_STUDENT_GITHUB_ID = 987654321n;
+const listStudents = jest.fn().mockResolvedValue([
+  {
+    id: INSIGHTS_STUDENT_ID,
+    githubId: INSIGHTS_STUDENT_GITHUB_ID,
+    githubLogin: 'insights-octocat',
+    name: '김학생',
+    department: '소프트웨어공학과',
+  },
+]);
 const listApprovedParticipations = jest.fn().mockResolvedValue([]);
-const listActivityTotals = jest.fn().mockResolvedValue([]);
+const listActivityTotals = jest.fn().mockResolvedValue([
+  {
+    githubId: INSIGHTS_STUDENT_GITHUB_ID,
+    commitCount: 5,
+    pullRequestCount: 2,
+    issueCount: 1,
+    repositoryCount: 3,
+    starCount: 4,
+  },
+]);
+const listActivityBaselines = jest.fn().mockResolvedValue([]);
+const listActivityByYear = jest.fn().mockResolvedValue([]);
 const findActivityDataAsOf = jest.fn().mockResolvedValue(null);
 const listActivityYears = jest.fn().mockResolvedValue([]);
 const staffInsightsService = new StaffInsightsService(
@@ -538,6 +607,8 @@ const staffInsightsService = new StaffInsightsService(
     listActivityTotals,
     findActivityDataAsOf,
     listActivityYears,
+    listActivityBaselines,
+    listActivityByYear,
   } as unknown as StaffInsightsRepository,
   new RankingYearService(),
   new StaffInsightsQueryService(),
@@ -833,6 +904,26 @@ it.each(readCases)(
     await expectProblem(response, deniedReadProblem(actor), route.instance);
   },
 );
+
+it('인사이트 응답은 학번·GitHub ID·사용자 ID를 직렬화하지 않는다', async () => {
+  const staff = actors.find((actor) => actor.label === 'STAFF');
+  if (staff === undefined) {
+    throw new TypeError('staff actor fixture is missing');
+  }
+  const response = await send({
+    method: 'GET',
+    path: `${insightsPath}?year=2026`,
+    cookie: cookieFor(staff),
+  });
+
+  expect(response.status).toBe(200);
+  const serialized = JSON.stringify(await readJson(response));
+  expect(serialized).toContain('insights-octocat');
+  expect(serialized).not.toContain('studentId');
+  expect(serialized).not.toContain('githubId');
+  expect(serialized).not.toContain(INSIGHTS_STUDENT_ID);
+  expect(serialized).not.toContain(String(INSIGHTS_STUDENT_GITHUB_ID));
+});
 
 it.each(decisionCases)(
   '$title 의 세션·Origin·권한·형식 검증·의미 검증 순서를 고정한다',

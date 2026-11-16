@@ -29,7 +29,7 @@ const scrollHintId = 'participation-chart-scroll-hint';
 interface ProgramNameTickProps {
   readonly x?: number;
   readonly y?: number;
-  readonly payload?: { readonly value: string };
+  readonly payload?: { readonly value: string; readonly index: number };
 }
 
 function ProgramNameTick({
@@ -38,10 +38,12 @@ function ProgramNameTick({
   payload,
 }: ProgramNameTickProps): ReactElement | null {
   if (payload === undefined) return null;
-  const label = formatProgramChartLabel(payload.value);
+  const rank = payload.index + 1;
+  const label = formatProgramChartLabel(payload.value, rank);
+  const fullLabel = `${rank}. ${payload.value}`;
   return (
     <g>
-      <title>{payload.value}</title>
+      <title>{fullLabel}</title>
       <foreignObject x={0} y={y - 20} width={Math.max(x - 8, 0)} height={40}>
         <div
           className={cn(
@@ -49,7 +51,7 @@ function ProgramNameTick({
             'text-ellipsis whitespace-nowrap text-right text-muted-foreground',
           )}
           style={{ fontSize: 'var(--step-badge)', lineHeight: 1.5 }}
-          title={payload.value}
+          title={fullLabel}
         >
           {label}
         </div>
@@ -58,7 +60,7 @@ function ProgramNameTick({
   );
 }
 
-export function ParticipationPanel({
+export function ProgramsTab({
   summary,
 }: {
   readonly summary: StaffInsightsSummary;
@@ -75,6 +77,7 @@ export function ParticipationPanel({
     name: program.name,
     swMajor: program.swMajorCount,
     nonSw: program.nonSwCount,
+    unregistered: program.unregisteredCount,
   }));
   const chartHeight = Math.max(
     chartMinimumHeight,
@@ -84,9 +87,10 @@ export function ParticipationPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>참여 — 프로그램별</CardTitle>
+        <CardTitle>프로그램 참여 순위</CardTitle>
         <CardDescription>
-          현재 승인된 신청자와 팀원을 프로그램별로 중복 없이 셉니다.
+          현재 승인된 신청자와 팀원을 프로그램별로 중복 없이 셉니다. 기간 필터는
+          적용되지 않습니다.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -146,13 +150,21 @@ export function ParticipationPanel({
                 <Tooltip />
                 <Bar
                   dataKey="swMajor"
+                  stackId="participants"
                   name={COHORT_LABELS[DEPARTMENT_COHORTS.SW_MAJOR]}
                   fill="var(--primary)"
                 />
                 <Bar
                   dataKey="nonSw"
+                  stackId="participants"
                   name={COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
                   fill="var(--accent)"
+                />
+                <Bar
+                  dataKey="unregistered"
+                  stackId="participants"
+                  name={COHORT_LABELS[DEPARTMENT_COHORTS.UNREGISTERED]}
+                  fill="var(--muted-foreground)"
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -171,21 +183,27 @@ export function ParticipationPanel({
             <span className="size-3 bg-accent" />
             {COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW]}
           </span>
+          <span className="flex items-center gap-1">
+            <span className="size-3 bg-muted-foreground" />
+            {COHORT_LABELS[DEPARTMENT_COHORTS.UNREGISTERED]}
+          </span>
         </div>
         <div className="sr-only">
           <table>
-            <caption>프로그램별 SW전공과 비SW전공 참여자</caption>
+            <caption>프로그램 참여 순위와 학과 구분별 참여자</caption>
             <thead>
               <tr>
+                <th>순위</th>
                 <th>프로그램</th>
                 <th>SW전공</th>
                 <th>비SW전공</th>
-                <th>미등록</th>
+                <th>학과 미등록</th>
               </tr>
             </thead>
             <tbody>
-              {summary.programs.map((program) => (
+              {summary.programs.map((program, index) => (
                 <tr key={program.programId}>
+                  <td>{index + 1}</td>
                   <td>{program.name}</td>
                   <td>{program.swMajorCount}</td>
                   <td>{program.nonSwCount}</td>

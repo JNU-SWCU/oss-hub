@@ -3,31 +3,7 @@ import type {
   StaffInsightsMetrics,
   StaffInsightsSummary,
 } from './types';
-import { COHORT_LABELS, DEPARTMENT_COHORTS } from './types';
 
-export const COHORT_CHART_KEYS = [
-  { key: 'swMajor', label: COHORT_LABELS[DEPARTMENT_COHORTS.SW_MAJOR] },
-  { key: 'nonSw', label: COHORT_LABELS[DEPARTMENT_COHORTS.NON_SW] },
-] as const;
-
-type ActivityMetricField =
-  | 'commitCount'
-  | 'pullRequestCount'
-  | 'issueCount'
-  | 'repositoryCount'
-  | 'starCount'
-  | 'total';
-export const ACTIVITY_METRICS: readonly {
-  readonly field: ActivityMetricField;
-  readonly label: string;
-}[] = [
-  { field: 'commitCount', label: 'Commit' },
-  { field: 'pullRequestCount', label: 'PR' },
-  { field: 'issueCount', label: 'Issue' },
-  { field: 'repositoryCount', label: 'Repo' },
-  { field: 'starCount', label: 'Star(누적)' },
-  { field: 'total', label: '합계' },
-];
 const EMPTY_COHORT_METRICS: StaffInsightsMetrics = {
   studentCount: 0,
   activeStudentCount: 0,

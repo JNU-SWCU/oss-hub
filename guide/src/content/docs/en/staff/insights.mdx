@@ -1,6 +1,6 @@
 ---
-title: Compare student engagement
-description: Compare GitHub activity and program participation by academic field and period.
+title: View insights
+description: See GitHub activity and program participation in three tabs for students, departments, and programs.
 sidebar:
   order: 11
 ---
@@ -9,34 +9,38 @@ import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 
-`학생 활성` (student engagement) compares GitHub activity and program participation by academic field. Open ① `학생 활성` under `교직원` (staff) in the left menu.
+`인사이트` (Insights) shows top student activity, department and major figures, and the program participation ranking. Open ① `인사이트` under `교직원` (staff) in the left menu. Only staff and administrators can see it.
 
-<Shot src="staff/insights-full.webp" alt="Student engagement screen. Marker ① points to student engagement in the left menu. Registered students, active students, and program participant cards appear above activity and participation charts." caption="① `학생 활성` (student engagement)" />
+<Shot src="staff/insights-full.webp" alt="Insights screen. Marker ① points to Insights in the left menu. The period selector and the Students, Departments and majors, and Programs tabs are at the top, with the selected tab's cards and charts below." caption="① `인사이트` (Insights)" />
 
-## Change the period and comparison
+## Change the period and tab
 
 <Steps>
-1. Select a year in ① `기간` (period).
-2. In ② `비교 관점` (comparison view), choose `전공·비전공` (major versus non-major) or `학과` (department).
-3. The cards and charts below update.
+1. Select `전체` (All) or a year in ① `기간` (period). It applies to the `학생` (Students) tab rankings and to activity numbers (`활동률`, activity rate, and `1인당 활동량`, activity per student). Participation numbers (`프로그램 참여율` on the `학과·전공` tab, and the `프로그램` tab) show the current approved state regardless of the period.
+2. Choose the ② `학생` (Students), `학과·전공` (Departments and majors), or `프로그램` (Programs) tab.
+3. The cards and charts below update, and a line at the top shows the period and the time the data was captured.
 </Steps>
-<Shot src="staff/insights-filters.webp" alt="Period and comparison controls. Marker ① points to the period selector and ② to the department comparison choice." caption="① `기간` (period) ② `비교 관점` (comparison view)" />
+<Shot src="staff/insights-filters.webp" alt="Period and view tabs. Marker ① points to the period selector and ② to the Students, Departments and majors, and Programs view tabs." caption="① `기간` (period) ② view tabs" />
 
-## Read the figures
+## What each tab shows
 
-- `가입 학생` (registered students): the number of students who have signed up. `학과 미등록 N명` identifies students who have not entered a department.
-- `활동 학생` (active students): students whose ranking total, adding commits, PRs, issues, repositories, and stars, is at least 1.
-- `프로그램 참여자` (program participants): currently approved applicants and team members, counted without duplicates within each program.
-- `활성 — 랭킹 지표` (activity by ranking metric), `학과별 활성` (activity by department), and `참여 — 프로그램별` (participation by program): charts breaking the figures down by metric, department, and program.
-- If the denominator is zero, the display reads `x/0 (계산 불가)` (cannot calculate) instead of a percentage.
+- `학생` (Students) tab: choose the `전체` (All) / `SW전공` (SW majors) / `비SW전공` (non-SW majors) filter. On wide screens two cards appear side by side.
+  - `<period> 상위 10명` (Top 10 for the period): ranks students by total public activity (Commit, PR, Issue, Repo, Star) in the selected period.
+  - `최근 30일 상위 10명` (Top 10, last 30 days): ranks students by the increase in Commit, PR, Issue, and Repo over the rolling last 30 days. Star is excluded, and the from~to dates are shown.
+  - Each row shows rank, name (GitHub login if there is no name), department (or `학과 미등록`, department not registered), `@login`, total, and a proportional bar. Student numbers are never shown.
+  - Only public activity is counted, so figures can differ from the public ranking page.
+- `학과·전공` (Departments and majors) tab: the `SW전공` and `비SW전공` tiles show `가입 학생` (registered students), `활동률` (activity rate: active students / registered students), and `프로그램 참여율` (program participation rate: participating students / registered students). The `프로그램 참여율` tiles carry the note `현재 승인 기준 · 기간 미적용` (current approved state, period not applied) because they count current approved participation regardless of the period. The count of students with `학과 미등록` is shown separately. The department ranking chart below has a toggle between `가입 학생 수` (registered students) and `1인당 활동량` (activity per student). In `1인당 활동량` mode, departments with fewer than 3 students are listed separately as `표본 적음 (가입 3명 미만)` (small sample, fewer than 3 registered).
+- `프로그램` (Programs) tab: `프로그램 참여 순위` (program participation ranking). Programs are ranked by approved applicants and team members, counted without duplicates, and stacked as SW majors / non-SW majors / department not registered. The period filter does not apply to this tab.
+
+You can also open a tab by URL: `?view=students`, `?view=groups`, `?view=programs`.
 
 <Success>
-The cards and charts reflect your selected period and comparison view.
+The cards and charts reflect your selected period and tab.
 </Success>
 
-<Recover title="If the charts are empty">
-- `학과별 학생이 없습니다` (no students by department) or `승인된 참여가 없습니다` (no approved participation) means there are no eligible records for the selected period. This is normal. Try a different period.
-- `학생 활성을 불러오지 못했습니다` means engagement data could not be loaded. Refresh the screen. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+<Recover title="If the charts are empty or cannot load">
+- If nothing matches the selected period the charts can be empty. This is normal. Expand `기간` (period) to `전체` (All).
+- If a message says the data could not be loaded, refresh the screen. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
 </Recover>
 
-For the same type of statistics in the administrator interface, see [View student engagement](/oss-hub/en/admin/insights/).
+For the administrator-side description, see [View insights](/oss-hub/en/admin/insights/).
