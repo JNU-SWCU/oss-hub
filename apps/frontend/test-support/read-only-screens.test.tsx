@@ -50,7 +50,9 @@ vi.mock('@/features/programs/catalog/api', () => ({
   getProgramActivity: api.activity,
 }));
 vi.mock('@/features/staff-insights/staff-insights-url-state', () => ({
-  useStaffInsightsUrlState: () => ({ state: api.scope }),
+  useStaffInsightsUrlState: () => ({
+    state: { scope: api.scope, view: 'students' },
+  }),
 }));
 vi.mock('@/features/staff-insights/staff-insights-view', () => ({
   StaffInsightsView: ({

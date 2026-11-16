@@ -3,16 +3,22 @@ import type {
   DepartmentCohort,
   InsightsYearScope,
   StaffInsightsCohortRow,
+  StaffInsightsCohortLeaders,
   StaffInsightsDepartmentRow,
+  StaffInsightsLeaderRow,
+  StaffInsightsLeaders,
   StaffInsightsMetrics,
   StaffInsightsProgramRow,
+  StaffInsightsRecentLeaderRow,
   StaffInsightsSummary,
 } from './types';
 import { DEPARTMENT_COHORTS } from './types';
 
+const MAX_LEADERS = 10;
+
 class StaffInsightsResponseError extends Error {
   constructor() {
-    super('학생 활성 API 응답 형식이 올바르지 않습니다.');
+    super('인사이트 API 응답 형식이 올바르지 않습니다.');
     this.name = 'StaffInsightsResponseError';
   }
 }
@@ -87,14 +93,123 @@ function parseDepartment(value: unknown): StaffInsightsDepartmentRow | null {
   if (
     !isRecord(value) ||
     typeof value.department !== 'string' ||
-    !isCohort(value.cohort)
+    !isCohort(value.cohort) ||
+    typeof value.activityPerStudent !== 'number' ||
+    !Number.isFinite(value.activityPerStudent) ||
+    value.activityPerStudent < 0 ||
+    typeof value.sampleTooSmall !== 'boolean'
   ) {
     return null;
   }
   const metrics = parseMetrics(value);
   return metrics === null
     ? null
-    : { department: value.department, cohort: value.cohort, ...metrics };
+    : {
+        department: value.department,
+        cohort: value.cohort,
+        activityPerStudent: value.activityPerStudent,
+        sampleTooSmall: value.sampleTooSmall,
+        ...metrics,
+      };
+}
+
+function parseRecentLeader(
+  value: unknown,
+): StaffInsightsRecentLeaderRow | null {
+  if (
+    !isRecord(value) ||
+    !isNonNegativeInteger(value.rank) ||
+    value.rank < 1 ||
+    (value.name !== null && typeof value.name !== 'string') ||
+    typeof value.githubLogin !== 'string' ||
+    value.githubLogin === '' ||
+    (value.department !== null && typeof value.department !== 'string') ||
+    !isCohort(value.cohort) ||
+    !isNonNegativeInteger(value.commitCount) ||
+    !isNonNegativeInteger(value.pullRequestCount) ||
+    !isNonNegativeInteger(value.issueCount) ||
+    !isNonNegativeInteger(value.repositoryCount) ||
+    !isNonNegativeInteger(value.total)
+  ) {
+    return null;
+  }
+  return {
+    rank: value.rank,
+    name: value.name,
+    githubLogin: value.githubLogin,
+    department: value.department,
+    cohort: value.cohort,
+    commitCount: value.commitCount,
+    pullRequestCount: value.pullRequestCount,
+    issueCount: value.issueCount,
+    repositoryCount: value.repositoryCount,
+    total: value.total,
+  };
+}
+
+function parsePeriodLeader(value: unknown): StaffInsightsLeaderRow | null {
+  const row = parseRecentLeader(value);
+  if (
+    row === null ||
+    !isRecord(value) ||
+    !isNonNegativeInteger(value.starCount)
+  ) {
+    return null;
+  }
+  return { ...row, starCount: value.starCount };
+}
+
+function parseLeaderList<Row>(
+  value: unknown,
+  parseRow: (row: unknown) => Row | null,
+): readonly Row[] | null {
+  if (!Array.isArray(value) || value.length > MAX_LEADERS) {
+    return null;
+  }
+  const rows = value.map(parseRow);
+  return rows.every((row) => row !== null) ? rows : null;
+}
+
+function parseCohortLeaders<Row>(
+  value: unknown,
+  parseRow: (row: unknown) => Row | null,
+): StaffInsightsCohortLeaders<Row> | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const all = parseLeaderList(value.all, parseRow);
+  const swMajor = parseLeaderList(value.swMajor, parseRow);
+  const nonSw = parseLeaderList(value.nonSw, parseRow);
+  return all === null || swMajor === null || nonSw === null
+    ? null
+    : { all, swMajor, nonSw };
+}
+
+function parseLeaders(value: unknown): StaffInsightsLeaders | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const period = parseCohortLeaders(value.period, parsePeriodLeader);
+  const recent = parseCohortLeaders(value.recent, parseRecentLeader);
+  return period === null || recent === null ? null : { period, recent };
+}
+
+function parseIsoDate(value: unknown): Date | null {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    return null;
+  }
+  return new Date(value);
+}
+
+function parseRecentWindow(
+  value: unknown,
+): { readonly from: Date; readonly to: Date } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const from = parseIsoDate(value.from);
+  const to = parseIsoDate(value.to);
+  return from === null || to === null ? null : { from, to };
 }
 
 function parseProgram(value: unknown): StaffInsightsProgramRow | null {
@@ -138,8 +253,12 @@ export function parseStaffInsightsSummary(
   const cohorts = value.cohorts.map(parseCohort);
   const departments = value.departments.map(parseDepartment);
   const programs = value.programs.map(parseProgram);
+  const leaders = parseLeaders(value.leaders);
+  const recentWindow = parseRecentWindow(value.recentWindow);
   if (
     scope === null ||
+    leaders === null ||
+    recentWindow === null ||
     cohorts.some((row) => row === null) ||
     departments.some((row) => row === null) ||
     programs.some((row) => row === null)
@@ -160,5 +279,7 @@ export function parseStaffInsightsSummary(
     cohorts: cohorts as readonly StaffInsightsCohortRow[],
     departments: departments as readonly StaffInsightsDepartmentRow[],
     programs: programs as readonly StaffInsightsProgramRow[],
+    leaders,
+    recentWindow,
   };
 }

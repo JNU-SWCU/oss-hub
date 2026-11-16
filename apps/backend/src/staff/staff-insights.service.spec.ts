@@ -1,34 +1,50 @@
 import { StaffInsightsService } from './staff-insights.service';
-import type { StaffInsightsRepository } from './staff-insights.repository';
+import type {
+  StaffInsightsActivityRecord,
+  StaffInsightsBaselineRecord,
+  StaffInsightsRepository,
+  StaffInsightsStudentRecord,
+} from './staff-insights.repository';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import {
   StaffInsightsQueryService,
   DEPARTMENT_COHORTS,
 } from './staff-insights-query.service';
+import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 
-function repository(): Pick<
+type Store = Pick<
   StaffInsightsRepository,
   | 'listStudents'
   | 'listApprovedParticipations'
   | 'listActivityTotals'
   | 'findActivityDataAsOf'
   | 'listActivityYears'
-> {
+  | 'listActivityBaselines'
+  | 'listActivityByYear'
+>;
+
+function repository(): Store {
   return {
     listStudents: jest.fn().mockResolvedValue([
       {
         id: 'student-sw',
         githubId: 11n,
+        githubLogin: 'sw-login',
+        name: '합성 SW',
         department: '소프트웨어공학과',
       },
       {
         id: 'student-non',
         githubId: 22n,
+        githubLogin: 'non-login',
+        name: '합성 비SW',
         department: '국어국문학과',
       },
       {
         id: 'student-empty',
         githubId: 33n,
+        githubLogin: 'empty-login',
+        name: null,
         department: null,
       },
     ]),
@@ -61,19 +77,108 @@ function repository(): Pick<
       .fn()
       .mockResolvedValue(new Date('2026-08-01T00:00:00.000Z')),
     listActivityYears: jest.fn().mockResolvedValue([2026, 2025]),
+    listActivityBaselines: jest.fn().mockResolvedValue([]),
+    listActivityByYear: jest.fn().mockResolvedValue([]),
   };
 }
+
+function serviceFor(store: Store): StaffInsightsService {
+  return new StaffInsightsService(
+    store as StaffInsightsRepository,
+    new RankingYearService(),
+    new StaffInsightsQueryService(),
+  );
+}
+
+function student(
+  githubId: bigint,
+  department: string | null,
+  overrides: Partial<StaffInsightsStudentRecord> = {},
+): StaffInsightsStudentRecord {
+  return {
+    id: `user-${githubId}`,
+    githubId,
+    githubLogin: `login-${githubId}`,
+    name: `학생 ${githubId}`,
+    department,
+    ...overrides,
+  };
+}
+
+function totals(
+  githubId: bigint,
+  [commitCount, pullRequestCount, issueCount, repositoryCount, starCount]: [
+    number,
+    number,
+    number,
+    number,
+    number,
+  ],
+): StaffInsightsActivityRecord {
+  return {
+    githubId,
+    commitCount,
+    pullRequestCount,
+    issueCount,
+    repositoryCount,
+    starCount,
+  };
+}
+
+function yearRow(
+  githubId: bigint,
+  year: number,
+  [commitCount, pullRequestCount, issueCount, repositoryCount]: [
+    number,
+    number,
+    number,
+    number,
+  ],
+): StaffInsightsBaselineRecord {
+  return {
+    githubId,
+    year,
+    commitCount,
+    pullRequestCount,
+    issueCount,
+    repositoryCount,
+  };
+}
+
+function storeWith(input: {
+  readonly students: readonly StaffInsightsStudentRecord[];
+  readonly totals?: readonly StaffInsightsActivityRecord[];
+  readonly baselines?: readonly StaffInsightsBaselineRecord[];
+  readonly byYear?: Readonly<
+    Record<number, readonly StaffInsightsBaselineRecord[]>
+  >;
+}): Store {
+  const store = repository();
+  (store.listStudents as jest.Mock).mockResolvedValue(input.students);
+  (store.listApprovedParticipations as jest.Mock).mockResolvedValue([]);
+  (store.listActivityTotals as jest.Mock).mockResolvedValue(input.totals ?? []);
+  (store.listActivityBaselines as jest.Mock).mockResolvedValue(
+    input.baselines ?? [],
+  );
+  (store.listActivityByYear as jest.Mock).mockImplementation((year: number) =>
+    Promise.resolve(input.byYear?.[year] ?? []),
+  );
+  return store;
+}
+
+const SW = '소프트웨어공학과';
+const NON_SW = '국어국문학과';
+const NOW_2026 = new Date('2026-11-16T00:00:00+09:00');
+const CUTOFF_2026 = new Date('2026-10-17T00:00:00+09:00');
+const NOW_2027 = new Date('2027-01-10T00:00:00+09:00');
+const CUTOFF_2027 = new Date('2026-12-11T00:00:00+09:00');
 
 describe('StaffInsightsService', () => {
   it('splits ranking and participation by department cohort', async () => {
     const store = repository();
-    const service = new StaffInsightsService(
-      store as StaffInsightsRepository,
-      new RankingYearService(),
-      new StaffInsightsQueryService(),
-    );
+    const service = serviceFor(store);
 
-    const summary = await service.summarize({ kind: 'all' });
+    const summary = await service.summarize({ kind: 'all' }, NOW_2026);
 
     expect(store.listActivityTotals).toHaveBeenCalledWith({});
     expect(store.findActivityDataAsOf).toHaveBeenCalledTimes(1);
@@ -119,16 +224,394 @@ describe('StaffInsightsService', () => {
 
   it('passes only a numeric year into activity totals', async () => {
     const store = repository();
-    const service = new StaffInsightsService(
-      store as StaffInsightsRepository,
-      new RankingYearService(),
-      new StaffInsightsQueryService(),
-    );
+    const service = serviceFor(store);
 
-    await service.summarize({ kind: 'calendar', year: 2026 });
+    await service.summarize({ kind: 'calendar', year: 2026 }, NOW_2026);
 
     expect(store.listActivityTotals).toHaveBeenCalledWith({
       currentYear: 2026,
     });
+  });
+
+  describe('period leaders', () => {
+    it('orders leaders with the ranking comparator and numbers ranks ordinally', async () => {
+      const store = storeWith({
+        students: [
+          student(1n, SW, { githubLogin: 'zed' }),
+          student(2n, SW, { githubLogin: 'Bravo' }),
+          student(3n, SW, { githubLogin: 'alpha' }),
+          student(4n, SW, { githubLogin: 'top' }),
+        ],
+        totals: [
+          totals(1n, [8, 2, 0, 0, 0]),
+          totals(2n, [5, 5, 0, 0, 0]),
+          totals(3n, [5, 5, 0, 0, 0]),
+          totals(4n, [1, 1, 1, 1, 20]),
+        ],
+      });
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(
+        summary.leaders.period.all.map((row) => [row.rank, row.githubLogin]),
+      ).toEqual([
+        [1, 'top'],
+        [2, 'zed'],
+        [3, 'alpha'],
+        [4, 'Bravo'],
+      ]);
+      expect(summary.leaders.period.all[0]).toEqual({
+        rank: 1,
+        name: '학생 4',
+        githubLogin: 'top',
+        department: SW,
+        cohort: DEPARTMENT_COHORTS.SW_MAJOR,
+        commitCount: 1,
+        pullRequestCount: 1,
+        issueCount: 1,
+        repositoryCount: 1,
+        starCount: 20,
+        total: 24,
+      });
+    });
+
+    it('never lists a student whose total is 0', async () => {
+      const store = storeWith({
+        students: [student(1n, SW), student(2n, SW), student(3n, SW)],
+        totals: [totals(1n, [1, 0, 0, 0, 0]), totals(2n, [0, 0, 0, 0, 0])],
+      });
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(summary.leaders.period.all.map((row) => row.githubLogin)).toEqual([
+        'login-1',
+      ]);
+    });
+
+    it('caps every list at 10 rows', async () => {
+      const ids = Array.from({ length: 12 }, (_, index) => BigInt(index + 1));
+      const store = storeWith({
+        students: ids.map((id) => student(id, SW)),
+        totals: ids.map((id) => totals(id, [Number(id), 0, 0, 0, 0])),
+      });
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(summary.leaders.period.all).toHaveLength(10);
+      expect(summary.leaders.period.swMajor).toHaveLength(10);
+      expect(summary.leaders.period.all.map((row) => row.rank)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+      ]);
+      expect(summary.leaders.period.all[0]?.total).toBe(12);
+      expect(summary.leaders.period.all[9]?.total).toBe(3);
+    });
+
+    it('splits cohorts and lists an unregistered student only in all', async () => {
+      const store = storeWith({
+        students: [
+          student(1n, SW),
+          student(2n, NON_SW),
+          student(3n, null, { name: null }),
+        ],
+        totals: [
+          totals(1n, [3, 0, 0, 0, 0]),
+          totals(2n, [2, 0, 0, 0, 0]),
+          totals(3n, [5, 0, 0, 0, 0]),
+        ],
+      });
+
+      const { period } = (
+        await serviceFor(store).summarize({ kind: 'all' }, NOW_2026)
+      ).leaders;
+
+      expect(period.all.map((row) => row.githubLogin)).toEqual([
+        'login-3',
+        'login-1',
+        'login-2',
+      ]);
+      expect(period.all[0]).toMatchObject({
+        name: null,
+        department: null,
+        cohort: DEPARTMENT_COHORTS.UNREGISTERED,
+      });
+      expect(period.swMajor.map((row) => [row.rank, row.githubLogin])).toEqual([
+        [1, 'login-1'],
+      ]);
+      expect(period.nonSw.map((row) => [row.rank, row.githubLogin])).toEqual([
+        [1, 'login-2'],
+      ]);
+    });
+
+    it('skips a student whose GitHub login is empty', async () => {
+      const store = storeWith({
+        students: [student(1n, SW, { githubLogin: '' }), student(2n, SW)],
+        totals: [totals(1n, [9, 0, 0, 0, 0]), totals(2n, [1, 0, 0, 0, 0])],
+        baselines: [yearRow(1n, 2026, [0, 0, 0, 0])],
+        byYear: { 2026: [yearRow(1n, 2026, [9, 0, 0, 0])] },
+      });
+
+      const { leaders } = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(leaders.period.all.map((row) => row.githubLogin)).toEqual([
+        'login-2',
+      ]);
+      expect(leaders.recent.all).toEqual([]);
+    });
+  });
+
+  describe('recent leaders', () => {
+    it('subtracts a same-year baseline taken 30 days before now', async () => {
+      const store = storeWith({
+        students: [student(1n, SW)],
+        baselines: [yearRow(1n, 2026, [4, 1, 2, 0])],
+        byYear: { 2026: [yearRow(1n, 2026, [10, 3, 2, 1])] },
+      });
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(store.listActivityBaselines).toHaveBeenCalledWith(
+        2026,
+        CUTOFF_2026,
+      );
+      expect(store.listActivityByYear).toHaveBeenCalledTimes(1);
+      expect(store.listActivityByYear).toHaveBeenCalledWith(2026);
+      expect(summary.recentWindow).toEqual({
+        from: CUTOFF_2026,
+        to: NOW_2026,
+      });
+      expect(summary.leaders.recent.all).toEqual([
+        {
+          rank: 1,
+          name: '학생 1',
+          githubLogin: 'login-1',
+          department: SW,
+          cohort: DEPARTMENT_COHORTS.SW_MAJOR,
+          commitCount: 6,
+          pullRequestCount: 2,
+          issueCount: 0,
+          repositoryCount: 1,
+          total: 9,
+        },
+      ]);
+    });
+
+    it('counts the new year from 0 and uses the baseline for the old year across a year boundary', async () => {
+      const store = storeWith({
+        students: [student(1n, SW)],
+        baselines: [yearRow(1n, 2026, [7, 1, 0, 0])],
+        byYear: {
+          2026: [yearRow(1n, 2026, [10, 1, 0, 0])],
+          2027: [yearRow(1n, 2027, [5, 0, 1, 0])],
+        },
+      });
+
+      const summary = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2027,
+      );
+
+      expect(store.listActivityBaselines).toHaveBeenCalledWith(
+        2026,
+        CUTOFF_2027,
+      );
+      expect(store.listActivityByYear).toHaveBeenCalledWith(2026);
+      expect(store.listActivityByYear).toHaveBeenCalledWith(2027);
+      expect(summary.leaders.recent.all[0]).toMatchObject({
+        commitCount: 8,
+        pullRequestCount: 0,
+        issueCount: 1,
+        repositoryCount: 0,
+        total: 9,
+      });
+    });
+
+    it('excludes a student whose current cutoff-year row has no baseline', async () => {
+      const store = storeWith({
+        students: [student(1n, SW), student(2n, SW)],
+        baselines: [yearRow(2n, 2026, [1, 0, 0, 0])],
+        byYear: {
+          2026: [
+            yearRow(1n, 2026, [50, 0, 0, 0]),
+            yearRow(2n, 2026, [2, 0, 0, 0]),
+          ],
+          2027: [yearRow(1n, 2027, [5, 0, 0, 0])],
+        },
+      });
+
+      const { recent } = (
+        await serviceFor(store).summarize({ kind: 'all' }, NOW_2027)
+      ).leaders;
+
+      expect(recent.all.map((row) => [row.githubLogin, row.total])).toEqual([
+        ['login-2', 1],
+      ]);
+    });
+
+    it('includes a student whose only current row is in the new year with delta = current', async () => {
+      const store = storeWith({
+        students: [student(1n, NON_SW)],
+        byYear: { 2027: [yearRow(1n, 2027, [3, 2, 1, 1])] },
+      });
+
+      const { recent } = (
+        await serviceFor(store).summarize({ kind: 'all' }, NOW_2027)
+      ).leaders;
+
+      expect(recent.nonSw).toEqual([
+        expect.objectContaining({
+          rank: 1,
+          githubLogin: 'login-1',
+          commitCount: 3,
+          pullRequestCount: 2,
+          issueCount: 1,
+          repositoryCount: 1,
+          total: 7,
+        }),
+      ]);
+    });
+
+    it('drops a student whose counts did not change since the cutoff', async () => {
+      const store = storeWith({
+        students: [student(1n, SW)],
+        baselines: [yearRow(1n, 2026, [4, 1, 0, 2])],
+        byYear: { 2026: [yearRow(1n, 2026, [4, 1, 0, 2])] },
+      });
+
+      const { recent } = (
+        await serviceFor(store).summarize({ kind: 'all' }, NOW_2026)
+      ).leaders;
+
+      expect(recent.all).toEqual([]);
+    });
+
+    it('clamps each metric at 0 when the baseline exceeds the current row', async () => {
+      const store = storeWith({
+        students: [student(1n, SW)],
+        baselines: [yearRow(1n, 2026, [9, 0, 5, 0])],
+        byYear: { 2026: [yearRow(1n, 2026, [4, 2, 1, 0])] },
+      });
+
+      const { recent } = (
+        await serviceFor(store).summarize({ kind: 'all' }, NOW_2026)
+      ).leaders;
+
+      expect(recent.all[0]).toMatchObject({
+        commitCount: 0,
+        pullRequestCount: 2,
+        issueCount: 0,
+        repositoryCount: 0,
+        total: 2,
+      });
+    });
+
+    it('excludes Star from the recent total and row', async () => {
+      const store = storeWith({
+        students: [student(1n, SW)],
+        totals: [totals(1n, [3, 0, 0, 0, 40])],
+        baselines: [yearRow(1n, 2026, [1, 0, 0, 0])],
+        byYear: { 2026: [yearRow(1n, 2026, [3, 0, 0, 0])] },
+      });
+
+      const { leaders } = await serviceFor(store).summarize(
+        { kind: 'all' },
+        NOW_2026,
+      );
+
+      expect(leaders.period.all[0]).toMatchObject({
+        starCount: 40,
+        total: 43,
+      });
+      expect(leaders.recent.all[0]?.total).toBe(2);
+      expect(leaders.recent.all[0]).not.toHaveProperty('starCount');
+    });
+  });
+
+  it('adds rounded activity per student and flags departments under 3 students', async () => {
+    const store = storeWith({
+      students: [
+        student(1n, SW),
+        student(2n, SW),
+        student(3n, SW),
+        student(4n, NON_SW),
+        student(5n, NON_SW),
+      ],
+      totals: [
+        totals(1n, [11, 0, 0, 0, 0]),
+        totals(4n, [3, 0, 0, 0, 0]),
+        totals(5n, [2, 0, 0, 0, 0]),
+      ],
+    });
+
+    const { departments } = await serviceFor(store).summarize(
+      { kind: 'all' },
+      NOW_2026,
+    );
+
+    expect(departments.find((row) => row.department === SW)).toMatchObject({
+      studentCount: 3,
+      total: 11,
+      activityPerStudent: 3.7,
+      sampleTooSmall: false,
+    });
+    expect(departments.find((row) => row.department === NON_SW)).toMatchObject({
+      studentCount: 2,
+      total: 5,
+      activityPerStudent: 2.5,
+      sampleTooSmall: true,
+    });
+  });
+
+  it('passes the request clock through summarizeFromRequest', async () => {
+    const store = repository();
+
+    const summary = await serviceFor(store).summarizeFromRequest(
+      { year: '2026' },
+      NOW_2027,
+    );
+
+    expect(summary.recentWindow).toEqual({ from: CUTOFF_2027, to: NOW_2027 });
+    expect(store.listActivityTotals).toHaveBeenCalledWith({
+      currentYear: 2026,
+    });
+  });
+
+  it('never serializes studentId, githubId or the user id in leader rows', async () => {
+    const store = storeWith({
+      students: [
+        student(987654321n, SW, { id: 'user-secret-cuid', name: '합성 학생' }),
+      ],
+      totals: [totals(987654321n, [5, 0, 0, 0, 0])],
+      baselines: [yearRow(987654321n, 2026, [1, 0, 0, 0])],
+      byYear: { 2026: [yearRow(987654321n, 2026, [5, 0, 0, 0])] },
+    });
+
+    const summary = await serviceFor(store).summarize(
+      { kind: 'all' },
+      NOW_2026,
+    );
+    const body = JSON.stringify(StaffInsightsResponseDto.from(summary));
+
+    expect(summary.leaders.period.all).toHaveLength(1);
+    expect(summary.leaders.recent.all).toHaveLength(1);
+    expect(body).toContain('"githubLogin":"login-987654321"');
+    expect(body).not.toContain('studentId');
+    expect(body).not.toContain('githubId');
+    expect(body).not.toContain('user-secret-cuid');
+    expect(body).not.toContain('"987654321"');
   });
 });

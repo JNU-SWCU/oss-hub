@@ -201,11 +201,15 @@ it('preserves canonical and legacy fallback projections across all three consume
       {
         id: canonicalUserId,
         githubId: 9_690_000_001n,
+        githubLogin: 'canonical-login',
+        name: 'canonical-person',
         department: 'canonical-department',
       },
       {
         id: legacyUserId,
         githubId: 9_690_000_002n,
+        githubLogin: 'legacy-login',
+        name: 'legacy-only-person',
         department: 'legacy-only-department',
       },
     ]),

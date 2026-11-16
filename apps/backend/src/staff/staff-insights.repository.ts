@@ -1,15 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { ActivityVisibility } from '@prisma/client';
-import { ContributorReadRepository } from '../platform/contributor-read.repository';
+import {
+  ContributorReadRepository,
+  type StandingRow,
+} from '../platform/contributor-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_DEPARTMENT_SELECT,
+  USER_PROFILE_NAME_SELECT,
 } from '../platform/user-profile-read.config';
 
 export interface StaffInsightsStudentRecord {
   readonly id: string;
   readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly name: string | null;
   readonly department: string | null;
 }
 
@@ -28,8 +34,28 @@ export interface StaffInsightsActivityRecord {
   readonly starCount: number;
 }
 
+export interface StaffInsightsBaselineRecord {
+  readonly githubId: bigint;
+  readonly year: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+}
+
 export interface StaffInsightsActivityQuery {
   readonly currentYear?: number;
+}
+
+function toBaselineRecord(row: StandingRow): StaffInsightsBaselineRecord {
+  return {
+    githubId: row.githubId,
+    year: row.year,
+    commitCount: row.commitCount,
+    pullRequestCount: row.pullRequestCount,
+    issueCount: row.issueCount,
+    repositoryCount: row.repositoryCount,
+  };
 }
 
 @Injectable()
@@ -46,12 +72,16 @@ export class StaffInsightsRepository {
       select: {
         id: true,
         githubId: true,
+        nickname: true,
+        ...USER_PROFILE_NAME_SELECT,
         ...USER_PROFILE_DEPARTMENT_SELECT,
       },
     });
     return rows.map((row) => ({
       id: row.id,
       githubId: row.githubId,
+      githubLogin: row.nickname,
+      name: row.name ?? null,
       department: row.department ?? null,
     }));
   }
@@ -131,6 +161,27 @@ export class StaffInsightsRepository {
       repositoryCount: entry.repositoryCount,
       starCount: entry.starCount,
     }));
+  }
+
+  async listActivityBaselines(
+    year: number,
+    before: Date,
+  ): Promise<readonly StaffInsightsBaselineRecord[]> {
+    const rows = await this.contributors.readRowsBefore(
+      { year, visibility: ActivityVisibility.PUBLIC },
+      before,
+    );
+    return rows.map(toBaselineRecord);
+  }
+
+  async listActivityByYear(
+    year: number,
+  ): Promise<readonly StaffInsightsBaselineRecord[]> {
+    const rows = await this.contributors.readStandingRows({
+      year,
+      visibility: ActivityVisibility.PUBLIC,
+    });
+    return rows.map(toBaselineRecord);
   }
 
   async listActivityYears(): Promise<readonly number[]> {

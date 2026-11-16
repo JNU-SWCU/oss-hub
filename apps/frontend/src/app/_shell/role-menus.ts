@@ -13,7 +13,7 @@ const ACCESS_REQUEST_MENU: NavItem = {
 
 export const STAFF_MENU: NavItem[] = [
   { label: '운영 대시보드', href: '/dashboard' },
-  { label: '학생 활성', href: '/dashboard/insights' },
+  { label: '인사이트', href: '/dashboard/insights' },
   ACCESS_REQUEST_MENU,
 ];
 

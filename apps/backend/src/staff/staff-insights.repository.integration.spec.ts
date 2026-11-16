@@ -34,10 +34,37 @@ const PRIVATE_ROW = {
   observedAt: new Date('2118-03-04T00:00:00.000Z'),
 };
 
+const BASELINE_GITHUB_ID = 8_962_000_000_002n;
+const ACTIVE_STUDENT_ID = 'staff-insights-it-active-student';
+const DEACTIVATED_STUDENT_ID = 'staff-insights-it-deactivated-student';
+const CUTOFF = new Date('2117-06-01T00:00:00.000Z');
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 async function purge(): Promise<void> {
   await prisma.githubUserActivityObservation.deleteMany({
-    where: { githubId: GITHUB_ID },
+    where: { githubId: { in: [GITHUB_ID, BASELINE_GITHUB_ID] } },
   });
+  await prisma.user.deleteMany({
+    where: { id: { in: [ACTIVE_STUDENT_ID, DEACTIVATED_STUDENT_ID] } },
+  });
+}
+
+function baselineObservation(
+  visibility: ActivityVisibility,
+  observedAt: Date,
+  commitCount: number,
+) {
+  return {
+    githubId: BASELINE_GITHUB_ID,
+    year: YEAR,
+    visibility,
+    commitCount,
+    pullRequestCount: commitCount + 1,
+    issueCount: commitCount + 2,
+    repositoryCount: commitCount + 3,
+    starCount: 0,
+    observedAt,
+  };
 }
 
 beforeAll(async () => {
@@ -97,5 +124,91 @@ describe('StaffInsightsRepository PUBLIC activity scope', () => {
 
     expect(dataAsOf).toEqual(before);
     expect(dataAsOf).toEqual(PUBLIC_ROW.observedAt);
+  });
+});
+
+describe('StaffInsightsRepository student identity and baselines', () => {
+  it('returns githubLogin and name for active students only', async () => {
+    await prisma.user.createMany({
+      data: [
+        {
+          id: ACTIVE_STUDENT_ID,
+          githubId: GITHUB_ID,
+          nickname: 'insights-active',
+          type: 'STUDENT',
+          name: '홍길동',
+          department: '소프트웨어공학과',
+          departmentType: 'DEPARTMENT',
+          profileCreatedAt: CUTOFF,
+          profileUpdatedAt: CUTOFF,
+        },
+        {
+          id: DEACTIVATED_STUDENT_ID,
+          githubId: BASELINE_GITHUB_ID,
+          nickname: 'insights-deactivated',
+          type: 'STUDENT',
+          name: '김비활',
+          department: '소프트웨어공학과',
+          departmentType: 'DEPARTMENT',
+          profileCreatedAt: CUTOFF,
+          profileUpdatedAt: CUTOFF,
+          accountStatus: 'DEACTIVATED',
+        },
+      ],
+    });
+
+    const students = await repository.listStudents();
+
+    expect(students.find((row) => row.id === ACTIVE_STUDENT_ID)).toEqual({
+      id: ACTIVE_STUDENT_ID,
+      githubId: GITHUB_ID,
+      githubLogin: 'insights-active',
+      name: '홍길동',
+      department: '소프트웨어공학과',
+    });
+    expect(students.some((row) => row.id === DEACTIVATED_STUDENT_ID)).toBe(
+      false,
+    );
+  });
+
+  it('reads the baseline strictly before the cutoff and the latest standing', async () => {
+    await prisma.githubUserActivityObservation.createMany({
+      data: [
+        baselineObservation(
+          ActivityVisibility.PUBLIC,
+          new Date(CUTOFF.getTime() - 2 * DAY_MS),
+          10,
+        ),
+        baselineObservation(ActivityVisibility.PUBLIC, CUTOFF, 20),
+        baselineObservation(
+          ActivityVisibility.PUBLIC,
+          new Date(CUTOFF.getTime() + 5 * DAY_MS),
+          30,
+        ),
+        baselineObservation(
+          ActivityVisibility.PRIVATE,
+          new Date(CUTOFF.getTime() - DAY_MS),
+          99,
+        ),
+      ],
+    });
+    const countsOf = (commitCount: number) => ({
+      githubId: BASELINE_GITHUB_ID,
+      year: YEAR,
+      commitCount,
+      pullRequestCount: commitCount + 1,
+      issueCount: commitCount + 2,
+      repositoryCount: commitCount + 3,
+    });
+
+    const baselines = await repository.listActivityBaselines(YEAR, CUTOFF);
+    const current = await repository.listActivityByYear(YEAR);
+
+    expect(
+      baselines.filter((row) => row.githubId === BASELINE_GITHUB_ID),
+    ).toEqual([countsOf(10)]);
+    expect(
+      current.filter((row) => row.githubId === BASELINE_GITHUB_ID),
+    ).toEqual([countsOf(30)]);
   });
 });
