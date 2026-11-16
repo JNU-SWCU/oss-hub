@@ -13,7 +13,7 @@ import Recover from '~/components/Recover.astro';
 
 <Steps>
 1. Open ① `인사이트` (Insights) in the left-hand menu.
-2. Under ① `기간` (Period), choose `전체` (All) or a year. It applies to all tabs.
+2. Under ① `기간` (Period), choose `전체` (All) or a year. It applies to the `학생` (Students) tab rankings and to activity numbers (`활동률`, activity rate, and `1인당 활동량`, activity per student). Participation numbers (`프로그램 참여율` on the `학과·전공` tab, and the `프로그램` tab) show the current approved state regardless of the period.
 3. Choose the ② `학생` (Students), `학과·전공` (Departments and majors), or `프로그램` (Programs) tab.
 </Steps>
 <Shot src="admin/insights-full.webp" alt="Insights screen with the period selector and the Students, Departments and majors, and Programs view tabs at the top, and the selected tab's cards and charts below. ① marks Insights in the left menu." caption="① Insights menu" />
@@ -25,7 +25,7 @@ import Recover from '~/components/Recover.astro';
   - `최근 30일 상위 10명` (Top 10, last 30 days): ranks students by the increase in Commit, PR, Issue, and Repo over the rolling last 30 days. Star is excluded, and the from~to dates are shown.
   - Each row shows rank, name (GitHub login if there is no name), department (or `학과 미등록`, department not registered), `@login`, total, and a proportional bar. Student numbers are never shown.
   - Only public activity is counted, so figures can differ from the public ranking page.
-- `학과·전공` (Departments and majors) tab: the `SW전공` and `비SW전공` tiles show `가입 학생` (registered students), `활동률` (activity rate: active students / registered students), and `프로그램 참여율` (program participation rate: participating students / registered students). The count of students with `학과 미등록` is shown separately. The department ranking chart below has a toggle between `가입 학생 수` (registered students) and `1인당 활동량` (activity per student). In `1인당 활동량` mode, departments with fewer than 3 students are listed separately as `표본 적음 (가입 3명 미만)` (small sample, fewer than 3 registered).
+- `학과·전공` (Departments and majors) tab: the `SW전공` and `비SW전공` tiles show `가입 학생` (registered students), `활동률` (activity rate: active students / registered students), and `프로그램 참여율` (program participation rate: participating students / registered students). The `프로그램 참여율` tiles carry the note `현재 승인 기준 · 기간 미적용` (current approved state, period not applied) because they count current approved participation regardless of the period. The count of students with `학과 미등록` is shown separately. The department ranking chart below has a toggle between `가입 학생 수` (registered students) and `1인당 활동량` (activity per student). In `1인당 활동량` mode, departments with fewer than 3 students are listed separately as `표본 적음 (가입 3명 미만)` (small sample, fewer than 3 registered).
 - `프로그램` (Programs) tab: `프로그램 참여 순위` (program participation ranking). Programs are ranked by approved applicants and team members, counted without duplicates, and stacked as SW majors / non-SW majors / department not registered. The period filter does not apply to this tab.
 
 You can also open a tab by URL: `?view=students`, `?view=groups`, `?view=programs`.
