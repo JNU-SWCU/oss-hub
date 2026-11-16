@@ -760,7 +760,7 @@ const overviewBase: ProgramOverview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
-  remainingMilestones: [],
+  scheduleMilestones: [],
   requirements: [],
 };
 
@@ -916,7 +916,7 @@ describe('RequirementSectionBody', () => {
         onSubmitConflict={vi.fn()}
       />,
     );
-    expect(html).toContain('2 / 4팀 제출');
+    expect(html).toContain('2/4개 팀 제출');
     expect(html).toContain('기획서');
     expect(html).not.toContain('양식 올리기');
     expect(html).not.toContain('양식 교체');

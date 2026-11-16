@@ -40,7 +40,7 @@ const overview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: 0,
-  remainingMilestones: [],
+  scheduleMilestones: [],
   requirements: [],
 };
 const program: ProgramDetail = {

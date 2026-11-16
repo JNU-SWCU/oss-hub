@@ -558,7 +558,7 @@ describe('programScopeSidebarGroups', () => {
     expect(board?.items[0]).toMatchObject({ label: '게시판', count: '3' });
   });
 
-  it('STAFF view: 서류 현황 parent has no count; child count is team-based', () => {
+  it('STAFF view: 서류 현황 and 모든 단계 have no count; stages count outstanding teams', () => {
     const groups = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STAFF',
@@ -586,6 +586,7 @@ describe('programScopeSidebarGroups', () => {
     expect(overview?.items[1]).toMatchObject({
       label: '팀 관리',
       href: '/programs/prog-1/teams',
+      count: '47',
     });
     const documents = groups[1];
     expect(documents?.items[0]).toMatchObject({
@@ -596,19 +597,37 @@ describe('programScopeSidebarGroups', () => {
     expect(documents?.items[1]).toMatchObject({
       label: '모든 단계',
       href: '/programs/prog-1/documents',
-      count: '47팀',
     });
+    expect(documents?.items[1]?.count).toBeUndefined();
     expect(documents?.items[2]).toMatchObject({
       label: '프로젝트 계획서 제출',
       href: '/programs/prog-1/documents?milestoneId=m3',
-      count: '2/47팀',
+      count: '1',
     });
     expect(documents?.items[3]).toMatchObject({
       label: '1차 중간 산출물 제출',
       href: '/programs/prog-1/documents?milestoneId=m4',
-      count: '0/47팀',
+      count: '3',
     });
     expect(documents?.items.some((i) => i.label === '내 제출물')).toBe(false);
+    expect(groups[2]?.items[0]?.count).toBe('3');
+  });
+
+  it.each([
+    { completed: 3, total: 3 },
+    { completed: 0, total: 0 },
+    { completed: 4, total: 3 },
+  ])('STAFF view: outstanding count is hidden for %j', (summary) => {
+    const groups = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+      requirements: [{ milestoneId: 'm1', title: '계획서', ...summary }],
+    });
+
+    expect(groups[1]?.items[2]).toMatchObject({
+      href: '/programs/prog-1/documents?milestoneId=m1',
+      count: undefined,
+    });
   });
 
   it('STAFF view: 서류 항목이 없는 단계도 전체 단계 탐색에는 남긴다', () => {
@@ -642,7 +661,7 @@ describe('programScopeSidebarGroups', () => {
         expect.objectContaining({
           label: '1차 계획서',
           href: '/programs/prog-1/documents?milestoneId=m1',
-          count: '2/47팀',
+          count: '1',
         }),
         expect.objectContaining({
           label: '중간 보고서',

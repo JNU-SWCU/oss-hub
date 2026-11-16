@@ -20,3 +20,24 @@ export const SUBMISSION_STATUS_BADGE = {
 } as const satisfies Readonly<
   Record<SubmissionStatusKey, StatusBadgeVariantName>
 >;
+
+export type SubmissionDisplayStatus = SubmissionStatusKey | 'OVERDUE';
+type StatusAudience = 'student' | 'staff';
+
+export const SUBMISSION_DISPLAY_BADGE = {
+  ...SUBMISSION_STATUS_BADGE,
+  OVERDUE: 'rejected',
+} as const satisfies Readonly<
+  Record<SubmissionDisplayStatus, StatusBadgeVariantName>
+>;
+
+export function submissionStatusLabel(
+  status: SubmissionDisplayStatus,
+  audience: StatusAudience,
+): string {
+  if (status === 'OVERDUE') return '기한 지남';
+  if (status === 'CHANGES_REQUESTED') {
+    return audience === 'student' ? '보완 필요' : '보완 요청 중';
+  }
+  return SUBMISSION_STATUS_LABELS[status];
+}

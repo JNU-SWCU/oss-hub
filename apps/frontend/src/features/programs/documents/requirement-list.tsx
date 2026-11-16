@@ -19,6 +19,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
 import {
+  SUBMISSION_DISPLAY_BADGE,
+  submissionStatusLabel,
+  type SubmissionDisplayStatus,
+} from '@/lib/status-vocabulary';
+import {
   requirementTemplateHref,
   submitRequirement,
   uploadRequirementFile,
@@ -38,7 +43,6 @@ import { requirementSubmitGate } from './milestone-submit-gate';
 import {
   isRequirementResubmissionFinal,
   REQUIREMENT_REVIEW_DISPLAY_LABELS,
-  REQUIREMENT_REVIEW_DISPLAY_VARIANTS,
   requirementReviewNoticeTone,
   requirementViewerDisplay,
   type RequirementReviewDisplay,
@@ -329,8 +333,8 @@ function StaffDocumentRow({
         <DocumentName document={document} />
         {document.teamSubmissionCount ? (
           <StatusBadge variant="recruiting">
-            {document.teamSubmissionCount.submitted} /{' '}
-            {document.teamSubmissionCount.total}팀 제출
+            {document.teamSubmissionCount.submitted}/
+            {document.teamSubmissionCount.total}개 팀 제출
           </StatusBadge>
         ) : null}
 
@@ -419,6 +423,17 @@ function HeldSubmitAction({
   );
 }
 
+function studentDocumentStatus(
+  display: RequirementReviewDisplay,
+  dueAt: string | undefined,
+  now: number,
+): SubmissionDisplayStatus {
+  if (display === 'NOT_SUBMITTED') {
+    return dueAt !== undefined && isPastDue(dueAt, now) ? 'OVERDUE' : display;
+  }
+  return display === 'PENDING' ? 'SUBMITTED' : display;
+}
+
 function StudentDocumentRow({
   programId,
   document,
@@ -499,6 +514,7 @@ function StudentDocumentRow({
 
   const [now, setNow] = useState(() => Date.now());
   const deadlineClosed = dueAt === undefined ? closed : isPastDue(dueAt, now);
+  const badgeStatus = studentDocumentStatus(display, dueAt, now);
   const gate = requirementSubmitGate({
     submissionAccess,
     viewerSubmission,
@@ -655,8 +671,8 @@ function StudentDocumentRow({
     <li className="grid gap-2" data-testid="milestone-document-row">
       <div className="flex flex-wrap items-center gap-3">
         <DocumentName document={document} />
-        <StatusBadge variant={REQUIREMENT_REVIEW_DISPLAY_VARIANTS[display]}>
-          {REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
+        <StatusBadge variant={SUBMISSION_DISPLAY_BADGE[badgeStatus]}>
+          {submissionStatusLabel(badgeStatus, 'student')}
         </StatusBadge>
         {submitted && submittedAt ? (
           <span className="text-small text-muted-foreground">

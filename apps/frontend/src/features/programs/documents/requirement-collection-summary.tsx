@@ -35,7 +35,7 @@ export function RequirementCollectionSummary({
       <SectionHeading
         id="collection-summary-heading"
         title="서류별 요약"
-        meta={`전체 ${data.filterCounts.all}팀`}
+        meta={`전체 ${data.filterCounts.all}`}
       />
       <p className="text-small text-muted-foreground">
         모든 페이지의 승인된 팀 기준입니다. 서류를 고르면 아래 표에서

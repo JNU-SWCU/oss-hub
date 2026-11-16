@@ -80,7 +80,7 @@ function mockSession(
 }
 
 function overview(
-  remainingMilestones: ProgramOverview['remainingMilestones'],
+  scheduleMilestones: ProgramOverview['scheduleMilestones'],
 ): ProgramOverview {
   return {
     programId: 'prog-1',
@@ -95,7 +95,7 @@ function overview(
     viewerDocumentsCompleted: null,
     viewerDocumentsTotal: null,
     fullySubmittedParticipantCount: 1,
-    remainingMilestones,
+    scheduleMilestones,
     requirements: [],
   };
 }
@@ -198,9 +198,13 @@ describe('ProductShell program deadline countdown', () => {
     expect(aside?.querySelector('[data-slot="program-countdown"]')).toBeNull();
   });
 
-  it('renders every loaded remaining milestone through the program sidebar', async () => {
+  it('renders the clock, the nearest countdown and every schedule milestone through the program sidebar', async () => {
     mocks.getProgramOverview.mockResolvedValue(
       overview([
+        {
+          label: '지나간 오리엔테이션',
+          dueAt: '2026-08-20T18:00:00+09:00',
+        },
         {
           label: '프로젝트 계획서 제출',
           dueAt: '2026-09-12T18:00:00+09:00',
@@ -215,9 +219,22 @@ describe('ProductShell program deadline countdown', () => {
     await renderShell(root);
 
     expect(container.innerHTML).toContain('data-slot="program-countdown"');
-    expect(container.textContent).toContain('프로젝트 계획서 제출');
-    expect(container.textContent).toContain('최종 발표 및 시연');
-    expect(container.textContent).toContain('2026.09.12 (토) 18:00');
+    expect(container.textContent).toContain('현재 시간');
+    expect(container.textContent).toContain('13:42:39');
+    expect(container.textContent).toContain('2026.08.27 (목)');
+    expect(container.textContent).toContain('프로젝트 계획서 제출 마감까지');
+    expect(container.textContent).toContain('9월 12일 18:00 마감');
+    const rows = container.querySelectorAll('ol[aria-label="마감 일정"] li');
+    expect(
+      Array.from(rows, (row) => [
+        row.getAttribute('data-schedule-state'),
+        row.textContent,
+      ]),
+    ).toEqual([
+      ['past', '지나간 오리엔테이션08/20 18:00'],
+      ['nearest', '프로젝트 계획서 제출09/12 18:00'],
+      ['future', '최종 발표 및 시연09/19 18:00'],
+    ]);
     expect(container.textContent).not.toContain('마감 일정이 종료되었습니다.');
   });
 

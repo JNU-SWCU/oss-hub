@@ -43,10 +43,21 @@ function renderProgramCountdown(): void {
 }
 
 describe('ProgramCountdown program mode interactions', () => {
-  it('promotes the next milestone and then renders the ended state on live ticks', () => {
+  function scheduleStates(): string[] {
+    return Array.from(
+      container.querySelectorAll('ol[aria-label="마감 일정"] li'),
+      (row) => row.getAttribute('data-schedule-state') ?? '',
+    );
+  }
+
+  it('ticks the clock, promotes the next milestone and then renders the ended state', () => {
     renderProgramCountdown();
 
-    expect(container.textContent).toContain('첫 번째 마감');
+    expect(container.textContent).toContain('현재 시간');
+    expect(container.textContent).toContain('10:00:00');
+    expect(container.textContent).toContain('첫 번째 마감까지');
+    expect(container.textContent).not.toContain('마감 마감까지');
+    expect(scheduleStates()).toEqual(['nearest', 'future']);
     expect(container.querySelectorAll('[data-countdown-cell]')).toHaveLength(4);
     expect(container.querySelector('[aria-live]')).toBeNull();
 
@@ -54,14 +65,18 @@ describe('ProgramCountdown program mode interactions', () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(container.textContent).not.toContain('첫 번째 마감');
-    expect(container.textContent).toContain('두 번째 마감');
+    expect(container.textContent).toContain('10:00:02');
+    expect(container.textContent).not.toContain('첫 번째 마감까지');
+    expect(container.textContent).toContain('두 번째 마감까지');
+    expect(scheduleStates()).toEqual(['past', 'nearest']);
 
     act(() => {
       vi.advanceTimersByTime(2000);
     });
 
+    expect(container.textContent).toContain('10:00:04');
     expect(container.textContent).toContain('마감 일정이 종료되었습니다.');
+    expect(scheduleStates()).toEqual(['past', 'past']);
     expect(container.querySelectorAll('[data-countdown-cell]')).toHaveLength(0);
   });
 

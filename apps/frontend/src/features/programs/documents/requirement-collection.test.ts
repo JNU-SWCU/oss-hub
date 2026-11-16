@@ -79,9 +79,7 @@ function row(
 
 describe('REQUIREMENT_COLLECTION_FILTER_LABELS', () => {
   it('필수 기준임이 문구에 드러난다', () => {
-    expect(REQUIREMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).toBe(
-      '미제출 있음',
-    );
+    expect(REQUIREMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).toBe('미제출');
     expect(REQUIREMENT_COLLECTION_FILTER_LABELS.HAS_MISSING).not.toBe(
       '미제출 있는 팀',
     );

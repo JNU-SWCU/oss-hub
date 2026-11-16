@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { EmptyState, ListPanel, ListRow, SectionHeading } from '@/components';
 import Link from 'next/link';
 import { programDocumentsHref } from '@/lib/program-route';
+import { submissionStatusLabel } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components';
 import { useProgramDetailQuery } from '@/features/programs/catalog/queries';
@@ -85,7 +86,8 @@ function RequirementRow({
               : submitted + '/' + documents.length + '개 항목 제출'}
           {changesRequested > 0 ? (
             <StatusBadge variant="pending">
-              보완 요청 {changesRequested}건
+              {submissionStatusLabel('CHANGES_REQUESTED', 'student')}{' '}
+              {changesRequested}건
             </StatusBadge>
           ) : null}
           {rejected > 0 ? (

@@ -82,7 +82,7 @@ const OVERVIEW: ProgramOverview = {
   viewerDocumentsCompleted: 0,
   viewerDocumentsTotal: 2,
   fullySubmittedParticipantCount: null,
-  remainingMilestones: [],
+  scheduleMilestones: [],
   requirements: [
     { milestoneId: 'm1', title: '스터디 계획서', completed: 0, total: 1 },
   ],

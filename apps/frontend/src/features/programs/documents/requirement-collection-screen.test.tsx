@@ -246,7 +246,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
 
   it.each([
     ['지각 제출', 'LATE'],
-    ['미제출 있음', 'HAS_MISSING'],
+    ['미제출', 'HAS_MISSING'],
   ] as const)(
     'keeps %s when selecting and changing documents',
     async (label, filter) => {
@@ -324,7 +324,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     await render();
     expect(container.textContent).toContain('가팀');
 
-    await click('미제출 있음');
+    await click('미제출');
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
@@ -416,7 +416,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     await render();
     const initialHref = archiveHref();
 
-    await click('미제출 있음');
+    await click('미제출');
     expect(archiveHref()).toBe(initialHref);
 
     await click('다음');
@@ -440,7 +440,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     );
 
     await render();
-    await click('미제출 있음');
+    await click('미제출');
     await click('다시 시도');
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(

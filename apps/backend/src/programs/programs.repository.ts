@@ -1323,6 +1323,18 @@ export class ProgramOverviewRepository {
       select: { id: true },
     });
   }
+  findEligibleProgramTeams(
+    programId: string,
+  ): Promise<readonly ProgramApplicationTeamRow[]> {
+    return this.prisma.team.findMany({
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
+      select: { id: true },
+    });
+  }
   async findSubmittedDocumentPairs(
     teamIds: readonly string[],
     documentIds: readonly string[],

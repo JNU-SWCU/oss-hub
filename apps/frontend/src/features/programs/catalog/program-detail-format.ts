@@ -1,6 +1,4 @@
-import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
 import type { ProgramDetail } from './dto';
-import type { SubmissionStatus } from '../program-contract';
 import {
   PROGRAM_TRACK_TYPE_LABELS,
   programOrganizersLabel,
@@ -34,10 +32,6 @@ export function programDetailMeta(
       : `${organizers} · ${trackTypeLabel(program.trackType)}`;
   const period = `신청 기간 ${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`;
   return { context, period };
-}
-
-export function submissionLabel(status: SubmissionStatus): string {
-  return SUBMISSION_STATUS_LABELS[status];
 }
 
 export function formatSeoulDate(value: string): string {

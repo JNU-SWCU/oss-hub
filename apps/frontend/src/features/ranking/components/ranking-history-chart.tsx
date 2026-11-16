@@ -327,6 +327,7 @@ function LineAvatars({
               width={AVATAR_SIZE}
               height={AVATAR_SIZE}
               clipPath={`url(#${clipId})`}
+              onDragStart={(event) => event.preventDefault()}
             />
           </g>
         );

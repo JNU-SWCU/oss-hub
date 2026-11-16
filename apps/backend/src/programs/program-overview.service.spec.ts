@@ -1,4 +1,5 @@
 import { ProgramOverviewErrorCode } from './programs.error';
+import { ApplicationStatus } from '@prisma/client';
 import {
   CurrentSubmissionMilestone,
   RequirementCatalogEntry,
@@ -9,6 +10,8 @@ import {
 } from './programs.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { UserProfileService } from '../users/user-profile.service';
+import { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticGithubId = 123456789n;
@@ -36,20 +39,39 @@ function completionRows(
   teams: readonly {
     readonly members: number;
     readonly submitted: readonly string[];
+    readonly status?: ApplicationStatus;
+    readonly archivedAt?: Date;
   }[],
 ) {
   return {
-    findProgramApplications: jest.fn().mockResolvedValue(
-      teams.map((_, index) => ({
-        id: `team-${index}`,
-      })),
-    ),
+    findProgramApplications: jest
+      .fn()
+      .mockResolvedValue(
+        teams.flatMap((team, index) =>
+          team.archivedAt ? [] : [{ id: `team-${index}` }],
+        ),
+      ),
+    findEligibleProgramTeams: jest
+      .fn()
+      .mockResolvedValue(
+        teams.flatMap((team, index) =>
+          !team.archivedAt &&
+          (team.status ?? ApplicationStatus.APPROVED) ===
+            ApplicationStatus.APPROVED
+            ? [{ id: `team-${index}` }]
+            : [],
+        ),
+      ),
     findSubmittedDocumentPairs: jest.fn(
-      (_teamIds: readonly string[], documentIds: readonly string[]) =>
+      (teamIds: readonly string[], documentIds: readonly string[]) =>
         Promise.resolve(
           teams.flatMap((team, index) =>
             team.submitted
-              .filter((documentId) => documentIds.includes(documentId))
+              .filter(
+                (documentId) =>
+                  teamIds.includes(`team-${index}`) &&
+                  documentIds.includes(documentId),
+              )
               .map((documentId) => ({
                 teamId: `team-${index}`,
                 requirementId: documentId,
@@ -395,17 +417,100 @@ describe('ProgramOverviewService', () => {
             milestoneId: currentMilestone.milestoneId,
             title: 'seed-program-overview-milestone-3',
             completed: 12,
-            total: 47,
+            total: 12,
           },
           {
             milestoneId: 'cuid-synthetic-milestone-4',
             title: 'seed-program-overview-milestone-4',
             completed: 0,
-            total: 47,
+            total: 12,
           },
         ],
       });
     });
+
+    it.each([true, false])(
+      '교직원 단계 집계는 승인된 활성 팀만 세고 대기·반려·보관 팀을 제외한다 (대상 팀 있음=%s)',
+      async (hasEligibleTeam) => {
+        const completion = completionRows([
+          ...(hasEligibleTeam
+            ? [{ members: 2, submitted: ['doc-1', 'doc-2'] }]
+            : []),
+          {
+            members: 3,
+            submitted: ['doc-1', 'doc-2'],
+            status: ApplicationStatus.SUBMITTED,
+          },
+          {
+            members: 4,
+            submitted: ['doc-1', 'doc-2'],
+            status: ApplicationStatus.REJECTED,
+          },
+          {
+            members: 5,
+            submitted: ['doc-1', 'doc-2'],
+            status: ApplicationStatus.APPROVED,
+            archivedAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ]);
+        const repository = {
+          findByProgramId: jest.fn().mockResolvedValue(baseOverview),
+          findViewerIdentity: jest.fn().mockResolvedValue({
+            userId: syntheticUserId,
+            memberKind: 'STAFF',
+            hasStaffAccess: true,
+            hasAdminAccess: false,
+            accountStatus: 'ACTIVE',
+            name: 'Synthetic viewer',
+            department: 'Synthetic department',
+            studentId: null,
+            profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          }),
+          findCurrentSubmissionMilestone: jest
+            .fn()
+            .mockResolvedValue(currentMilestone),
+          findRequirementCatalog: jest
+            .fn()
+            .mockResolvedValue(requirementCatalog),
+          findMilestoneSchedules: jest.fn().mockResolvedValue([]),
+          ...completion,
+        };
+        const service = new ProgramOverviewService(
+          Object.assign(
+            new ProgramOverviewRepository(
+              new PrismaService(),
+              new PlatformRepository(),
+            ),
+            repository,
+          ),
+          new UserProfileService(),
+        );
+
+        const result = await service.getOverview(
+          syntheticProgramId,
+          syntheticGithubId,
+        );
+
+        expect(result.viewer.requirements).toEqual([
+          {
+            milestoneId: currentMilestone.milestoneId,
+            title: 'seed-program-overview-milestone-3',
+            completed: hasEligibleTeam ? 1 : 0,
+            total: hasEligibleTeam ? 1 : 0,
+          },
+          {
+            milestoneId: 'cuid-synthetic-milestone-4',
+            title: 'seed-program-overview-milestone-4',
+            completed: 0,
+            total: hasEligibleTeam ? 1 : 0,
+          },
+        ]);
+        expect(result.teamCount).toBe(47);
+        expect(result.viewer.fullySubmittedParticipantCount).toBe(
+          hasEligibleTeam ? 9 : 7,
+        );
+      },
+    );
 
     it('ADMIN 단독 자격으로 교직원 제출률을 읽지 못한다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
@@ -499,17 +604,7 @@ describe('ProgramOverviewService', () => {
       });
     });
 
-    describe('remainingMilestones(마감 카운트다운)', () => {
-      const now = new Date('2026-08-04T00:00:00.000Z');
-
-      beforeEach(() => {
-        jest.useFakeTimers().setSystemTime(now);
-      });
-
-      afterEach(() => {
-        jest.useRealTimers();
-      });
-
+    describe('scheduleMilestones(마감 일정)', () => {
       function repositoryWithSchedules(
         schedules: MilestoneSchedule[],
       ): ProgramOverviewRepository {
@@ -530,7 +625,7 @@ describe('ProgramOverviewService', () => {
         } as unknown as ProgramOverviewRepository;
       }
 
-      it('마감이 지나지 않은 마일스톤을 입력 순서와 무관하게 dueAt 오름차순으로 모두 반환한다', async () => {
+      it('마일스톤을 입력 순서와 무관하게 dueAt 오름차순으로 모두 반환한다', async () => {
         const farMilestone: MilestoneSchedule = {
           milestoneId: 'm-far',
           label: '늦은 마일스톤',
@@ -553,7 +648,7 @@ describe('ProgramOverviewService', () => {
 
         expect(result).toEqual(
           expect.objectContaining({
-            remainingMilestones: [
+            scheduleMilestones: [
               { label: nearMilestone.label, dueAt: nearMilestone.dueAt },
               { label: farMilestone.label, dueAt: farMilestone.dueAt },
             ],
@@ -562,16 +657,11 @@ describe('ProgramOverviewService', () => {
         expect(result).not.toHaveProperty('nextMilestone');
       });
 
-      it('마감이 지난 마일스톤과 지금 정확히 마감인 마일스톤은 제외한다', async () => {
+      it('마감이 지난 마일스톤도 걸러내지 않고 함께 반환한다', async () => {
         const pastMilestone: MilestoneSchedule = {
           milestoneId: 'm-past',
           label: '지난 마일스톤',
           dueAt: new Date('2026-08-01T00:00:00.000Z'),
-        };
-        const exactNowMilestone: MilestoneSchedule = {
-          milestoneId: 'm-now',
-          label: '지금 마감',
-          dueAt: now,
         };
         const upcomingMilestone: MilestoneSchedule = {
           milestoneId: 'm-upcoming',
@@ -579,11 +669,7 @@ describe('ProgramOverviewService', () => {
           dueAt: new Date('2026-08-20T00:00:00.000Z'),
         };
         const service = new ProgramOverviewService(
-          repositoryWithSchedules([
-            pastMilestone,
-            exactNowMilestone,
-            upcomingMilestone,
-          ]),
+          repositoryWithSchedules([upcomingMilestone, pastMilestone]),
           new UserProfileService(),
         );
 
@@ -594,7 +680,8 @@ describe('ProgramOverviewService', () => {
 
         expect(result).toEqual(
           expect.objectContaining({
-            remainingMilestones: [
+            scheduleMilestones: [
+              { label: pastMilestone.label, dueAt: pastMilestone.dueAt },
               {
                 label: upcomingMilestone.label,
                 dueAt: upcomingMilestone.dueAt,
@@ -633,7 +720,7 @@ describe('ProgramOverviewService', () => {
 
         expect(result).toEqual(
           expect.objectContaining({
-            remainingMilestones: [
+            scheduleMilestones: [
               { label: earlierMilestone.label, dueAt: earlierMilestone.dueAt },
               { label: firstMilestone.label, dueAt: firstMilestone.dueAt },
               { label: secondMilestone.label, dueAt: secondMilestone.dueAt },
@@ -647,7 +734,7 @@ describe('ProgramOverviewService', () => {
         ]);
       });
 
-      it('다가오는 마일스톤이 없으면 빈 배열이다', async () => {
+      it('마일스톤이 없으면 빈 배열이다', async () => {
         const service = new ProgramOverviewService(
           repositoryWithSchedules([]),
           new UserProfileService(),
@@ -659,7 +746,7 @@ describe('ProgramOverviewService', () => {
         );
 
         expect(result).toEqual(
-          expect.objectContaining({ remainingMilestones: [] }),
+          expect.objectContaining({ scheduleMilestones: [] }),
         );
       });
     });

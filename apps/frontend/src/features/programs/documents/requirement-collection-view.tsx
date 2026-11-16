@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { programEditHref } from '@/lib/program-route';
+import { submissionStatusLabel } from '@/lib/status-vocabulary';
 import {
   collectionCellFor,
   collectionDocumentTotalFor,
@@ -212,7 +213,9 @@ function CollectionCellContent({
   const display = requirementCellDisplay(cell);
   const badge = (
     <StatusBadge variant={REQUIREMENT_REVIEW_DISPLAY_VARIANTS[display]}>
-      {REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
+      {display === 'CHANGES_REQUESTED'
+        ? submissionStatusLabel('CHANGES_REQUESTED', 'staff')
+        : REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
     </StatusBadge>
   );
 
@@ -287,16 +290,23 @@ function CollectionFilterButtons({
       <p className="w-full text-small font-semibold">
         팀별 필수 서류 제출 상태
       </p>
-      {REQUIREMENT_COLLECTION_FILTERS.map((option) => (
-        <FilterChip
-          key={option}
-          pressed={filter === option}
-          onClick={() => onFilterChange(option)}
-        >
-          {REQUIREMENT_COLLECTION_FILTER_LABELS[option]}{' '}
-          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}
-        </FilterChip>
-      ))}
+      {REQUIREMENT_COLLECTION_FILTERS.map((option) => {
+        const count = collectionFilterCountFor(
+          filterCounts,
+          option,
+          deliveryCounts,
+        );
+        if (option === 'NO_REQUIRED_ITEMS' && count === 0) return null;
+        return (
+          <FilterChip
+            key={option}
+            pressed={filter === option}
+            onClick={() => onFilterChange(option)}
+          >
+            {REQUIREMENT_COLLECTION_FILTER_LABELS[option]} {count}
+          </FilterChip>
+        );
+      })}
     </FilterChipGroup>
   );
 }
@@ -720,7 +730,7 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
         {collectionToolbar}
         <EmptyState
           title="이 페이지에는 더 이상 팀이 없습니다"
-          description={`조건에 맞는 팀이 ${total}팀으로 줄어 이 페이지가 사라졌습니다.`}
+          description={`조건에 맞는 팀이 ${total}개로 줄어 이 페이지가 사라졌습니다.`}
           action={
             <Button
               type="button"
@@ -743,7 +753,7 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
         id={SCROLL_HINT_ID}
         className="break-keep text-small text-muted-foreground"
       >
-        이 페이지 {rows.length}팀(조건에 맞는 전체 {total}팀) · 표는 좌우로{' '}
+        이 페이지 {rows.length}개 팀(조건에 맞는 전체 {total}개) · 표는 좌우로{' '}
         <span className="whitespace-nowrap">스크롤해 확인하세요.</span>
       </p>
       <CollectionTable

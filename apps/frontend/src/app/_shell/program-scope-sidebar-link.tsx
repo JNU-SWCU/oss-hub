@@ -66,10 +66,10 @@ export function ScopeSidebarLink({
   const showCount = !collapsed && item.count !== undefined;
   const collapsedLabel = `${item.label}${
     item.count === undefined ? '' : ` ${item.count}`
-  }${selected ? ' 선택됨' : ''}`;
+  }`;
 
   const props = {
-    'aria-current': current ? ('page' as const) : undefined,
+    'aria-current': current ? ('page' as const) : selected ? true : undefined,
     'aria-label': collapsed ? collapsedLabel : undefined,
     'data-current': current ? 'true' : undefined,
     'data-selected': selected ? 'true' : undefined,
@@ -94,14 +94,6 @@ export function ScopeSidebarLink({
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
       </span>
-      {!collapsed && selected ? (
-        <span
-          data-slot="program-scope-sidebar-selection"
-          className="shrink-0 text-xs font-semibold text-primary"
-        >
-          선택됨
-        </span>
-      ) : null}
       {showCount && countPending ? <SidebarCountSkeleton /> : null}
       {showCount && !countPending ? (
         <span

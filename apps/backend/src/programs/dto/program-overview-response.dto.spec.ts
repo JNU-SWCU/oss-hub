@@ -13,13 +13,13 @@ const overviewView = {
     label: 'legacy-next',
     dueAt: new Date('2026-08-10T00:00:00.000Z'),
   },
-  remainingMilestones: [
+  scheduleMilestones: [
     {
-      label: '첫 번째 미래 마감',
+      label: '첫 번째 마감',
       dueAt: new Date('2026-08-10T00:00:00.000Z'),
     },
     {
-      label: '두 번째 미래 마감',
+      label: '두 번째 마감',
       dueAt: new Date('2026-09-01T00:00:00.000Z'),
     },
   ],
@@ -33,20 +33,20 @@ const overviewView = {
 };
 
 describe('ProgramOverviewResponseDto', () => {
-  it('remainingMilestones를 ISO 문자열 배열로 직렬화하고 legacy nextMilestone은 내보내지 않는다', () => {
+  it('scheduleMilestones를 ISO 문자열 배열로 직렬화하고 legacy nextMilestone은 내보내지 않는다', () => {
     const view = overviewView;
 
     const response = ProgramOverviewResponseDto.from(view);
 
     expect(response).toEqual(
       expect.objectContaining({
-        remainingMilestones: [
+        scheduleMilestones: [
           {
-            label: '첫 번째 미래 마감',
+            label: '첫 번째 마감',
             dueAt: '2026-08-10T00:00:00.000Z',
           },
           {
-            label: '두 번째 미래 마감',
+            label: '두 번째 마감',
             dueAt: '2026-09-01T00:00:00.000Z',
           },
         ],
@@ -55,10 +55,10 @@ describe('ProgramOverviewResponseDto', () => {
     expect(response).not.toHaveProperty('nextMilestone');
   });
 
-  it('remainingMilestones에 유효하지 않은 Date가 들어오면 기존 Date 직렬화 예외를 그대로 낸다', () => {
+  it('scheduleMilestones에 유효하지 않은 Date가 들어오면 기존 Date 직렬화 예외를 그대로 낸다', () => {
     const view = {
       ...overviewView,
-      remainingMilestones: [
+      scheduleMilestones: [
         {
           label: '유효하지 않은 마감',
           dueAt: new Date('invalid-date'),

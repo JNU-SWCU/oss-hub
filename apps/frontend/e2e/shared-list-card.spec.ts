@@ -95,7 +95,7 @@ async function installRoutes(page: Page) {
           viewerDocumentsCompleted: null,
           viewerDocumentsTotal: null,
           fullySubmittedParticipantCount: 0,
-          remainingMilestones: [],
+          scheduleMilestones: [],
           requirements: [],
         },
       });

@@ -1,17 +1,17 @@
 import type { AuthorityLabel } from '../../users/authority-label.types';
 import type {
   ProgramOverviewRequirement,
-  ProgramOverviewRemainingMilestone,
+  ProgramOverviewScheduleMilestone,
   ProgramOverviewView,
 } from '../program-overview.service';
 
-export class RemainingMilestoneResponseDto {
+export class ScheduleMilestoneResponseDto {
   declare readonly label: string;
   declare readonly dueAt: string;
 
   static from(
-    milestone: ProgramOverviewRemainingMilestone,
-  ): RemainingMilestoneResponseDto {
+    milestone: ProgramOverviewScheduleMilestone,
+  ): ScheduleMilestoneResponseDto {
     return { label: milestone.label, dueAt: milestone.dueAt.toISOString() };
   }
 }
@@ -44,7 +44,7 @@ export class ProgramOverviewResponseDto {
   declare readonly participantCount: number;
   declare readonly teamCount: number;
   declare readonly connectedRepositoryCount: number;
-  declare readonly remainingMilestones: RemainingMilestoneResponseDto[];
+  declare readonly scheduleMilestones: ScheduleMilestoneResponseDto[];
 
   declare readonly viewerRole: AuthorityLabel | null;
 
@@ -66,8 +66,8 @@ export class ProgramOverviewResponseDto {
       participantCount: view.participantCount,
       teamCount: view.teamCount,
       connectedRepositoryCount: view.connectedRepositoryCount,
-      remainingMilestones: view.remainingMilestones.map((milestone) =>
-        RemainingMilestoneResponseDto.from(milestone),
+      scheduleMilestones: view.scheduleMilestones.map((milestone) =>
+        ScheduleMilestoneResponseDto.from(milestone),
       ),
       viewerRole: view.viewer.role,
       viewerDocumentsCompleted: view.viewer.myDocumentsCompleted,

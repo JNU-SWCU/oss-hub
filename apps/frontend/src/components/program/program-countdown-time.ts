@@ -14,25 +14,55 @@ const SEOUL_HOUR_MINUTE_FORMAT = new Intl.DateTimeFormat('en-GB', {
   hour12: false,
 });
 
+const SEOUL_CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Seoul',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
 const pad2 = (value: number): string => String(value).padStart(2, '0');
 
-export function formatCountdownDate(date: Date): string {
+type SeoulDateParts = Readonly<Record<'year' | 'month' | 'day', number>>;
+
+function seoulDateParts(date: Date): SeoulDateParts {
   const [year, month, day] = SEOUL_DATE_FORMAT.format(date)
     .split('-')
     .map(Number);
+  return { year, month, day };
+}
+
+export function formatCountdownDate(date: Date): string {
+  const { year, month, day } = seoulDateParts(date);
   const weekday =
     WEEKDAY_LABELS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
   return `${year}.${pad2(month)}.${pad2(day)} (${weekday})`;
 }
 
+const withoutMidnightOverflow = (time: string): string =>
+  time.replace(/^24:/, '00:');
+
 const formatHourMinute = (date: Date): string =>
-  SEOUL_HOUR_MINUTE_FORMAT.format(date).replace(/^24:/, '00:');
+  withoutMidnightOverflow(SEOUL_HOUR_MINUTE_FORMAT.format(date));
 
-export const formatCountdownDateTime = (date: Date): string =>
-  `${formatCountdownDate(date)} ${formatHourMinute(date)}`;
+export const formatClockTime = (date: Date): string =>
+  withoutMidnightOverflow(SEOUL_CLOCK_FORMAT.format(date));
 
-export const formatCountdownListDate = (date: Date): string =>
-  `${formatCountdownDate(date).slice(0, 10)} ${formatHourMinute(date)}`;
+export function formatDueDateTime(date: Date): string {
+  const { month, day } = seoulDateParts(date);
+  return `${month}월 ${day}일 ${formatHourMinute(date)}`;
+}
+
+export function formatScheduleDateTime(date: Date): string {
+  const { month, day } = seoulDateParts(date);
+  return `${pad2(month)}/${pad2(day)} ${formatHourMinute(date)}`;
+}
+
+export function formatUntilDeadline(label: string): string {
+  const trimmed = label.trimEnd();
+  return trimmed.endsWith('마감') ? `${trimmed}까지` : `${trimmed} 마감까지`;
+}
 
 export type RemainingTime = Readonly<
   Record<'days' | 'hours' | 'minutes' | 'seconds', number>

@@ -4,13 +4,10 @@ import { useId, type ReactElement } from 'react';
 import { FilterChip, FilterChipGroup } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import {
-  DOCUMENT_DELIVERY_LABELS,
-  DOCUMENT_DELIVERY_STATUSES,
-} from '@/lib/document-delivery';
+import { submissionStatusLabel } from '@/lib/status-vocabulary';
 import {
   matrixPageStats,
-  matrixRowDeliveryStatus,
+  matrixRowAction,
   type MatrixQuickFilter,
 } from '../matrix';
 import type { MatrixMilestone, MatrixRow } from '../types';
@@ -65,26 +62,39 @@ export function MatrixSkeleton(): ReactElement {
   );
 }
 
+const STATS_STRIP_STATUSES = [
+  'OVERDUE',
+  'SUBMITTED',
+  'CHANGES_REQUESTED',
+  'APPROVED',
+] as const;
+
+const QUICK_FILTER_STATUSES = [
+  'OVERDUE',
+  'NOT_SUBMITTED',
+  'SUBMITTED',
+  'CHANGES_REQUESTED',
+  'APPROVED',
+  'REJECTED',
+] as const;
+
 export function MatrixStatsStrip({
   rows,
-  visibleMilestones,
+  milestones,
+  now,
 }: {
   readonly rows: readonly MatrixRow[];
-  readonly visibleMilestones: readonly MatrixMilestone[];
+  readonly milestones: readonly MatrixMilestone[];
+  readonly now: Date;
 }): ReactElement {
-  const visibleStats = matrixPageStats(rows, visibleMilestones);
-  const facts: { readonly label: string; readonly value: string }[] = [
-    {
-      label: '제출 완료 단계',
-      value: `${visibleStats.filledCells}/${visibleStats.totalCells}`,
-    },
-    { label: '미제출 단계', value: `${visibleStats.emptyCells}` },
-    { label: '필수 서류 없는 단계', value: `${visibleStats.noRequiredCells}` },
-    { label: '지각 제출 단계', value: `${visibleStats.lateCells}` },
-  ];
+  const stats = matrixPageStats(rows, milestones, now);
+  const facts = STATS_STRIP_STATUSES.map((status) => ({
+    label: submissionStatusLabel(status, 'staff'),
+    value: `${stats[status]}`,
+  }));
   return (
     <div className="grid gap-3 rounded-card border border-border p-card">
-      <p className="text-small text-muted-foreground">팀별 제출 단계</p>
+      <p className="text-small text-muted-foreground">단계별 상태</p>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         {facts.map((fact) => (
           <div key={fact.label} className="flex flex-col gap-1">
@@ -100,27 +110,37 @@ export function MatrixStatsStrip({
 export function MatrixQuickFilterButtons({
   rows,
   visibleMilestones,
+  now,
   quickFilter,
   onQuickFilterChange,
 }: {
   readonly rows: readonly MatrixRow[];
   readonly visibleMilestones: readonly MatrixMilestone[];
+  readonly now: Date;
   readonly quickFilter: MatrixQuickFilter;
   readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
 }): ReactElement {
   const titleId = useId();
+  const rowActions = rows.map((row) =>
+    matrixRowAction(row, visibleMilestones, now),
+  );
   const options = [
     { value: 'ALL' as const, label: `전체 ${rows.length}` },
-    ...DOCUMENT_DELIVERY_STATUSES.map((value) => ({
+    ...QUICK_FILTER_STATUSES.map((value) => ({
       value,
-      label: `${DOCUMENT_DELIVERY_LABELS[value]} ${rows.filter((row) => matrixRowDeliveryStatus(row, visibleMilestones) === value).length}`,
-    })),
+      count: rowActions.filter((action) => action === value).length,
+    }))
+      .filter(({ value, count }) => count > 0 || quickFilter === value)
+      .map(({ value, count }) => ({
+        value,
+        label: `${submissionStatusLabel(value, 'staff')} ${count}`,
+      })),
   ];
 
   return (
     <FilterChipGroup aria-labelledby={titleId} className="max-w-full">
       <p id={titleId} className="w-full text-small font-semibold">
-        팀별 필수 서류 제출 상태
+        상태
       </p>
       {options.map((option) => (
         <FilterChip

@@ -4,7 +4,10 @@ import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { MatrixQuickFilter } from '../matrix';
+import {
+  isMilestoneWithoutRequiredItems,
+  type MatrixQuickFilter,
+} from '../matrix';
 import type { SubmissionMatrixPage } from '../types';
 import { MatrixBody } from './submission-matrix-body';
 import {
@@ -60,7 +63,14 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
           />
         ) : null}
         {selectedMilestone ? (
-          <MatrixFocusSummary milestone={selectedMilestone} />
+          <MatrixFocusSummary
+            milestone={selectedMilestone}
+            noRequiredItems={isMilestoneWithoutRequiredItems(
+              props.data?.rows ?? [],
+              selectedMilestone,
+              props.now,
+            )}
+          />
         ) : null}
         <form className={FILTER_ROW} onSubmit={submit}>
           <div className="flex w-full min-w-0 flex-col gap-2">

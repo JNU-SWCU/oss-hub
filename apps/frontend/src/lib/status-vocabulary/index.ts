@@ -1,6 +1,9 @@
 export {
+  SUBMISSION_DISPLAY_BADGE,
   SUBMISSION_STATUS_BADGE,
   SUBMISSION_STATUS_LABELS,
+  submissionStatusLabel,
+  type SubmissionDisplayStatus,
 } from './submission';
 export {
   ACCESS_STATE_LABEL,

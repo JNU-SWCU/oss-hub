@@ -58,7 +58,7 @@ const OVERVIEW: ProgramOverview = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: 0,
-  remainingMilestones: [],
+  scheduleMilestones: [],
   requirements: [],
 };
 

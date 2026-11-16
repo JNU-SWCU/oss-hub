@@ -1,7 +1,19 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { Download, Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
+import {
+  Download,
+  Hourglass,
+  Info,
+  ListOrdered,
+  RefreshCw,
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   DataTable,
   EmptyState,
@@ -41,8 +53,30 @@ interface RankingViewProps {
 
 const EMPTY_CELL = '-';
 
-const RANKING_METRIC_DESCRIPTION =
-  'Commit · PR · Issue · Repo · Star를 합산합니다. Star는 내 공개 저장소와 소속 조직 공개 저장소 중 그해 직접 커밋·PR한 곳의 누적입니다.';
+const RANKING_METRIC_DESCRIPTION = (
+  <span className="inline-flex items-center gap-1">
+    올해 깃허브에 갈아 넣은 만큼 점수가 쌓여요.
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="점수 계산 방법"
+            className="size-6"
+          >
+            <Info className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          커밋·PR·이슈·레포·스타 전부 합산! 스타는 올해 내가 직접 커밋·PR한 공개
+          레포 것만 인정돼요.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </span>
+);
 
 const NO_RANK_CHANGES: ReadonlyMap<string, RankingRankChange> = new Map();
 const RankChangesContext = createContext(NO_RANK_CHANGES);

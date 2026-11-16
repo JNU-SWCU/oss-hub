@@ -116,7 +116,7 @@ for (const width of [1440, 390]) {
             viewerDocumentsCompleted: null,
             viewerDocumentsTotal: null,
             fullySubmittedParticipantCount: 0,
-            remainingMilestones: [],
+            scheduleMilestones: [],
             requirements: [],
           }),
         [`GET /api/v1/programs/${programId}/teams`]: (route) =>

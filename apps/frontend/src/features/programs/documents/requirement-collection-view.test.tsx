@@ -370,7 +370,7 @@ describe('RequirementCollectionView 표', () => {
       ]),
     });
 
-    expect(html).toContain('보완 요청');
+    expect(html).toContain('보완 요청 중');
     expect(html).toContain('승인');
 
     expect(html).not.toContain('표지를 고쳐 주세요.');
@@ -399,7 +399,7 @@ describe('RequirementCollectionView 표', () => {
       ]),
     });
 
-    expect(badgeTexts(html)).toEqual(['미제출 있음', '검토 대기', '미제출']);
+    expect(badgeTexts(html)).toEqual(['미제출', '검토 대기', '미제출']);
   });
 
   it('판정이 붙어도 필터 칩과 합계는 서버가 준 값 그대로다', () => {
@@ -440,8 +440,8 @@ describe('RequirementCollectionView 표', () => {
     const html = render({ data: reviewed });
 
     expect(html).toContain('전체 47');
-    expect(html).toContain('미제출 있음 12');
-    expect(html).toContain('제출 없음 5');
+    expect(html).toContain('미제출 12');
+    expect(html).toContain('전부 미제출 5');
     expect(html).toContain('제출 30 / 전체 47');
     expect(html).toContain('제출 12 / 전체 47');
   });
@@ -523,9 +523,27 @@ describe('RequirementCollectionView 표', () => {
     });
 
     expect(html).toContain('전체 47');
-    expect(html).toContain('미제출 있음 12');
-    expect(html).toContain('제출 없음 5');
+    expect(html).toContain('미제출 12');
+    expect(html).toContain('전부 미제출 5');
+    expect(html).toContain('필수 서류 없음 5');
   });
+
+  it.each(['ALL', 'NO_REQUIRED_ITEMS'] as const)(
+    '필수 서류 없는 팀이 0이면 %s 필터에서도 그 칩을 숨긴다',
+    (filter) => {
+      const data = collection(documents, rows, {
+        deliveryCounts: {
+          missing: 2,
+          late: 0,
+          complete: 1,
+          noRequiredItems: 0,
+        },
+        filterCounts: { all: 3, hasMissing: 2, zeroSubmission: 1 },
+      });
+
+      expect(render({ data, filter })).not.toContain('필수 서류 없음 0');
+    },
+  );
 
   it('필수 기준임이 드러나지 않는 옛 문구를 쓰지 않는다', () => {
     const html = render({ data: collection(documents, rows) });
@@ -925,7 +943,7 @@ describe('RequirementCollectionView 페이지 이동', () => {
   it('이 페이지 행 수와 조건에 맞는 전체 행 수를 함께 적는다', () => {
     const html = render({ data: paged(2, 47) });
 
-    expect(html).toContain('이 페이지 1팀(조건에 맞는 전체 47팀)');
+    expect(html).toContain('이 페이지 1개 팀(조건에 맞는 전체 47개)');
   });
 
   it('결과가 줄어 지금 페이지가 사라지면 되돌아갈 버튼을 준다', () => {
@@ -948,9 +966,9 @@ describe('RequirementCollectionView 페이지 이동', () => {
     expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
     expect(html).toContain('1페이지로 이동');
 
-    expect(html).toContain('미제출 있음 5');
+    expect(html).toContain('미제출 5');
 
-    expect(html).not.toContain('이 페이지 0팀');
+    expect(html).not.toContain('이 페이지 0개');
   });
 
   it('여러 페이지가 남아 있으면 마지막 페이지로 내려앉힌다', () => {

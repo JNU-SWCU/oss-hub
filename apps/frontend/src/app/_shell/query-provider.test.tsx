@@ -55,7 +55,7 @@ const overview: Awaited<ReturnType<typeof getProgramOverview>> = {
   viewerDocumentsCompleted: null,
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
-  remainingMilestones: [],
+  scheduleMilestones: [],
   requirements: [],
 };
 const session = (nextUser: Me): AuthSession => ({

@@ -7,6 +7,7 @@ import {
   applyMatrixQuickFilter,
   cellForMilestone,
   formatMatrixDueDate,
+  isMilestoneWithoutRequiredItems,
   MATRIX_MODE_LABELS,
   matrixEmptyKind,
   matrixRowTitle,
@@ -27,6 +28,7 @@ const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
 function matrixColumns(
   milestones: readonly MatrixMilestone[],
   now: Date,
+  focused: boolean,
 ): DataTableColumn<MatrixRow>[] {
   return [
     {
@@ -37,7 +39,10 @@ function matrixColumns(
       cell: (row) => (
         <span className="flex flex-col gap-0.5">
           <span className="font-medium">
-            {matrixRowTitle(row)} · {MATRIX_MODE_LABELS[row.applicationMode]}
+            {matrixRowTitle(row)}
+            {row.applicationMode === 'PERSONAL'
+              ? ` · ${MATRIX_MODE_LABELS.PERSONAL}`
+              : null}
           </span>
           {row.githubLogins.length > 0 ? (
             <span className="text-small text-muted-foreground">
@@ -64,6 +69,7 @@ function matrixColumns(
           cell={cellForMilestone(row, milestone.id)}
           milestone={milestone}
           now={now}
+          focused={focused}
         />
       ),
     })),
@@ -135,32 +141,43 @@ export function MatrixBody(
   const visibleMilestones = selectedMilestone
     ? [selectedMilestone]
     : milestones;
-  const quickFiltered = applyMatrixQuickFilter(
-    rows,
-    visibleMilestones,
-    props.quickFilter,
-  );
+  const noRequiredItems =
+    selectedMilestone !== null &&
+    isMilestoneWithoutRequiredItems(rows, selectedMilestone, props.now);
+  const quickFiltered = noRequiredItems
+    ? rows
+    : applyMatrixQuickFilter(
+        rows,
+        visibleMilestones,
+        props.quickFilter,
+        props.now,
+      );
 
   return (
     <>
-      <MatrixStatsStrip rows={rows} visibleMilestones={visibleMilestones} />
-      <MatrixQuickFilterButtons
-        rows={rows}
-        visibleMilestones={visibleMilestones}
-        quickFilter={props.quickFilter}
-        onQuickFilterChange={props.onQuickFilterChange}
-      />
-      <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
-        {total > rows.length ? (
-          <>
-            전체 {total}팀 중 이 페이지 {rows.length}팀.{' '}
-          </>
-        ) : null}
-        빠른 필터는 현재 페이지에 적용됩니다.
-        {selectedMilestone === null
-          ? ' 표를 좌우로 스크롤할 수 있습니다.'
-          : null}
-      </p>
+      {selectedMilestone === null ? (
+        <MatrixStatsStrip rows={rows} milestones={milestones} now={props.now} />
+      ) : null}
+      {noRequiredItems ? null : (
+        <MatrixQuickFilterButtons
+          rows={rows}
+          visibleMilestones={visibleMilestones}
+          now={props.now}
+          quickFilter={props.quickFilter}
+          onQuickFilterChange={props.onQuickFilterChange}
+        />
+      )}
+      {total > rows.length || selectedMilestone === null ? (
+        <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
+          {total > rows.length
+            ? `전체 ${total}개 팀 중 ${rows.length}개를 표시합니다. 빠른 필터는 이 페이지에만 적용됩니다.`
+            : null}
+          {total > rows.length && selectedMilestone === null ? ' ' : null}
+          {selectedMilestone === null
+            ? '표를 좌우로 스크롤할 수 있습니다.'
+            : null}
+        </p>
+      ) : null}
       {quickFiltered.length === 0 ? (
         <EmptyState
           title="조건에 맞는 팀이 없습니다"
@@ -178,9 +195,17 @@ export function MatrixBody(
       ) : (
         <DataTable
           className={TABLE_CARD}
-          aria-describedby="matrix-scroll-hint"
+          aria-describedby={
+            total > rows.length || selectedMilestone === null
+              ? 'matrix-scroll-hint'
+              : undefined
+          }
           scrollRegionLabel="마일스톤 제출 현황 표"
-          columns={matrixColumns(visibleMilestones, props.now)}
+          columns={matrixColumns(
+            visibleMilestones,
+            props.now,
+            selectedMilestone !== null,
+          )}
           data={[...quickFiltered]}
           rowKey={(row) => row.teamId}
         />

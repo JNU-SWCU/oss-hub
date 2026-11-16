@@ -171,12 +171,13 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('>47<');
     expect(html).toContain('내 제출물');
     expect(html).toContain('>2/6<');
+    expect(html).toContain('>2/3<');
     expect(html).not.toContain('서류 현황');
     expect(html).toContain('게시판');
     expect(html).toContain('>3<');
   });
 
-  it('renders staff 서류 현황 without a count and team-based child counts', () => {
+  it('renders staff 서류 현황 without a count and outstanding-team child counts', () => {
     const html = renderToStaticMarkup(
       <ProgramScopeSidebar
         programName="2026-2 오픈소스 SW 프로젝트"
@@ -190,7 +191,7 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('서류 현황');
     expect(html).not.toContain('내 제출물');
     expect(html).toContain('프로젝트 계획서 제출');
-    expect(html).toContain('>2/47팀<');
+    expect(html).toContain('>1<');
 
     expect(html).toContain('팀 관리');
     expect(html).toContain('href="/programs/prog-1/teams"');
@@ -230,9 +231,10 @@ describe('ProgramScopeSidebar', () => {
     });
     const currentCount = (html.match(/aria-current="page"/g) ?? []).length;
     expect(currentCount).toBe(1);
-    expect(html).toContain('data-selected="true"');
-    expect(html).toContain('data-slot="program-scope-sidebar-selection"');
-    expect(html).toContain('>선택됨</span>');
+    expect(html).toMatch(
+      /href="\/programs\/prog-1\/documents\?milestoneId=m3"[^>]*aria-current="true"[^>]*data-selected="true"/,
+    );
+    expect(html).not.toContain('선택됨');
   });
 
   it('selects 모든 단계 when staff opens documents without milestoneId', () => {
@@ -243,7 +245,7 @@ describe('ProgramScopeSidebar', () => {
     });
 
     expect(html).toMatch(
-      /href="\/programs\/prog-1\/documents"[^>]*data-selected="true"[^>]*data-depth="1"[^>]*>[\s\S]*?모든 단계[\s\S]*?선택됨[\s\S]*?<\/a>/,
+      /href="\/programs\/prog-1\/documents"[^>]*aria-current="true"[^>]*data-selected="true"[^>]*data-depth="1"[^>]*>[\s\S]*?모든 단계[\s\S]*?<\/a>/,
     );
   });
 
@@ -255,7 +257,7 @@ describe('ProgramScopeSidebar', () => {
     });
 
     expect(html).toMatch(
-      /href="\/programs\/prog-1\/documents\?milestoneId=m3"[^>]*data-selected="true"[^>]*>[\s\S]*?프로젝트 계획서 제출[\s\S]*?선택됨[\s\S]*?<\/a>/,
+      /href="\/programs\/prog-1\/documents\?milestoneId=m3"[^>]*aria-current="true"[^>]*data-selected="true"[^>]*>[\s\S]*?프로젝트 계획서 제출[\s\S]*?<\/a>/,
     );
     expect(html.match(/data-scroll="false"/g)).toHaveLength(2);
   });
@@ -290,7 +292,7 @@ describe('ProgramScopeSidebar', () => {
     });
 
     expect(html).toMatch(
-      /href="\/programs\/prog-1\/documents"[^>]*data-selected="true"[^>]*data-depth="1"[^>]*>[\s\S]*?모든 단계[\s\S]*?선택됨[\s\S]*?<\/a>/,
+      /href="\/programs\/prog-1\/documents"[^>]*aria-current="true"[^>]*data-selected="true"[^>]*data-depth="1"[^>]*>[\s\S]*?모든 단계[\s\S]*?<\/a>/,
     );
     expect(html).not.toMatch(/milestoneId=m3"[^>]*data-selected="true"/);
   });
@@ -343,5 +345,20 @@ describe('ProgramScopeSidebar', () => {
     expect(html).not.toContain('data-slot="program-scope-sidebar-count"');
     expect(html).toContain('aria-label="참여 팀 47"');
     expect(html).toContain('aria-label="내 제출물 2/6"');
+  });
+
+  it('collapsed selected stage exposes its count and selection without extra label text', () => {
+    const html = render({
+      groups: staffGroups,
+      pathname: '/programs/prog-1/documents',
+      search: 'milestoneId=m3',
+      collapsed: true,
+    });
+
+    expect(html).toMatch(
+      /href="\/programs\/prog-1\/documents\?milestoneId=m3"[^>]*aria-current="true"[^>]*aria-label="프로젝트 계획서 제출 1"[^>]*data-selected="true"/,
+    );
+    expect(html).not.toContain('선택됨');
+    expect(html).not.toContain('data-slot="program-scope-sidebar-count"');
   });
 });

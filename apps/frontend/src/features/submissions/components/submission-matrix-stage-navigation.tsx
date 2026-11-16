@@ -63,8 +63,10 @@ export function MatrixStageNavigation(
 
 export function MatrixFocusSummary({
   milestone,
+  noRequiredItems,
 }: {
   readonly milestone: MatrixMilestone;
+  readonly noRequiredItems: boolean;
 }): ReactElement {
   return (
     <section
@@ -76,7 +78,6 @@ export function MatrixFocusSummary({
         <CalendarDays aria-hidden="true" className="size-5" />
       </span>
       <div className="min-w-0">
-        <p className="text-small font-semibold text-primary">집중 보기</p>
         <h2
           id="matrix-focus-title"
           className="font-heading text-lg font-semibold"
@@ -86,9 +87,11 @@ export function MatrixFocusSummary({
         <p className="mt-1 text-small text-muted-foreground">
           {formatMatrixDueDateTime(milestone.dueAt)} 마감
         </p>
-        <p className="mt-2 text-sm text-foreground">
-          선택한 제출 단계의 현황만 한눈에 확인합니다.
-        </p>
+        {noRequiredItems ? (
+          <p className="mt-2 text-sm text-foreground">
+            필수 서류가 없는 단계라 챙길 미제출이 없어요.
+          </p>
+        ) : null}
       </div>
     </section>
   );

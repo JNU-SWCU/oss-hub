@@ -790,13 +790,14 @@ describe('학생 행이 판정을 읽는 방식', () => {
   async function renderRow(
     viewerSubmission: RequirementViewerSubmission,
     closed = false,
+    dueAt?: string,
   ) {
     await act(async () => {
       root.render(
         <RequirementSectionBody
           programId="program-1"
           onSubmitted={vi.fn()}
-          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
+          key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}-${dueAt ?? ''}`}
           state={{
             kind: 'ready',
             documents: [{ ...requirement, viewerSubmission }],
@@ -804,6 +805,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
           }}
           viewerRole="STUDENT"
           closed={closed}
+          dueAt={dueAt}
           submissionAccess={access('STUDENT', 'APPROVED')}
           conflictNotice={null}
           onRetry={() => {}}
@@ -849,7 +851,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
             reviewedAt: '2026-08-02T00:00:00.000Z',
           },
         },
-        '보완 요청',
+        '보완 필요',
       ],
       [
         {
@@ -868,6 +870,30 @@ describe('학생 행이 판정을 읽는 방식', () => {
       const badge = container.querySelector('[data-slot="status-badge"]');
       expect(badge?.textContent).toBe(label);
     }
+  });
+
+  it('마감이 지난 미제출 서류만 기한 지남으로 읽고, 낸 서류는 마감 뒤에도 검토 대기다', async () => {
+    const unsubmitted = viewer({
+      submitted: false,
+      submittedAt: null,
+      status: null,
+    });
+    const badge = () =>
+      container.querySelector<HTMLElement>('[data-slot="status-badge"]');
+
+    await renderRow(unsubmitted, true, '2026-01-01T00:00:00.000Z');
+    expect(badge()?.textContent).toBe('기한 지남');
+    expect(badge()?.getAttribute('data-variant')).toBe('rejected');
+
+    await renderRow(unsubmitted, false, '2999-01-01T00:00:00.000Z');
+    expect(badge()?.textContent).toBe('미제출');
+
+    await renderRow(
+      viewer({ status: 'SUBMITTED' }),
+      true,
+      '2026-01-01T00:00:00.000Z',
+    );
+    expect(badge()?.textContent).toBe('검토 대기');
   });
 
   it('이력이 있는 제출만 첫 cursor 페이지를 읽어 표시한다', async () => {

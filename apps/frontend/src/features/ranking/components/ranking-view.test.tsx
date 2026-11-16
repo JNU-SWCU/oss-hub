@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
 import {
   RANKING_YEAR_ALL,
@@ -9,6 +9,11 @@ import {
 } from '../types';
 import { parseRankingPage } from '../api';
 import { RankingView } from './ranking-view';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+function renderToStaticMarkup(element: React.ReactNode): string {
+  return renderMarkup(<TooltipProvider>{element}</TooltipProvider>);
+}
 
 vi.mock('@/components', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components')>();
@@ -630,14 +635,13 @@ test('release 지표는 랭킹 화면에서 사라진다 — 저장소 축 전�
   expect(html).not.toContain('릴리스');
 });
 
-test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
+test('랭킹 점수 설명은 올해 활동을 말하고 스타 규칙을 안내한다', () => {
   const html = staffAxisMarkup([personAxisItem()], {
     viewerClass: 'staff',
   });
 
-  expect(html).toContain('누적');
-  expect(html).toContain('커밋·PR한 곳의 누적');
-  expect(html).toContain('(누적)');
+  expect(html).toContain('올해 깃허브에 갈아 넣은 만큼 점수가 쌓여요.');
+  expect(html).toContain('aria-label="점수 계산 방법"');
 });
 
 test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 않는다', () => {
@@ -929,7 +933,6 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
     expect(staff).toContain(header);
   }
   expect(staff).toContain('(누적)');
-  expect(staff).toContain('커밋·PR한 곳의 누적');
   expect(staff).toContain('첫 수집 전입니다');
   expect(staff).toContain('data-ranking-as-of="none"');
   expect(staff).toContain('CSV 다운로드');

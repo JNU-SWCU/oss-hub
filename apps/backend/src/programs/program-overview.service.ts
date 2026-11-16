@@ -30,14 +30,14 @@ export interface ProgramOverviewRequirement {
   total: number;
 }
 
-export interface ProgramOverviewRemainingMilestone {
+export interface ProgramOverviewScheduleMilestone {
   readonly label: string;
   readonly dueAt: Date;
 }
 
 export interface ProgramOverviewView extends ProgramOverviewRecord {
   viewer: ProgramOverviewViewerStats;
-  remainingMilestones: readonly ProgramOverviewRemainingMilestone[];
+  scheduleMilestones: readonly ProgramOverviewScheduleMilestone[];
 }
 
 const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
@@ -48,12 +48,10 @@ const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
   requirements: [],
 };
 
-function remainingMilestones(
+function scheduleMilestones(
   schedules: readonly MilestoneSchedule[],
-  now: Date,
-): ProgramOverviewRemainingMilestone[] {
+): ProgramOverviewScheduleMilestone[] {
   return schedules
-    .filter((schedule) => schedule.dueAt.getTime() > now.getTime())
     .toSorted((left, right) => left.dueAt.getTime() - right.dueAt.getTime())
     .map((schedule) => ({ label: schedule.label, dueAt: schedule.dueAt }));
 }
@@ -119,18 +117,13 @@ export class ProgramOverviewService {
     }
 
     const [viewer, milestoneSchedules] = await Promise.all([
-      this.resolveViewerStats(
-        programId,
-        viewerGithubId,
-        overview.teamCount,
-        operationsView,
-      ),
+      this.resolveViewerStats(programId, viewerGithubId, operationsView),
       this.repository.findMilestoneSchedules(programId),
     ]);
     return {
       ...overview,
       viewer,
-      remainingMilestones: remainingMilestones(milestoneSchedules, new Date()),
+      scheduleMilestones: scheduleMilestones(milestoneSchedules),
     };
   }
 
@@ -149,7 +142,6 @@ export class ProgramOverviewService {
   private async resolveViewerStats(
     programId: string,
     viewerGithubId: bigint,
-    teamCount: number,
     operationsView: boolean,
   ): Promise<ProgramOverviewViewerStats> {
     const viewer = await this.repository.findViewerIdentity(viewerGithubId);
@@ -185,7 +177,7 @@ export class ProgramOverviewService {
       return this.resolveStudentStats(programId, identity.userId);
     }
     if (identity.hasStaffAccess) {
-      return this.resolveStaffStats(programId, 'STAFF', teamCount);
+      return this.resolveStaffStats(programId, 'STAFF');
     }
     return { ...EMPTY_VIEWER_STATS, role: identity.role };
   }
@@ -236,7 +228,6 @@ export class ProgramOverviewService {
   private async resolveStaffStats(
     programId: string,
     role: 'STAFF',
-    teamCount: number,
   ): Promise<ProgramOverviewViewerStats> {
     const milestone = await this.repository.findCurrentSubmissionMilestone(
       programId,
@@ -254,10 +245,8 @@ export class ProgramOverviewService {
       this.repository.findRequirementCatalog(programId),
     ]);
     const withDocuments = documentedCatalog(catalog);
-    const completedByMilestone = await this.countFullySubmittedTeamsByMilestone(
-      programId,
-      withDocuments,
-    );
+    const { byMilestone, eligibleCount } =
+      await this.countFullySubmittedTeamsByMilestone(programId, withDocuments);
 
     return {
       role,
@@ -267,9 +256,8 @@ export class ProgramOverviewService {
       requirements: withDocuments.map((entry) => ({
         milestoneId: entry.milestoneId,
         title: entry.title,
-        completed: completedByMilestone.get(entry.milestoneId) ?? 0,
-
-        total: teamCount,
+        completed: byMilestone.get(entry.milestoneId) ?? 0,
+        total: eligibleCount,
       })),
     };
   }
@@ -314,14 +302,19 @@ export class ProgramOverviewService {
       milestoneId: string;
       requiredDocumentIds: string[];
     }[],
-  ): Promise<Map<string, number>> {
-    if (milestones.length === 0) {
-      return new Map();
-    }
+  ): Promise<{
+    readonly byMilestone: ReadonlyMap<string, number>;
+    readonly eligibleCount: number;
+  }> {
     const applications =
-      await this.repository.findProgramApplications(programId);
-    if (applications.length === 0) {
-      return new Map(milestones.map((milestone) => [milestone.milestoneId, 0]));
+      await this.repository.findEligibleProgramTeams(programId);
+    if (milestones.length === 0 || applications.length === 0) {
+      return {
+        byMilestone: new Map(
+          milestones.map((milestone) => [milestone.milestoneId, 0]),
+        ),
+        eligibleCount: applications.length,
+      };
     }
     const submitted = await this.submittedDocumentIdsByApplication(
       applications,
@@ -346,7 +339,7 @@ export class ProgramOverviewService {
       }
       result.set(milestone.milestoneId, completedTeamIds.size);
     }
-    return result;
+    return { byMilestone: result, eligibleCount: applications.length };
   }
 
   private async submittedDocumentIdsByApplication(
