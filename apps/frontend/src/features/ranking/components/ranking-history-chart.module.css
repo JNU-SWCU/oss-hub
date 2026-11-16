@@ -5,6 +5,8 @@
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   background-color: var(--card);
+  user-select: none;
+  -webkit-user-select: none;
   background-image:
     repeating-linear-gradient(
       to right,
@@ -18,6 +20,11 @@
       color-mix(in oklch, var(--border) 55%, transparent)
         calc(var(--space-5) - 1px) var(--space-5)
     );
+}
+
+.root image,
+.root img {
+  -webkit-user-drag: none;
 }
 
 .defs {
