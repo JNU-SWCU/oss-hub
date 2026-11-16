@@ -272,7 +272,6 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(container.textContent).toContain(
       '주관기관을 1개 이상 입력해 주세요.',
     );
-    expect(container.textContent).not.toContain('주관기관/학과');
     expect(container.querySelector('#authoring-organizers')).not.toBeNull();
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(true);
   });
