@@ -1,6 +1,7 @@
 import {
   expect,
   test,
+  type Locator,
   type Page,
   type Route,
   type TestInfo,
@@ -312,6 +313,35 @@ async function openInsights(
   await expect(page.getByRole('heading', { name: '인사이트' })).toBeVisible();
 }
 
+function countInsightsRequests(page: Page): { readonly count: () => number } {
+  let count = 0;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'GET' &&
+      new URL(request.url()).pathname === '/api/v1/dashboard/staff/insights'
+    ) {
+      count += 1;
+    }
+  });
+  return { count: () => count };
+}
+
+function leaderCard(page: Page, title: string): Locator {
+  return page
+    .getByText(title, { exact: true })
+    .locator('xpath=ancestor::*[@data-slot="card"][1]');
+}
+
+async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+}
+
 async function attachPng(
   testInfo: TestInfo,
   name: string,
@@ -587,6 +617,124 @@ test.describe('staff insights comparison UX', () => {
         (path) => page.screenshot({ path, fullPage: true }),
       );
     }
+    audit.assertClean();
+  });
+
+  test('shows period and recent top-10 cards on the default students tab', async ({
+    page,
+  }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    const insightsRequests = countInsightsRequests(page);
+    for (const [name, width] of [
+      ['desktop', 1440],
+      ['mobile', 390],
+    ] as const) {
+      const before = insightsRequests.count();
+      await page.setViewportSize({ width, height: 1000 });
+      await openInsights(page, insightsLong());
+      const period = leaderCard(page, '기간 전체 상위 10명');
+      const recent = leaderCard(page, '최근 30일 상위 10명');
+      for (const card of [period, recent]) {
+        await expect(card).toBeVisible();
+        await expect(card.getByRole('listitem')).toHaveText([
+          /^1합성 학생 1.*@synthetic-1/,
+          /^2합성 학생 2.*@synthetic-2/,
+          /^3합성 학생 3.*@synthetic-3/,
+        ]);
+      }
+      await expect(period.getByRole('listitem').first()).toContainText('43');
+      await expect(recent.getByRole('listitem').first()).toContainText('38');
+      await expect(recent).toContainText('Star 제외');
+      const loaded = insightsRequests.count();
+      expect(loaded).toBeGreaterThan(before);
+
+      const periodBox = await period.boundingBox();
+      const recentBox = await recent.boundingBox();
+      if (periodBox === null || recentBox === null) {
+        throw new Error('두 순위 카드의 화면 경계가 필요합니다.');
+      }
+      if (name === 'desktop') {
+        expect(Math.abs(periodBox.y - recentBox.y)).toBeLessThanOrEqual(1);
+        expect(recentBox.x).toBeGreaterThanOrEqual(
+          periodBox.x + periodBox.width,
+        );
+      } else {
+        expect(recentBox.y).toBeGreaterThanOrEqual(
+          periodBox.y + periodBox.height,
+        );
+      }
+      await expectNoHorizontalOverflow(page);
+      await page.mouse.move(0, 0);
+      await attachPng(testInfo, `students-leaderboard/${name}.png`, (path) =>
+        page.screenshot({ path, fullPage: true }),
+      );
+
+      const swChip = page
+        .getByRole('group', { name: '학생 구분' })
+        .getByRole('button', { name: 'SW전공', exact: true });
+      await swChip.click();
+      await expect(swChip).toHaveAttribute('aria-pressed', 'true');
+      await expect(period.getByRole('listitem')).toHaveCount(3);
+      expect(insightsRequests.count()).toBe(loaded);
+    }
+    audit.assertClean();
+  });
+
+  test('keeps long Korean leader names inside the card at mobile width', async ({
+    page,
+  }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    const longName =
+      '아주긴이름을가진합성학생오픈소스기여자가나다라마바사아자차카타파하';
+    const longDepartment =
+      '전자컴퓨터공학부(컴퓨터공학전공) 융합소프트웨어연계전공';
+    const base = insightsLong();
+    const period = periodLeaderRows().map((row, index) =>
+      index === 0
+        ? { ...row, name: longName, department: longDepartment }
+        : row,
+    );
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await openInsights(page, {
+      ...base,
+      leaders: {
+        ...base.leaders,
+        period: { all: period, swMajor: period, nonSw: period },
+      },
+    });
+    const card = leaderCard(page, '기간 전체 상위 10명');
+    const name = card.getByText(longName, { exact: true });
+    await expect(name).toBeVisible();
+    const nameBox = await name.boundingBox();
+    const cardBox = await card.boundingBox();
+    if (nameBox === null || cardBox === null) {
+      throw new Error('긴 이름과 카드의 화면 경계가 필요합니다.');
+    }
+    expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(
+      cardBox.x + cardBox.width,
+    );
+    await expect(card.getByRole('listitem').first()).toContainText('43');
+    await expectNoHorizontalOverflow(page);
+    await attachPng(
+      testInfo,
+      'students-leaderboard/mobile-long-name.png',
+      (path) => card.screenshot({ path }),
+    );
+    audit.assertClean();
+  });
+
+  test('renders both leaderboard empty states', async ({ page }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    await openInsights(page, insightsEmpty());
+    await expect(
+      page.getByText('이 기간에 활동한 학생이 없습니다', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('최근 30일에 늘어난 활동이 없습니다', { exact: true }),
+    ).toBeVisible();
+    await attachPng(testInfo, 'students-leaderboard/empty.png', (path) =>
+      page.screenshot({ path, fullPage: true }),
+    );
     audit.assertClean();
   });
 

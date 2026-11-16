@@ -54,9 +54,13 @@ describe('StaffInsightsView', () => {
     expect(filters).not.toContain('data-variant="default"');
   });
 
-  it('shows the interim students placeholder on the students tab', () => {
+  it('shows the period and recent top-10 cards on the students tab', () => {
     const html = render('students');
-    expect(html).toContain('학생 순위를 준비 중입니다');
+    expect(html).not.toContain('학생 순위를 준비 중입니다');
+    expect(html).toContain('aria-label="학생 구분"');
+    expect(html).toContain('기간 전체 상위 10명');
+    expect(html).toContain('최근 30일 상위 10명');
+    expect(html).toContain('합성 학생 가');
     expect(html).not.toContain('프로그램 참여 순위');
   });
 

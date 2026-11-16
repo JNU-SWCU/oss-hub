@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
-import { EmptyState, FailureState, PageHeader } from '@/components';
+import { FailureState, PageHeader } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { FadeUp } from './fade-up';
 import { MetricCard, ViewTabs, YearLinks } from './insights-controls';
 import { ActivityPanel, DepartmentPanel } from './insights-panels';
+import { StudentsTab } from './leaderboard-panel';
 import { ProgramsTab } from './participation-panel';
 import { cohortRow, rate } from './insights-model';
 import {
@@ -86,7 +87,10 @@ export function StaffInsightsView({
           : ` · 기준 ${summary.dataAsOf.toLocaleString('ko-KR')}`}
       </p>
       {view === 'students' ? (
-        <EmptyState title="학생 순위를 준비 중입니다" />
+        <StudentsTab
+          summary={summary}
+          periodLabel={scopeCaption(summary.scope)}
+        />
       ) : null}
       {view === 'groups' ? <GroupsTab summary={summary} /> : null}
       {view === 'programs' ? <ProgramsTab summary={summary} /> : null}
