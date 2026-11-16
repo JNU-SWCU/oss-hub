@@ -174,7 +174,13 @@ const insights: StaffInsightsSummary = {
   years: [2026, 2025],
   cohorts: [{ ...metrics, cohort: 'sw-major' }],
   departments: [
-    { ...metrics, department: 'Computer Science', cohort: 'sw-major' },
+    {
+      ...metrics,
+      department: 'Computer Science',
+      cohort: 'sw-major',
+      activityPerStudent: 13.8,
+      sampleTooSmall: false,
+    },
   ],
   programs: [
     {
@@ -186,6 +192,14 @@ const insights: StaffInsightsSummary = {
       participantCount: 6,
     },
   ],
+  leaders: {
+    period: { all: [], swMajor: [], nonSw: [] },
+    recent: { all: [], swMajor: [], nonSw: [] },
+  },
+  recentWindow: {
+    from: at('2026-04-01T00:00:00.000Z'),
+    to: at('2026-05-01T00:00:00.000Z'),
+  },
 };
 
 const cases: ReadonlyArray<readonly [string, () => unknown]> = [

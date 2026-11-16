@@ -1,8 +1,12 @@
 import type {
   StaffInsightsCohortRow,
+  StaffInsightsCohortLeaders,
   StaffInsightsDepartmentRow,
+  StaffInsightsLeaderRow,
+  StaffInsightsLeaders,
   StaffInsightsMetrics,
   StaffInsightsProgramRow,
+  StaffInsightsRecentLeaderRow,
   StaffInsightsSummary,
 } from '../staff-insights.service';
 import type {
@@ -73,6 +77,8 @@ export class StaffInsightsCohortResponseDto extends StaffInsightsMetricsResponse
 export class StaffInsightsDepartmentResponseDto extends StaffInsightsMetricsResponseDto {
   declare readonly department: string;
   declare readonly cohort: DepartmentCohort;
+  declare readonly activityPerStudent: number;
+  declare readonly sampleTooSmall: boolean;
 
   static override from(
     row: StaffInsightsDepartmentRow,
@@ -90,6 +96,95 @@ export class StaffInsightsDepartmentResponseDto extends StaffInsightsMetricsResp
       participantCount: metrics.participantCount,
       department: row.department,
       cohort: row.cohort,
+      activityPerStudent: row.activityPerStudent,
+      sampleTooSmall: row.sampleTooSmall,
+    };
+  }
+}
+
+export class StaffInsightsRecentLeaderResponseDto {
+  declare readonly rank: number;
+  declare readonly name: string | null;
+  declare readonly githubLogin: string;
+  declare readonly department: string | null;
+  declare readonly cohort: DepartmentCohort;
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
+  declare readonly issueCount: number;
+  declare readonly repositoryCount: number;
+  declare readonly total: number;
+
+  static from(
+    row: StaffInsightsRecentLeaderRow,
+  ): StaffInsightsRecentLeaderResponseDto {
+    return {
+      rank: row.rank,
+      name: row.name,
+      githubLogin: row.githubLogin,
+      department: row.department,
+      cohort: row.cohort,
+      commitCount: row.commitCount,
+      pullRequestCount: row.pullRequestCount,
+      issueCount: row.issueCount,
+      repositoryCount: row.repositoryCount,
+      total: row.total,
+    };
+  }
+}
+
+export class StaffInsightsLeaderResponseDto extends StaffInsightsRecentLeaderResponseDto {
+  declare readonly starCount: number;
+
+  static override from(
+    row: StaffInsightsLeaderRow,
+  ): StaffInsightsLeaderResponseDto {
+    return {
+      rank: row.rank,
+      name: row.name,
+      githubLogin: row.githubLogin,
+      department: row.department,
+      cohort: row.cohort,
+      commitCount: row.commitCount,
+      pullRequestCount: row.pullRequestCount,
+      issueCount: row.issueCount,
+      repositoryCount: row.repositoryCount,
+      starCount: row.starCount,
+      total: row.total,
+    };
+  }
+}
+
+export class StaffInsightsCohortLeadersResponseDto<Row> {
+  declare readonly all: readonly Row[];
+  declare readonly swMajor: readonly Row[];
+  declare readonly nonSw: readonly Row[];
+
+  static from<Source, Row>(
+    leaders: StaffInsightsCohortLeaders<Source>,
+    toRow: (row: Source) => Row,
+  ): StaffInsightsCohortLeadersResponseDto<Row> {
+    return {
+      all: leaders.all.map(toRow),
+      swMajor: leaders.swMajor.map(toRow),
+      nonSw: leaders.nonSw.map(toRow),
+    };
+  }
+}
+
+export class StaffInsightsLeadersResponseDto {
+  declare readonly period: StaffInsightsCohortLeadersResponseDto<StaffInsightsLeaderResponseDto>;
+  declare readonly recent: StaffInsightsCohortLeadersResponseDto<StaffInsightsRecentLeaderResponseDto>;
+
+  static from(leaders: StaffInsightsLeaders): StaffInsightsLeadersResponseDto {
+    return {
+      period: StaffInsightsCohortLeadersResponseDto.from(
+        leaders.period,
+        (row) => StaffInsightsLeaderResponseDto.from(row),
+      ),
+      recent: StaffInsightsCohortLeadersResponseDto.from(
+        leaders.recent,
+        (row) => StaffInsightsRecentLeaderResponseDto.from(row),
+      ),
     };
   }
 }
@@ -121,6 +216,11 @@ export class StaffInsightsResponseDto {
   declare readonly cohorts: readonly StaffInsightsCohortResponseDto[];
   declare readonly departments: readonly StaffInsightsDepartmentResponseDto[];
   declare readonly programs: readonly StaffInsightsProgramResponseDto[];
+  declare readonly leaders: StaffInsightsLeadersResponseDto;
+  declare readonly recentWindow: {
+    readonly from: string;
+    readonly to: string;
+  };
 
   static from(summary: StaffInsightsSummary): StaffInsightsResponseDto {
     return {
@@ -137,6 +237,11 @@ export class StaffInsightsResponseDto {
       programs: summary.programs.map((row) =>
         StaffInsightsProgramResponseDto.from(row),
       ),
+      leaders: StaffInsightsLeadersResponseDto.from(summary.leaders),
+      recentWindow: {
+        from: summary.recentWindow.from.toISOString(),
+        to: summary.recentWindow.to.toISOString(),
+      },
     };
   }
 }

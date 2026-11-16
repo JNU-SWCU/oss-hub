@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
   StaffInsightsRepository,
+  type StaffInsightsBaselineRecord,
   type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
 import {
   RankingYearService,
   type ActivityCounts,
+  type RankedActivity,
 } from '../ranking/ranking-year.service';
 import {
   StaffInsightsQueryService,
@@ -33,6 +35,36 @@ export interface StaffInsightsCohortRow extends StaffInsightsMetrics {
 export interface StaffInsightsDepartmentRow extends StaffInsightsMetrics {
   readonly department: string;
   readonly cohort: DepartmentCohort;
+  readonly activityPerStudent: number;
+  readonly sampleTooSmall: boolean;
+}
+
+export interface StaffInsightsRecentLeaderRow {
+  readonly rank: number;
+  readonly name: string | null;
+  readonly githubLogin: string;
+  readonly department: string | null;
+  readonly cohort: DepartmentCohort;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly total: number;
+}
+
+export interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
+  readonly starCount: number;
+}
+
+export interface StaffInsightsCohortLeaders<Row> {
+  readonly all: readonly Row[];
+  readonly swMajor: readonly Row[];
+  readonly nonSw: readonly Row[];
+}
+
+export interface StaffInsightsLeaders {
+  readonly period: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
+  readonly recent: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>;
 }
 
 export interface StaffInsightsProgramRow {
@@ -51,6 +83,19 @@ export interface StaffInsightsSummary {
   readonly cohorts: readonly StaffInsightsCohortRow[];
   readonly departments: readonly StaffInsightsDepartmentRow[];
   readonly programs: readonly StaffInsightsProgramRow[];
+  readonly leaders: StaffInsightsLeaders;
+  readonly recentWindow: { readonly from: Date; readonly to: Date };
+}
+
+const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const LEADER_LIMIT = 10;
+const SMALL_SAMPLE_STUDENT_COUNT = 3;
+
+interface LeaderCandidate {
+  readonly student: StaffInsightsStudentRecord;
+  readonly cohort: DepartmentCohort;
+  readonly activity: ActivityCounts;
+  readonly total: number;
 }
 
 const EMPTY_ACTIVITY: ActivityCounts = {
@@ -81,25 +126,48 @@ export class StaffInsightsService {
     private readonly staffInsightsQueryService: StaffInsightsQueryService,
   ) {}
 
-  summarizeFromRequest(request: {
-    readonly year?: string;
-  }): Promise<StaffInsightsSummary> {
+  summarizeFromRequest(
+    request: {
+      readonly year?: string;
+    },
+    now: Date = new Date(),
+  ): Promise<StaffInsightsSummary> {
     return this.summarize(
       this.staffInsightsQueryService.parseInsightsYearQuery(request.year),
+      now,
     );
   }
 
-  async summarize(scope: InsightsYearScope): Promise<StaffInsightsSummary> {
-    const [students, participations, activity, dataAsOf, years] =
-      await Promise.all([
-        this.repository.listStudents(),
-        this.repository.listApprovedParticipations(),
-        this.repository.listActivityTotals(
-          this.staffInsightsQueryService.rankingYearFilter(scope),
-        ),
-        this.repository.findActivityDataAsOf(),
-        this.repository.listActivityYears(),
-      ]);
+  async summarize(
+    scope: InsightsYearScope,
+    now: Date = new Date(),
+  ): Promise<StaffInsightsSummary> {
+    const cutoff = new Date(now.getTime() - RECENT_WINDOW_MS);
+    const cutoffYear = this.rankingYearService.rankingYearInAsiaSeoul(cutoff);
+    const nowYear = this.rankingYearService.rankingYearInAsiaSeoul(now);
+    const [
+      students,
+      participations,
+      activity,
+      dataAsOf,
+      years,
+      baselines,
+      cutoffYearActivity,
+      nowYearActivity,
+    ] = await Promise.all([
+      this.repository.listStudents(),
+      this.repository.listApprovedParticipations(),
+      this.repository.listActivityTotals(
+        this.staffInsightsQueryService.rankingYearFilter(scope),
+      ),
+      this.repository.findActivityDataAsOf(),
+      this.repository.listActivityYears(),
+      this.repository.listActivityBaselines(cutoffYear, cutoff),
+      this.repository.listActivityByYear(cutoffYear),
+      nowYear === cutoffYear
+        ? Promise.resolve([])
+        : this.repository.listActivityByYear(nowYear),
+    ]);
 
     const activityByGithubId = new Map(
       activity.map((row) => [row.githubId.toString(), row]),
@@ -130,6 +198,114 @@ export class StaffInsightsService {
         participantIds,
       ),
       programs: this.buildProgramRows(participations, studentsById),
+      leaders: {
+        period: this.buildPeriodLeaders(students, activityByGithubId),
+        recent: this.buildRecentLeaders(
+          students,
+          byGithubId(baselines),
+          byGithubId(cutoffYearActivity),
+          byGithubId(nowYearActivity),
+        ),
+      },
+      recentWindow: { from: cutoff, to: now },
+    };
+  }
+
+  private buildPeriodLeaders(
+    students: readonly StaffInsightsStudentRecord[],
+    activityByGithubId: ReadonlyMap<string, ActivityCounts>,
+  ): StaffInsightsCohortLeaders<StaffInsightsLeaderRow> {
+    const candidates: LeaderCandidate[] = [];
+    for (const student of students) {
+      if (student.githubLogin === '') continue;
+      const activity = activityFor(student, activityByGithubId);
+      candidates.push(
+        this.candidate(
+          student,
+          activity,
+          this.rankingYearService.activityTotal(activity),
+        ),
+      );
+    }
+    return this.rankLeaders(candidates, (candidate, rank) => ({
+      ...leaderRow(candidate, rank),
+      starCount: candidate.activity.starCount,
+    }));
+  }
+
+  private buildRecentLeaders(
+    students: readonly StaffInsightsStudentRecord[],
+    baselines: ReadonlyMap<string, StaffInsightsBaselineRecord>,
+    cutoffYearActivity: ReadonlyMap<string, StaffInsightsBaselineRecord>,
+    nowYearActivity: ReadonlyMap<string, StaffInsightsBaselineRecord>,
+  ): StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow> {
+    const candidates: LeaderCandidate[] = [];
+    for (const student of students) {
+      if (student.githubLogin === '') continue;
+      const key = student.githubId.toString();
+      const current = cutoffYearActivity.get(key);
+      const baseline = baselines.get(key);
+      if (current !== undefined && baseline === undefined) continue;
+      const sinceCutoff =
+        current === undefined || baseline === undefined
+          ? EMPTY_ACTIVITY
+          : recentDelta(current, baseline);
+      const activity = addCounts(
+        sinceCutoff,
+        nowYearActivity.get(key) ?? EMPTY_ACTIVITY,
+      );
+      candidates.push(
+        this.candidate(
+          student,
+          activity,
+          activity.commitCount +
+            activity.pullRequestCount +
+            activity.issueCount +
+            activity.repositoryCount,
+        ),
+      );
+    }
+    return this.rankLeaders(candidates, leaderRow);
+  }
+
+  private candidate(
+    student: StaffInsightsStudentRecord,
+    activity: ActivityCounts,
+    total: number,
+  ): LeaderCandidate {
+    return {
+      student,
+      cohort: this.staffInsightsQueryService.classifyDepartment(
+        student.department,
+      ),
+      activity,
+      total,
+    };
+  }
+
+  private rankLeaders<Row>(
+    candidates: readonly LeaderCandidate[],
+    toRow: (candidate: LeaderCandidate, rank: number) => Row,
+  ): StaffInsightsCohortLeaders<Row> {
+    const ranked = candidates
+      .filter((candidate) => candidate.total > 0)
+      .sort((left, right) =>
+        this.rankingYearService.compareRanked(
+          rankedActivity(left),
+          rankedActivity(right),
+        ),
+      );
+    const top = (cohort?: DepartmentCohort): readonly Row[] =>
+      ranked
+        .filter(
+          (candidate) => cohort === undefined || candidate.cohort === cohort,
+        )
+        .slice(0, LEADER_LIMIT)
+        .map((candidate, index) => toRow(candidate, index + 1));
+    return {
+      all: top(),
+      swMajor: top(DEPARTMENT_COHORTS.SW_MAJOR),
+      nonSw: top(DEPARTMENT_COHORTS.NON_SW),
     };
   }
 
@@ -227,6 +403,12 @@ export class StaffInsightsService {
         department,
         cohort: row.cohort,
         ...row.metrics,
+        activityPerStudent:
+          row.metrics.studentCount === 0
+            ? 0
+            : Math.round((row.metrics.total / row.metrics.studentCount) * 10) /
+              10,
+        sampleTooSmall: row.metrics.studentCount < SMALL_SAMPLE_STUDENT_COUNT,
       }))
       .sort(
         (left, right) =>
@@ -291,4 +473,69 @@ function activityFor(
   activityByGithubId: ReadonlyMap<string, ActivityCounts>,
 ): ActivityCounts {
   return activityByGithubId.get(student.githubId.toString()) ?? EMPTY_ACTIVITY;
+}
+
+function byGithubId(
+  rows: readonly StaffInsightsBaselineRecord[],
+): ReadonlyMap<string, StaffInsightsBaselineRecord> {
+  return new Map(rows.map((row) => [row.githubId.toString(), row]));
+}
+
+function recentDelta(
+  current: StaffInsightsBaselineRecord,
+  baseline: StaffInsightsBaselineRecord,
+): ActivityCounts {
+  return {
+    commitCount: Math.max(0, current.commitCount - baseline.commitCount),
+    pullRequestCount: Math.max(
+      0,
+      current.pullRequestCount - baseline.pullRequestCount,
+    ),
+    issueCount: Math.max(0, current.issueCount - baseline.issueCount),
+    repositoryCount: Math.max(
+      0,
+      current.repositoryCount - baseline.repositoryCount,
+    ),
+    starCount: 0,
+  };
+}
+
+function addCounts(
+  left: ActivityCounts,
+  right: Omit<ActivityCounts, 'starCount'>,
+): ActivityCounts {
+  return {
+    commitCount: left.commitCount + right.commitCount,
+    pullRequestCount: left.pullRequestCount + right.pullRequestCount,
+    issueCount: left.issueCount + right.issueCount,
+    repositoryCount: left.repositoryCount + right.repositoryCount,
+    starCount: 0,
+  };
+}
+
+function rankedActivity(candidate: LeaderCandidate): RankedActivity {
+  return {
+    ...candidate.activity,
+    githubId: candidate.student.githubId,
+    githubLogin: candidate.student.githubLogin,
+    total: candidate.total,
+  };
+}
+
+function leaderRow(
+  candidate: LeaderCandidate,
+  rank: number,
+): StaffInsightsRecentLeaderRow {
+  return {
+    rank,
+    name: candidate.student.name,
+    githubLogin: candidate.student.githubLogin,
+    department: candidate.student.department,
+    cohort: candidate.cohort,
+    commitCount: candidate.activity.commitCount,
+    pullRequestCount: candidate.activity.pullRequestCount,
+    issueCount: candidate.activity.issueCount,
+    repositoryCount: candidate.activity.repositoryCount,
+    total: candidate.total,
+  };
 }
