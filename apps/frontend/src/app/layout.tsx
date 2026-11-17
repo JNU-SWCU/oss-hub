@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { AccountSlot } from './_shell/account-slot';
@@ -50,6 +51,7 @@ export default async function RootLayout({
             </AppFrame>
           </NavigationNoticeProvider>
         </QueryProvider>
+        {process.env.VERCEL_ENV === 'production' ? <SpeedInsights /> : null}
       </body>
     </html>
   );
