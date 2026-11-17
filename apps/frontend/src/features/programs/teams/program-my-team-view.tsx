@@ -21,6 +21,7 @@ import { updateRepositoryUrl } from './repository-url-api';
 import { TeamInvitePanel } from './team-invite-panel';
 import { TeamMembersPanel } from './team-members-panel';
 import { TeamRepositoryPanel } from './team-repository-panel';
+import { TeamRepositoryProvisioning } from './team-repository-provisioning';
 import type { ProgramDetail } from '../catalog/dto';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 
@@ -203,7 +204,11 @@ export function ProgramMyTeamView({
           saveRepositoryUrl={(repositoryUrl) =>
             updateRepositoryUrl(programId, { repositoryUrl })
           }
-        />
+        >
+          <TeamRepositoryProvisioning
+            status={team.repositoryProvisioningStatus}
+          />
+        </TeamRepositoryPanel>
       ) : null}
 
       {stage === 'APPROVED' ? submissionContent : null}

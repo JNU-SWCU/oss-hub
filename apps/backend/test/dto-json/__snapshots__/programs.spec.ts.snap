@@ -56,9 +56,9 @@ exports[`programs response DTO JSON EditableProgramResponseDto optional absent 1
 
 exports[`programs response DTO JSON InvitationCandidateResponseDto 1`] = `"{"id":"user-2","nickname":"cat","name":null,"avatarUrl":null}"`;
 
-exports[`programs response DTO JSON MyProgramTeamResponseDto leader 1`] = `"{"membership":"LEADER","team":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"status":"SUBMITTED","canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":true,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}}"`;
+exports[`programs response DTO JSON MyProgramTeamResponseDto leader 1`] = `"{"membership":"LEADER","team":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"status":"SUBMITTED","repositoryProvisioningStatus":"NOT_REQUESTED","canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":true,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}}"`;
 
-exports[`programs response DTO JSON MyProgramTeamResponseDto member 1`] = `"{"membership":"MEMBER","team":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"status":"SUBMITTED","canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":false,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}}"`;
+exports[`programs response DTO JSON MyProgramTeamResponseDto member 1`] = `"{"membership":"MEMBER","team":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"status":"SUBMITTED","repositoryProvisioningStatus":"NOT_REQUESTED","canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":false,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}}"`;
 
 exports[`programs response DTO JSON MyProgramTeamResponseDto none 1`] = `"{"membership":"NONE","team":null}"`;
 
@@ -102,7 +102,7 @@ exports[`programs response DTO JSON ProgramRequirementResponseDto 1`] = `"{"id":
 
 exports[`programs response DTO JSON ProgramStatusCountsResponseDto 1`] = `"{"all":10,"recruiting":2,"in_progress":3,"upcoming":4,"ended":1}"`;
 
-exports[`programs response DTO JSON ProgramTeamResponseDto 1`] = `"{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"status":"SUBMITTED","canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":true,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}"`;
+exports[`programs response DTO JSON ProgramTeamResponseDto 1`] = `"{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"status":"SUBMITTED","repositoryProvisioningStatus":"NOT_REQUESTED","canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":true,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}"`;
 
 exports[`programs response DTO JSON PublicProjectDetailResponseDto 1`] = `"{"projectId":"project-1","programId":"program-1","programName":"Program A","trackType":"CURRICULAR","applicationMode":"TEAM","displayName":"Team A","repositoryName":"org/team-a","githubUrl":"https://github.com/org/team-a","publishedAt":"2026-07-01T00:00:00.000Z","metrics":{"commitCount":10,"pullRequestCount":4,"releaseCount":1},"contributors":[{"githubLogin":"octo","commitCount":5,"pullRequestCount":2,"releaseCount":1}]}"`;
 

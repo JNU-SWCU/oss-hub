@@ -285,6 +285,7 @@ describe('TeamsController', () => {
       minMembers: 2,
       maxMembers: 4,
       status: 'APPROVED',
+      repositoryProvisioningStatus: 'PROCESSING',
       canInvite: true,
       canRemoveMembers: true,
       canLeave: true,
@@ -356,6 +357,7 @@ describe('TeamsController', () => {
         'members',
         'minMembers',
         'name',
+        'repositoryProvisioningStatus',
         'status',
       ]);
     });

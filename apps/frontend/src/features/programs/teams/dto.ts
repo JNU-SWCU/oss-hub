@@ -20,6 +20,7 @@ export interface ProgramTeam {
   readonly minMembers: number | null;
   readonly maxMembers: number;
   readonly status: ApplicationStatus;
+  readonly repositoryProvisioningStatus: RepositoryProvisioning['jobStatus'];
   readonly canInvite: boolean;
   readonly canRemoveMembers: boolean;
   readonly canLeave: boolean;

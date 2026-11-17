@@ -65,6 +65,7 @@ const team: ProgramTeam = {
   minMembers: 1,
   maxMembers: 4,
   status: 'SUBMITTED',
+  repositoryProvisioningStatus: 'NOT_REQUESTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: false,
