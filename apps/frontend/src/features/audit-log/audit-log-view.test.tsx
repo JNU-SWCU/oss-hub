@@ -10,6 +10,7 @@ const baseProps: AuditLogViewProps = {
   records: fixture.items,
   counts: fixture.counts,
   filters: { q: '', action: '', from: '', to: '' },
+  activeFilterCount: 0,
   category: '',
   view: 'feed',
   page: 1,
@@ -108,5 +109,49 @@ describe('AuditLogView', () => {
     const failed = render({ errorMessage: '감사 로그를 불러오지 못했습니다.' });
     expect(failed).toContain('감사 로그를 불러오지 못했습니다.');
     expect(failed).toContain('다시 시도');
+  });
+
+  it('collapses the filter form behind a 필터 button below sm and shows the active filter count', () => {
+    const idle = render();
+    const filtered = render({ activeFilterCount: 2 });
+
+    expect(idle).toMatch(
+      /<button[^>]*aria-expanded="false"[^>]*aria-controls="audit-filters"[^>]*>필터<\/button>/,
+    );
+    expect(filtered).toMatch(
+      /aria-controls="audit-filters"[^>]*>필터<span[^>]*>2<\/span>/,
+    );
+    expect(idle).toMatch(
+      /<form id="audit-filters"[^>]*class="hidden [^"]*sm:grid/,
+    );
+  });
+
+  it('keeps category chips on one horizontally scrollable line below sm', () => {
+    const chips = render().match(
+      /<div role="group"[^>]*class="([^"]*)"[^>]*aria-label="분류"/,
+    );
+
+    expect(chips?.[1]).toContain('flex-nowrap');
+    expect(chips?.[1]).toContain('overflow-x-auto');
+    expect(chips?.[1]).toContain('sm:flex-wrap');
+  });
+
+  it('shows only time and actor columns below sm with the rest on a second line', () => {
+    const html = render({ view: 'table' });
+
+    for (const header of ['역할', '동작', '대상', '변경']) {
+      expect(html).toMatch(
+        new RegExp(
+          `<th[^>]*class="[^"]*hidden sm:table-cell[^"]*"[^>]*>(<button[^>]*>)?${header}`,
+        ),
+      );
+    }
+    const detail = html.match(
+      /data-slot="audit-row-detail" class="[^"]*sm:hidden[^"]*">([\s\S]*?)<\/td>/,
+    );
+    expect(detail).not.toBeNull();
+    expect(text(detail?.[1] ?? '')).toContain(
+      '관리자 회원 유형 변경 박샘플 학생 → 교직원',
+    );
   });
 });

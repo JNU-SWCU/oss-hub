@@ -29,7 +29,9 @@ describe('AuditLogTable', () => {
 
   function actorColumn() {
     return Array.from(container.querySelectorAll('tbody tr')).map(
-      (row) => row.querySelectorAll('td')[1]?.textContent ?? '',
+      (row) =>
+        row.querySelectorAll('td')[1]?.querySelector(':scope > div > span')
+          ?.textContent ?? '',
     );
   }
 

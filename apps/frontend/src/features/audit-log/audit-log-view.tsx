@@ -1,4 +1,6 @@
-import type { FormEvent } from 'react';
+'use client';
+
+import { useState, type FormEvent } from 'react';
 import {
   EmptyState,
   FilterChip,
@@ -28,6 +30,7 @@ export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
   readonly counts: AuditLogCategoryCounts | null;
   readonly filters: AuditLogFilters;
+  readonly activeFilterCount: number;
   readonly category: AuditLogCategory | '';
   readonly view: AuditLogViewMode;
   readonly page: number;
@@ -44,6 +47,12 @@ export interface AuditLogViewProps {
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
 }
+
+const CATEGORY_CHIPS_CLASS = cn(
+  'min-w-0 flex-1 flex-nowrap overflow-x-auto [&>*]:shrink-0 [&>*]:whitespace-nowrap',
+  '[mask-image:linear-gradient(to_right,black_85%,transparent)]',
+  'sm:flex-wrap sm:overflow-visible sm:[mask-image:none]',
+);
 
 const VIEW_LABELS: Readonly<Record<AuditLogViewMode, string>> = {
   feed: '피드',
@@ -72,6 +81,7 @@ function CategoryChip({
 }
 
 export function AuditLogView(props: AuditLogViewProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
   const counts = props.counts;
   const allCount = counts
@@ -103,25 +113,45 @@ export function AuditLogView(props: AuditLogViewProps) {
           </FilterChipGroup>
         }
       />
-      <FilterChipGroup aria-label="분류">
-        <CategoryChip
-          label="전체"
-          count={allCount}
-          pressed={props.category === ''}
-          onClick={() => props.onCategoryChange('')}
-        />
-        {AUDIT_LOG_CATEGORIES.map((category) => (
+      <div className="flex min-w-0 items-center gap-2">
+        <FilterChipGroup aria-label="분류" className={CATEGORY_CHIPS_CLASS}>
           <CategoryChip
-            key={category}
-            label={AUDIT_LOG_CATEGORY_LABELS[category]}
-            count={counts ? counts[category] : null}
-            pressed={props.category === category}
-            onClick={() => props.onCategoryChange(category)}
+            label="전체"
+            count={allCount}
+            pressed={props.category === ''}
+            onClick={() => props.onCategoryChange('')}
           />
-        ))}
-      </FilterChipGroup>
+          {AUDIT_LOG_CATEGORIES.map((category) => (
+            <CategoryChip
+              key={category}
+              label={AUDIT_LOG_CATEGORY_LABELS[category]}
+              count={counts ? counts[category] : null}
+              pressed={props.category === category}
+              onClick={() => props.onCategoryChange(category)}
+            />
+          ))}
+        </FilterChipGroup>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 shrink-0 sm:hidden"
+          aria-expanded={filtersOpen}
+          aria-controls="audit-filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          필터
+          {props.activeFilterCount > 0 ? (
+            <span className="ml-1 tabular-nums">{props.activeFilterCount}</span>
+          ) : null}
+        </Button>
+      </div>
       <form
-        className="grid w-full min-w-0 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2 xl:grid-cols-5 xl:items-end"
+        id="audit-filters"
+        aria-label="필터"
+        className={cn(
+          filtersOpen ? 'grid' : 'hidden',
+          'w-full min-w-0 gap-4 rounded-lg border border-border p-4 sm:grid sm:grid-cols-2 xl:grid-cols-5 xl:items-end',
+        )}
         onSubmit={submit}
       >
         <div className="flex w-full min-w-0 flex-col gap-2">

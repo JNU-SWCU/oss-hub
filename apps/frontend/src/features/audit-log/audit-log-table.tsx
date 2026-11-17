@@ -4,10 +4,12 @@ import { useState, type ReactElement } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { DataTable, type DataTableColumn } from '@/components';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   actionLabel,
   actorLabel,
-  formatDateTime,
+  formatDate,
+  formatTime,
   roleLabel,
   targetLabel,
 } from './audit-log-format';
@@ -63,11 +65,14 @@ export function sortAuditLogRecords(
   );
 }
 
+const WIDE_ONLY = 'hidden sm:table-cell';
+
 function sortableColumn(
   key: AuditLogSortKey,
   sort: AuditLogSort,
   onSort: (key: AuditLogSortKey) => void,
   cell: DataTableColumn<AuditLogRecord>['cell'],
+  visibility = '',
 ): DataTableColumn<AuditLogRecord> {
   const active = sort.key === key;
   const Icon = active && sort.direction === 'asc' ? ChevronUp : ChevronDown;
@@ -95,8 +100,8 @@ function sortableColumn(
           : 'descending'
         : 'none',
     },
-    headClassName: 'whitespace-nowrap',
-    cellClassName: 'align-top whitespace-nowrap',
+    headClassName: cn('whitespace-nowrap', visibility),
+    cellClassName: cn('align-top sm:whitespace-nowrap', visibility),
     cell,
   };
 }
@@ -118,26 +123,56 @@ export function AuditLogTable({
     );
   const columns: DataTableColumn<AuditLogRecord>[] = [
     sortableColumn('occurredAt', sort, onSort, (record) => (
-      <time dateTime={record.occurredAt} className="tabular-nums">
-        {formatDateTime(record.occurredAt)}
+      <time
+        dateTime={record.occurredAt}
+        className="flex flex-col whitespace-nowrap tabular-nums sm:block"
+      >
+        <span>{formatDate(record.occurredAt)}</span>{' '}
+        <span>{formatTime(record.occurredAt)}</span>
       </time>
     )),
     sortableColumn('actor', sort, onSort, (record) => (
-      <AuditLogActor record={record} />
+      <div className="flex min-w-0 flex-col gap-1">
+        <AuditLogActor record={record} />
+        <div
+          data-slot="audit-row-detail"
+          className="flex flex-col gap-0.5 text-xs leading-relaxed sm:hidden"
+        >
+          <span className="flex flex-wrap items-baseline gap-x-1">
+            <AuditLogRole record={record} />
+            <AuditLogActionValue record={record} />
+          </span>
+          <AuditLogTargetValue record={record} />
+          <AuditLogChangeValue record={record} />
+        </div>
+      </div>
     )),
-    sortableColumn('role', sort, onSort, (record) => (
-      <AuditLogRole record={record} />
-    )),
-    sortableColumn('action', sort, onSort, (record) => (
-      <AuditLogActionValue record={record} />
-    )),
-    sortableColumn('target', sort, onSort, (record) => (
-      <AuditLogTargetValue record={record} />
-    )),
+    sortableColumn(
+      'role',
+      sort,
+      onSort,
+      (record) => <AuditLogRole record={record} />,
+      WIDE_ONLY,
+    ),
+    sortableColumn(
+      'action',
+      sort,
+      onSort,
+      (record) => <AuditLogActionValue record={record} />,
+      WIDE_ONLY,
+    ),
+    sortableColumn(
+      'target',
+      sort,
+      onSort,
+      (record) => <AuditLogTargetValue record={record} />,
+      WIDE_ONLY,
+    ),
     {
       id: 'change',
       header: '변경',
-      cellClassName: 'align-top',
+      headClassName: WIDE_ONLY,
+      cellClassName: cn('align-top', WIDE_ONLY),
       cell: (record) => <AuditLogChangeValue record={record} />,
     },
   ];

@@ -196,14 +196,11 @@ const timeFormatter = new Intl.DateTimeFormat('ko-KR', {
   hourCycle: 'h23',
 });
 
-const dateTimeFormatter = new Intl.DateTimeFormat('ko-KR', {
+const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   timeZone: SEOUL,
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
 });
 
 const dayFormatter = new Intl.DateTimeFormat('ko-KR', {
@@ -224,8 +221,8 @@ export function formatTime(iso: string): string {
   return timeFormatter.format(new Date(iso));
 }
 
-export function formatDateTime(iso: string): string {
-  return dateTimeFormatter.format(new Date(iso));
+export function formatDate(iso: string): string {
+  return dateFormatter.format(new Date(iso));
 }
 
 export function dayKey(iso: string | Date): string {

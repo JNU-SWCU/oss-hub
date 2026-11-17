@@ -42,6 +42,9 @@ export function AuditLogScreen() {
       records={query.data?.items ?? []}
       counts={query.data?.counts ?? null}
       filters={filters}
+      activeFilterCount={
+        Object.values(applied).filter((value) => value !== '').length
+      }
       category={state.category}
       view={state.view}
       page={state.page}
