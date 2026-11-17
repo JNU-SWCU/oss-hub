@@ -78,7 +78,6 @@ const program: ProgramDetail = {
       name: '합성 결과물',
       dueAt: '2028-01-01T00:00:00Z',
       dDay: 10,
-      deadlineLabel: 'D-10',
       description: null,
       submissionItemCount: 1,
       viewerSubmissionStatus: 'NOT_SUBMITTED',

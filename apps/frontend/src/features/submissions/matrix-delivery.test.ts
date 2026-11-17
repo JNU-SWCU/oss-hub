@@ -26,7 +26,6 @@ function row(
       revision: 2,
       status: 'APPROVED',
       submittedAt: '2026-09-01T00:00:00Z',
-      reviewUrl: null,
       changesRequestedCount: 0,
       deliveryStatus,
     })),

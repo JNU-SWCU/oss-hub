@@ -118,7 +118,6 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
             submissionId: fixture.documentSubmission,
             revision: 2,
             submittedAt: late.toISOString(),
-            reviewUrl: `/programs/${fixture.notifyProgram}/submissions/${fixture.documentSubmission}/review`,
             changesRequestedCount: 0,
           },
         ],

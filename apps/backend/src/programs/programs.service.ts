@@ -126,7 +126,6 @@ interface ProgramMilestoneResult {
   readonly startAt: Date;
   readonly dueAt: Date;
   readonly dDay: number;
-  readonly deadlineLabel: string;
   readonly description: string | null;
   readonly submissionItemCount: number;
   readonly viewerSubmissionStatus: ViewerSubmissionStatusResult;
@@ -383,7 +382,6 @@ export class ProgramsService {
             startAt: milestone.startAt,
             dueAt: milestone.dueAt,
             dDay: deadline.dDay,
-            deadlineLabel: deadline.label,
             description: milestone.instructions,
             submissionItemCount: milestone._count.requirements,
             viewerSubmissionStatus:

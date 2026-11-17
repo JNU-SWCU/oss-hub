@@ -20,7 +20,6 @@ function cell(input: {
       status: 'NOT_SUBMITTED',
       deliveryStatus: 'MISSING',
       submittedAt: null,
-      reviewUrl: null,
       changesRequestedCount: 0,
     };
   }
@@ -32,7 +31,6 @@ function cell(input: {
     status: input.status,
     deliveryStatus: 'COMPLETE',
     submittedAt: '2026-08-19T10:00:00+09:00',
-    reviewUrl: `/programs/program-1/submissions/${submissionId}/review`,
     changesRequestedCount: 0,
   };
 }
@@ -315,7 +313,7 @@ describe('SubmissionMatrixView', () => {
     expect(html).not.toContain('보완 요청 중 0건');
   });
 
-  it('제출이 있는 셀만 reviewUrl로 링크하고 미제출 셀은 링크가 없다', () => {
+  it('제출이 있는 셀만 검토 경로로 링크하고 미제출 셀은 링크가 없다', () => {
     const html = render();
 
     const reviewLinks =

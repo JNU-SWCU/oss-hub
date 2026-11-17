@@ -58,7 +58,6 @@ const milestone: ProgramMilestone = {
   name: '기획서 제출',
   dueAt: '2026-08-10T23:59:59+09:00',
   dDay: 5,
-  deadlineLabel: 'D-5',
   description: 'PDF 기획서를 제출해 주세요.',
   submissionItemCount: 1,
   viewerSubmissionStatus: 'REJECTED',
@@ -196,7 +195,6 @@ describe('MilestoneRow', () => {
         milestone={{
           ...milestone,
           dDay: -2,
-          deadlineLabel: '마감 지남',
           viewerSubmissionStatus: 'CHANGES_REQUESTED',
         }}
         viewerRole="STUDENT"

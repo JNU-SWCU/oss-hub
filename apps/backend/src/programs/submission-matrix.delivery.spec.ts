@@ -117,7 +117,6 @@ it.each([
 
     const result = SubmissionMatrixResponseDto.from(
       await service.matrix('program', query),
-      'program',
     );
 
     expect(result.rows[0]?.cells[0]).toMatchObject({
@@ -130,10 +129,6 @@ it.each([
         times.length === 1 && times[0] !== null ? afterDue.toISOString() : null,
       submissionId:
         times.length === 1 && times[0] !== null ? 'submission-0' : null,
-      reviewUrl:
-        times.length === 1 && times[0] !== null
-          ? '/programs/program/submissions/submission-0/review'
-          : null,
     });
   },
 );
@@ -156,7 +151,6 @@ it('does not treat another application or unrelated document as a required submi
 
   const result = SubmissionMatrixResponseDto.from(
     await service.matrix('program', query),
-    'program',
   );
 
   expect(result.rows[0]?.cells[0]).toMatchObject({ deliveryStatus: 'MISSING' });

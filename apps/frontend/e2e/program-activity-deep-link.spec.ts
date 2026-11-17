@@ -49,7 +49,6 @@ async function installProgramRoutes(
         name: '최종 제출',
         dueAt: '2026-08-10T14:59:59.000Z',
         dDay: 10,
-        deadlineLabel: 'D-10',
         description: null,
         submissionItemCount: 1,
         viewerSubmissionStatus: null,

@@ -226,7 +226,6 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
               name: '계획서',
               dueAt: '2099-01-01T00:00:00.000Z',
               dDay: 1,
-              deadlineLabel: 'D-1',
               description: null,
               submissionType: 'TEXT',
               submissionItemCount: 1,

@@ -35,7 +35,6 @@ class ProgramDetailMilestoneResponseDto {
   declare readonly id: string;
   declare readonly name: string;
   declare readonly dDay: number;
-  declare readonly deadlineLabel: string;
   declare readonly description: string | null;
   declare readonly submissionItemCount: number;
   declare readonly viewerSubmissionStatus: ViewerSubmissionStatusResponseDto;
@@ -49,7 +48,6 @@ class ProgramDetailMilestoneResponseDto {
       id: milestone.id,
       name: milestone.name,
       dDay: milestone.dDay,
-      deadlineLabel: milestone.deadlineLabel,
       description: milestone.description,
       submissionItemCount: milestone.submissionItemCount,
       viewerSubmissionStatus: milestone.viewerSubmissionStatus,

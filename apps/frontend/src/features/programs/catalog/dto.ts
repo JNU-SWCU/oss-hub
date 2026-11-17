@@ -58,7 +58,6 @@ export interface ProgramMilestone {
   readonly name: string;
   readonly dueAt: string;
   readonly dDay: number;
-  readonly deadlineLabel: string;
   readonly description: string | null;
   readonly submissionItemCount: number;
   readonly viewerSubmissionStatus: SubmissionStatus | null;

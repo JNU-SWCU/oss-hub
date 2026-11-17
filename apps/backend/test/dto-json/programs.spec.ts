@@ -411,7 +411,6 @@ const programDetail: ProgramDetailResult = {
       startAt: at('2026-02-01T00:00:00.000Z'),
       dueAt: at('2026-02-10T00:00:00.000Z'),
       dDay: 3,
-      deadlineLabel: 'D-3',
       description: null,
       submissionItemCount: 2,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
@@ -430,7 +429,6 @@ const programDetail: ProgramDetailResult = {
       startAt: at('2026-03-01T00:00:00.000Z'),
       dueAt: at('2026-03-10T00:00:00.000Z'),
       dDay: -1,
-      deadlineLabel: 'Closed',
       description: 'Final report',
       submissionItemCount: 0,
       viewerSubmissionStatus: null,
@@ -1268,49 +1266,46 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'SubmissionMatrixResponseDto',
     () =>
-      SubmissionMatrixResponseDto.from(
-        {
-          milestones: [
-            {
-              id: 'milestone-1',
-              name: 'Kickoff',
-              dueAt: at('2026-02-10T00:00:00.000Z'),
-            },
-          ],
-          rows: [
-            {
-              teamId: 'application-1',
-              applicationMode: 'TEAM',
-              displayName: 'Team A',
-              githubLogins: ['octo', 'cat'],
-              cells: [
-                {
-                  milestoneId: 'milestone-1',
-                  submissionId: 'submission-1',
-                  revision: 2,
-                  status: 'SUBMITTED',
-                  submittedAt: at('2026-02-09T00:00:00.000Z'),
-                  deliveryStatus: 'COMPLETE',
-                  changesRequestedCount: 1,
-                },
-                {
-                  milestoneId: 'milestone-2',
-                  submissionId: null,
-                  revision: null,
-                  status: 'NOT_SUBMITTED',
-                  submittedAt: null,
-                  deliveryStatus: 'MISSING',
-                  changesRequestedCount: 0,
-                },
-              ],
-            },
-          ],
-          page: 1,
-          pageSize: 20,
-          total: 1,
-        },
-        'program-1',
-      ),
+      SubmissionMatrixResponseDto.from({
+        milestones: [
+          {
+            id: 'milestone-1',
+            name: 'Kickoff',
+            dueAt: at('2026-02-10T00:00:00.000Z'),
+          },
+        ],
+        rows: [
+          {
+            teamId: 'application-1',
+            applicationMode: 'TEAM',
+            displayName: 'Team A',
+            githubLogins: ['octo', 'cat'],
+            cells: [
+              {
+                milestoneId: 'milestone-1',
+                submissionId: 'submission-1',
+                revision: 2,
+                status: 'SUBMITTED',
+                submittedAt: at('2026-02-09T00:00:00.000Z'),
+                deliveryStatus: 'COMPLETE',
+                changesRequestedCount: 1,
+              },
+              {
+                milestoneId: 'milestone-2',
+                submissionId: null,
+                revision: null,
+                status: 'NOT_SUBMITTED',
+                submittedAt: null,
+                deliveryStatus: 'MISSING',
+                changesRequestedCount: 0,
+              },
+            ],
+          },
+        ],
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      }),
   ],
   [
     'SubmissionReviewContextResponseDto',

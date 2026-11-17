@@ -12,7 +12,10 @@ import {
   submissionStatusLabel,
 } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
-import { formatSeoulDate } from '../../catalog/program-detail-format';
+import {
+  formatSeoulDate,
+  milestoneDeadlineLabel,
+} from '../../catalog/program-detail-format';
 import type {
   BlockedMilestoneSubmissionAccess,
   MilestoneSubmissionAccess,
@@ -219,7 +222,7 @@ export function MilestoneRow({
                 : 'recruiting'
           }
         >
-          {milestone.deadlineLabel}
+          {milestoneDeadlineLabel(milestone.dDay)}
         </StatusBadge>
 
         {viewerRole === null ? (

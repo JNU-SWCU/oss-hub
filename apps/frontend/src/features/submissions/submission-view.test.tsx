@@ -19,7 +19,6 @@ const baseData: SubmissionFormData = {
     name: '최종 제출',
     dueAt: '2026-09-30T14:59:59.000Z',
     dDay: 69,
-    deadlineLabel: 'D-69',
     submissionType: 'TEXT',
     instructions: '최종 보고 내용을 입력하세요.',
   },
