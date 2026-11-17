@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
-import localFont from 'next/font/local';
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import { AccountSlot } from './_shell/account-slot';
 import { AppFrame } from './_shell/app-frame';
 import {
@@ -14,21 +13,6 @@ import {
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
 import { QueryProvider } from './_shell/query-provider';
-
-const pretendard = localFont({
-  src: '../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2',
-  weight: '45 920',
-  display: 'swap',
-  preload: false,
-  adjustFontFallback: false,
-  fallback: [
-    'Apple SD Gothic Neo',
-    'Noto Sans KR',
-    'Malgun Gothic',
-    'sans-serif',
-  ],
-  variable: '--font-sans',
-});
 
 export const metadata: Metadata = {
   title: 'OSS Hub',
@@ -48,7 +32,7 @@ export default async function RootLayout({
   );
 
   return (
-    <html lang="ko" className={cn('font-sans', pretendard.variable)}>
+    <html lang="ko" className="font-sans">
       <body className="relative">
         <QueryProvider>
           <NavigationNoticeProvider>
