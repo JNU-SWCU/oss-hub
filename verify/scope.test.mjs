@@ -263,7 +263,7 @@ async function prePush(t, repo, remote, stdin) {
   const original = console.log;
   console.log = (...args) => lines.push(args.join(' '));
   try {
-    const exit = await main(['scoped', '--pre-push', remote], {
+    const exit = await main(['scoped', '--pre-push', 'origin', remote], {
       cwd: repo.dir,
       stdin,
       reportDir: mkdtempSync(join(tmpdir(), 'verify-test-reports-')),
@@ -288,7 +288,7 @@ test('pre-push new branch whose merge-base is a forged origin/main at HEAD fails
   assert.equal(exit, 2);
   await assert.rejects(
     resolveRanges({ cwd: repo.dir, source: 'pre-push', stdin }),
-    /no remote was given/,
+    /no push URL was given/,
   );
 });
 

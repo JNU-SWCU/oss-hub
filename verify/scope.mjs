@@ -52,7 +52,7 @@ async function mergeBaseOrFail(cwd, head, defaultBranch, reason) {
 async function confirmOnRemote(cwd, remote, sha, ref) {
   if (!remote) {
     throw new VerifyError(
-      `${ref} resolves to an empty range at ${sha.slice(0, 9)} and no remote was given to confirm it; refusing to pass without verification`,
+      `${ref} resolves to an empty range at ${sha.slice(0, 9)} and no push URL was given to confirm it; refusing to pass without verification`,
     );
   }
   const result = await run('git', ['ls-remote', '--', remote], {

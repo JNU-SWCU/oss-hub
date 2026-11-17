@@ -71,7 +71,7 @@ export async function main(
       stdin: source === 'pre-push' ? (stdin ?? readFileSync(0, 'utf8')) : '',
       remote:
         source === 'pre-push'
-          ? argv[argv.indexOf('--pre-push') + 1]
+          ? argv[argv.indexOf('--pre-push') + 2]
           : undefined,
     });
   } catch (error) {
