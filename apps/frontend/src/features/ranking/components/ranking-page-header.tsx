@@ -29,9 +29,16 @@ export function RankingPageHeader() {
                   <Info className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                커밋·PR·이슈·저장소·스타를 모두 합산합니다. 스타는 올해 직접
-                커밋·PR한 공개 저장소의 것만 인정됩니다.
+              <TooltipContent
+                collisionPadding={16}
+                className="max-w-(--radix-tooltip-content-available-width) break-keep text-pretty"
+              >
+                <span className="inline-block">
+                  커밋·PR·이슈·저장소·스타를 모두 합산합니다.
+                </span>{' '}
+                <span className="inline-block">
+                  스타는 올해 직접 커밋·PR한 공개 저장소의 것만 인정됩니다.
+                </span>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
