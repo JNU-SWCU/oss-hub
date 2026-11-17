@@ -5,6 +5,7 @@ import { DepartmentType, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { ReadCapExceededError } from '../platform/read-cap.error';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
 import {
@@ -238,7 +239,7 @@ it('학번·학과를 User에 저장하고 다시 조회한다', async () => {
   });
 });
 
-it('returns only the newest 200 participation memberships', async () => {
+it('fails past 200 participation memberships instead of dropping any', async () => {
   const ids = Array.from(
     { length: 201 },
     (_, index) => `test:users:cap:${index}`,
@@ -275,6 +276,13 @@ it('returns only the newest 200 participation memberships', async () => {
       data: ids.map((id) => ({ teamId: id, programId: id, userId })),
     });
 
+    await expect(
+      repository.listParticipationMemberships(userId),
+    ).rejects.toBeInstanceOf(ReadCapExceededError);
+
+    await prisma.teamMember.deleteMany({
+      where: { programId: ids[0], userId },
+    });
     const memberships = await repository.listParticipationMemberships(userId);
 
     expect(memberships.map(({ team }) => team.program.id)).toEqual(

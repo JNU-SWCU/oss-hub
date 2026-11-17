@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -118,7 +119,7 @@ it.each(['delete', 'purge'] as const)(
           },
         },
       },
-      include: { milestones: true },
+      include: { milestones: { take: TEST_READ_LIMIT } },
     });
     expect(
       (
@@ -148,7 +149,7 @@ it.each(['delete', 'purge'] as const)(
     await expect(
       prisma.program.findUnique({
         where: { id: program.id },
-        include: { milestones: true },
+        include: { milestones: { take: TEST_READ_LIMIT } },
       }),
     ).resolves.toMatchObject({
       id: program.id,

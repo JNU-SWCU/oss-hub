@@ -2136,6 +2136,7 @@ export class RequirementsRepository {
 const currentFileSelect = {
   revision: true,
   files: {
+    take: 1,
     select: {
       storageKey: true,
       originalFileName: true,

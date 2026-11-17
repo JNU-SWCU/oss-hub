@@ -223,6 +223,7 @@ it('preserves the observed revision and optional comment when two requirement cl
     select: {
       revision: true,
       histories: {
+        take: TEST_READ_LIMIT,
         orderBy: { createdAt: 'asc' },
         select: { revision: true, comment: true },
       },
@@ -376,7 +377,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     const before = await fixture.prisma.submission.findMany({
       take: TEST_READ_LIMIT,
       where,
-      include: { histories: true },
+      include: { histories: { take: TEST_READ_LIMIT } },
     });
     await fixture.prisma.program.update({
       where: { id: flowIds.program },
@@ -416,7 +417,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
       await fixture.prisma.submission.findMany({
         take: TEST_READ_LIMIT,
         where,
-        include: { histories: true },
+        include: { histories: { take: TEST_READ_LIMIT } },
       }),
     ).toEqual(before);
   },

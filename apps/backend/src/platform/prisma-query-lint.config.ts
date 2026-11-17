@@ -12,13 +12,20 @@ import { PROCESS_RUNTIME_CONFIG } from './runtime-config-instance.config';
 
 export type PrismaQueryLintRule =
   | 'LINT.NO_LIMIT'
+  | 'LINT.NESTED_NO_LIMIT'
   | 'LINT.DELETE_WITHOUT_WHERE'
   | 'LINT.UPDATE_WITHOUT_WHERE'
   | 'LINT.SELECT_STAR';
 
 type PrismaQueryLintPolicy = Readonly<{
   repoRoot: string;
+  relations: RelationFields;
 }>;
+
+type RelationFields = ReadonlyMap<
+  string,
+  ReadonlyMap<string, Readonly<{ model: string; isList: boolean }>>
+>;
 
 type PrismaInternalClient = {
   _request: (
@@ -35,6 +42,8 @@ const ERROR_RULES: Readonly<Record<string, PrismaQueryLintRule>> = {
 const RULE_MESSAGES: Readonly<Record<PrismaQueryLintRule, string>> = {
   'LINT.NO_LIMIT':
     'take 없이 여러 행을 읽습니다. 상한, 페이지 크기, 배치 크기 중 하나로 take를 지정하세요.',
+  'LINT.NESTED_NO_LIMIT':
+    'take 없이 여러 행 관계를 함께 읽습니다. 상한(CAP + 1)으로 take를 지정하고 넘치면 실패시키세요.',
   'LINT.DELETE_WITHOUT_WHERE': 'where 없이 여러 행을 삭제합니다.',
   'LINT.UPDATE_WITHOUT_WHERE': 'where 없이 여러 행을 수정합니다.',
   'LINT.SELECT_STAR': 'select 없이 모든 열을 읽습니다.',
@@ -102,6 +111,12 @@ export class PrismaQueryLintConfig {
       const key = `${model}.${operation}@${callerKey(policy.repoRoot)}`;
       throw new PrismaQueryLintError(rule, key);
     }
+    const relation = unboundedRelation(policy.relations, model, query);
+    if (relation)
+      throw new PrismaQueryLintError(
+        'LINT.NESTED_NO_LIMIT',
+        `${model}.${operation}.${relation}@${callerKey(policy.repoRoot)}`,
+      );
     if (!SELECT_STAR_OPERATIONS.has(operation) || query.select !== undefined)
       return;
     const warning = `${model}.${operation}`;
@@ -117,7 +132,54 @@ export function loadPrismaQueryLintConfig({
   nodeEnv = PROCESS_RUNTIME_CONFIG.NODE_ENV,
 }: { nodeEnv?: string } = {}): PrismaQueryLintConfig {
   if (nodeEnv === 'production') return new PrismaQueryLintConfig();
-  return new PrismaQueryLintConfig({ repoRoot: findUp('pnpm-workspace.yaml') });
+  return new PrismaQueryLintConfig({
+    repoRoot: findUp('pnpm-workspace.yaml'),
+    relations: loadRelations(),
+  });
+}
+
+function loadRelations(): RelationFields {
+  const schemaFile = join(
+    findUp('prisma/schema.prisma'),
+    'prisma/schema.prisma',
+  );
+  const schema = readFileSync(schemaFile, 'utf8');
+  const blocks = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)];
+  const models = new Set(blocks.map(([, name]) => name));
+  return new Map(
+    blocks.map(([, name = '', body = '']) => [
+      name,
+      new Map(
+        [...body.matchAll(/^\s+(\w+)\s+(\w+)(\[\])?/gm)]
+          .filter(([, , type]) => models.has(type ?? ''))
+          .map(([, field = '', type = '', list]) => [
+            field,
+            { model: type, isList: list !== undefined },
+          ]),
+      ),
+    ]),
+  );
+}
+
+function unboundedRelation(
+  relations: RelationFields,
+  model: string,
+  query: Record<string, unknown>,
+): string | undefined {
+  const fields = relations.get(model);
+  for (const selection of [query.select, query.include]) {
+    if (!isRecord(selection)) continue;
+    for (const [field, value] of Object.entries(selection)) {
+      const relation = fields?.get(field);
+      if (!relation || value === false || value == null) continue;
+      if (relation.isList && !(isRecord(value) && value.take != null))
+        return field;
+      if (!isRecord(value)) continue;
+      const nested = unboundedRelation(relations, relation.model, value);
+      if (nested) return `${field}.${nested}`;
+    }
+  }
+  return undefined;
 }
 
 function recordCallsites(client: PrismaClient): void {

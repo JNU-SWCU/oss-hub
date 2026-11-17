@@ -38,7 +38,11 @@ export async function seedE2eRepositoryEvidence(
         status: 'APPROVED',
       },
       select: {
-        teamRepos: { where: { validTo: null }, select: { repoId: true } },
+        teamRepos: {
+          take: TEST_READ_LIMIT,
+          where: { validTo: null },
+          select: { repoId: true },
+        },
         program: { select: { startAt: true, endAt: true } },
       },
     });

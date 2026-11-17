@@ -250,6 +250,7 @@ describe('admin access read profile completeness', () => {
       expect.objectContaining({
         select: expect.objectContaining({
           teamMemberships: {
+            take: 201,
             where: {
               team: {
                 status: 'APPROVED',

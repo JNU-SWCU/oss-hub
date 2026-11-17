@@ -41,6 +41,26 @@ const cases: { code: string; file: string; ruleIds: string[] }[] = [
     ruleIds: [],
   },
   {
+    code: "class A { read() { return this.prisma.team.findUnique({ where: { id: 'a' }, select: { members: { select: { userId: true } } } }); } }",
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/nested-relation-take'],
+  },
+  {
+    code: "class A { read() { return this.prisma.team.findUnique({ where: { id: 'a' }, include: { members: true } }); } }",
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/nested-relation-take'],
+  },
+  {
+    code: "import { MEMBERS } from './members'; const SELECT = { members: MEMBERS } satisfies Prisma.TeamSelect;",
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/nested-relation-take'],
+  },
+  {
+    code: 'const MEMBERS = { take: 101, select: { userId: true } }; const SELECT = { members: { ...MEMBERS }, program: { select: { name: true } }, _count: { select: { members: true } } } as const satisfies Prisma.TeamSelect;',
+    file: 'src/sample.repository.ts',
+    ruleIds: [],
+  },
+  {
     code: 'async function load(ids) { for (const id of ids) { await read(id); } }',
     file: 'src/sample.service.ts',
     ruleIds: ['no-await-in-loop'],

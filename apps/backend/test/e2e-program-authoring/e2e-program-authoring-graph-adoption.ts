@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
@@ -39,10 +40,12 @@ export async function adoptE2eProgramGraph(
       name: true,
       creator: { select: { githubId: true } },
       milestones: {
+        take: TEST_READ_LIMIT,
         select: {
           id: true,
           name: true,
           requirements: {
+            take: TEST_READ_LIMIT,
             where: {},
             select: {
               id: true,

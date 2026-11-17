@@ -416,7 +416,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
     expect(result.kind).toBe('SUCCEEDED');
     const repository = await prisma.repo.findFirstOrThrow({
       where: linkedTo(teamId),
-      include: { invitations: { orderBy: { githubLogin: 'asc' } } },
+      include: {
+        invitations: { take: TEST_READ_LIMIT, orderBy: { githubLogin: 'asc' } },
+      },
     });
     expect(repository.visibility).toBe(RepositoryVisibility.PRIVATE);
     expect(

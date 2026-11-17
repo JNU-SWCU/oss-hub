@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from './test-read-limit.config';
 import {
   Prisma,
   PrismaClient,
@@ -36,7 +37,11 @@ export async function repoWithTeam(
   const row = await db.repo.findUnique({
     where: { githubRepoId },
     include: {
-      teamRepos: { where: { validTo: null }, select: { teamId: true } },
+      teamRepos: {
+        take: TEST_READ_LIMIT,
+        where: { validTo: null },
+        select: { teamId: true },
+      },
     },
   });
   if (row === null) return null;

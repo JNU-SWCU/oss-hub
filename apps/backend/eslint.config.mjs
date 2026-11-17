@@ -8,6 +8,7 @@ import { fileClassMatch } from './eslint-rules/file-class-match.mjs';
 import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
 import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
 import { findManyTake } from './eslint-rules/find-many-take.mjs';
+import { nestedRelationTake } from './eslint-rules/nested-relation-take.mjs';
 import { noPassthroughFactory } from './eslint-rules/no-passthrough-factory.mjs';
 import {
   bootstrapFiles,
@@ -131,10 +132,18 @@ export default tseslint.config(
   {
     files: ['src/**/*.ts'],
     ignores: testFiles,
-    plugins: { prisma: { rules: { 'find-many-take': findManyTake } } },
+    plugins: {
+      prisma: {
+        rules: {
+          'find-many-take': findManyTake,
+          'nested-relation-take': nestedRelationTake,
+        },
+      },
+    },
     rules: {
       'no-await-in-loop': 'error',
       'prisma/find-many-take': 'error',
+      'prisma/nested-relation-take': 'error',
     },
   },
   {

@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import type { UserType } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import {
@@ -40,6 +42,7 @@ const STAFF_WHERE = {
 
 @Injectable()
 export class AdminAccessReadRepository {
+  private readonly boundedReads = new BoundedReadRepository();
   constructor(private readonly ordering: AdminAccessReadOrderingRepository) {}
   async listAdminAccessUsers(
     prisma: Pick<PrismaService, 'user' | '$queryRaw'>,
@@ -120,10 +123,18 @@ export class AdminAccessReadRepository {
     prisma: Pick<PrismaService, 'user'>,
     userId: string,
   ): Promise<AdminAccessUserDetailRow | null> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: this.ADMIN_ACCESS_USER_DETAIL_SELECT,
-    });
+    const user = await prisma.user
+      .findUnique({
+        where: { id: userId },
+        select: this.ADMIN_ACCESS_USER_DETAIL_SELECT,
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { teamMemberships: READ_CAP.participationsPerUser },
+          'User.findUnique',
+        ),
+      );
     return user ? this.toAdminAccessUserDetailRow(user) : null;
   }
   toAdminAccessUserRow(user: AdminAccessUserSource): AdminAccessUserRow {
@@ -187,7 +198,10 @@ export class AdminAccessReadRepository {
   readonly ADMIN_ACCESS_USER_DETAIL_SELECT = {
     ...this.ADMIN_ACCESS_USER_SELECT,
     admin: { select: { userId: true, origin: true, grantedAt: true } },
-    teamMemberships: USER_PARTICIPATION_MEMBERSHIPS,
+    teamMemberships: {
+      ...USER_PARTICIPATION_MEMBERSHIPS,
+      take: READ_CAP.participationsPerUser + 1,
+    },
   } as const satisfies Prisma.UserSelect;
 }
 function adminAccessWhere(

@@ -1286,7 +1286,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const provisionedRepositories = await prisma.repo.findMany({
       take: TEST_READ_LIMIT,
       where: { ownerName: { startsWith: 'purge7-org/full-provisioned' } },
-      include: { teamRepos: { where: { validTo: null } } },
+      include: {
+        teamRepos: { take: TEST_READ_LIMIT, where: { validTo: null } },
+      },
     });
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({

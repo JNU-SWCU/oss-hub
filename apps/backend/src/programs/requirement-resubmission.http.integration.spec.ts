@@ -148,6 +148,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         revision: true,
         status: true,
         histories: {
+          take: TEST_READ_LIMIT,
           orderBy: { revision: 'asc' },
           select: { id: true, event: true, revision: true, content: true },
         },

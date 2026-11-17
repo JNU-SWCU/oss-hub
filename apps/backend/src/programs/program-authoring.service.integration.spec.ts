@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
@@ -130,14 +131,19 @@ describe('ProgramAuthoringService integration', () => {
       where: { id: created.id },
       select: {
         milestones: {
+          take: TEST_READ_LIMIT,
           orderBy: { createdAt: 'asc' },
           select: {
             requirements: {
+              take: TEST_READ_LIMIT,
               orderBy: { sortOrder: 'asc' },
               select: {
                 name: true,
                 required: true,
-                files: { where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' } },
+                files: {
+                  take: TEST_READ_LIMIT,
+                  where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+                },
               },
             },
           },

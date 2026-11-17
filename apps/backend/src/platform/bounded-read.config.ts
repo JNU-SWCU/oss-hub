@@ -19,6 +19,7 @@ export const READ_CAP = {
   commentsPerPost: 100,
   historiesPerSubmission: 25,
   teamsPerUser: 20,
+  participationsPerUser: 200,
   filesPerSubmission: 25,
   reposPerTeam: 5,
   programs: 200,

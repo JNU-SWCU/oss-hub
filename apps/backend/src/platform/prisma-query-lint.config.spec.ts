@@ -131,6 +131,58 @@ describe('loadPrismaQueryLintConfig', () => {
     ).toBe('LINT.NO_LIMIT');
   });
 
+  it('rejects to-many relations read without take at any depth', async () => {
+    const prisma = lintedClient();
+
+    await expect(
+      prisma.team.findUnique({
+        where: { id: 'team' },
+        select: { members: { select: { userId: true } } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'LINT.NESTED_NO_LIMIT',
+      key: `Team.findUnique.members@${CALLER}`,
+    });
+    expect(
+      await lintCode(
+        prisma.team.findUnique({
+          where: { id: 'team' },
+          include: { members: true },
+        }),
+      ),
+    ).toBe('LINT.NESTED_NO_LIMIT');
+    expect(
+      await lintCode(
+        prisma.teamMember.findFirst({
+          select: {
+            team: {
+              select: {
+                program: { select: { milestones: { select: { id: true } } } },
+              },
+            },
+          },
+        }),
+      ),
+    ).toBe('LINT.NESTED_NO_LIMIT');
+  });
+
+  it('passes to-many relations with take, to-one relations and counts', async () => {
+    const prisma = lintedClient();
+
+    expect(
+      await lintCode(
+        prisma.team.findUnique({
+          where: { id: 'team' },
+          select: {
+            program: { select: { name: true } },
+            members: { take: 101, select: { userId: true } },
+            _count: { select: { members: true } },
+          },
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
   it('rejects deleteMany and updateMany without a where filter', async () => {
     const prisma = lintedClient();
 

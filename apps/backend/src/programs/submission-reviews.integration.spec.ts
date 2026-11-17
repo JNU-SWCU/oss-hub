@@ -249,6 +249,7 @@ describe('SubmissionReviewsService integration', () => {
         select: {
           status: true,
           histories: {
+            take: TEST_READ_LIMIT,
             where: { event: 'APPROVED' },
             select: { event: true },
           },

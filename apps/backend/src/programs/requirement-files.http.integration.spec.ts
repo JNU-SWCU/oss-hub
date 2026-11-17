@@ -111,7 +111,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
           event: true,
           comment: true,
           content: true,
-          files: { select: { id: true } },
+          files: { take: TEST_READ_LIMIT, select: { id: true } },
         },
       });
       expect(events).toEqual(

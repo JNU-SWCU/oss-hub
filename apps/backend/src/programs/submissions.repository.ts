@@ -851,6 +851,21 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         this.boundedReads.assertNestedWithin(
           result,
           {
+            team: {
+              nested: {
+                program: {
+                  nested: {
+                    milestones: {
+                      cap: READ_CAP.milestonesPerProgram,
+                      nested: {
+                        requirements: READ_CAP.requirementsPerMilestone,
+                      },
+                    },
+                  },
+                },
+                submissions: READ_CAP.requirementsPerProgram,
+              },
+            },
             histories: {
               cap: READ_CAP.historiesPerSubmission,
               nested: { files: READ_CAP.filesPerSubmission },
@@ -954,9 +969,11 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
           select: {
             endAt: true,
             milestones: {
+              take: READ_CAP.milestonesPerProgram + 1,
               select: {
                 id: true,
                 requirements: {
+                  take: READ_CAP.requirementsPerMilestone + 1,
                   where: {
                     required: true,
                   },
@@ -967,6 +984,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
           },
         },
         submissions: {
+          take: READ_CAP.requirementsPerProgram + 1,
           select: {
             status: true,
             requirement: {

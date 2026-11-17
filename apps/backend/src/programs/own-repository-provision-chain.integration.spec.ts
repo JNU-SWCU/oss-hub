@@ -572,7 +572,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         prisma.repo.findUniqueOrThrow({
           where: { githubRepoId: ECONOVATION_GITHUB_REPOSITORY_ID },
           include: {
-            teamRepos: { where: { validTo: null }, select: { teamId: true } },
+            teamRepos: {
+              take: TEST_READ_LIMIT,
+              where: { validTo: null },
+              select: { teamId: true },
+            },
           },
         }),
       ).resolves.toMatchObject({
@@ -640,7 +644,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       prisma.repo.findUniqueOrThrow({
         where: { githubRepoId: NO_CONSENT_GITHUB_REPOSITORY_ID },
         include: {
-          teamRepos: { where: { validTo: null }, select: { teamId: true } },
+          teamRepos: {
+            take: TEST_READ_LIMIT,
+            where: { validTo: null },
+            select: { teamId: true },
+          },
         },
       }),
     ).resolves.toMatchObject({
@@ -709,7 +717,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         prisma.repo.findUniqueOrThrow({
           where: { githubRepoId: ORG_GITHUB_REPOSITORY_ID },
           include: {
-            teamRepos: { where: { validTo: null }, select: { teamId: true } },
+            teamRepos: {
+              take: TEST_READ_LIMIT,
+              where: { validTo: null },
+              select: { teamId: true },
+            },
           },
         }),
       ).resolves.toMatchObject({

@@ -481,11 +481,15 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.program.findUniqueOrThrow({
           where: { id: OSS_HUB_PROGRAM_ID },
-          include: { milestones: { orderBy: { id: 'asc' } } },
+          include: {
+            milestones: { take: TEST_READ_LIMIT, orderBy: { id: 'asc' } },
+          },
         }),
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_TEAM_ID },
-          include: { members: { orderBy: { userId: 'asc' } } },
+          include: {
+            members: { take: TEST_READ_LIMIT, orderBy: { userId: 'asc' } },
+          },
         }),
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_TEAM_ID },
@@ -499,7 +503,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
             ),
           },
           include: {
-            histories: true,
+            histories: { take: TEST_READ_LIMIT },
           },
         }),
         prisma.submission.findUniqueOrThrow({
@@ -511,12 +515,14 @@ describe('seed profile=oss-hub contract (integration)', () => {
             ),
           },
           include: {
-            histories: true,
+            histories: { take: TEST_READ_LIMIT },
           },
         }),
         prisma.repo.findUniqueOrThrow({
           where: { githubRepoId: OSS_HUB_GITHUB_REPOSITORY_ID },
-          include: { teamRepos: { where: { validTo: null } } },
+          include: {
+            teamRepos: { take: TEST_READ_LIMIT, where: { validTo: null } },
+          },
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PROVISION_JOB_ID },
@@ -526,14 +532,18 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_TEAM_ID },
-          include: { members: { orderBy: { userId: 'asc' } } },
+          include: {
+            members: { take: TEST_READ_LIMIT, orderBy: { userId: 'asc' } },
+          },
         }),
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_TEAM_ID },
         }),
         prisma.repo.findUniqueOrThrow({
           where: { githubRepoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID },
-          include: { teamRepos: { where: { validTo: null } } },
+          include: {
+            teamRepos: { take: TEST_READ_LIMIT, where: { validTo: null } },
+          },
         }),
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_PROVISION_JOB_ID },
@@ -1567,6 +1577,7 @@ describe('seed profile=all 멱등성 (integration)', () => {
         select: {
           revision: true,
           histories: {
+            take: TEST_READ_LIMIT,
             where: {
               event: {
                 in: [
@@ -1578,6 +1589,7 @@ describe('seed profile=all 멱등성 (integration)', () => {
             select: { id: true, revision: true },
           },
           files: {
+            take: TEST_READ_LIMIT,
             select: { submissionHistoryId: true },
           },
         },
