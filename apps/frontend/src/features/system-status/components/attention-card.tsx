@@ -24,11 +24,6 @@ const RULE_LABEL = {
   MAIL_FAILED: '알림 메일 발송 실패',
 } as const satisfies Record<AnomalyRule, string>;
 
-const AUDIT_CATEGORY: Partial<Record<AnomalyRule, string>> = {
-  SELF_ADMIN_CHANGE: 'ACCOUNT',
-  OFF_HOURS_ADMIN_CHANGE: 'ACCOUNT',
-};
-
 const SEVERITY = {
   HIGH: {
     label: '심각',
@@ -84,18 +79,16 @@ interface AttentionCardProps extends RetryProps {
 }
 
 function targetLink({
-  rule,
   target,
 }: Anomaly): { readonly href: string; readonly text: string } | null {
   if (target === null) return null;
-  const category = AUDIT_CATEGORY[rule];
-  if (category === undefined || target.login === null) {
+  if (target.login === null) {
     return {
       href: `/dashboard/users/${encodeURIComponent(target.id)}`,
       text: '사용자 보기',
     };
   }
-  const query = new URLSearchParams({ q: target.login, category });
+  const query = new URLSearchParams({ q: target.login });
   return {
     href: `/dashboard/audit-logs?${query.toString()}`,
     text: '감사 로그 보기',
