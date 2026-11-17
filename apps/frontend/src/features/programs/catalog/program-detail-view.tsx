@@ -208,6 +208,7 @@ export function ProgramNotFoundState() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
       <EmptyState
+        className="break-keep"
         title="프로그램을 찾을 수 없습니다"
         description="삭제되었거나 공개되지 않은 프로그램입니다."
         action={
