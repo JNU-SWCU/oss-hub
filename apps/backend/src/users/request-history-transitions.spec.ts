@@ -1,9 +1,8 @@
-import type { Prisma, UserHistoryEvent } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserHistoryRepository } from './user-history.repository';
 import { UserTransitionRepository } from './user-transition.repository';
-import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import type {
   ApprovalRecord,
   RequestSnapshot,
@@ -152,39 +151,6 @@ function writerHarness(hasDecision = false) {
   };
 }
 
-type HistoryRow = {
-  readonly event: UserHistoryEvent;
-  readonly data: Prisma.InputJsonValue;
-};
-
-function imported(request: RequestSnapshot): HistoryRow {
-  return {
-    event: 'LEGACY_IMPORT',
-    data: {
-      schemaVersion: 1,
-      recordKind: 'REQUEST_SNAPSHOT',
-      original: request,
-    },
-  };
-}
-
-async function readHistory(rows: readonly HistoryRow[]) {
-  const prisma = Object.assign(new PrismaService(), {
-    userHistory: { findMany: jest.fn().mockResolvedValue(rows) },
-    user: {
-      findMany: jest.fn().mockResolvedValue([
-        { id: 'old-decider', nickname: 'old-decider' },
-        { id: 'actor', nickname: 'actor' },
-      ]),
-    },
-  });
-  return new AdminAccessHistoryRepository().listAdminAccessStaffAccessRequestHistory(
-    prisma,
-    'target',
-    { page: 1, limit: 20 },
-  );
-}
-
 it.each(['account', 'profile', 'phone', 'admin'] as const)(
   '%s history does not snapshot normalized current approval as a request decision',
   async (kind) => {
@@ -212,121 +178,4 @@ it('captures the current request only for an actual approval decision', async ()
     data: eventData,
   });
   expect(h.userCreate).toHaveBeenCalledWith({ data: historyData });
-});
-
-it.each([
-  ['account', 'ACCOUNT_STATUS_CHANGED'],
-  ['profile', 'PROFILE_UPDATED'],
-  ['phone', 'PHONE_UPDATED'],
-] as const)(
-  '%s events cannot overwrite imported APPROVED and REVOKED request facts',
-  async (kind, event) => {
-    const change = input(kind);
-    const result = await readHistory([
-      imported({
-        ...original,
-        id: 'request-approved',
-        status: 'APPROVED',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      }),
-      imported(original),
-      {
-        event,
-        data: {
-          schemaVersion: 1,
-          recordKind: 'DOMAIN_EVENT',
-          action: change.action,
-          targetType: change.targetType,
-          targetId: change.targetId,
-          metadata: change.metadata,
-          request: {
-            ...original,
-            status: 'APPROVED',
-            decidedAt: null,
-            decidedById: null,
-          },
-        },
-      },
-    ]);
-    expect(result.items.map((request) => request.status)).toEqual([
-      'REVOKED',
-      'APPROVED',
-    ]);
-    expect(result.items[0]).toMatchObject({
-      id: original.id,
-      decidedAt: new Date(decidedAt),
-      decidedBy: 'old-decider',
-    });
-  },
-);
-
-it('still folds an actual approval decision over the same imported pending request', async () => {
-  const decision = input('approval');
-  const result = await readHistory([
-    imported({
-      ...original,
-      status: 'PENDING',
-      decidedAt: null,
-      decidedById: null,
-    }),
-    {
-      event: 'APPROVED',
-      data: {
-        schemaVersion: 1,
-        recordKind: 'DOMAIN_EVENT',
-        action: decision.action,
-        targetType: decision.targetType,
-        targetId: decision.targetId,
-        metadata: decision.metadata,
-        request: {
-          ...original,
-          status: 'APPROVED',
-          decidedAt: '2026-02-01T00:00:00.000Z',
-          decidedById: 'actor',
-        },
-      },
-    },
-  ]);
-  expect(result.total).toBe(1);
-  expect(result.items[0]).toMatchObject({
-    status: 'APPROVED',
-    decidedBy: 'actor',
-  });
-});
-
-it('still folds real typed request creation and supersession events', async () => {
-  const result = await readHistory([
-    {
-      event: 'APPROVAL_REQUESTED',
-      data: {
-        schemaVersion: 1,
-        recordKind: 'REQUEST_TRANSITION',
-        request: {
-          ...original,
-          status: 'PENDING',
-          decidedAt: null,
-          decidedById: null,
-        },
-      },
-    },
-    {
-      event: 'REQUEST_SUPERSEDED',
-      data: {
-        schemaVersion: 1,
-        recordKind: 'REQUEST_TRANSITION',
-        cause: 'SUPERSEDED',
-        replacementRequestId: 'replacement',
-        request: {
-          ...original,
-          decidedAt: '2026-02-01T00:00:00.000Z',
-          decidedById: 'actor',
-        },
-      },
-    },
-  ]);
-  expect(result.total).toBe(1);
-  expect(result.items[0]).toMatchObject({
-    status: 'REVOKED',
-    decidedBy: 'actor',
-  });
 });

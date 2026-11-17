@@ -24,10 +24,9 @@ it.each(['UTC', 'Asia/Seoul'] as const)(
         decidedById: decidedAt === null ? null : 'actor', rejectionReason: null,
       };
       const prisma = {
-        userHistory: { findMany: async () => [{
-          event: 'LEGACY_IMPORT',
-          data: { schemaVersion: 1, recordKind: 'REQUEST_SNAPSHOT', original: request },
-        }] },
+        $queryRaw: async (strings) => strings.join('').includes('COUNT(*)')
+          ? [{ total: 1 }]
+          : [{ data: { schemaVersion: 1, recordKind: 'REQUEST_SNAPSHOT', original: request } }],
         user: { findMany: async () => [{ id: 'actor', nickname: 'actor' }] },
       };
       const result = await new AdminAccessHistoryRepository()

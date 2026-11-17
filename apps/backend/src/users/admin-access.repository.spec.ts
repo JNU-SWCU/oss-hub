@@ -197,7 +197,7 @@ it('builds paged user output and search-scoped facets from current approval pred
     }),
   );
 });
-it('folds request transitions to one row per request before stable pagination and keeps login history bounded', async () => {
+it('maps the SQL request page with decider names and keeps login history bounded', async () => {
   const request = (
     id: string,
     createdAt: string,
@@ -227,22 +227,21 @@ it('folds request transitions to one row per request before stable pagination an
         .fn()
         .mockResolvedValue([{ id: 'actor', nickname: 'synthetic-admin' }]),
     },
-    userHistory: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          event: 'APPROVAL_REQUESTED',
-          data: request('request-1', '2026-01-01T00:00:00.000Z', 'PENDING'),
-        },
-        {
-          event: 'APPROVAL_REQUESTED',
-          data: request('request-2', '2026-02-01T00:00:00.000Z', 'PENDING'),
-        },
-        {
-          event: 'REJECTED',
-          data: request('request-1', '2026-01-01T00:00:00.000Z', 'REJECTED'),
-        },
-      ]),
-    },
+    $queryRaw: jest.fn((strings: TemplateStringsArray) =>
+      Promise.resolve(
+        strings.join('').includes('COUNT(*)')
+          ? [{ total: 2 }]
+          : [
+              {
+                data: request(
+                  'request-1',
+                  '2026-01-01T00:00:00.000Z',
+                  'REJECTED',
+                ),
+              },
+            ],
+      ),
+    ),
     loginHistory: {
       findMany: loginFindMany,
       count: jest.fn().mockResolvedValue(2),

@@ -1,6 +1,4 @@
-import { BoundedReadRepository } from '../platform/bounded-read.repository';
-import { READ_CAP } from '../platform/bounded-read.config';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { StaffAccessRequestStatus } from './user-contract.config';
 import type { RequestSnapshot } from './user-history.types';
 import { APPROVAL_TRANSITION_EVENTS } from './user-history.config';
@@ -15,52 +13,28 @@ type HistoryPage = { readonly page: number; readonly limit: number };
 
 @Injectable()
 export class AdminAccessHistoryRepository {
-  private readonly boundedReads = new BoundedReadRepository();
-
   async listAdminAccessStaffAccessRequestHistory(
-    prisma: Pick<PrismaService, 'userHistory' | 'user'>,
+    prisma: Pick<PrismaService, '$queryRaw' | 'user'>,
     userId: string,
     page: HistoryPage,
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
-    const histories = await this.boundedReads.readCapped(
-      READ_CAP.historyPerUser,
-      'UserHistory per user',
-      (take) =>
-        prisma.userHistory.findMany({
-          take,
-          where: { userId },
-          select: { event: true, data: true },
-          orderBy: [
-            { occurredAt: 'asc' },
-            { recordedAt: 'asc' },
-            { id: 'asc' },
-          ],
-        }),
-    );
-    const byRequest = new Map<string, RequestSnapshot>();
-    for (const history of histories) {
-      const importedRequest =
-        history.event === 'LEGACY_IMPORT' &&
-        isObject(history.data) &&
-        history.data.recordKind === 'REQUEST_SNAPSHOT';
-      if (
-        !importedRequest &&
-        !APPROVAL_TRANSITION_EVENTS.includes(history.event)
-      ) {
-        continue;
-      }
-      const request = readRequestSnapshot(history.data);
-      if (request !== null) byRequest.set(request.id, request);
-    }
-    const requests = [...byRequest.values()].sort(
-      (a, b) =>
-        Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
-        b.id.localeCompare(a.id),
-    );
-    const selected = requests.slice(
-      (page.page - 1) * page.limit,
-      page.page * page.limit,
-    );
+    const latest = latestRequestSnapshotsSql(userId);
+    const [rows, counts] = await Promise.all([
+      prisma.$queryRaw<{ readonly data: Prisma.JsonValue }[]>`
+        WITH latest AS (${latest})
+        SELECT data FROM latest
+        ORDER BY created_at DESC, request_id COLLATE "C" DESC
+        LIMIT ${page.limit} OFFSET ${(page.page - 1) * page.limit}
+      `,
+      prisma.$queryRaw<{ readonly total: number }[]>`
+        WITH latest AS (${latest})
+        SELECT COUNT(*)::int AS total FROM latest
+      `,
+    ]);
+    const selected = rows.flatMap((row) => {
+      const request = readRequestSnapshot(row.data);
+      return request === null ? [] : [request];
+    });
     const actorIds = selected.flatMap((request) =>
       request.decidedById === null ? [] : [request.decidedById],
     );
@@ -85,7 +59,7 @@ export class AdminAccessHistoryRepository {
       })),
       page: page.page,
       limit: page.limit,
-      total: requests.length,
+      total: counts[0]?.total ?? 0,
     };
   }
 
@@ -123,6 +97,63 @@ export class AdminAccessHistoryRepository {
       total,
     };
   }
+}
+
+const ISO_PREFIX = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}';
+const LEGACY_LOCAL =
+  '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?$';
+
+function latestRequestSnapshotsSql(userId: string): Prisma.Sql {
+  return Prisma.sql`
+    SELECT DISTINCT ON (request->>'id')
+      request->>'id' AS request_id,
+      data,
+      CASE
+        WHEN legacy AND request->>'createdAt' ~ ${LEGACY_LOCAL}
+          THEN (request->>'createdAt' || 'Z')::timestamptz
+        ELSE (request->>'createdAt')::timestamptz
+      END AS created_at
+    FROM (
+      SELECT
+        history.id,
+        history."occurredAt",
+        history."recordedAt",
+        history.data,
+        history.data->>'recordKind' = 'REQUEST_SNAPSHOT' AS legacy,
+        CASE history.data->>'recordKind'
+          WHEN 'REQUEST_SNAPSHOT' THEN history.data->'original'
+          ELSE history.data->'request'
+        END AS request
+      FROM "UserHistory" AS history
+      WHERE history."userId" = ${userId}
+        AND history.data->'schemaVersion' = '1'::jsonb
+        AND history.data->>'recordKind' IN
+          ('REQUEST_SNAPSHOT', 'REQUEST_TRANSITION', 'DOMAIN_EVENT')
+        AND (
+          history.event::text = ANY(${[...APPROVAL_TRANSITION_EVENTS]}::text[])
+          OR (
+            history.event = 'LEGACY_IMPORT'
+            AND history.data->>'recordKind' = 'REQUEST_SNAPSHOT'
+          )
+        )
+    ) AS candidate
+    WHERE jsonb_typeof(request) = 'object'
+      AND jsonb_typeof(request->'id') = 'string'
+      AND jsonb_typeof(request->'userId') = 'string'
+      AND request->>'status' IN ('PENDING', 'APPROVED', 'REJECTED', 'REVOKED')
+      AND jsonb_typeof(request->'createdAt') = 'string'
+      AND request->>'createdAt' ~ ${ISO_PREFIX}
+      AND (
+        jsonb_typeof(request->'decidedAt') = 'null'
+        OR (
+          jsonb_typeof(request->'decidedAt') = 'string'
+          AND request->>'decidedAt' ~ ${ISO_PREFIX}
+        )
+      )
+      AND jsonb_typeof(request->'decidedById') IN ('null', 'string')
+      AND jsonb_typeof(request->'rejectionReason') IN ('null', 'string')
+    ORDER BY request->>'id', "occurredAt" DESC, "recordedAt" DESC, id DESC
+  `;
 }
 
 function readRequestSnapshot(data: Prisma.JsonValue): RequestSnapshot | null {
