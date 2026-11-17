@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { main } from './index.mjs';
 import { ZERO, eventFile, tempRepo } from './test-support.mjs';
 import { classifyFiles, resolveRanges, resolveScope } from './scope.mjs';
 import { VerifyError, run } from './tools.mjs';
@@ -243,6 +248,63 @@ test('CI push without a real, distinct before SHA fails closed even when origin/
   });
   assert.deepEqual(scope.ranges[0].base, root);
   assert.equal(scope.backend, true);
+});
+
+function bareRemote(t, repo, refspec) {
+  const remote = mkdtempSync(join(tmpdir(), 'verify-test-remote-'));
+  t.after(() => rmSync(remote, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q', '--bare', remote]);
+  if (refspec) repo.git('push', '-q', remote, refspec);
+  return remote;
+}
+
+async function prePush(t, repo, remote, stdin) {
+  const lines = [];
+  const original = console.log;
+  console.log = (...args) => lines.push(args.join(' '));
+  try {
+    const exit = await main(['scoped', '--pre-push', remote], {
+      cwd: repo.dir,
+      stdin,
+      reportDir: mkdtempSync(join(tmpdir(), 'verify-test-reports-')),
+      env: {},
+    });
+    return { exit, out: lines.join('\n') };
+  } finally {
+    console.log = original;
+  }
+}
+
+test('pre-push new branch whose merge-base is a forged origin/main at HEAD fails closed', async (t) => {
+  const repo = tempRepo(t);
+  repo.commit('root', { 'README.md': 'x\n' });
+  const remote = bareRemote(t, repo, 'HEAD:refs/heads/main');
+  const head = repo.commit('feat: backend with token', {
+    'apps/backend/src/config.ts': `export const token = '${['g', 'h', 'p', '_'].join('')}${'A'.repeat(36)}';\n`,
+  });
+  repo.markRemoteMain(head);
+  const stdin = `refs/heads/feature ${head} refs/heads/feature ${ZERO}\n`;
+  const { exit } = await prePush(t, repo, remote, stdin);
+  assert.equal(exit, 2);
+  await assert.rejects(
+    resolveRanges({ cwd: repo.dir, source: 'pre-push', stdin }),
+    /no remote was given/,
+  );
+});
+
+test('pre-push of a commit the remote already has to a new branch passes with nothing to verify', async (t) => {
+  const repo = tempRepo(t);
+  const head = repo.commit('root', { 'README.md': 'x\n' });
+  const remote = bareRemote(t, repo, 'HEAD:refs/heads/main');
+  repo.markRemoteMain(head);
+  const { exit, out } = await prePush(
+    t,
+    repo,
+    remote,
+    `refs/heads/copy ${head} refs/heads/copy ${ZERO}\n`,
+  );
+  assert.equal(exit, 0);
+  assert.match(out, /nothing new to verify/);
 });
 
 test('run kills a hung command at its deadline', async () => {

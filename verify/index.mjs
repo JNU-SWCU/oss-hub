@@ -69,6 +69,10 @@ export async function main(
       source,
       env,
       stdin: source === 'pre-push' ? (stdin ?? readFileSync(0, 'utf8')) : '',
+      remote:
+        source === 'pre-push'
+          ? argv[argv.indexOf('--pre-push') + 1]
+          : undefined,
     });
   } catch (error) {
     if (REPORT_ONLY.has(command)) {
@@ -85,7 +89,9 @@ export async function main(
     return 0;
   }
   if (scope.ranges.length === 0) {
-    console.log('verify: no pushed commits to verify (deletions only)');
+    console.log(
+      'verify: nothing new to verify (deletions or commits already on the remote)',
+    );
     return 0;
   }
   const checks = command === 'scoped' ? scopedChecks(scope) : COMMANDS[command];

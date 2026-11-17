@@ -5,6 +5,7 @@ import {
   git,
   gitOk,
   isZeroSha,
+  run,
 } from './tools.mjs';
 
 const SHA = '[0-9a-f]{40}(?:[0-9a-f]{24})?';
@@ -48,7 +49,30 @@ async function mergeBaseOrFail(cwd, head, defaultBranch, reason) {
   return base;
 }
 
-async function prePushRanges(cwd, stdin, defaultBranch) {
+async function confirmOnRemote(cwd, remote, sha, ref) {
+  if (!remote) {
+    throw new VerifyError(
+      `${ref} resolves to an empty range at ${sha.slice(0, 9)} and no remote was given to confirm it; refusing to pass without verification`,
+    );
+  }
+  const result = await run('git', ['ls-remote', '--', remote], {
+    cwd,
+    timeoutMs: 60_000,
+  });
+  if (result.code !== 0) {
+    throw new VerifyError(
+      `${ref} resolves to an empty range and git ls-remote ${remote} failed: ${result.stderr.trim()}; refusing to pass without verification`,
+    );
+  }
+  const tips = result.stdout.split('\n').map((line) => line.split('\t')[0]);
+  if (!tips.includes(sha)) {
+    throw new VerifyError(
+      `${ref} resolves to an empty range at ${sha.slice(0, 9)}, but ${remote} has no ref at that commit; refusing to pass without verification (run: git fetch ${remote})`,
+    );
+  }
+}
+
+async function prePushRanges(cwd, stdin, defaultBranch, remote) {
   const ranges = [];
   const lines = stdin.split('\n').filter((line) => line.trim() !== '');
   for (const [index, line] of lines.entries()) {
@@ -72,6 +96,10 @@ async function prePushRanges(cwd, stdin, defaultBranch) {
         )
       : remoteSha;
     await requireCommit(cwd, base, `remote ${remoteRef}; run git fetch`);
+    if (base === localSha) {
+      await confirmOnRemote(cwd, remote, localSha, localRef);
+      continue;
+    }
     ranges.push({ base, head: localSha, ref: localRef });
   }
   return ranges;
@@ -119,6 +147,10 @@ async function localRanges(cwd, defaultBranch) {
   const pushed = await gitOk(cwd, ['rev-parse', '--verify', '-q', '@{push}']);
   const base =
     pushed ?? (await mergeBaseOrFail(cwd, head, defaultBranch, 'local run'));
+  if (base === head) {
+    await confirmOnRemote(cwd, defaultBranch.split('/')[0], head, 'HEAD');
+    return [];
+  }
   return [{ base, head, ref: 'HEAD' }];
 }
 
@@ -128,9 +160,10 @@ export async function resolveRanges({
   stdin = '',
   env = process.env,
   defaultBranch = DEFAULT_BRANCH,
+  remote,
 }) {
   if (source === 'pre-push') {
-    return prePushRanges(cwd, stdin, defaultBranch);
+    return prePushRanges(cwd, stdin, defaultBranch, remote);
   }
   if (source === 'ci') {
     return ciRanges(cwd, env);

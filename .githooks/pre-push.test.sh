@@ -47,7 +47,7 @@ if grep -q 'verify' "$work/out"; then
   fail=1
 fi
 FORMAT_EXIT=0 run "deletion-only push passes without checks" 0 "(delete) $zero refs/heads/gone $sha"$'\n'
-if ! grep -q 'deletions only' "$work/out"; then
+if ! grep -q 'nothing new to verify' "$work/out"; then
   echo "FAIL deletion-only push did not skip checks" >&2
   fail=1
 fi
