@@ -38,6 +38,13 @@ export function ProgramAuthoringBasicStep({
           <ProgramNoticeImport
             currentName={state.name}
             currentDescription={state.description}
+            currentOrganizers={state.organizers}
+            applicationStartAt={state.applicationStartAt}
+            applicationEndAt={state.applicationEndAt}
+            operationStartAt={state.operationStartAt}
+            operationEndAt={state.operationEndAt}
+            teamMinSize={state.teamMinSize}
+            teamMaxSize={state.teamMaxSize}
             hasCover={Boolean(state.coverFile || state.externalCover)}
             sourceUrl={state.externalCover?.sourceUrl}
             onApply={(patch) => dispatch({ type: 'apply_notice', patch })}

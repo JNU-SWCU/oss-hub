@@ -1,15 +1,15 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from './files.service';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID } from 'node:crypto';
 
 const programAuthoringUploadService = new ProgramAuthoringUploadService(
   {} as never,
   {} as never,
   new SubmissionFileAdmissionService(),
-  new ProgramNoticeFetchClient(),
+  createProgramNoticeFetchClient(),
 );
 
 jest.mock('node:crypto', () => ({

@@ -1,10 +1,10 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from './files.service';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramMilestoneEditValidationError } from './programs.error';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './programs.service';
@@ -18,7 +18,7 @@ const programEditorService = new ProgramEditorService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
   new ProgramOrganizersService(),

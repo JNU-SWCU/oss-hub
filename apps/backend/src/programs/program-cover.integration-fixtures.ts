@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   FileMetadataRepository,
   ProgramAuthoringUploadTransactionRepository,
@@ -11,7 +12,6 @@ import {
   ProgramAuthoringUploadService,
 } from './files.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
   ProgramDeletionScopeRepository,
   ProgramAuthoringRepository,
@@ -53,7 +53,7 @@ export const editor = new ProgramEditorService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
   new ProgramOrganizersService(),
@@ -152,7 +152,7 @@ beforeAll(async () => {
           {} as never,
           {} as never,
           new SubmissionFileAdmissionService(),
-          new ProgramNoticeFetchClient(),
+          createProgramNoticeFetchClient(),
         ),
       },
       { provide: PrismaService, useValue: prisma },

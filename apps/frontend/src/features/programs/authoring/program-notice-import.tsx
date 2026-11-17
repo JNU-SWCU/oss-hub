@@ -1,107 +1,104 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { featureKey } from '@/lib/query-keys';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { ApiError } from '@/lib/api-client';
 import { DialogShell } from '@/components';
-import { previewProgramNotice } from './program-notice-api';
+import { ProgramNoticeSteps } from './program-notice-steps';
+import { listProgramNotices, previewProgramNotice } from './program-notice-api';
 import type {
   ProgramNoticePatch,
   ProgramNoticePreview,
 } from './program-notice-dto';
-import { ProgramNoticePreviewFields } from './program-notice-preview-fields';
+import { ProgramNoticeCards } from './program-notice-cards';
+import { ProgramNoticeReview } from './program-notice-review';
+import {
+  noticeReviewRows,
+  type NoticeCurrent,
+} from './program-notice-review-model';
 
 type PreviewState =
-  | { readonly kind: 'idle' | 'loading' }
-  | { readonly kind: 'failed'; readonly message: string }
+  | { readonly kind: 'select' }
+  | { readonly kind: 'loading'; readonly url: string }
+  | { readonly kind: 'failed'; readonly url: string }
   | { readonly kind: 'ready'; readonly preview: ProgramNoticePreview };
 
-export function ProgramNoticeImport({
-  currentName,
-  currentDescription,
-  hasCover,
-  sourceUrl = '',
-  disabled = false,
-  onApply,
-}: {
-  readonly currentName: string;
-  readonly currentDescription: string;
-  readonly hasCover: boolean;
-  readonly sourceUrl?: string;
-  readonly disabled?: boolean;
-  readonly onApply: (patch: ProgramNoticePatch) => void;
-}) {
-  const queryClient = useQueryClient();
-  const id = useId();
+export function ProgramNoticeImport(
+  props: NoticeCurrent & {
+    readonly hasCover: boolean;
+    readonly sourceUrl?: string;
+    readonly disabled?: boolean;
+    readonly onApply: (patch: ProgramNoticePatch) => void;
+  },
+) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const request = useRef<AbortController | null>(null);
+  const applied = useRef(false);
   const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState(sourceUrl);
-  const [state, setState] = useState<PreviewState>({ kind: 'idle' });
-  const [patch, setPatch] = useState<ProgramNoticePatch>({});
+  const [state, setState] = useState<PreviewState>({ kind: 'select' });
+  const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
+  const [cover, setCover] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const notices = useQuery({
+    queryKey: ['program-notice-list'],
+    queryFn: ({ signal }) => listProgramNotices(signal),
+    enabled: open,
+    retry: false,
+    staleTime: 0,
+  });
+  useEffect(() => () => request.current?.abort(), []);
 
-  const cancelRequest = useCallback(() => {
-    if (request.current === null) return;
-    request.current.abort();
+  const reset = () => {
+    request.current?.abort();
     request.current = null;
-    void queryClient.cancelQueries({
-      queryKey: featureKey('program-notice-preview', url.trim()),
-      exact: true,
-    });
-  }, [queryClient, url]);
-
-  useEffect(() => cancelRequest, [cancelRequest]);
-  const close = () => {
-    cancelRequest();
-    setOpen(false);
-    setState({ kind: 'idle' });
-    setPatch({});
+    setState({ kind: 'select' });
+    setChecked(new Set());
+    setCover(null);
   };
-  const load = async () => {
-    cancelRequest();
+  const close = () => {
+    reset();
+    setOpen(false);
+  };
+  const pick = async (url: string) => {
+    if (request.current) return;
     const controller = new AbortController();
     request.current = controller;
-    setState({ kind: 'loading' });
-    setPatch({});
+    setState({ kind: 'loading', url });
     try {
-      const preview = await queryClient.fetchQuery({
-        queryKey: featureKey('program-notice-preview', url.trim()),
-        queryFn: () => previewProgramNotice(url.trim(), controller.signal),
-        staleTime: 0,
-      });
+      const preview = await previewProgramNotice(url, controller.signal);
       if (controller.signal.aborted || request.current !== controller) return;
+      setChecked(
+        new Set(
+          noticeReviewRows(preview, props)
+            .filter((row) => row.next && row.current.trim() !== row.next.trim())
+            .map((row) => row.key),
+        ),
+      );
+      setCover(preview.coverImages[0] ?? null);
       setState({ kind: 'ready', preview });
-      setPatch({
-        ...(!currentName.trim() && preview.name ? { name: preview.name } : {}),
-        ...(!currentDescription.trim() && preview.description
-          ? { description: preview.description }
-          : {}),
-        ...(!hasCover &&
-        preview.coverImages.length === 1 &&
-        preview.coverImages[0]
-          ? {
-              externalCover: {
-                sourceUrl: preview.sourceUrl,
-                imageUrl: preview.coverImages[0],
-              },
-            }
-          : {}),
-      });
     } catch (error: unknown) {
       if (controller.signal.aborted || request.current !== controller) return;
-      setState({ kind: 'failed', message: noticeFailure(error) });
+      if (!(error instanceof Error)) throw error;
+      setState({ kind: 'failed', url });
+    } finally {
+      if (request.current === controller) request.current = null;
     }
   };
+
+  const rows =
+    state.kind === 'ready' ? noticeReviewRows(state.preview, props) : [];
+  const applicable = rows.filter(
+    (row) =>
+      row.next &&
+      row.current.trim() !== row.next.trim() &&
+      checked.has(row.key),
+  );
   const canApply =
     state.kind === 'ready' &&
-    (patch.name !== undefined ||
-      patch.description !== undefined ||
-      patch.externalCover !== undefined);
+    (applicable.length > 0 || cover !== null) &&
+    !props.disabled;
+  const step = state.kind === 'ready' ? 3 : state.kind === 'select' ? 0 : 1;
 
   return (
     <>
@@ -110,118 +107,136 @@ export function ProgramNoticeImport({
         type="button"
         variant="outline"
         className="w-full border-primary/40 font-sans text-primary sm:w-auto"
-        disabled={disabled}
-        onClick={() => setOpen(true)}
+        disabled={props.disabled}
+        onClick={() => {
+          applied.current = false;
+          setPage(0);
+          setOpen(true);
+        }}
       >
         <FileText aria-hidden="true" />
-        공지에서 가져오기
+        공고 불러오기
       </Button>
       {open ? (
         <DialogShell
-          title="공지에서 가져오기"
+          title="공고 불러오기"
           size="lg"
           returnFocusRef={triggerRef}
           onCancel={close}
           footer={
-            <>
+            state.kind === 'ready' ? (
+              <>
+                <Button type="button" variant="outline" onClick={reset}>
+                  다른 공고
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!canApply}
+                  onClick={() => {
+                    if (!canApply || state.kind !== 'ready' || applied.current)
+                      return;
+                    applied.current = true;
+                    const fields = applicable.reduce<ProgramNoticePatch>(
+                      (patch, row) => ({ ...patch, ...row.patch }),
+                      {},
+                    );
+                    const patch: ProgramNoticePatch = {
+                      ...fields,
+                      ...(cover
+                        ? {
+                            externalCover: {
+                              sourceUrl: state.preview.sourceUrl,
+                              imageUrl: cover,
+                            },
+                          }
+                        : {}),
+                    };
+                    props.onApply(patch);
+                    close();
+                  }}
+                >
+                  적용
+                </Button>
+              </>
+            ) : (
               <Button type="button" variant="outline" onClick={close}>
                 닫기
               </Button>
-              <Button
-                type="button"
-                disabled={!canApply || disabled}
-                onClick={() => {
-                  if (!canApply) return;
-                  onApply({
-                    ...(patch.name !== undefined ? { name: patch.name } : {}),
-                    ...(patch.description !== undefined
-                      ? { description: patch.description }
-                      : {}),
-                    ...(patch.externalCover !== undefined
-                      ? { externalCover: patch.externalCover }
-                      : {}),
-                  });
-                  close();
-                }}
-              >
-                선택한 내용 적용
-              </Button>
-            </>
+            )
           }
         >
-          <Field>
-            <FieldLabel htmlFor={id}>sojoong 공지 URL</FieldLabel>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id={id}
-                type="url"
-                value={url}
-                placeholder="https://sojoong.kr/notice/…"
-                onChange={(event) => {
-                  cancelRequest();
-                  setUrl(event.target.value);
-                  setState({ kind: 'idle' });
-                  setPatch({});
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' || event.nativeEvent.isComposing)
-                    return;
-                  event.preventDefault();
-                  if (url.trim() && state.kind !== 'loading') void load();
-                }}
+          <ProgramNoticeSteps step={step} />
+          {state.kind === 'select' ? (
+            notices.isPending ? (
+              <p role="status" className="text-small text-muted-foreground">
+                공고 목록을 불러오는 중…
+              </p>
+            ) : notices.isError ? (
+              <div className="grid gap-3">
+                <p role="alert">
+                  공고 목록을 불러오지 못했습니다. 다시 시도하거나 닫은 후 직접
+                  입력하세요.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void notices.refetch()}
+                >
+                  다시 시도
+                </Button>
+              </div>
+            ) : (
+              <ProgramNoticeCards
+                items={notices.data.items}
+                page={page}
+                onPage={setPage}
+                onPick={(url) => void pick(url)}
               />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!url.trim() || state.kind === 'loading'}
-                onClick={() => void load()}
-              >
-                불러오기
-              </Button>
-            </div>
-          </Field>
+            )
+          ) : null}
           {state.kind === 'loading' ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              공지를 불러오는 중…
+            <p
+              role="status"
+              className="py-10 text-center text-small text-muted-foreground"
+            >
+              공고를 불러오고 내용을 추출하는 중…
             </p>
           ) : null}
           {state.kind === 'failed' ? (
-            <p role="alert" className="text-sm text-destructive">
-              {state.message}
-            </p>
+            <div className="grid gap-3">
+              <p role="alert">
+                공고를 불러오지 못했습니다. 다시 시도하거나 다른 공고를
+                선택하세요.
+              </p>
+              <div className="flex gap-2">
+                <Button type="button" onClick={() => void pick(state.url)}>
+                  다시 시도
+                </Button>
+                <Button type="button" variant="outline" onClick={reset}>
+                  다른 공고
+                </Button>
+              </div>
+            </div>
           ) : null}
           {state.kind === 'ready' ? (
-            <ProgramNoticePreviewFields
+            <ProgramNoticeReview
               preview={state.preview}
-              currentName={currentName}
-              currentDescription={currentDescription}
-              hasCover={hasCover}
-              patch={patch}
-              onChange={setPatch}
+              rows={rows}
+              checked={checked}
+              onCheck={(key, value) =>
+                setChecked((previous) => {
+                  const next = new Set(previous);
+                  if (value) next.add(key);
+                  else next.delete(key);
+                  return next;
+                })
+              }
+              cover={cover}
+              onCover={setCover}
             />
           ) : null}
-          <p className="text-sm leading-6 text-muted-foreground">
-            신청 기간, 마일스톤, 제출 항목과 기한은 가져오지 않으니 직접 설정해
-            주세요.
-          </p>
         </DialogShell>
       ) : null}
     </>
   );
-}
-
-function noticeFailure(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.problem.status === 400)
-      return 'sojoong 공지 주소인지 확인해 주세요. 가져오기 없이 직접 입력할 수도 있습니다.';
-    if (error.problem.status === 429)
-      return '요청이 많아 잠시 기다려야 합니다. 잠시 후 다시 시도하거나 직접 입력해 주세요.';
-    if (
-      error.problem.status === 401 ||
-      error.problem.status === 403 ||
-      error.problem.status === 409
-    )
-      return '공지를 가져올 권한을 확인하지 못했습니다. 로그인 상태를 확인하거나 직접 입력해 주세요.';
-  }
-  return '공지를 가져오지 못했습니다. 주소를 확인해 다시 시도하거나 직접 입력해 주세요.';
 }

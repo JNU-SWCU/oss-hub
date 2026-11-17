@@ -151,6 +151,13 @@ export function ProgramEditBasicForm({
           <ProgramNoticeImport
             currentName={form.name}
             currentDescription={form.description}
+            currentOrganizers={form.organizers}
+            applicationStartAt={form.applicationStartAt}
+            applicationEndAt={form.applicationEndAt}
+            operationStartAt={form.startAt}
+            operationEndAt={form.endAt}
+            teamMinSize={form.teamMinSize}
+            teamMaxSize={form.teamMaxSize}
             hasCover={Boolean(
               coverSelection ||
               (coverSelection === undefined && program.coverImageUrl),
@@ -161,6 +168,20 @@ export function ProgramEditBasicForm({
               if (patch.name !== undefined) onFieldChange('name', patch.name);
               if (patch.description !== undefined)
                 onFieldChange('description', patch.description);
+              if (patch.organizers !== undefined)
+                onFieldChange('organizers', patch.organizers);
+              if (patch.applicationStartAt !== undefined)
+                onFieldChange('applicationStartAt', patch.applicationStartAt);
+              if (patch.applicationEndAt !== undefined)
+                onFieldChange('applicationEndAt', patch.applicationEndAt);
+              if (patch.operationStartAt !== undefined)
+                onFieldChange('startAt', patch.operationStartAt);
+              if (patch.operationEndAt !== undefined)
+                onFieldChange('endAt', patch.operationEndAt);
+              if (patch.teamMinSize !== undefined)
+                onFieldChange('teamMinSize', patch.teamMinSize);
+              if (patch.teamMaxSize !== undefined)
+                onFieldChange('teamMaxSize', patch.teamMaxSize);
               if (patch.externalCover !== undefined)
                 onCoverChange(patch.externalCover);
             }}

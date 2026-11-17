@@ -9,6 +9,7 @@ export class ProgramNoticePreviewResponseDto implements ProgramNoticePreview {
   declare readonly description: string;
   declare readonly coverImages: string[];
   declare readonly warnings: ProgramNoticeWarning[];
+  declare readonly candidates: ProgramNoticePreview['candidates'];
 
   static from(preview: ProgramNoticePreview): ProgramNoticePreviewResponseDto {
     return {
@@ -17,6 +18,7 @@ export class ProgramNoticePreviewResponseDto implements ProgramNoticePreview {
       description: preview.description,
       coverImages: preview.coverImages,
       warnings: preview.warnings,
+      candidates: preview.candidates,
     };
   }
 }

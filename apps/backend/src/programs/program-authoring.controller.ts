@@ -1,3 +1,4 @@
+import { ProgramNoticePreviewService } from './program-notice-preview.service';
 import {
   PROGRAM_COVER_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_BYTES,
@@ -10,6 +11,7 @@ import {
   Req,
   UseGuards,
   ConflictException,
+  ForbiddenException,
   Delete,
   Get,
   Headers,
@@ -20,10 +22,7 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
-import {
-  ProgramNoticePreviewService,
-  ProgramAuthoringService,
-} from './programs.service';
+import { ProgramAuthoringService } from './programs.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-upload-response.dto';
 import { ProgramIdResponseDto } from './dto/program-id-response.dto';
@@ -33,6 +32,7 @@ import { ProgramAuthoringUploadService } from './files.service';
 import { type ProgramAuthoringUploadFile } from './files.error';
 import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
 import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
+import { ProgramNoticeListResponseDto } from './dto/program-notice-list-response.dto';
 import { Protected } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
@@ -120,6 +120,18 @@ export class ProgramAuthoringController {
         idempotencyKey,
         input,
       ),
+    );
+  }
+
+  @Get('notices')
+  @Protected()
+  @Roles(STAFF_AUDIENCE, () => new ForbiddenException())
+  @UseGuards(OriginGuard)
+  async notices(
+    @Req() request: SessionIdentity,
+  ): Promise<ProgramNoticeListResponseDto> {
+    return ProgramNoticeListResponseDto.from(
+      await this.previews.list(request.principal.id),
     );
   }
 

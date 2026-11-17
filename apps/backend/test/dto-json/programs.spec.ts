@@ -1104,6 +1104,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         description: 'Body',
         coverImages: ['https://images.example/1.png'],
         warnings: ['MULTIPLE_IMAGES'],
+        candidates: {},
       }),
   ],
   [

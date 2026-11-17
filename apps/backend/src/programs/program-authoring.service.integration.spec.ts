@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import {
@@ -8,7 +9,6 @@ import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
 } from './files.repository';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import { ProgramTrackType, FileLifecycle } from '@prisma/client';
 import {
@@ -42,7 +42,7 @@ const programAuthoringService = new ProgramAuthoringService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
   new ProgramOrganizersService(),
@@ -67,7 +67,7 @@ describe('ProgramAuthoringService integration', () => {
       {} as never,
       {} as never,
       new SubmissionFileAdmissionService(),
-      new ProgramNoticeFetchClient(),
+      createProgramNoticeFetchClient(),
     ),
     new ProgramAuthoringUploadTransactionRepository(),
     new ProgramOrganizersService(),

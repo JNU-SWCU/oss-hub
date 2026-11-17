@@ -1,6 +1,6 @@
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 
-const client = new ProgramNoticeFetchClient();
+const client = createProgramNoticeFetchClient();
 
 describe('program-notice-extraction', () => {
   const url = new URL(

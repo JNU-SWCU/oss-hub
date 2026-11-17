@@ -1,3 +1,5 @@
+import { ProgramNoticePreviewService } from './program-notice-preview.service';
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
@@ -11,7 +13,6 @@ import { ProgramAuthoringRepository } from './programs.repository';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramNoticePreviewService } from './programs.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
@@ -68,7 +69,7 @@ beforeAll(async () => {
       { provide: ProgramAuthoringRepository, useValue: { findActor } },
       {
         provide: ProgramNoticeFetchClient,
-        useValue: Object.assign(new ProgramNoticeFetchClient(), { read }),
+        useValue: Object.assign(createProgramNoticeFetchClient(), { read }),
       },
       ProgramNoticePreviewService,
     ],
@@ -117,6 +118,7 @@ it('runs the actual session and origin guards and returns a no-store plain-text 
     description: 'One\nTwo',
     coverImages: [],
     warnings: ['NO_IMAGE'],
+    candidates: {},
   });
 });
 it('rejects anonymous requests before actor or upstream access', async () => {
@@ -153,4 +155,48 @@ it('returns a stable source failure without leaking upstream details', async () 
   expect(await response.json()).toMatchObject({
     code: 'PROGRAM_NOTICE_FETCH_FAILED',
   });
+});
+
+function notices(
+  authenticated = true,
+  requestOrigin = 'https://frontend.example',
+) {
+  return fetch(`${origin}/api/v1/program-authoring/notices`, {
+    headers: {
+      origin: requestOrigin,
+      ...(authenticated ? { cookie } : {}),
+      connection: 'close',
+    },
+  });
+}
+
+it('returns a no-store list using the same guarded upstream transport', async () => {
+  read.mockResolvedValueOnce(
+    '<div class="kboard-list"><table><tr><td><a href="/notice/notice-board/?uid=123&amp;mod=document"><div class="custom-title">Synthetic</div></a><span class="kboard-date">2026.11.17</span></td></tr></table></div>',
+  );
+  const response = await notices();
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  expect(await response.json()).toEqual({
+    items: [
+      {
+        url: source,
+        title: 'Synthetic',
+        postedAt: '2026-11-17',
+        thumbnailUrl: null,
+      },
+    ],
+  });
+});
+
+it('rejects non-staff listing with 403 before accessing the external site', async () => {
+  findActor.mockResolvedValueOnce({ ...actor, hasStaffAccess: false });
+  expect((await notices()).status).toBe(403);
+  expect(read).not.toHaveBeenCalled();
+});
+
+it('rejects anonymous and cross-origin listing before external access', async () => {
+  expect((await notices(false)).status).toBe(401);
+  expect((await notices(true, 'https://evil.example')).status).toBe(403);
+  expect(read).not.toHaveBeenCalled();
 });

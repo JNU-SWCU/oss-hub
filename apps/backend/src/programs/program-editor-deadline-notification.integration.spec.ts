@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
@@ -9,7 +10,6 @@ import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
 } from './files.repository';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -64,7 +64,7 @@ const editor = new ProgramEditorService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
   new ProgramOrganizersService(),
