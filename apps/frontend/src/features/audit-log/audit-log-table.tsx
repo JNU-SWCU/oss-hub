@@ -22,8 +22,7 @@ import {
 } from './audit-log-parts';
 import type { AuditLogRecord } from './types';
 
-type AuditLogSortKey =
-  'occurredAt' | 'actor' | 'role' | 'action' | 'target';
+type AuditLogSortKey = 'occurredAt' | 'actor' | 'role' | 'action' | 'target';
 
 interface AuditLogSort {
   readonly key: AuditLogSortKey;
