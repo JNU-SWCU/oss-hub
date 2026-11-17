@@ -42,22 +42,6 @@ export type ApplicationDecisionInput =
   | { readonly action: 'REJECT'; readonly reason?: string }
   | { readonly action: 'REVERT' };
 
-export type ApplicationDecisionResponse =
-  | {
-      readonly teamId: string;
-      readonly status: 'APPROVED';
-      readonly repositoryProvisioning: RepositoryProvisioning;
-    }
-  | {
-      readonly teamId: string;
-      readonly status: 'REJECTED';
-      readonly rejectionReason: string | null;
-    }
-  | {
-      readonly teamId: string;
-      readonly status: 'SUBMITTED';
-    };
-
 export type ApplicationDecisionAction = 'APPROVE' | 'REJECT' | 'REVERT';
 
 type ApplicationFormFieldType = 'auto' | 'text' | 'textarea';

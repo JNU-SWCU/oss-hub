@@ -402,11 +402,6 @@ const insightsBody = {
     to: expect.any(String) as string,
   },
 };
-const decisionBody = {
-  teamId: APPLICATION_ID,
-  status: ApplicationStatus.APPROVED,
-  repositoryProvisioning: { enabled: false, eventId: null, jobStatus: null },
-};
 
 const findApplicationForStaff = jest.fn().mockResolvedValue(listItemSource);
 const listReviewHistory = jest.fn().mockResolvedValue([reviewHistoryEntry]);
@@ -869,13 +864,9 @@ it.each(decisionCases)(
       return;
     }
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
     const rejected = body.value.action === 'REJECT';
-    expect(await readJson(response)).toEqual(
-      rejected
-        ? { teamId: APPLICATION_ID, status: 'REJECTED', rejectionReason: null }
-        : decisionBody,
-    );
     expect(transitionApplication).toHaveBeenCalledWith({
       teamId: APPLICATION_ID,
       expectedStatus: ApplicationStatus.SUBMITTED,
@@ -1040,7 +1031,6 @@ it('whitelist 필드만 보낸 정상 PATCH decide 는 통과한다(대조군)',
     body: { action: 'APPROVE' },
   });
 
-  expect(response.status).toBe(200);
-  expect(await readJson(response)).toEqual(decisionBody);
+  expect(response.status).toBe(204);
   expect(withTransaction).toHaveBeenCalledTimes(1);
 });

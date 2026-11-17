@@ -570,7 +570,7 @@ it('사유 없이 반려할 수 있고 재제출은 같은 Team 행의 회차를
     },
     body: JSON.stringify({ action: 'REJECT' }),
   });
-  expect(rejected.status).toBe(200);
+  expect(rejected.status).toBe(204);
   expect(
     await prisma.team.findUniqueOrThrow({ where: { id: team.id } }),
   ).toMatchObject({ status: 'REJECTED', rejectionReason: null });

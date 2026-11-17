@@ -80,10 +80,7 @@ function Decision() {
 }
 
 it('신청 결정 성공은 프로그램 개요와 대시보드를 무효화한다', async () => {
-  vi.mocked(decideApplication).mockResolvedValue({
-    teamId: 'application-1',
-    status: 'SUBMITTED',
-  });
+  vi.mocked(decideApplication).mockResolvedValue(undefined);
   view = await renderWithQuery(<Decision />);
   const keys = [
     programFeatureKey('program-1', 'overview', true),

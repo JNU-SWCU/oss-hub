@@ -1250,15 +1250,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApplicationDecisionResponseDto"
-                }
-              }
-            }
+          "204": {
+            "description": ""
           }
         },
         "tags": [
@@ -6992,58 +6985,6 @@
         },
         "required": [
           "action"
-        ]
-      },
-      "ApplicationDecisionResponseDto": {
-        "type": "object",
-        "properties": {
-          "teamId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "APPROVED",
-              "REJECTED",
-              "SUBMITTED"
-            ]
-          },
-          "repositoryProvisioning": {
-            "type": "object",
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "eventId": {
-                "type": "string",
-                "nullable": true
-              },
-              "jobStatus": {
-                "nullable": true,
-                "enum": [
-                  "PENDING",
-                  "PROCESSING",
-                  "SUCCEEDED",
-                  "FAILED_RETRYABLE",
-                  "FAILED_FINAL"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "enabled",
-              "eventId",
-              "jobStatus"
-            ]
-          },
-          "rejectionReason": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "teamId",
-          "status"
         ]
       },
       "ApplicationFieldResponseDto": {

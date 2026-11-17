@@ -63,23 +63,11 @@ describe('ApplicationsController', () => {
       action: 'APPROVE',
     });
 
-    const response = await controller.decide(
-      { principal: STAFF },
-      'synthetic-application',
-      body,
-    );
+    await expect(
+      controller.decide({ principal: STAFF }, 'synthetic-application', body),
+    ).resolves.toBeUndefined();
 
     expect(decide).toHaveBeenCalledWith(STAFF, 'synthetic-application', body);
-
-    expect(response).toEqual({
-      teamId: 'synthetic-application',
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: 'synthetic-event',
-        jobStatus: RepositoryProvisionJobStatus.PENDING,
-      },
-    });
   });
 
   it('공백 반려 사유를 null로 정규화한다', () => {
