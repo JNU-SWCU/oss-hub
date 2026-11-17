@@ -187,6 +187,12 @@ function openingTags(fragment: string, tag: string): string[] {
   return fragment.match(new RegExp(`<${tag}\\b[^>]*>`, 'g')) ?? [];
 }
 
+function linkHrefs(fragment: string): string[] {
+  return [...fragment.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((match) =>
+    (match[1] ?? '').replaceAll('&amp;', '&'),
+  );
+}
+
 function buttonTagContaining(html: string, label: string): string {
   const labelIndex = html.indexOf(label);
   if (labelIndex === -1) throw new Error(`label not found: ${label}`);
@@ -302,15 +308,39 @@ describe('SystemStatusView', () => {
           ],
         }),
       );
-      const hrefs = [...card.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map(
-        (match) => match[1]?.replaceAll('&amp;', '&'),
-      );
 
-      expect(hrefs).toEqual([
+      expect(linkHrefs(card)).toEqual([
         '/dashboard/users/user%2F42',
-        '/dashboard/audit-logs?q=synthetic-self&category=ACCOUNT',
-        '/dashboard/audit-logs?q=synthetic-admin&category=ACCOUNT',
+        '/dashboard/audit-logs?q=synthetic-self',
+        '/dashboard/audit-logs?q=synthetic-admin',
       ]);
+    });
+
+    it('행위자 없는 권한 부여가 만든 이상 징후는 분류로 좁히지 않고 대상자 로그인으로만 감사 로그를 거른다', () => {
+      const card = attentionCard(
+        render({
+          ...base,
+          anomalies: [
+            {
+              rule: 'OFF_HOURS_ADMIN_CHANGE',
+              severity: 'MEDIUM',
+              count: 1,
+              target: {
+                kind: 'USER',
+                id: 'bootstrap-user',
+                login: 'bootstrap-subject',
+              },
+            },
+          ],
+        }),
+      );
+      const [href = ''] = linkHrefs(card);
+      const [path, search] = href.split('?');
+      const query = new URLSearchParams(search);
+
+      expect(path).toBe('/dashboard/audit-logs');
+      expect([...query.keys()]).toEqual(['q']);
+      expect(query.get('q')).toBe('bootstrap-subject');
     });
 
     it('이상 징후가 없으면 목록과 버튼 없이 한 줄만 보여준다', () => {
