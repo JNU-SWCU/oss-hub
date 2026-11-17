@@ -433,6 +433,9 @@
     @apply bg-background text-foreground;
   }
   html {
+    --font-sans:
+      'Pretendard Variable', 'Apple SD Gothic Neo', 'Noto Sans KR',
+      'Malgun Gothic', sans-serif;
     @apply font-sans;
   }
 }

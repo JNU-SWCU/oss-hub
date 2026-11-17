@@ -425,6 +425,41 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     expect(container.textContent).toContain('합성 프로그램');
   });
 
+  it('첫 두 카드의 표지만 우선 로딩하고 나머지는 지연 로딩한다', async () => {
+    listProgramsMock.mockResolvedValue({
+      items: [1, 2, 3].map((index) => ({
+        id: `program-${index}`,
+        name: `합성 프로그램 ${index}`,
+        organizers: ['합성 운영처'],
+        trackType: 'EXTRACURRICULAR' as const,
+        applicationStartAt: '2026-08-01T00:00:00.000Z',
+        applicationEndAt: '2026-08-31T00:00:00.000Z',
+        endAt: '2026-09-30T00:00:00.000Z',
+        description: '합성 설명',
+        coverImageUrl: `/programs/program-${index}/cover/cover-${index}`,
+      })),
+      page: 1,
+      pageSize: 20,
+      totalItems: 3,
+      totalPages: 1,
+    });
+    await renderPage();
+
+    const covers = Array.from(
+      container.querySelectorAll('[data-slot="program-cover"] img'),
+    );
+    expect(covers.map((cover) => cover.getAttribute('fetchpriority'))).toEqual([
+      'high',
+      'high',
+      null,
+    ]);
+    expect(covers.map((cover) => cover.getAttribute('loading'))).toEqual([
+      null,
+      null,
+      'lazy',
+    ]);
+  });
+
   it('G5 constrains and centers the program section', async () => {
     await renderPage();
     const section = container.querySelector('section');

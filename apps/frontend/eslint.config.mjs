@@ -134,14 +134,6 @@ const designSystemConfig = {
 
 const designSystemExemptions = [
   {
-    files: [
-      'src/components/program/program-cover.tsx',
-      'src/features/auth/components/login-button.tsx',
-      'src/features/profile/components/public-profile-view.tsx',
-    ],
-    rules: { '@next/next/no-img-element': 'off' },
-  },
-  {
     files: ['src/features/landing/cosmos/cosmos-theme.ts'],
     rules: { 'local/design-no-hex-color': 'off' },
   },
@@ -179,6 +171,7 @@ export default defineConfig([
     },
     rules: {
       ...nextPlugin.configs.recommended.rules,
+      '@next/next/no-img-element': 'error',
       'local/runtime-test-boundary': 'error',
       'local/feature-ownership': 'error',
       'local/no-direct-search-params': 'error',

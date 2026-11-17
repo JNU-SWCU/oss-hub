@@ -39,7 +39,7 @@ export function ProgramCoverPreview({
       data-slot="program-cover-preview"
       className="w-full max-w-[22rem] overflow-hidden rounded-card border border-border bg-card"
     >
-      <ProgramCover src={src} />
+      <ProgramCover src={src} sizes="352px" />
       {showCaption ? (
         <div className="grid gap-1 p-3">
           <p className="text-xs text-muted-foreground">목록 미리보기</p>

@@ -225,7 +225,7 @@ describe('program cover selection', () => {
       );
       expect(onChange).not.toHaveBeenCalled();
       expect(container.querySelector('img')?.getAttribute('src')).toContain(
-        currentImageUrl,
+        encodeURIComponent(currentImageUrl),
       );
       expect(container.querySelector('[role="alert"]')?.textContent).toContain(
         'JPG',

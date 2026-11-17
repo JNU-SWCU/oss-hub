@@ -204,6 +204,23 @@ function ProgramNotificationsAction({
   );
 }
 
+export function ProgramNotFoundState() {
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-12">
+      <EmptyState
+        className="break-keep"
+        title="프로그램을 찾을 수 없습니다"
+        description="삭제되었거나 공개되지 않은 프로그램입니다."
+        action={
+          <Button asChild variant="outline">
+            <Link href="/programs">프로그램 목록으로</Link>
+          </Button>
+        }
+      />
+    </main>
+  );
+}
+
 export function ProgramDetailFailureState({
   kind,
   onRetry,
@@ -211,21 +228,7 @@ export function ProgramDetailFailureState({
   readonly kind: 'not-found' | 'failed';
   readonly onRetry: () => void;
 }) {
-  if (kind === 'not-found') {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
-        <EmptyState
-          title="프로그램을 찾을 수 없습니다"
-          description="삭제되었거나 공개되지 않은 프로그램입니다."
-          action={
-            <Button asChild variant="outline">
-              <Link href="/programs">프로그램 목록으로</Link>
-            </Button>
-          }
-        />
-      </main>
-    );
-  }
+  if (kind === 'not-found') return <ProgramNotFoundState />;
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
       <FailureState title="프로그램을 불러오지 못했습니다" onRetry={onRetry} />

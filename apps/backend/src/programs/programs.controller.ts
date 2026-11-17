@@ -8,11 +8,13 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   UseGuards,
   Delete,
   HttpCode,
   Query,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ProgramCoverService,
   ProgramCreationService,
@@ -171,8 +173,9 @@ export class ProgramsController {
   async cover(
     @Param('id') programId: string,
     @Param('coverId') coverId: string,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    return this.covers.streamable(programId, coverId);
+    return this.covers.streamable(programId, coverId, response);
   }
 
   @Delete(':id/purge')

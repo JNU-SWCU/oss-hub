@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { CurrentProgramSection } from './components/current-program-section';
 import { LandingFooter } from './components/landing-footer';
+import { LandingHeroCopy } from './components/landing-hero-copy';
 import { LandingJourney } from './components/landing-journey';
 
 vi.mock('next/navigation', () => ({
@@ -13,6 +14,7 @@ const renderJourney = (
 ): string =>
   renderToStaticMarkup(
     <LandingJourney
+      heroCopy={<LandingHeroCopy />}
       starPrograms={[]}
       stats={{ items: [], note: null }}
       primaryAction={<a href="/login">GitHub으로 로그인</a>}
@@ -149,7 +151,11 @@ describe('landing page sections', () => {
 
   it('drops the whole action row, programs link included, when no primary action is given', () => {
     const html = renderToStaticMarkup(
-      <LandingJourney starPrograms={[]} stats={{ items: [], note: null }} />,
+      <LandingJourney
+        heroCopy={<LandingHeroCopy />}
+        starPrograms={[]}
+        stats={{ items: [], note: null }}
+      />,
     );
 
     expect(html).toContain('흩어진 정보를 하나로');

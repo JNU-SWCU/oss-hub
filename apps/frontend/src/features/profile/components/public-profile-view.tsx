@@ -10,6 +10,7 @@ import {
   PageHeader,
   FailureState,
 } from '@/components';
+import { GitHubAvatar } from '@/components/github-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
@@ -139,11 +140,9 @@ function ProjectCard({ project }: { readonly project: PublicProfileProject }) {
 
 function ProfileContent({ profile }: { readonly profile: PublicProfile }) {
   const avatar = profile.avatarUrl ? (
-    <img
+    <GitHubAvatar
       src={profile.avatarUrl}
-      alt=""
-      width={48}
-      height={48}
+      size={48}
       className="size-12 rounded-full"
     />
   ) : (

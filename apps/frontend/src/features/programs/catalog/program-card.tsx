@@ -38,6 +38,8 @@ interface ProgramCardProps extends Omit<
   title: string;
   coverImageUrl?: string | null;
 
+  coverPriority?: boolean;
+
   category?: string;
 
   period?: string;
@@ -77,6 +79,7 @@ function TeamIcon() {
 function ProgramCard({
   title,
   coverImageUrl,
+  coverPriority,
   category,
   period,
   status,
@@ -102,7 +105,11 @@ function ProgramCard({
       statusDescription={srStatusPrefix}
       media={
         <div data-slot="list-card-cover" className="w-[88px]">
-          <ProgramCover src={programCoverSource(coverImageUrl)} />
+          <ProgramCover
+            src={programCoverSource(coverImageUrl)}
+            sizes="88px"
+            priority={coverPriority}
+          />
         </div>
       }
       meta={period}

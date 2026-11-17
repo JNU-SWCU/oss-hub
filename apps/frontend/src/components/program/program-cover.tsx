@@ -1,19 +1,33 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ImageIcon, Maximize2, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export interface ProgramCoverProps {
+export type ProgramCoverProps = {
   readonly src: string | null;
   readonly title?: string;
-  readonly size?: 'card' | 'thumbnail' | 'detail';
+  readonly priority?: boolean;
   readonly className?: string;
-}
+} & (
+  | { readonly size?: 'card'; readonly sizes: string }
+  | { readonly size: 'thumbnail' | 'detail'; readonly sizes?: string }
+);
 
 export const programCoverCardFrame = 'aspect-[1/1.414] w-full rounded-md';
+
+const RENDERED_WIDTH = {
+  thumbnail: '96px',
+  detail: '180px',
+} as const;
+
+interface CoverFailure {
+  readonly src: string;
+  readonly stage: 'optimized' | 'original';
+}
 
 function DefaultCover() {
   return (
@@ -56,10 +70,16 @@ export function ProgramCover({
   src,
   title = '프로그램',
   size = 'card',
+  sizes,
+  priority = false,
   className,
 }: ProgramCoverProps) {
-  const [failedSource, setFailedSource] = useState<string | null>(null);
-  const available = src !== null && failedSource !== src;
+  const [failure, setFailure] = useState<CoverFailure | null>(null);
+  const failedStage = failure?.src === src ? failure.stage : null;
+  const available = src !== null && failedStage !== 'original';
+  const optimized = src?.startsWith('/') === true && failedStage === null;
+  const failedStageNow = optimized ? 'optimized' : 'original';
+  const imageSizes = size === 'card' ? sizes : (sizes ?? RENDERED_WIDTH[size]);
   const image = (
     <div
       data-slot="program-cover"
@@ -74,19 +94,34 @@ export function ProgramCover({
       )}
     >
       {available ? (
-        <img
-          src={src}
-          referrerPolicy="no-referrer"
-          alt=""
-          loading={size === 'detail' ? 'eager' : 'lazy'}
-          decoding="async"
-          className={
-            size === 'detail'
-              ? 'block h-auto max-h-[141.4cqw] w-full object-cover object-top'
-              : 'absolute inset-0 h-full w-full object-contain'
-          }
-          onError={() => setFailedSource(src)}
-        />
+        size === 'detail' ? (
+          <Image
+            src={src}
+            alt=""
+            width={0}
+            height={0}
+            sizes={imageSizes}
+            priority
+            fetchPriority="high"
+            unoptimized={!optimized}
+            referrerPolicy="no-referrer"
+            className="block h-auto max-h-[141.4cqw] w-full object-cover object-top"
+            onError={() => setFailure({ src, stage: failedStageNow })}
+          />
+        ) : (
+          <Image
+            src={src}
+            alt=""
+            fill
+            sizes={imageSizes}
+            priority={priority}
+            fetchPriority={priority ? 'high' : undefined}
+            unoptimized={!optimized}
+            referrerPolicy="no-referrer"
+            className="object-contain"
+            onError={() => setFailure({ src, stage: failedStageNow })}
+          />
+        )
       ) : size === 'thumbnail' ? (
         <ImageIcon className="size-6" aria-hidden="true" />
       ) : (
@@ -133,13 +168,17 @@ export function ProgramCover({
             </Dialog.Close>
           </div>
 
-          <img
-            src={src}
-            referrerPolicy="no-referrer"
-            alt={`${title} 대표 이미지`}
-            onError={() => setFailedSource(src)}
-            className="min-h-0 flex-1 object-contain"
-          />
+          <div className="relative min-h-0 flex-1">
+            <Image
+              src={src}
+              alt={`${title} 대표 이미지`}
+              fill
+              unoptimized
+              referrerPolicy="no-referrer"
+              className="object-contain"
+              onError={() => setFailure({ src, stage: 'original' })}
+            />
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logout } from '../api';
+import { GitHubAvatar } from '@/components/github-avatar';
 import { GitHubMark } from '@/components/github-mark';
 import { GitHubSignInLink } from './github-sign-in-link';
 import { refreshSession } from '../session-store';
@@ -35,11 +36,9 @@ interface LoginButtonViewProps {
 function AccountAvatar({ user }: { readonly user: Me }) {
   if (user.avatarUrl) {
     return (
-      <img
+      <GitHubAvatar
         src={user.avatarUrl}
-        alt=""
-        width={24}
-        height={24}
+        size={24}
         className="size-6 rounded-full"
       />
     );

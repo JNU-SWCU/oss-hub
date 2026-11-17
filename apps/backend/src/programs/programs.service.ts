@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
   StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import {
@@ -1094,8 +1095,10 @@ export class ProgramCoverService {
   async streamable(
     programId: string,
     coverId: string,
+    response: Response,
   ): Promise<StreamableFile> {
     const cover = await this.read(programId, coverId);
+    response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     return new StreamableFile(cover.body, {
       type: cover.contentType,
       length: cover.size,

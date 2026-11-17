@@ -55,6 +55,7 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 
 const PAGE_SIZE = 20;
+const PRIORITY_COVER_COUNT = 2;
 
 function formatApplicationPeriod(program: ProgramListItem): string {
   const formatter = new Intl.DateTimeFormat('ko-KR', {
@@ -173,7 +174,7 @@ function ProgramListPage({
     }
     return (
       <CardGrid>
-        {loadState.programPage.items.map((program) => {
+        {loadState.programPage.items.map((program, index) => {
           const badge = getProgramListBadge(program, now);
 
           return (
@@ -192,6 +193,7 @@ function ProgramListPage({
               status={badge.status}
               title={program.name}
               coverImageUrl={program.coverImageUrl}
+              coverPriority={index < PRIORITY_COVER_COUNT}
             />
           );
         })}

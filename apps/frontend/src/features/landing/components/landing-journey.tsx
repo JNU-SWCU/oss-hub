@@ -12,6 +12,7 @@ import { useRevealOnce } from './landing-reveal';
 import { useCosmosCanvas } from './use-cosmos-canvas';
 
 export interface LandingJourneyProps {
+  readonly heroCopy: ReactNode;
   readonly authErrorMessage?: string;
   readonly primaryAction?: ReactNode;
   readonly starPrograms: readonly CosmosProgram[];
@@ -27,6 +28,7 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
 ];
 
 export function LandingJourney({
+  heroCopy,
   authErrorMessage,
   primaryAction,
   starPrograms,
@@ -51,15 +53,7 @@ export function LandingJourney({
             data-focus="hero"
           >
             <div className={styles.heroCopy}>
-              <span className={styles.eyebrow}>
-                전남대학교 SW중심대학사업단
-              </span>
-              <h1 id="landing-hero-heading">흩어진 정보를 하나로</h1>
-              <p>
-                OSS Hub는 오픈소스 활동을 모아 역량으로 쌓아줍니다. 교내 활동,
-                팀 프로젝트, 대외 활동 등의 제출 및 검토를 간편하게
-                만들어줍니다.
-              </p>
+              {heroCopy}
               {authErrorMessage ? (
                 <Alert className="mt-6 max-w-xl border-hero-danger/40 bg-hero-danger/10 text-hero-danger">
                   <CircleAlert aria-hidden="true" />
