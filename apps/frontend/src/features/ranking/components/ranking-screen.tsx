@@ -45,7 +45,7 @@ export function RankingScreen({
     : query.isError
       ? { kind: 'error' }
       : { kind: 'ready', ranking: query.data };
-  const timeline = useRankingTimelineQuery(year);
+  const timeline = useRankingTimelineQuery(year, viewerGithubLogin);
   const chart =
     year === RANKING_YEAR_ALL ? null : timeline.isPending ? (
       <RankingHistoryChartLoading />

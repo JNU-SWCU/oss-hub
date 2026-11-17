@@ -21,14 +21,23 @@ export interface RankingMetricRow {
   readonly starCount: number;
 }
 
-export interface RankingMonthlySnapshotRow {
+interface RankingTimelineSelectedRow {
   readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly rank: number;
+  readonly total: number;
+}
+
+interface RankingTimelinePointRow {
   readonly month: number;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
+  readonly githubId: bigint | null;
+  readonly rank: number | null;
+  readonly total: number | null;
+}
+
+export interface RankingTimelineRows {
+  readonly selected: readonly RankingTimelineSelectedRow[];
+  readonly points: readonly RankingTimelinePointRow[];
 }
 
 export interface RankedPageRow extends RankingMetricRow {
@@ -66,6 +75,75 @@ const RANKING_ORDER = Prisma.sql`
     lower(login) COLLATE "C",
     github_id
 `;
+
+const TIMELINE_LEADERS = 10;
+
+function monthlySnapshotSql(year: number): Prisma.Sql {
+  return Prisma.sql`
+      SELECT
+        observed.github_id AS "githubId",
+        observed.month,
+        (public_row.commit_count + COALESCE(private_row.commit_count, 0))::int
+          AS "commitCount",
+        (public_row.pull_request_count
+          + COALESCE(private_row.pull_request_count, 0))::int
+          AS "pullRequestCount",
+        (public_row.issue_count + COALESCE(private_row.issue_count, 0))::int
+          AS "issueCount",
+        (public_row.repository_count
+          + COALESCE(private_row.repository_count, 0))::int
+          AS "repositoryCount",
+        public_row.star_count AS "starCount"
+      FROM (
+        SELECT DISTINCT
+          observation.github_id,
+          month_bound.month,
+          month_bound.month_end
+        FROM github_user_activity_history AS observation
+        CROSS JOIN LATERAL (
+          SELECT
+            EXTRACT(
+              MONTH FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
+            )::int AS month,
+            (date_trunc('month', observation.observed_at AT TIME ZONE 'Asia/Seoul')
+              + INTERVAL '1 month') AT TIME ZONE 'Asia/Seoul' AS month_end
+        ) AS month_bound
+        WHERE observation.year = ${year}
+          AND EXTRACT(
+            YEAR FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
+          ) = ${year}
+      ) AS observed
+      CROSS JOIN LATERAL (
+        SELECT
+          latest.commit_count,
+          latest.pull_request_count,
+          latest.issue_count,
+          latest.repository_count,
+          latest.star_count
+        FROM github_user_activity_history AS latest
+        WHERE latest.github_id = observed.github_id
+          AND latest.year = ${year}
+          AND latest.visibility = 'PUBLIC'::"ActivityVisibility"
+          AND latest.observed_at < observed.month_end
+        ORDER BY latest.observed_at DESC
+        LIMIT 1
+      ) AS public_row
+      LEFT JOIN LATERAL (
+        SELECT
+          latest.commit_count,
+          latest.pull_request_count,
+          latest.issue_count,
+          latest.repository_count
+        FROM github_user_activity_history AS latest
+        WHERE latest.github_id = observed.github_id
+          AND latest.year = ${year}
+          AND latest.visibility = 'PRIVATE'::"ActivityVisibility"
+          AND latest.observed_at < observed.month_end
+        ORDER BY latest.observed_at DESC
+        LIMIT 1
+      ) AS private_row ON true
+    `;
+}
 
 function yearFilter(query: RankingMetricsQuery): Prisma.Sql {
   return query.currentYear === undefined
@@ -239,73 +317,73 @@ export class RankingRepository {
     return { rows, total };
   }
 
-  async findMonthlySnapshots(
+  async findTimelineSeries(
     year: number,
-  ): Promise<readonly RankingMonthlySnapshotRow[]> {
-    return this.prisma.$queryRaw<RankingMonthlySnapshotRow[]>`
-      SELECT
-        observed.github_id AS "githubId",
-        observed.month,
-        (public_row.commit_count + COALESCE(private_row.commit_count, 0))::int
-          AS "commitCount",
-        (public_row.pull_request_count
-          + COALESCE(private_row.pull_request_count, 0))::int
-          AS "pullRequestCount",
-        (public_row.issue_count + COALESCE(private_row.issue_count, 0))::int
-          AS "issueCount",
-        (public_row.repository_count
-          + COALESCE(private_row.repository_count, 0))::int
-          AS "repositoryCount",
-        public_row.star_count AS "starCount"
-      FROM (
-        SELECT DISTINCT
-          observation.github_id,
-          month_bound.month,
-          month_bound.month_end
-        FROM github_user_activity_history AS observation
-        CROSS JOIN LATERAL (
-          SELECT
-            EXTRACT(
-              MONTH FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
-            )::int AS month,
-            (date_trunc('month', observation.observed_at AT TIME ZONE 'Asia/Seoul')
-              + INTERVAL '1 month') AT TIME ZONE 'Asia/Seoul' AS month_end
-        ) AS month_bound
-        WHERE observation.year = ${year}
-          AND EXTRACT(
-            YEAR FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
-          ) = ${year}
-      ) AS observed
-      CROSS JOIN LATERAL (
-        SELECT
-          latest.commit_count,
-          latest.pull_request_count,
-          latest.issue_count,
-          latest.repository_count,
-          latest.star_count
-        FROM github_user_activity_history AS latest
-        WHERE latest.github_id = observed.github_id
-          AND latest.year = ${year}
-          AND latest.visibility = 'PUBLIC'::"ActivityVisibility"
-          AND latest.observed_at < observed.month_end
-        ORDER BY latest.observed_at DESC
-        LIMIT 1
-      ) AS public_row
-      LEFT JOIN LATERAL (
-        SELECT
-          latest.commit_count,
-          latest.pull_request_count,
-          latest.issue_count,
-          latest.repository_count
-        FROM github_user_activity_history AS latest
-        WHERE latest.github_id = observed.github_id
-          AND latest.year = ${year}
-          AND latest.visibility = 'PRIVATE'::"ActivityVisibility"
-          AND latest.observed_at < observed.month_end
-        ORDER BY latest.observed_at DESC
-        LIMIT 1
-      ) AS private_row ON true
+    lastMonth: number,
+    viewerLogin: string | null,
+  ): Promise<RankingTimelineRows> {
+    const selected = await this.prisma.$queryRaw<RankingTimelineSelectedRow[]>`
+      WITH current_folded AS (${foldedActivity(currentRows({ currentYear: year }))}),
+      final_ranked AS (${rankedMembers(Prisma.sql`current_folded`)})
+      SELECT github_id AS "githubId", login AS "githubLogin", rank, total
+      FROM final_ranked
+      WHERE total > 0
+        AND (rank <= ${TIMELINE_LEADERS} OR lower(login) = lower(${viewerLogin ?? ''}))
+      ORDER BY rank
+      LIMIT ${TIMELINE_LEADERS + 1}
     `;
+    const points = await this.prisma.$queryRaw<RankingTimelinePointRow[]>`
+      WITH snapshots AS (${monthlySnapshotSql(year)}),
+      months AS (SELECT DISTINCT month FROM snapshots WHERE month < ${lastMonth}),
+      carried AS (
+        SELECT months.month, latest.*
+        FROM months
+        CROSS JOIN LATERAL (
+          SELECT DISTINCT ON (snapshots."githubId")
+            snapshots."githubId" AS github_id,
+            snapshots."commitCount" AS commit_count,
+            snapshots."pullRequestCount" AS pull_request_count,
+            snapshots."issueCount" AS issue_count,
+            snapshots."repositoryCount" AS repository_count,
+            snapshots."starCount" AS star_count
+          FROM snapshots
+          WHERE snapshots.month <= months.month
+          ORDER BY snapshots."githubId", snapshots.month DESC
+        ) AS latest
+      ),
+      ranked AS (
+        SELECT
+          scored.month,
+          scored.github_id,
+          scored.total,
+          (ROW_NUMBER() OVER (PARTITION BY scored.month ${RANKING_ORDER}))::int AS rank
+        FROM (
+          SELECT
+            carried.month,
+            carried.github_id,
+            member.login,
+            carried.commit_count,
+            carried.pull_request_count,
+            carried.issue_count,
+            carried.repository_count,
+            carried.star_count,
+            (carried.commit_count + carried.pull_request_count
+              + carried.issue_count + carried.repository_count
+              + carried.star_count)::int AS total
+          FROM carried
+          JOIN "User" AS member ON member."githubId" = carried.github_id
+          WHERE ${RANKING_MEMBER}
+        ) AS scored
+      )
+      SELECT months.month, ranked.github_id AS "githubId", ranked.rank, ranked.total
+      FROM months
+      LEFT JOIN ranked
+        ON ranked.month = months.month
+        AND ranked.github_id = ANY(${selected.map((row) => row.githubId.toString())}::bigint[])
+      ORDER BY months.month
+      LIMIT ${12 * (TIMELINE_LEADERS + 1)}
+    `;
+    return { selected, points };
   }
 
   async findNamesByGithubIds(

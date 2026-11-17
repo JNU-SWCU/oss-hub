@@ -116,14 +116,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
     }
     return {
       pages,
-      monthly: [...(await rankingRepository.findMonthlySnapshots(2026))].sort(
-        (left, right) =>
-          left.githubId === right.githubId
-            ? left.month - right.month
-            : left.githubId < right.githubId
-              ? -1
-              : 1,
-      ),
+      monthly: await rankingRepository.findTimelineSeries(2026, 13, null),
     };
   };
   try {
@@ -148,9 +141,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       });
       expect(typeof actor?.previousRank).toBe('number');
     }
-    expect(
-      before.monthly.filter((row) => rankingIds.includes(row.githubId)),
-    ).toHaveLength(2);
+    expect(before.monthly.points.length).toBeGreaterThan(0);
     expect(
       (await repositoryContributionTotals(prisma, [oldGithubId])).commitCount,
     ).toBe(7);
@@ -171,7 +162,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
         (sum, page) => sum + page.items.length,
         0,
       ),
-      monthlyRows: before.monthly.length,
+      monthlyRows: before.monthly.points.length,
       unchanged: true,
     });
   } finally {

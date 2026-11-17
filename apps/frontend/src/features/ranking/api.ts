@@ -322,10 +322,13 @@ export function parseRankingTimeline(value: unknown): RankingTimeline {
 
 export async function getRankingTimeline(
   year: number,
+  viewerGithubLogin: string | null,
   signal?: AbortSignal,
 ): Promise<RankingTimeline> {
+  const search = new URLSearchParams({ year: String(year) });
+  if (viewerGithubLogin !== null) search.set('viewer', viewerGithubLogin);
   const response = await apiClient<unknown>(
-    `ranking/timeline?year=${String(year)}`,
+    `ranking/timeline?${search.toString()}`,
     signal ? { signal } : undefined,
   );
   return parseRankingTimeline(response);

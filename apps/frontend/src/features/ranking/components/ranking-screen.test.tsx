@@ -126,6 +126,20 @@ describe('RankingScreen', () => {
     root = createRoot(container);
   });
 
+  it('타임라인은 조회자 로그인과 함께 요청한다', async () => {
+    await act(async () => {
+      root.render(
+        <RankingScreen onNextCycleAt={vi.fn()} viewerGithubLogin="mina" />,
+      );
+    });
+
+    expect(api.getRankingTimeline).toHaveBeenCalledWith(
+      2026,
+      'mina',
+      expect.any(AbortSignal),
+    );
+  });
+
   it('CSV 는 첫 응답의 total 만큼 pageSize=100으로 각 페이지를 한 번씩 가져온다', async () => {
     const firstPageItems = Array.from({ length: 100 }, (_, index) => ({
       ...staffPage.items[0],
