@@ -132,7 +132,7 @@ describe('LoginButtonView', () => {
 
     expect(html).toContain('synthetic-user 계정 메뉴');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('https://avatars.example/u/1');
+    expect(html).toContain('src="https://avatars.example/u/1?s=48"');
     expect(html).toContain('synthetic-user');
     expect(html).not.toContain('로그인 계정');
     expect(html).not.toContain('설정');
