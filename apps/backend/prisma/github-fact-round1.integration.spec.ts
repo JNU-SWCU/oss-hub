@@ -198,16 +198,6 @@ describe('github fact round 1', () => {
       previousAt,
     });
 
-    const previous = await ranking.findPreviousCycleMetrics(
-      { currentYear: YEAR },
-      new Date(),
-    );
-    const byLogin = new Map(previous.map((row) => [row.githubLogin, row]));
-    expect(byLogin.get(`${PREFIX}gamma`)?.commitCount).toBe(30);
-    expect(byLogin.get(`${PREFIX}alpha`)?.commitCount).toBe(5);
-    expect(byLogin.get(`${PREFIX}beta`)?.commitCount).toBe(1);
-    expect(byLogin.has(`${PREFIX}staff`)).toBe(false);
-
     const page = await rankingPage.findPage(YEAR, 1, 20, null);
     const gamma = page.items.find(
       (item) => item.githubLogin === `${PREFIX}gamma`,
@@ -217,6 +207,9 @@ describe('github fact round 1', () => {
     );
     expect(gamma).toMatchObject({ rank: 1, previousRank: 1 });
     expect(alpha).toMatchObject({ rank: 2, previousRank: 2 });
+    expect(
+      page.items.find((item) => item.githubLogin === `${PREFIX}beta`),
+    ).toMatchObject({ rank: 3, previousRank: 3, commitCount: 10 });
     expect(
       page.items.some((item) => item.githubLogin === `${PREFIX}staff`),
     ).toBe(false);
