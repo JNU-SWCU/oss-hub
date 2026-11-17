@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -58,6 +59,8 @@ const seoulDayStart = (instant: Date): Date =>
 
 @Injectable()
 export class RankingRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   private readonly contributors: ContributorReadRepository;
 
   constructor(private readonly prisma: PrismaService) {
@@ -121,14 +124,23 @@ export class RankingRepository {
     activity: Promise<readonly StandingRow[]>,
   ): Promise<readonly RankingMetricRow[]> {
     const [users, activityRows] = await Promise.all([
-      this.prisma.user.findMany({
-        where: RANKING_ELIGIBLE_MEMBER,
-        select: {
-          githubId: true,
-          nickname: true,
-          ...USER_PROFILE_DEPARTMENT_SELECT,
-        },
-      }),
+      this.boundedReads.readAllInBatches(
+        (after: bigint | undefined, take) =>
+          this.prisma.user.findMany({
+            take,
+            ...(after === undefined
+              ? {}
+              : { cursor: { githubId: after }, skip: 1 }),
+            where: RANKING_ELIGIBLE_MEMBER,
+            orderBy: { githubId: 'asc' },
+            select: {
+              githubId: true,
+              nickname: true,
+              ...USER_PROFILE_DEPARTMENT_SELECT,
+            },
+          }),
+        (user) => user.githubId,
+      ),
       activity,
     ]);
 
@@ -263,6 +275,7 @@ export class RankingRepository {
       return new Map();
     }
     const users = await this.prisma.user.findMany({
+      take: uniqueIds.length,
       where: { githubId: { in: uniqueIds } },
       select: {
         githubId: true,

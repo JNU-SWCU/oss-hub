@@ -1,3 +1,5 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
+import { READ_CAP } from '../platform/bounded-read.config';
 import type { Prisma } from '@prisma/client';
 import type { StaffAccessRequestStatus } from './user-contract.config';
 import type { RequestSnapshot } from './user-history.types';
@@ -13,16 +15,28 @@ type HistoryPage = { readonly page: number; readonly limit: number };
 
 @Injectable()
 export class AdminAccessHistoryRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   async listAdminAccessStaffAccessRequestHistory(
     prisma: Pick<PrismaService, 'userHistory' | 'user'>,
     userId: string,
     page: HistoryPage,
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
-    const histories = await prisma.userHistory.findMany({
-      where: { userId },
-      select: { event: true, data: true },
-      orderBy: [{ occurredAt: 'asc' }, { recordedAt: 'asc' }, { id: 'asc' }],
-    });
+    const histories = await this.boundedReads.readCapped(
+      READ_CAP.historyPerUser,
+      'UserHistory per user',
+      (take) =>
+        prisma.userHistory.findMany({
+          take,
+          where: { userId },
+          select: { event: true, data: true },
+          orderBy: [
+            { occurredAt: 'asc' },
+            { recordedAt: 'asc' },
+            { id: 'asc' },
+          ],
+        }),
+    );
     const byRequest = new Map<string, RequestSnapshot>();
     for (const history of histories) {
       const importedRequest =
@@ -51,6 +65,7 @@ export class AdminAccessHistoryRepository {
       request.decidedById === null ? [] : [request.decidedById],
     );
     const actors = await prisma.user.findMany({
+      take: actorIds.length,
       where: { id: { in: actorIds } },
       select: { id: true, nickname: true },
     });
