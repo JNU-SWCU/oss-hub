@@ -26,8 +26,6 @@
         ".design-sync/emit-types.mjs",
         ".design-sync/contract.test.mjs",
         ".design-sync/previews/*.tsx",
-        "verify/url-ia.mjs",
-        "verify/full.mjs",
         "verify/*.test.mjs"
       ],
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],

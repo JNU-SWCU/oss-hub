@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
 import { main } from './index.mjs';
 import { QUERY_GATE_PATTERN, checkQueryGates } from './query-gates.mjs';
 import { classifyFiles } from './scope.mjs';
 import { tempRepo } from './test-support.mjs';
+import { REPO_ROOT } from './tools.mjs';
 
 test('query gates run only for backend repository, service, prisma and test changes', () => {
   for (const file of [
     'apps/backend/src/programs/programs.repository.ts',
     'apps/backend/src/programs/programs.service.ts',
+    'apps/backend/src/programs/programs.controller.ts',
+    'apps/backend/src/platform/runtime-config.config.ts',
     'apps/backend/prisma/schema.prisma',
     'apps/backend/test/query-growth.ts',
     'package.json',
@@ -16,7 +20,7 @@ test('query gates run only for backend repository, service, prisma and test chan
     assert.equal(classifyFiles([file]).queryGates, true, file);
   }
   for (const file of [
-    'apps/backend/src/programs/programs.controller.ts',
+    'apps/backend/src/programs/programs.service.spec.ts',
     'apps/frontend/src/app/page.tsx',
     'docs/readme.md',
   ]) {
@@ -80,7 +84,7 @@ test('a lint violation inside the integration run is reported as query-lint', as
             code: 1,
             stdout: '',
             stderr:
-              '    query-growth: /projects violated the query lint\n    [LINT.NO_LIMIT] Repo.findMany@apps/backend/src/x.repository.ts#X.list: no limit\n',
+              '    query-growth: /projects violated the query lint\n    [LINT.NO_LIMIT] Repo.findMany@apps/backend/src/x.repository.ts#X.list: no limit\nFAIL prisma/program-read-baseline.integration.spec.ts\n',
           },
   });
   assert.deepEqual(
@@ -88,6 +92,7 @@ test('a lint violation inside the integration run is reported as query-lint', as
     ['query-lint'],
   );
   assert.match(findings[0].message, /\[LINT\.NO_LIMIT\] Repo\.findMany/);
+  assert.match(findings[0].message, /FAIL prisma\/program-read-baseline/);
 });
 
 test('query gate failures block with rule ids and https sources', async () => {
@@ -113,14 +118,19 @@ test('query gate failures block with rule ids and https sources', async () => {
   assert.deepEqual(calls[1].env, {
     BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN,
   });
-  for (const spec of [
-    'query-growth',
-    'program-read-baseline',
-    'user-consolidation-read-baseline',
-  ]) {
-    assert.match(
-      `apps/backend/test/${spec}.integration.spec.ts`,
-      new RegExp(QUERY_GATE_PATTERN),
-    );
-  }
+});
+
+test('the gate pattern selects exactly the three committed gate specs', () => {
+  const specs = execFileSync(
+    'git',
+    ['ls-files', 'apps/backend/**/*.integration.spec.ts'],
+    { cwd: REPO_ROOT, encoding: 'utf8' },
+  )
+    .split('\n')
+    .filter((file) => new RegExp(QUERY_GATE_PATTERN).test(file));
+  assert.deepEqual(specs.sort(), [
+    'apps/backend/prisma/program-read-baseline.integration.spec.ts',
+    'apps/backend/prisma/user-consolidation-read-baseline.integration.spec.ts',
+    'apps/backend/test/query-growth.integration.spec.ts',
+  ]);
 });

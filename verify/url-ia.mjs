@@ -1,12 +1,6 @@
 import { posix } from 'node:path';
 import { PLACEHOLDER, navigationTargets } from './url-ia-links.mjs';
-import {
-  VerifyError,
-  finding,
-  git,
-  isEntry,
-  showAtRevision,
-} from './tools.mjs';
+import { VerifyError, finding, git, showAtRevision } from './tools.mjs';
 
 const APP_DIR = 'apps/frontend/src/app/';
 const SOURCE_ROOTS = ['apps/frontend/src', 'apps/backend/src'];
@@ -18,7 +12,7 @@ const RULES = {
     'every page.tsx is the target of an href, router navigation, redirect or menu entry',
   'duplicate-screen': 'one canonical URL per screen component or page module',
 };
-export function routeOfPage(path) {
+function routeOfPage(path) {
   const relative = path.slice(APP_DIR.length).replace(PAGE_FILE, '');
   const raw = relative.split('/').filter(Boolean);
   if (raw.some((segment) => segment.startsWith('_'))) return null;
@@ -143,7 +137,7 @@ function screenComponents(file, byPath, depth = 0, seen = new Set()) {
   return screens;
 }
 
-export function analyzeTree(files) {
+function analyzeTree(files) {
   const byPath = new Map(files.map((file) => [file.path, file.source]));
   const pages = files
     .filter(
@@ -202,7 +196,7 @@ export function analyzeTree(files) {
   return { pages, violations };
 }
 
-export async function readTree(cwd, revision) {
+async function readTree(cwd, revision) {
   const listing = await git(cwd, [
     'ls-tree',
     '-r',
@@ -240,7 +234,7 @@ export async function readTree(cwd, revision) {
   return files;
 }
 
-export function parseAllowlist(text) {
+function parseAllowlist(text) {
   let data;
   try {
     data = JSON.parse(text);
@@ -272,7 +266,7 @@ export function parseAllowlist(text) {
   return data.entries;
 }
 
-export function newViolations(baseViolations, headViolations, allowlist) {
+function newViolations(baseViolations, headViolations, allowlist) {
   const used = new Set();
   const blocking = [];
   for (const [key, violation] of headViolations) {
@@ -353,20 +347,4 @@ export async function checkUrlIa({ cwd, ranges, log = console.log }) {
     }
   }
   return findings;
-}
-
-if (isEntry(import.meta.url)) {
-  import('./index.mjs')
-    .then(({ main }) => main(['url-ia', ...process.argv.slice(2)]))
-    .then(
-      (code) => {
-        process.exitCode = code;
-      },
-      (error) => {
-        console.log(
-          `NOTICE url-ia: could not run (${error.message}); report only, the exit code is unaffected`,
-        );
-        process.exitCode = 0;
-      },
-    );
 }

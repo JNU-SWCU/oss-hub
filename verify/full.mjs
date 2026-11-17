@@ -13,7 +13,6 @@ import {
   REPO_ROOT,
   VerifyError,
   finding,
-  isEntry,
   run,
 } from './tools.mjs';
 
@@ -34,7 +33,7 @@ export function readThresholds(
   return thresholds;
 }
 
-export function median(values) {
+function median(values) {
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1
@@ -300,12 +299,4 @@ export async function checkFull({
   writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
   log(`verify:full report: ${reportFile}`);
   return findings;
-}
-
-if (isEntry(import.meta.url)) {
-  import('./index.mjs')
-    .then(({ main }) => main(['full', ...process.argv.slice(2)]))
-    .then((code) => {
-      process.exitCode = code;
-    });
 }

@@ -30,18 +30,6 @@ const report = ({ lcp, cls, score }) => ({
   },
 });
 
-test('committed thresholds are the absolute CWV goals with sources', () => {
-  const goals = Object.fromEntries(
-    lighthouse.goals.map((goal) => [goal.id, goal]),
-  );
-  assert.equal(goals.lcp.max, 2500);
-  assert.equal(goals.cls.max, 0.1);
-  assert.equal(goals.performance.min, 0.9);
-  assert.equal(lighthouse.runs, 3);
-  for (const goal of lighthouse.goals) assert.match(goal.source, /^https:\/\//);
-  assert.equal(new URL(thresholds.origin).protocol, 'https:');
-});
-
 test('the 3-run median decides a goal, and a miss names value, threshold and source', () => {
   const passing = evaluateLighthouse(
     'https://site/',

@@ -43,7 +43,7 @@ export async function checkQueryGates({ cwd, runCommand = run }) {
     },
   );
   if (growth.code !== 0) {
-    const lint = [
+    const violations = [
       ...new Set(
         `${growth.stdout}\n${growth.stderr}`
           .split('\n')
@@ -52,11 +52,11 @@ export async function checkQueryGates({ cwd, runCommand = run }) {
       ),
     ];
     findings.push(
-      lint.length > 0
+      violations.length > 0
         ? finding(
             'query-lint',
-            `a query on a measured route violated the query lint\n${lint.join('\n')}`,
-            `${lint.length} violation(s)`,
+            `a query on a measured route violated the query lint\n${violations.join('\n')}\n${tail(growth)}`,
+            `${violations.length} violation(s)`,
             '0 violations',
           )
         : finding(

@@ -20,7 +20,7 @@ const BOTH_PATTERNS = [
 ];
 
 const QUERY_GATE_PATTERNS = [
-  /^apps\/backend\/src\/.*\.(repository|service)\.ts$/,
+  /^apps\/backend\/src\/.*(?<!\.spec)\.ts$/,
   /^apps\/backend\/prisma\//,
   /^apps\/backend\/test\//,
   /^apps\/backend\/eslint-rules\//,

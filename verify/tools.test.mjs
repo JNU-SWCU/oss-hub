@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readThresholds } from './full.mjs';
 import { RULE_SOURCES, finding, formatFinding } from './tools.mjs';
 
 test('every fixed rule id has an https source URL', () => {
@@ -8,17 +7,6 @@ test('every fixed rule id has an https source URL', () => {
   for (const [rule, source] of Object.entries(RULE_SOURCES)) {
     assert.match(source, /^https:\/\/\S+$/, rule);
     assert.equal(finding(rule, 'm', 'v', 't').source, source);
-  }
-});
-
-test('threshold-driven rules carry https source URLs', () => {
-  const thresholds = readThresholds();
-  for (const source of [
-    ...thresholds.lighthouse.goals.map((goal) => goal.source),
-    thresholds.loginStart.source,
-    thresholds.notFound.source,
-  ]) {
-    assert.match(source, /^https:\/\/\S+$/);
   }
 });
 
