@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -61,6 +62,8 @@ const deadlineRecipientSelect = {
 } satisfies Prisma.UserSelect;
 @Injectable()
 export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
@@ -68,24 +71,30 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findAutomaticProgramIds(
     window: DeadlineWindow,
   ): Promise<readonly string[]> {
-    const programs = await this.prisma.program.findMany({
-      where: {
-        notifyOnDeadline: true,
-        lifecycle: { not: 'DELETED' },
-        milestones: {
-          some: {
-            dueAt: { gte: window.from, lte: window.to },
-            requirements: {
+    const programs = await this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.program.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: {
+            notifyOnDeadline: true,
+            lifecycle: { not: 'DELETED' },
+            milestones: {
               some: {
-                required: true,
+                dueAt: { gte: window.from, lte: window.to },
+                requirements: {
+                  some: {
+                    required: true,
+                  },
+                },
               },
             },
           },
-        },
-      },
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    });
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        }),
+      (program) => program.id,
+    );
     return programs.map((program) => program.id);
   }
   async findDeadlineProgram(
@@ -147,20 +156,26 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     };
   }
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
-    const staff = await this.prisma.user.findMany({
-      where: {
-        type: 'STAFF',
-        approvalStatus: 'APPROVED',
-        profileCreatedAt: { not: null },
-        name: { not: null },
-        department: { not: null },
-        accountStatus: AccountStatus.ACTIVE,
-        notifyEnabled: true,
-        notificationEmail: { not: null },
-      },
-      select: { id: true, notificationEmail: true },
-      orderBy: { id: 'asc' },
-    });
+    const staff = await this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.user.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: {
+            type: 'STAFF',
+            approvalStatus: 'APPROVED',
+            profileCreatedAt: { not: null },
+            name: { not: null },
+            department: { not: null },
+            accountStatus: AccountStatus.ACTIVE,
+            notifyEnabled: true,
+            notificationEmail: { not: null },
+          },
+          select: { id: true, notificationEmail: true },
+          orderBy: { id: 'asc' },
+        }),
+      (user) => user.id,
+    );
     return staff.flatMap(({ id, notificationEmail }) =>
       notificationEmail === null ? [] : [{ id, notificationEmail }],
     );
@@ -215,11 +230,17 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       readonly payload: Prisma.JsonValue;
     }[]
   > {
-    return this.prisma.notification.findMany({
-      where: { type: 'DEADLINE_DIGEST', status: 'FAILED' },
-      select: { id: true, createdAt: true, payload: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.notification.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: { type: 'DEADLINE_DIGEST', status: 'FAILED' },
+          select: { id: true, createdAt: true, payload: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        }),
+      (notification) => notification.id,
+    );
   }
   async findActiveAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({

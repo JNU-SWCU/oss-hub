@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
@@ -133,6 +134,8 @@ const isContributionInsertSummary = (
 
 @Injectable()
 export class CollectionIncrementalStoreRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly db: CollectionStoreClient,
     protected readonly platform: PlatformRepository,
@@ -318,16 +321,24 @@ export class CollectionIncrementalStoreRepository {
   async listCollectionTargets(
     source: RepositorySource,
   ): Promise<CollectionTarget[]> {
-    const repositories = await this.db.repo.findMany({
-      where: {
-        source,
-        presence: 'PRESENT',
-        ...(source === 'EXTERNAL_PUBLIC' ? { visibility: 'PUBLIC' } : {}),
-        ...this.platform.collectionTargetRepoWhere(),
-      },
-      orderBy: { githubRepoId: 'asc' },
-      select: { ...COLLECTION_REPOSITORY_SELECT, lastSuccessAt: true },
-    });
+    const repositories = await this.boundedReads.readAllInBatches(
+      (after: bigint | undefined, take) =>
+        this.db.repo.findMany({
+          take,
+          ...(after === undefined
+            ? {}
+            : { cursor: { githubRepoId: after }, skip: 1 }),
+          where: {
+            source,
+            presence: 'PRESENT',
+            ...(source === 'EXTERNAL_PUBLIC' ? { visibility: 'PUBLIC' } : {}),
+            ...this.platform.collectionTargetRepoWhere(),
+          },
+          orderBy: { githubRepoId: 'asc' },
+          select: { ...COLLECTION_REPOSITORY_SELECT, lastSuccessAt: true },
+        }),
+      (repository) => repository.githubRepoId,
+    );
     return repositories.map((repository) => ({
       ...toCollectionRepositoryRow(repository),
       lastSuccessAt: repository.lastSuccessAt,

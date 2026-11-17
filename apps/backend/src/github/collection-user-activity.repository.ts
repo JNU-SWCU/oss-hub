@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, ActivityVisibility, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -127,14 +128,24 @@ const writeActivityLedgerRow = async (
 
 @Injectable()
 export class CollectionUserActivityRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(private readonly db: PrismaService) {}
 
   async listActiveUsers(): Promise<CollectionActivityUserRow[]> {
-    return this.db.user.findMany({
-      where: { accountStatus: AccountStatus.ACTIVE },
-      select: { githubId: true, nickname: true },
-      orderBy: { githubId: 'asc' },
-    });
+    return this.boundedReads.readAllInBatches(
+      (after: bigint | undefined, take) =>
+        this.db.user.findMany({
+          take,
+          ...(after === undefined
+            ? {}
+            : { cursor: { githubId: after }, skip: 1 }),
+          where: { accountStatus: AccountStatus.ACTIVE },
+          select: { githubId: true, nickname: true },
+          orderBy: { githubId: 'asc' },
+        }),
+      (user) => user.githubId,
+    );
   }
 
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {

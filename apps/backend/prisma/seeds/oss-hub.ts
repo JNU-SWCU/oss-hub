@@ -1,3 +1,5 @@
+import { BoundedReadRepository } from '../../src/platform/bounded-read.repository';
+import { READ_CAP } from '../../src/platform/bounded-read.config';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -264,10 +266,16 @@ export async function seedOssHub(
     },
   ] as const;
   const newMilestoneIds = milestones.map((milestone) => milestone.id);
-  const staleMilestones = await prisma.milestone.findMany({
-    where: { programId: PROGRAM_ID, id: { notIn: newMilestoneIds } },
-    select: { id: true },
-  });
+  const staleMilestones = await new BoundedReadRepository().readCapped(
+    READ_CAP.milestonesPerProgram,
+    'Milestone per program',
+    (take) =>
+      prisma.milestone.findMany({
+        take,
+        where: { programId: PROGRAM_ID, id: { notIn: newMilestoneIds } },
+        select: { id: true },
+      }),
+  );
   const staleMilestoneIds = staleMilestones.map((milestone) => milestone.id);
   if (staleMilestoneIds.length > 0) {
     await prisma.submissionHistory.deleteMany({
