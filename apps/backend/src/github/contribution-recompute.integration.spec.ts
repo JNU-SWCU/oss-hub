@@ -13,11 +13,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 describe('Contribution 재계산 (실 Postgres)', () => {
-  const prisma = loadPrismaQueryLintConfig().createLintedClient(
-    new PrismaClient({
-      adapter: new PrismaPg(loadPrismaPoolConfig()),
-    }),
-  );
+  const prisma = loadPrismaQueryLintConfig().createLintedPrismaClient();
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
     new PlatformRepository(),
@@ -256,11 +252,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
 });
 
 describe('수집 성공 기록 (실 Postgres)', () => {
-  const prisma = loadPrismaQueryLintConfig().createLintedClient(
-    new PrismaClient({
-      adapter: new PrismaPg(loadPrismaPoolConfig()),
-    }),
-  );
+  const prisma = loadPrismaQueryLintConfig().createLintedPrismaClient();
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
     new PlatformRepository(),

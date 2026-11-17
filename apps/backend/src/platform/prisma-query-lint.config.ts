@@ -4,8 +4,10 @@ import { createRequire, SourceMap } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Logger } from '@nestjs/common';
-import type { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
 import type * as TS from 'typescript';
+import { loadPrismaPoolConfig } from './prisma-pool.config';
 import { PROCESS_RUNTIME_CONFIG } from './runtime-config-instance.config';
 
 export type PrismaQueryLintRule =
@@ -94,6 +96,14 @@ export class PrismaQueryLintConfig {
         },
       },
     }) as unknown as T;
+  }
+
+  createLintedPrismaClient(databaseUrl?: string): PrismaClient {
+    return this.createLintedClient(
+      new PrismaClient({
+        adapter: new PrismaPg(loadPrismaPoolConfig(databaseUrl)),
+      }),
+    );
   }
 
   auditAllowlist(): string[] {

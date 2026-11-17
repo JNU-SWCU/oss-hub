@@ -1,8 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
-import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -13,11 +10,7 @@ const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'test:414:';
 const REPO_ID = 9_414_000_101n;
 
-const prisma = loadPrismaQueryLintConfig().createLintedClient(
-  new PrismaClient({
-    adapter: new PrismaPg(loadPrismaPoolConfig()),
-  }),
-);
+const prisma = loadPrismaQueryLintConfig().createLintedPrismaClient();
 
 async function cleanFixtures(): Promise<void> {
   await prisma.repo.deleteMany({ where: { githubRepoId: REPO_ID } });
