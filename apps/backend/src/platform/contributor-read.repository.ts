@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ActivityVisibility, Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
+import { STANDING_SQL } from './contributor-read.config';
 
 export interface StandingFilter {
   readonly year: number | null;
@@ -29,6 +30,8 @@ interface StandingSqlRow {
   readonly starCount: number;
 }
 
+const STANDING = Prisma.raw(STANDING_SQL);
+
 const STANDING_COLUMNS = Prisma.raw(`
   github_id AS "githubId",
   year,
@@ -39,45 +42,6 @@ const STANDING_COLUMNS = Prisma.raw(`
   repository_count AS "repositoryCount",
   star_count AS "starCount"
 `);
-
-const STANDING = Prisma.raw(`(
-  SELECT
-    latest.github_id,
-    latest.year,
-    latest.visibility,
-    latest.commit_count,
-    latest.pull_request_count,
-    latest.issue_count,
-    latest.repository_count,
-    latest.star_count,
-    GREATEST(
-      latest.observed_at,
-      COALESCE(latest.clock_at, latest.observed_at)
-    ) AS observed_at
-  FROM (
-    SELECT DISTINCT ON (
-      observation.github_id,
-      observation.year,
-      observation.visibility
-    )
-      observation.github_id,
-      observation.year,
-      observation.visibility,
-      observation.commit_count,
-      observation.pull_request_count,
-      observation.issue_count,
-      observation.repository_count,
-      observation.star_count,
-      observation.observed_at,
-      observation.clock_at
-    FROM github_user_activity_history AS observation
-    ORDER BY
-      observation.github_id,
-      observation.year,
-      observation.visibility,
-      observation.observed_at DESC
-  ) AS latest
-) AS standing`);
 
 function visibilityOf(value: string): ActivityVisibility {
   if (value === ActivityVisibility.PUBLIC) return ActivityVisibility.PUBLIC;

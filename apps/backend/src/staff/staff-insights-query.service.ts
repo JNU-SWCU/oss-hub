@@ -37,7 +37,7 @@ export class StaffInsightsQueryService {
   }
 }
 
-const SW_MAJOR_DEPARTMENTS: readonly string[] = [
+export const SW_MAJOR_DEPARTMENTS: readonly string[] = [
   '인공지능학부',
   '소프트웨어공학과',
   '컴퓨터정보통신공학과',

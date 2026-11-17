@@ -454,12 +454,16 @@ describe('Audience authorization HTTP characterization', () => {
         {
           provide: StaffInsightsRepository,
           useValue: {
-            listStudents: () => Promise.resolve([]),
-            listApprovedParticipations: () => Promise.resolve([]),
-            listActivityTotals: () => Promise.resolve([]),
+            listDepartmentMetrics: () => Promise.resolve([]),
+            listPeriodLeaderCandidates: () => Promise.resolve([]),
+            listRecentLeaderCandidates: () => Promise.resolve([]),
             listActivityYears: () => Promise.resolve([]),
-            listActivityBaselines: () => Promise.resolve([]),
-            listActivityByYear: () => Promise.resolve([]),
+            listProgramParticipantDepartments: () => Promise.resolve([]),
+            countPublishedParticipants: () =>
+              Promise.resolve({
+                uniqueParticipantCount: 0,
+                repeatParticipantCount: 0,
+              }),
             findActivityDataAsOf: () => Promise.resolve(null),
             listPublishedPrograms: () => Promise.resolve([]),
             listProgramApplicationCounts: () => Promise.resolve([]),

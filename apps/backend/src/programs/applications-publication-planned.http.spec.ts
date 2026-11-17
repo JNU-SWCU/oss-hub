@@ -585,28 +585,37 @@ const staffDashboardService = new StaffDashboardService(
 );
 const INSIGHTS_STUDENT_ID = 'insights-student-user-id';
 const INSIGHTS_STUDENT_GITHUB_ID = 987654321n;
-const listStudents = jest.fn().mockResolvedValue([
+const INSIGHTS_ACTIVITY = {
+  commitCount: 5,
+  pullRequestCount: 2,
+  issueCount: 1,
+  repositoryCount: 3,
+  starCount: 4,
+  total: 15,
+};
+const listDepartmentMetrics = jest.fn().mockResolvedValue([
   {
-    id: INSIGHTS_STUDENT_ID,
+    department: '소프트웨어공학과',
+    studentCount: 1,
+    activeStudentCount: 1,
+    participantCount: 0,
+    ...INSIGHTS_ACTIVITY,
+  },
+]);
+const listPeriodLeaderCandidates = jest.fn().mockResolvedValue([
+  {
     githubId: INSIGHTS_STUDENT_GITHUB_ID,
     githubLogin: 'insights-octocat',
     name: '김학생',
     department: '소프트웨어공학과',
+    ...INSIGHTS_ACTIVITY,
   },
 ]);
-const listApprovedParticipations = jest.fn().mockResolvedValue([]);
-const listActivityTotals = jest.fn().mockResolvedValue([
-  {
-    githubId: INSIGHTS_STUDENT_GITHUB_ID,
-    commitCount: 5,
-    pullRequestCount: 2,
-    issueCount: 1,
-    repositoryCount: 3,
-    starCount: 4,
-  },
-]);
-const listActivityBaselines = jest.fn().mockResolvedValue([]);
-const listActivityByYear = jest.fn().mockResolvedValue([]);
+const listRecentLeaderCandidates = jest.fn().mockResolvedValue([]);
+const listProgramParticipantDepartments = jest.fn().mockResolvedValue([]);
+const countPublishedParticipants = jest
+  .fn()
+  .mockResolvedValue({ uniqueParticipantCount: 0, repeatParticipantCount: 0 });
 const findActivityDataAsOf = jest.fn().mockResolvedValue(null);
 const listActivityYears = jest.fn().mockResolvedValue([]);
 const listPublishedPrograms = jest.fn().mockResolvedValue([]);
@@ -615,14 +624,14 @@ const listProgramCompletion = jest.fn().mockResolvedValue([]);
 const listProgramOutcomes = jest.fn().mockResolvedValue([]);
 const staffInsightsService = new StaffInsightsService(
   {
-    listStudents,
-    listApprovedParticipations,
-    listActivityTotals,
+    listDepartmentMetrics,
+    listPeriodLeaderCandidates,
+    listRecentLeaderCandidates,
     findActivityDataAsOf,
     listActivityYears,
-    listActivityBaselines,
-    listActivityByYear,
     listPublishedPrograms,
+    listProgramParticipantDepartments,
+    countPublishedParticipants,
     listProgramApplicationCounts,
     listProgramCompletion,
     listProgramOutcomes,
@@ -777,7 +786,7 @@ const invalidQueryRoutes: readonly InvalidQueryRoute[] = [
     path: `${insightsPath}?year=invalid`,
     instance: insightsPath,
     detail: INVALID_INSIGHTS_QUERY_DETAIL,
-    notReached: listStudents,
+    notReached: listDepartmentMetrics,
   },
 ];
 

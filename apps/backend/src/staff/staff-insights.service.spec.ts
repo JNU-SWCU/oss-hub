@@ -1,95 +1,84 @@
 import { StaffInsightsService } from './staff-insights.service';
 import type {
-  StaffInsightsActivityRecord,
-  StaffInsightsBaselineRecord,
+  StaffInsightsDepartmentMetricsRecord,
+  StaffInsightsLeaderCandidateRecord,
   StaffInsightsProgramRecord,
   StaffInsightsRepository,
-  StaffInsightsStudentRecord,
 } from './staff-insights.repository';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import {
   StaffInsightsQueryService,
   DEPARTMENT_COHORTS,
+  SW_MAJOR_DEPARTMENTS,
 } from './staff-insights-query.service';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 
 type Store = Pick<
   StaffInsightsRepository,
-  | 'listStudents'
-  | 'listApprovedParticipations'
-  | 'listActivityTotals'
+  | 'listDepartmentMetrics'
+  | 'listPeriodLeaderCandidates'
+  | 'listRecentLeaderCandidates'
   | 'findActivityDataAsOf'
   | 'listActivityYears'
-  | 'listActivityBaselines'
-  | 'listActivityByYear'
   | 'listPublishedPrograms'
+  | 'listProgramParticipantDepartments'
+  | 'countPublishedParticipants'
   | 'listProgramApplicationCounts'
   | 'listProgramCompletion'
   | 'listProgramOutcomes'
 >;
 
-function repository(): Store {
+const SW = '소프트웨어공학과';
+const NON_SW = '국어국문학과';
+const NOW_2026 = new Date('2026-11-16T00:00:00+09:00');
+const CUTOFF_2026 = new Date('2026-10-17T00:00:00+09:00');
+const NOW_2027 = new Date('2027-01-10T00:00:00+09:00');
+const CUTOFF_2027 = new Date('2026-12-11T00:00:00+09:00');
+
+function metrics(
+  department: string | null,
+  overrides: Partial<StaffInsightsDepartmentMetricsRecord> = {},
+): StaffInsightsDepartmentMetricsRecord {
   return {
-    listStudents: jest.fn().mockResolvedValue([
-      {
-        id: 'student-sw',
-        githubId: 11n,
-        githubLogin: 'sw-login',
-        name: '합성 SW',
-        department: '소프트웨어공학과',
-      },
-      {
-        id: 'student-non',
-        githubId: 22n,
-        githubLogin: 'non-login',
-        name: '합성 비SW',
-        department: '국어국문학과',
-      },
-      {
-        id: 'student-empty',
-        githubId: 33n,
-        githubLogin: 'empty-login',
-        name: null,
-        department: null,
-      },
-    ]),
-    listApprovedParticipations: jest.fn().mockResolvedValue([
-      {
-        programId: 'program-basic',
-        programName: '합성 기초',
-        userIds: ['student-sw', 'student-non'],
-      },
-    ]),
-    listActivityTotals: jest.fn().mockResolvedValue([
-      {
-        githubId: 11n,
-        commitCount: 10,
-        pullRequestCount: 2,
-        issueCount: 1,
-        repositoryCount: 2,
-        starCount: 4,
-      },
-      {
-        githubId: 22n,
-        commitCount: 1,
-        pullRequestCount: 0,
-        issueCount: 0,
-        repositoryCount: 0,
-        starCount: 0,
-      },
-    ]),
-    findActivityDataAsOf: jest
-      .fn()
-      .mockResolvedValue(new Date('2026-08-01T00:00:00.000Z')),
-    listActivityYears: jest.fn().mockResolvedValue([2026, 2025]),
-    listActivityBaselines: jest.fn().mockResolvedValue([]),
-    listActivityByYear: jest.fn().mockResolvedValue([]),
-    listPublishedPrograms: jest
-      .fn()
-      .mockResolvedValue([program('program-basic', '합성 기초')]),
-    listProgramApplicationCounts: jest.fn().mockResolvedValue([]),
-    listProgramCompletion: jest.fn().mockResolvedValue([]),
-    listProgramOutcomes: jest.fn().mockResolvedValue([]),
+    department,
+    studentCount: 1,
+    activeStudentCount: 0,
+    commitCount: 0,
+    pullRequestCount: 0,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    total: 0,
+    participantCount: 0,
+    ...overrides,
+  };
+}
+
+function candidate(
+  githubId: bigint,
+  department: string | null,
+  [commitCount, pullRequestCount, issueCount, repositoryCount, starCount]: [
+    number,
+    number,
+    number,
+    number,
+    number,
+  ],
+  overrides: Partial<StaffInsightsLeaderCandidateRecord> = {},
+): StaffInsightsLeaderCandidateRecord {
+  return {
+    githubId,
+    githubLogin: `login-${githubId}`,
+    name: `학생 ${githubId}`,
+    department,
+    commitCount,
+    pullRequestCount,
+    issueCount,
+    repositoryCount,
+    starCount,
+    total:
+      commitCount + pullRequestCount + issueCount + repositoryCount + starCount,
+    ...overrides,
   };
 }
 
@@ -110,6 +99,50 @@ function program(
   };
 }
 
+function repository(): Store {
+  return {
+    listDepartmentMetrics: jest.fn().mockResolvedValue([
+      metrics(SW, {
+        activeStudentCount: 1,
+        commitCount: 10,
+        pullRequestCount: 2,
+        issueCount: 1,
+        repositoryCount: 2,
+        starCount: 4,
+        total: 19,
+        participantCount: 1,
+      }),
+      metrics(NON_SW, {
+        activeStudentCount: 1,
+        commitCount: 1,
+        total: 1,
+        participantCount: 1,
+      }),
+      metrics(null),
+    ]),
+    listPeriodLeaderCandidates: jest.fn().mockResolvedValue([]),
+    listRecentLeaderCandidates: jest.fn().mockResolvedValue([]),
+    findActivityDataAsOf: jest
+      .fn()
+      .mockResolvedValue(new Date('2026-08-01T00:00:00.000Z')),
+    listActivityYears: jest.fn().mockResolvedValue([2026, 2025]),
+    listPublishedPrograms: jest
+      .fn()
+      .mockResolvedValue([program('program-basic', '합성 기초')]),
+    listProgramParticipantDepartments: jest.fn().mockResolvedValue([
+      { programId: 'program-basic', department: SW, participantCount: 1 },
+      { programId: 'program-basic', department: NON_SW, participantCount: 1 },
+    ]),
+    countPublishedParticipants: jest.fn().mockResolvedValue({
+      uniqueParticipantCount: 2,
+      repeatParticipantCount: 0,
+    }),
+    listProgramApplicationCounts: jest.fn().mockResolvedValue([]),
+    listProgramCompletion: jest.fn().mockResolvedValue([]),
+    listProgramOutcomes: jest.fn().mockResolvedValue([]),
+  };
+}
+
 function serviceFor(store: Store): StaffInsightsService {
   return new StaffInsightsService(
     store as StaffInsightsRepository,
@@ -118,109 +151,35 @@ function serviceFor(store: Store): StaffInsightsService {
   );
 }
 
-function student(
-  githubId: bigint,
-  department: string | null,
-  overrides: Partial<StaffInsightsStudentRecord> = {},
-): StaffInsightsStudentRecord {
-  return {
-    id: `user-${githubId}`,
-    githubId,
-    githubLogin: `login-${githubId}`,
-    name: `학생 ${githubId}`,
-    department,
-    ...overrides,
-  };
-}
-
-function totals(
-  githubId: bigint,
-  [commitCount, pullRequestCount, issueCount, repositoryCount, starCount]: [
-    number,
-    number,
-    number,
-    number,
-    number,
-  ],
-): StaffInsightsActivityRecord {
-  return {
-    githubId,
-    commitCount,
-    pullRequestCount,
-    issueCount,
-    repositoryCount,
-    starCount,
-  };
-}
-
-function yearRow(
-  githubId: bigint,
-  year: number,
-  [commitCount, pullRequestCount, issueCount, repositoryCount]: [
-    number,
-    number,
-    number,
-    number,
-  ],
-): StaffInsightsBaselineRecord {
-  return {
-    githubId,
-    year,
-    commitCount,
-    pullRequestCount,
-    issueCount,
-    repositoryCount,
-  };
-}
-
-function storeWith(input: {
-  readonly students: readonly StaffInsightsStudentRecord[];
-  readonly totals?: readonly StaffInsightsActivityRecord[];
-  readonly baselines?: readonly StaffInsightsBaselineRecord[];
-  readonly byYear?: Readonly<
-    Record<number, readonly StaffInsightsBaselineRecord[]>
-  >;
-}): Store {
+function withLeaders(
+  period: readonly StaffInsightsLeaderCandidateRecord[],
+  recent: readonly StaffInsightsLeaderCandidateRecord[] = [],
+): Store {
   const store = repository();
-  (store.listStudents as jest.Mock).mockResolvedValue(input.students);
-  (store.listApprovedParticipations as jest.Mock).mockResolvedValue([]);
-  (store.listActivityTotals as jest.Mock).mockResolvedValue(input.totals ?? []);
-  (store.listActivityBaselines as jest.Mock).mockResolvedValue(
-    input.baselines ?? [],
-  );
-  (store.listActivityByYear as jest.Mock).mockImplementation((year: number) =>
-    Promise.resolve(input.byYear?.[year] ?? []),
-  );
+  (store.listPeriodLeaderCandidates as jest.Mock).mockResolvedValue(period);
+  (store.listRecentLeaderCandidates as jest.Mock).mockResolvedValue(recent);
   return store;
 }
 
-const SW = '소프트웨어공학과';
-const NON_SW = '국어국문학과';
-const NOW_2026 = new Date('2026-11-16T00:00:00+09:00');
-const CUTOFF_2026 = new Date('2026-10-17T00:00:00+09:00');
-const NOW_2027 = new Date('2027-01-10T00:00:00+09:00');
-const CUTOFF_2027 = new Date('2026-12-11T00:00:00+09:00');
-
 describe('StaffInsightsService', () => {
-  it('splits ranking and participation by department cohort', async () => {
+  it('folds department aggregates into cohorts and program cohort counts', async () => {
     const store = repository();
-    const service = serviceFor(store);
 
-    const summary = await service.summarize({ kind: 'all' }, NOW_2026);
+    const summary = await serviceFor(store).summarize(
+      { kind: 'all' },
+      NOW_2026,
+    );
 
-    expect(store.listActivityTotals).toHaveBeenCalledWith({});
+    expect(store.listDepartmentMetrics).toHaveBeenCalledWith({});
+    expect(store.listPeriodLeaderCandidates).toHaveBeenCalledWith(
+      {},
+      SW_MAJOR_DEPARTMENTS,
+    );
     expect(store.findActivityDataAsOf).toHaveBeenCalledTimes(1);
     expect(store.listActivityYears).toHaveBeenCalledTimes(1);
-    const sw = summary.cohorts.find(
-      (row) => row.cohort === DEPARTMENT_COHORTS.SW_MAJOR,
-    );
-    const non = summary.cohorts.find(
-      (row) => row.cohort === DEPARTMENT_COHORTS.NON_SW,
-    );
-    const missing = summary.cohorts.find(
-      (row) => row.cohort === DEPARTMENT_COHORTS.UNREGISTERED,
-    );
-    expect(sw).toMatchObject({
+    const cohort = (name: string) =>
+      summary.cohorts.find((row) => row.cohort === name);
+    expect(cohort(DEPARTMENT_COHORTS.SW_MAJOR)).toMatchObject({
       studentCount: 1,
       activeStudentCount: 1,
       issueCount: 1,
@@ -229,13 +188,13 @@ describe('StaffInsightsService', () => {
       total: 19,
       participantCount: 1,
     });
-    expect(non).toMatchObject({
+    expect(cohort(DEPARTMENT_COHORTS.NON_SW)).toMatchObject({
       studentCount: 1,
       activeStudentCount: 1,
       total: 1,
       participantCount: 1,
     });
-    expect(missing).toMatchObject({
+    expect(cohort(DEPARTMENT_COHORTS.UNREGISTERED)).toMatchObject({
       studentCount: 1,
       activeStudentCount: 0,
       total: 0,
@@ -250,6 +209,28 @@ describe('StaffInsightsService', () => {
     });
   });
 
+  it('merges null and blank departments into one 미등록 row', async () => {
+    const store = repository();
+    (store.listDepartmentMetrics as jest.Mock).mockResolvedValue([
+      metrics(null, { studentCount: 2 }),
+      metrics('  ', { studentCount: 1, total: 3 }),
+    ]);
+
+    const { departments } = await serviceFor(store).summarize(
+      { kind: 'all' },
+      NOW_2026,
+    );
+
+    expect(departments).toEqual([
+      expect.objectContaining({
+        department: '미등록',
+        cohort: DEPARTMENT_COHORTS.UNREGISTERED,
+        studentCount: 3,
+        total: 3,
+      }),
+    ]);
+  });
+
   describe('program scorecard', () => {
     function scorecardStore(): Store {
       const store = repository();
@@ -261,23 +242,15 @@ describe('StaffInsightsService', () => {
         }),
         program('program-empty', '나 모집 프로그램'),
       ]);
-      (store.listApprovedParticipations as jest.Mock).mockResolvedValue([
-        {
-          programId: 'program-full',
-          programName: '가 성과 프로그램',
-          userIds: ['student-sw', 'student-non'],
-        },
-        {
-          programId: 'program-full',
-          programName: '가 성과 프로그램',
-          userIds: ['student-empty', 'student-sw'],
-        },
-        {
-          programId: 'program-deleted',
-          programName: '삭제된 프로그램',
-          userIds: ['student-non'],
-        },
+      (store.listProgramParticipantDepartments as jest.Mock).mockResolvedValue([
+        { programId: 'program-full', department: SW, participantCount: 1 },
+        { programId: 'program-full', department: NON_SW, participantCount: 1 },
+        { programId: 'program-full', department: null, participantCount: 1 },
       ]);
+      (store.countPublishedParticipants as jest.Mock).mockResolvedValue({
+        uniqueParticipantCount: 3,
+        repeatParticipantCount: 1,
+      });
       (store.listProgramApplicationCounts as jest.Mock).mockResolvedValue([
         { programId: 'program-full', appliedCount: 5, approvedCount: 2 },
         { programId: 'program-empty', appliedCount: 3, approvedCount: 0 },
@@ -356,42 +329,10 @@ describe('StaffInsightsService', () => {
           contributionsPerParticipant: null,
         },
       ]);
-    });
-
-    it('summarizes pooled ratio and repeat participants across published programs', async () => {
-      const store = scorecardStore();
-      (store.listPublishedPrograms as jest.Mock).mockResolvedValue([
-        program('program-full', '가 성과 프로그램'),
-        program('program-empty', '나 모집 프로그램'),
-        program('program-other', '다 다른 프로그램'),
-      ]);
-      (store.listApprovedParticipations as jest.Mock).mockResolvedValue([
-        {
-          programId: 'program-full',
-          programName: '가 성과 프로그램',
-          userIds: ['student-sw', 'student-non', 'student-empty'],
-        },
-        {
-          programId: 'program-other',
-          programName: '다 다른 프로그램',
-          userIds: ['student-sw'],
-        },
-        {
-          programId: 'program-deleted',
-          programName: '삭제된 프로그램',
-          userIds: ['student-non'],
-        },
-      ]);
-
-      const summary = await serviceFor(store).summarize(
-        { kind: 'all' },
-        NOW_2026,
-      );
-
       expect(summary.programSummary).toEqual({
-        programCount: 3,
-        recruitingCount: 0,
-        approvedParticipantCount: 4,
+        programCount: 2,
+        recruitingCount: 1,
+        approvedParticipantCount: 3,
         uniqueParticipantCount: 3,
         competitionRatio: 4,
         repeatParticipantCount: 1,
@@ -401,7 +342,13 @@ describe('StaffInsightsService', () => {
 
     it('keeps outcome null when repos exist but no student is approved', async () => {
       const store = scorecardStore();
-      (store.listApprovedParticipations as jest.Mock).mockResolvedValue([]);
+      (store.listProgramParticipantDepartments as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (store.countPublishedParticipants as jest.Mock).mockResolvedValue({
+        uniqueParticipantCount: 0,
+        repeatParticipantCount: 0,
+      });
 
       const summary = await serviceFor(store).summarize(
         { kind: 'all' },
@@ -436,33 +383,31 @@ describe('StaffInsightsService', () => {
     });
   });
 
-  it('passes only a numeric year into activity totals', async () => {
+  it('passes only a numeric year into the activity aggregates', async () => {
     const store = repository();
-    const service = serviceFor(store);
 
-    await service.summarize({ kind: 'calendar', year: 2026 }, NOW_2026);
+    await serviceFor(store).summarize(
+      { kind: 'calendar', year: 2026 },
+      NOW_2026,
+    );
 
-    expect(store.listActivityTotals).toHaveBeenCalledWith({
+    expect(store.listDepartmentMetrics).toHaveBeenCalledWith({
       currentYear: 2026,
     });
+    expect(store.listPeriodLeaderCandidates).toHaveBeenCalledWith(
+      { currentYear: 2026 },
+      SW_MAJOR_DEPARTMENTS,
+    );
   });
 
-  describe('period leaders', () => {
+  describe('leaders', () => {
     it('orders leaders with the ranking comparator and numbers ranks ordinally', async () => {
-      const store = storeWith({
-        students: [
-          student(1n, SW, { githubLogin: 'zed' }),
-          student(2n, SW, { githubLogin: 'Bravo' }),
-          student(3n, SW, { githubLogin: 'alpha' }),
-          student(4n, SW, { githubLogin: 'top' }),
-        ],
-        totals: [
-          totals(1n, [8, 2, 0, 0, 0]),
-          totals(2n, [5, 5, 0, 0, 0]),
-          totals(3n, [5, 5, 0, 0, 0]),
-          totals(4n, [1, 1, 1, 1, 20]),
-        ],
-      });
+      const store = withLeaders([
+        candidate(1n, SW, [8, 2, 0, 0, 0], { githubLogin: 'zed' }),
+        candidate(2n, SW, [5, 5, 0, 0, 0], { githubLogin: 'Bravo' }),
+        candidate(3n, SW, [5, 5, 0, 0, 0], { githubLogin: 'alpha' }),
+        candidate(4n, SW, [1, 1, 1, 1, 20], { githubLogin: 'top' }),
+      ]);
 
       const summary = await serviceFor(store).summarize(
         { kind: 'all' },
@@ -492,28 +437,11 @@ describe('StaffInsightsService', () => {
       });
     });
 
-    it('never lists a student whose total is 0', async () => {
-      const store = storeWith({
-        students: [student(1n, SW), student(2n, SW), student(3n, SW)],
-        totals: [totals(1n, [1, 0, 0, 0, 0]), totals(2n, [0, 0, 0, 0, 0])],
-      });
-
-      const summary = await serviceFor(store).summarize(
-        { kind: 'all' },
-        NOW_2026,
-      );
-
-      expect(summary.leaders.period.all.map((row) => row.githubLogin)).toEqual([
-        'login-1',
-      ]);
-    });
-
     it('caps every list at 10 rows', async () => {
       const ids = Array.from({ length: 12 }, (_, index) => BigInt(index + 1));
-      const store = storeWith({
-        students: ids.map((id) => student(id, SW)),
-        totals: ids.map((id) => totals(id, [Number(id), 0, 0, 0, 0])),
-      });
+      const store = withLeaders(
+        ids.map((id) => candidate(id, SW, [Number(id), 0, 0, 0, 0])),
+      );
 
       const summary = await serviceFor(store).summarize(
         { kind: 'all' },
@@ -530,18 +458,11 @@ describe('StaffInsightsService', () => {
     });
 
     it('splits cohorts and lists an unregistered student only in all', async () => {
-      const store = storeWith({
-        students: [
-          student(1n, SW),
-          student(2n, NON_SW),
-          student(3n, null, { name: null }),
-        ],
-        totals: [
-          totals(1n, [3, 0, 0, 0, 0]),
-          totals(2n, [2, 0, 0, 0, 0]),
-          totals(3n, [5, 0, 0, 0, 0]),
-        ],
-      });
+      const store = withLeaders([
+        candidate(1n, SW, [3, 0, 0, 0, 0]),
+        candidate(2n, NON_SW, [2, 0, 0, 0, 0]),
+        candidate(3n, null, [5, 0, 0, 0, 0], { name: null }),
+      ]);
 
       const { period } = (
         await serviceFor(store).summarize({ kind: 'all' }, NOW_2026)
@@ -565,49 +486,19 @@ describe('StaffInsightsService', () => {
       ]);
     });
 
-    it('skips a student whose GitHub login is empty', async () => {
-      const store = storeWith({
-        students: [student(1n, SW, { githubLogin: '' }), student(2n, SW)],
-        totals: [totals(1n, [9, 0, 0, 0, 0]), totals(2n, [1, 0, 0, 0, 0])],
-        baselines: [yearRow(1n, 2026, [0, 0, 0, 0])],
-        byYear: { 2026: [yearRow(1n, 2026, [9, 0, 0, 0])] },
-      });
-
-      const { leaders } = await serviceFor(store).summarize(
-        { kind: 'all' },
-        NOW_2026,
-      );
-
-      expect(leaders.period.all.map((row) => row.githubLogin)).toEqual([
-        'login-2',
-      ]);
-      expect(leaders.recent.all).toEqual([]);
-    });
-  });
-
-  describe('recent leaders', () => {
-    it('subtracts a same-year baseline taken 30 days before now', async () => {
-      const store = storeWith({
-        students: [student(1n, SW)],
-        baselines: [yearRow(1n, 2026, [4, 1, 2, 0])],
-        byYear: { 2026: [yearRow(1n, 2026, [10, 3, 2, 1])] },
-      });
+    it('reads recent leaders for the 30-day window and omits Star from the row', async () => {
+      const store = withLeaders([], [candidate(1n, SW, [6, 2, 0, 1, 0])]);
 
       const summary = await serviceFor(store).summarize(
         { kind: 'all' },
         NOW_2026,
       );
 
-      expect(store.listActivityBaselines).toHaveBeenCalledWith(
-        2026,
-        CUTOFF_2026,
+      expect(store.listRecentLeaderCandidates).toHaveBeenCalledWith(
+        { cutoff: CUTOFF_2026, cutoffYear: 2026, nowYear: 2026 },
+        SW_MAJOR_DEPARTMENTS,
       );
-      expect(store.listActivityByYear).toHaveBeenCalledTimes(1);
-      expect(store.listActivityByYear).toHaveBeenCalledWith(2026);
-      expect(summary.recentWindow).toEqual({
-        from: CUTOFF_2026,
-        to: NOW_2026,
-      });
+      expect(summary.recentWindow).toEqual({ from: CUTOFF_2026, to: NOW_2026 });
       expect(summary.leaders.recent.all).toEqual([
         {
           rank: 1,
@@ -624,152 +515,24 @@ describe('StaffInsightsService', () => {
       ]);
     });
 
-    it('counts the new year from 0 and uses the baseline for the old year across a year boundary', async () => {
-      const store = storeWith({
-        students: [student(1n, SW)],
-        baselines: [yearRow(1n, 2026, [7, 1, 0, 0])],
-        byYear: {
-          2026: [yearRow(1n, 2026, [10, 1, 0, 0])],
-          2027: [yearRow(1n, 2027, [5, 0, 1, 0])],
-        },
-      });
+    it('passes both years across a year boundary', async () => {
+      const store = repository();
 
-      const summary = await serviceFor(store).summarize(
-        { kind: 'all' },
-        NOW_2027,
+      await serviceFor(store).summarize({ kind: 'all' }, NOW_2027);
+
+      expect(store.listRecentLeaderCandidates).toHaveBeenCalledWith(
+        { cutoff: CUTOFF_2027, cutoffYear: 2026, nowYear: 2027 },
+        SW_MAJOR_DEPARTMENTS,
       );
-
-      expect(store.listActivityBaselines).toHaveBeenCalledWith(
-        2026,
-        CUTOFF_2027,
-      );
-      expect(store.listActivityByYear).toHaveBeenCalledWith(2026);
-      expect(store.listActivityByYear).toHaveBeenCalledWith(2027);
-      expect(summary.leaders.recent.all[0]).toMatchObject({
-        commitCount: 8,
-        pullRequestCount: 0,
-        issueCount: 1,
-        repositoryCount: 0,
-        total: 9,
-      });
-    });
-
-    it('excludes a student whose current cutoff-year row has no baseline', async () => {
-      const store = storeWith({
-        students: [student(1n, SW), student(2n, SW)],
-        baselines: [yearRow(2n, 2026, [1, 0, 0, 0])],
-        byYear: {
-          2026: [
-            yearRow(1n, 2026, [50, 0, 0, 0]),
-            yearRow(2n, 2026, [2, 0, 0, 0]),
-          ],
-          2027: [yearRow(1n, 2027, [5, 0, 0, 0])],
-        },
-      });
-
-      const { recent } = (
-        await serviceFor(store).summarize({ kind: 'all' }, NOW_2027)
-      ).leaders;
-
-      expect(recent.all.map((row) => [row.githubLogin, row.total])).toEqual([
-        ['login-2', 1],
-      ]);
-    });
-
-    it('includes a student whose only current row is in the new year with delta = current', async () => {
-      const store = storeWith({
-        students: [student(1n, NON_SW)],
-        byYear: { 2027: [yearRow(1n, 2027, [3, 2, 1, 1])] },
-      });
-
-      const { recent } = (
-        await serviceFor(store).summarize({ kind: 'all' }, NOW_2027)
-      ).leaders;
-
-      expect(recent.nonSw).toEqual([
-        expect.objectContaining({
-          rank: 1,
-          githubLogin: 'login-1',
-          commitCount: 3,
-          pullRequestCount: 2,
-          issueCount: 1,
-          repositoryCount: 1,
-          total: 7,
-        }),
-      ]);
-    });
-
-    it('drops a student whose counts did not change since the cutoff', async () => {
-      const store = storeWith({
-        students: [student(1n, SW)],
-        baselines: [yearRow(1n, 2026, [4, 1, 0, 2])],
-        byYear: { 2026: [yearRow(1n, 2026, [4, 1, 0, 2])] },
-      });
-
-      const { recent } = (
-        await serviceFor(store).summarize({ kind: 'all' }, NOW_2026)
-      ).leaders;
-
-      expect(recent.all).toEqual([]);
-    });
-
-    it('clamps each metric at 0 when the baseline exceeds the current row', async () => {
-      const store = storeWith({
-        students: [student(1n, SW)],
-        baselines: [yearRow(1n, 2026, [9, 0, 5, 0])],
-        byYear: { 2026: [yearRow(1n, 2026, [4, 2, 1, 0])] },
-      });
-
-      const { recent } = (
-        await serviceFor(store).summarize({ kind: 'all' }, NOW_2026)
-      ).leaders;
-
-      expect(recent.all[0]).toMatchObject({
-        commitCount: 0,
-        pullRequestCount: 2,
-        issueCount: 0,
-        repositoryCount: 0,
-        total: 2,
-      });
-    });
-
-    it('excludes Star from the recent total and row', async () => {
-      const store = storeWith({
-        students: [student(1n, SW)],
-        totals: [totals(1n, [3, 0, 0, 0, 40])],
-        baselines: [yearRow(1n, 2026, [1, 0, 0, 0])],
-        byYear: { 2026: [yearRow(1n, 2026, [3, 0, 0, 0])] },
-      });
-
-      const { leaders } = await serviceFor(store).summarize(
-        { kind: 'all' },
-        NOW_2026,
-      );
-
-      expect(leaders.period.all[0]).toMatchObject({
-        starCount: 40,
-        total: 43,
-      });
-      expect(leaders.recent.all[0]?.total).toBe(2);
-      expect(leaders.recent.all[0]).not.toHaveProperty('starCount');
     });
   });
 
   it('adds rounded activity per student and flags departments under 3 students', async () => {
-    const store = storeWith({
-      students: [
-        student(1n, SW),
-        student(2n, SW),
-        student(3n, SW),
-        student(4n, NON_SW),
-        student(5n, NON_SW),
-      ],
-      totals: [
-        totals(1n, [11, 0, 0, 0, 0]),
-        totals(4n, [3, 0, 0, 0, 0]),
-        totals(5n, [2, 0, 0, 0, 0]),
-      ],
-    });
+    const store = repository();
+    (store.listDepartmentMetrics as jest.Mock).mockResolvedValue([
+      metrics(SW, { studentCount: 3, total: 11 }),
+      metrics(NON_SW, { studentCount: 2, total: 5 }),
+    ]);
 
     const { departments } = await serviceFor(store).summarize(
       { kind: 'all' },
@@ -799,20 +562,16 @@ describe('StaffInsightsService', () => {
     );
 
     expect(summary.recentWindow).toEqual({ from: CUTOFF_2027, to: NOW_2027 });
-    expect(store.listActivityTotals).toHaveBeenCalledWith({
+    expect(store.listDepartmentMetrics).toHaveBeenCalledWith({
       currentYear: 2026,
     });
   });
 
-  it('never serializes studentId, githubId or the user id in leader rows', async () => {
-    const store = storeWith({
-      students: [
-        student(987654321n, SW, { id: 'user-secret-cuid', name: '합성 학생' }),
-      ],
-      totals: [totals(987654321n, [5, 0, 0, 0, 0])],
-      baselines: [yearRow(987654321n, 2026, [1, 0, 0, 0])],
-      byYear: { 2026: [yearRow(987654321n, 2026, [5, 0, 0, 0])] },
-    });
+  it('never serializes githubId in leader rows', async () => {
+    const store = withLeaders(
+      [candidate(987654321n, SW, [5, 0, 0, 0, 0], { name: '합성 학생' })],
+      [candidate(987654321n, SW, [4, 0, 0, 0, 0], { name: '합성 학생' })],
+    );
 
     const summary = await serviceFor(store).summarize(
       { kind: 'all' },
@@ -820,12 +579,9 @@ describe('StaffInsightsService', () => {
     );
     const body = JSON.stringify(StaffInsightsResponseDto.from(summary));
 
-    expect(summary.leaders.period.all).toHaveLength(1);
-    expect(summary.leaders.recent.all).toHaveLength(1);
     expect(body).toContain('"githubLogin":"login-987654321"');
     expect(body).not.toContain('studentId');
     expect(body).not.toContain('githubId');
-    expect(body).not.toContain('user-secret-cuid');
     expect(body).not.toContain('"987654321"');
   });
 });

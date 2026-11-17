@@ -100,11 +100,31 @@ describe('StaffInsightsRepository PUBLIC activity scope', () => {
     'preserves public counts and nine stars with year $currentYear',
     async ({ currentYear }) => {
       await prisma.githubUserActivityObservation.create({ data: PRIVATE_ROW });
+      await prisma.user.create({
+        data: {
+          id: ACTIVE_STUDENT_ID,
+          githubId: GITHUB_ID,
+          nickname: 'insights-active',
+          type: 'STUDENT',
+          name: '홍길동',
+          department: '소프트웨어공학과',
+          departmentType: 'DEPARTMENT',
+          profileCreatedAt: CUTOFF,
+          profileUpdatedAt: CUTOFF,
+        },
+      });
 
-      const rows = await repository.listActivityTotals({ currentYear });
+      const rows = await repository.listPeriodLeaderCandidates(
+        { currentYear },
+        [],
+      );
 
       expect(rows.find((row) => row.githubId === GITHUB_ID)).toEqual({
         githubId: GITHUB_ID,
+        githubLogin: 'insights-active',
+        name: '홍길동',
+        department: '소프트웨어공학과',
+        total: 23,
         commitCount: 10,
         pullRequestCount: 2,
         issueCount: 1,
@@ -139,7 +159,10 @@ describe('StaffInsightsRepository PUBLIC activity scope', () => {
 });
 
 describe('StaffInsightsRepository student identity and baselines', () => {
-  it('returns githubLogin and name for active students only', async () => {
+  it('ranks active students only and drops an empty login', async () => {
+    await prisma.githubUserActivityObservation.create({
+      data: { ...PUBLIC_ROW, githubId: BASELINE_GITHUB_ID },
+    });
     await prisma.user.createMany({
       data: [
         {
@@ -158,7 +181,7 @@ describe('StaffInsightsRepository student identity and baselines', () => {
           githubId: BASELINE_GITHUB_ID,
           nickname: 'insights-deactivated',
           type: 'STUDENT',
-          name: '김비활',
+          name: '홍길동',
           department: '소프트웨어공학과',
           departmentType: 'DEPARTMENT',
           profileCreatedAt: CUTOFF,
@@ -168,21 +191,28 @@ describe('StaffInsightsRepository student identity and baselines', () => {
       ],
     });
 
-    const students = await repository.listStudents();
+    const rows = await repository.listPeriodLeaderCandidates({}, []);
 
-    expect(students.find((row) => row.id === ACTIVE_STUDENT_ID)).toEqual({
-      id: ACTIVE_STUDENT_ID,
-      githubId: GITHUB_ID,
-      githubLogin: 'insights-active',
-      name: '홍길동',
-      department: '소프트웨어공학과',
-    });
-    expect(students.some((row) => row.id === DEACTIVATED_STUDENT_ID)).toBe(
-      false,
+    expect(rows.map((row) => row.githubLogin)).toContain('insights-active');
+    expect(rows.map((row) => row.githubLogin)).not.toContain(
+      'insights-deactivated',
     );
   });
 
-  it('reads the baseline strictly before the cutoff and the latest standing', async () => {
+  it('subtracts the baseline strictly before the cutoff from the latest standing', async () => {
+    await prisma.user.create({
+      data: {
+        id: ACTIVE_STUDENT_ID,
+        githubId: BASELINE_GITHUB_ID,
+        nickname: 'insights-recent',
+        type: 'STUDENT',
+        name: '홍길동',
+        department: '소프트웨어공학과',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: CUTOFF,
+        profileUpdatedAt: CUTOFF,
+      },
+    });
     await prisma.githubUserActivityObservation.createMany({
       data: [
         baselineObservation(
@@ -203,24 +233,52 @@ describe('StaffInsightsRepository student identity and baselines', () => {
         ),
       ],
     });
-    const countsOf = (commitCount: number) => ({
-      githubId: BASELINE_GITHUB_ID,
-      year: YEAR,
-      commitCount,
-      pullRequestCount: commitCount + 1,
-      issueCount: commitCount + 2,
-      repositoryCount: commitCount + 3,
+
+    const rows = await repository.listRecentLeaderCandidates(
+      { cutoff: CUTOFF, cutoffYear: YEAR, nowYear: YEAR },
+      [],
+    );
+
+    expect(rows.find((row) => row.githubId === BASELINE_GITHUB_ID)).toEqual(
+      expect.objectContaining({
+        commitCount: 20,
+        pullRequestCount: 20,
+        issueCount: 20,
+        repositoryCount: 20,
+        starCount: 0,
+        total: 80,
+      }),
+    );
+  });
+
+  it('excludes a student whose cutoff-year standing has no baseline', async () => {
+    await prisma.user.create({
+      data: {
+        id: ACTIVE_STUDENT_ID,
+        githubId: BASELINE_GITHUB_ID,
+        nickname: 'insights-recent',
+        type: 'STUDENT',
+        name: '홍길동',
+        department: '소프트웨어공학과',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: CUTOFF,
+        profileUpdatedAt: CUTOFF,
+      },
+    });
+    await prisma.githubUserActivityObservation.create({
+      data: baselineObservation(
+        ActivityVisibility.PUBLIC,
+        new Date(CUTOFF.getTime() + DAY_MS),
+        30,
+      ),
     });
 
-    const baselines = await repository.listActivityBaselines(YEAR, CUTOFF);
-    const current = await repository.listActivityByYear(YEAR);
+    const rows = await repository.listRecentLeaderCandidates(
+      { cutoff: CUTOFF, cutoffYear: YEAR, nowYear: YEAR + 1 },
+      [],
+    );
 
-    expect(
-      baselines.filter((row) => row.githubId === BASELINE_GITHUB_ID),
-    ).toEqual([countsOf(10)]);
-    expect(
-      current.filter((row) => row.githubId === BASELINE_GITHUB_ID),
-    ).toEqual([countsOf(30)]);
+    expect(rows.some((row) => row.githubId === BASELINE_GITHUB_ID)).toBe(false);
   });
 });
 
