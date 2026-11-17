@@ -8,14 +8,12 @@ import {
   ProgramLifecycle,
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
-  PrismaClient,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
+import { loadPrismaQueryLintConfig } from '../platform/prisma-query-lint.config';
 import { ApplicationsErrorCode } from './teams.error';
 import {
   ApplicationsRepository,
@@ -401,9 +399,10 @@ describe('TeamApplicationService integration', () => {
       });
       const databaseUrl = new URL(process.env.DATABASE_URL ?? '');
       databaseUrl.searchParams.set('connection_limit', '1');
-      const applicantPrisma = new PrismaClient({
-        adapter: new PrismaPg(loadPrismaPoolConfig(databaseUrl.toString())),
-      }) as unknown as PrismaService;
+      const applicantPrisma =
+        loadPrismaQueryLintConfig().createLintedPrismaClient(
+          databaseUrl.toString(),
+        ) as unknown as PrismaService;
       const applicantService = new TeamApplicationService(
         new ApplicationsRepository(
           applicantPrisma,
@@ -653,9 +652,10 @@ describe('TeamApplicationService integration', () => {
       }
       const url = new URL(process.env.DATABASE_URL ?? '');
       url.searchParams.set('connection_limit', '1');
-      const approvalPrisma = new PrismaClient({
-        adapter: new PrismaPg(loadPrismaPoolConfig(url.toString())),
-      }) as unknown as PrismaService;
+      const approvalPrisma =
+        loadPrismaQueryLintConfig().createLintedPrismaClient(
+          url.toString(),
+        ) as unknown as PrismaService;
       const approvalService = new TeamApplicationService(
         new ApplicationsRepository(
           approvalPrisma,

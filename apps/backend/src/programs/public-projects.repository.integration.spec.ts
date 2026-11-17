@@ -10,6 +10,7 @@ import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { PublicProjectsRepository } from './public-projects.repository';
 import {
@@ -367,7 +368,9 @@ describe('PublicProjectsRepository integration', () => {
     });
     await queryLogClient.$connect();
     const loggedRepository = new PublicProjectsRepository(
-      queryLogClient as unknown as PrismaService,
+      loadPrismaQueryLintConfig().createLintedClient(
+        queryLogClient,
+      ) as unknown as PrismaService,
     );
 
     try {

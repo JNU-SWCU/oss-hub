@@ -21,6 +21,10 @@
     "db:migrate:dev": "pnpm --filter backend db:migrate:dev",
     "db:reset": "pnpm --filter backend db:reset",
     "db:seed": "pnpm --filter backend db:seed",
+    "verify:frontend": "node verify/index.mjs frontend",
+    "verify:backend": "node verify/index.mjs backend",
+    "verify:full": "node verify/index.mjs full",
+    "test:verify": "node --test verify/*.test.mjs",
     "postinstall": "pnpm --filter backend exec prisma generate"
   },
   "devDependencies": {

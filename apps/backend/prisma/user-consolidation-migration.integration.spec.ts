@@ -1,9 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import {
   artifact,
   cleanupMigrationFixture,
@@ -16,6 +13,7 @@ import {
   resolveFailedMigration,
   schemaDrift,
 } from './user-consolidation-migration-harness';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 
 jest.setTimeout(120_000);
 beforeAll(prepareMigrationFixture);
@@ -98,9 +96,7 @@ it('starts a fresh generation after rollback and acknowledged old application wr
         `SELECT count(*) FROM user_consolidation_backup.ledger_attempts`,
       ),
     ).toBe('1');
-    const prisma = new PrismaClient({
-      adapter: new PrismaPg(loadPrismaPoolConfig(url)),
-    });
+    const prisma = loadPrismaQueryLintConfig().createLintedPrismaClient(url);
     try {
       expect(
         await prisma.$transaction([

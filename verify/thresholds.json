@@ -1,0 +1,48 @@
+{
+  "origin": "https://jnu-oss-hub.com",
+  "requestTimeoutMs": 15000,
+  "lighthouse": {
+    "runs": 3,
+    "formFactor": "mobile",
+    "deadlineSeconds": 180,
+    "pages": ["/", "/programs", "/ranking"],
+    "goals": [
+      {
+        "id": "lcp",
+        "label": "Largest Contentful Paint (ms, median)",
+        "audit": "largest-contentful-paint",
+        "max": 2500,
+        "source": "https://web.dev/articles/lcp#what-is-a-good-lcp-score"
+      },
+      {
+        "id": "cls",
+        "label": "Cumulative Layout Shift (median)",
+        "audit": "cumulative-layout-shift",
+        "max": 0.1,
+        "source": "https://web.dev/articles/cls#what-is-a-good-cls-score"
+      },
+      {
+        "id": "performance",
+        "label": "Lighthouse performance score (median)",
+        "category": "performance",
+        "min": 0.9,
+        "source": "https://developer.chrome.com/docs/lighthouse/performance/performance-scoring#color-coding"
+      }
+    ]
+  },
+  "loginStart": {
+    "path": "/api/v1/auth/github",
+    "maxHopMs": 800,
+    "maxHops": 3,
+    "stopAtHost": "github.com",
+    "source": "https://web.dev/articles/ttfb#what-is-a-good-ttfb-score"
+  },
+  "notFound": {
+    "paths": [
+      "/verify-full-missing-page",
+      "/programs/verify-full-missing-program"
+    ],
+    "expectStatus": 404,
+    "source": "https://www.rfc-editor.org/rfc/rfc9110#name-404-not-found"
+  }
+}

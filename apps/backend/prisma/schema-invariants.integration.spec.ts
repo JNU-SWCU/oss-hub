@@ -1,11 +1,10 @@
-import { Prisma, PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
+import { Prisma } from '@prisma/client';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inLegacyUserSchema } from './legacy-user-migration.fixture';
 
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -22,9 +21,7 @@ const USER_C_ID = `${TEST_PREFIX}user:c`;
 const TEAM_A_ID = `${TEST_PREFIX}team:a`;
 const TEAM_B_ID = `${TEST_PREFIX}team:b`;
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(loadPrismaPoolConfig()),
-});
+const prisma = loadPrismaQueryLintConfig().createLintedPrismaClient();
 
 async function createUsers(): Promise<void> {
   await prisma.user.createMany({
