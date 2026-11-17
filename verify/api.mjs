@@ -10,6 +10,7 @@ import {
   VerifyError,
   finding,
   git,
+  issueTrailers,
   requireTool,
   run,
   showAtRevision,
@@ -195,18 +196,6 @@ async function readControllers(cwd) {
     .map((file) => ({ file, source: readFileSync(join(cwd, file), 'utf8') }));
 }
 
-async function approvalTrailers(cwd, range) {
-  const output = await git(cwd, [
-    'log',
-    `--format=%(trailers:key=${TRAILER},valueonly,separator=%x1f)%x1e`,
-    `${range.base}..${range.head}`,
-  ]);
-  return output
-    .split(/[\x1e\x1f\n]/)
-    .map((value) => value.trim())
-    .filter((value) => /^#\d+$/.test(value));
-}
-
 async function oasdiffBreaking(tool, baseFile, revisionFile, cwd) {
   const result = await run(
     tool.bin,
@@ -344,7 +333,7 @@ export async function checkApi({
       );
       const breaking = await oasdiffBreaking(tool, baseFile, freshFile, cwd);
       if (breaking.length === 0) continue;
-      const approvals = await approvalTrailers(cwd, range);
+      const approvals = await issueTrailers(cwd, range, TRAILER);
       const summary = breaking
         .map(
           (change) =>

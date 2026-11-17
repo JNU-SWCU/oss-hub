@@ -23,7 +23,26 @@ const USER_AGENT = 'oss-hub-verify-full (anonymous GET)';
 export function readThresholds(
   path = join(REPO_ROOT, 'verify/thresholds.json'),
 ) {
-  const thresholds = JSON.parse(readFileSync(path, 'utf8'));
+  let thresholds;
+  try {
+    thresholds = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    throw new VerifyError(
+      `cannot read thresholds from ${path}: ${error.message}; refusing to run without explicit limits`,
+    );
+  }
+  const missing = [
+    'origin',
+    'requestTimeoutMs',
+    'lighthouse',
+    'loginStart',
+    'notFound',
+  ].filter((key) => thresholds?.[key] === undefined);
+  if (missing.length > 0 || !thresholds.lighthouse.goals?.length) {
+    throw new VerifyError(
+      `${path} is missing ${missing.length > 0 ? missing.join(', ') : 'lighthouse.goals'}; refusing to run without explicit limits`,
+    );
+  }
   const origin = new URL(thresholds.origin);
   if (origin.protocol !== 'https:') {
     throw new VerifyError(

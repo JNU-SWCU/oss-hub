@@ -182,3 +182,14 @@ test('an http origin is rejected', (t) => {
   );
   assert.throws(() => readThresholds(path), /must use https/);
 });
+
+test('a missing, invalid or incomplete thresholds file fails loudly', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'verify-thresholds-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'thresholds.json');
+  assert.throws(() => readThresholds(path), /cannot read thresholds/);
+  writeFileSync(path, '{not json');
+  assert.throws(() => readThresholds(path), /cannot read thresholds/);
+  writeFileSync(path, JSON.stringify({ origin: thresholds.origin }));
+  assert.throws(() => readThresholds(path), /is missing requestTimeoutMs/);
+});
