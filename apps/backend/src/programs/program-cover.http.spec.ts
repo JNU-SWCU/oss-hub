@@ -112,7 +112,9 @@ it('serves only the current attached image anonymously with explicit safe header
   expect(response.status).toBe(200);
   expect(response.headers.get('content-type')).toBe('image/png');
   expect(response.headers.get('x-content-type-options')).toBe('nosniff');
-  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(response.headers.get('cache-control')).toBe(
+    'public, max-age=31536000, immutable',
+  );
   expect(Buffer.from(await response.arrayBuffer())).toEqual(PNG);
   expect(get).toHaveBeenCalledWith('program-covers/current');
 });
@@ -124,6 +126,7 @@ it.each([
 ])('does not read storage for %s', async (path) => {
   const response = await fetch(`${baseUrl}/programs/${path}`);
   expect(response.status).toBe(404);
+  expect(response.headers.get('cache-control')).toBe('no-store');
   expect(get).not.toHaveBeenCalled();
 });
 
@@ -136,6 +139,7 @@ it.each([
     get.mockRejectedValueOnce(new ObjectStorageError(code));
     const response = await fetch(`${baseUrl}/programs/program/cover/current`);
     expect(response.status).toBe(status);
+    expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.text()).not.toContain('program-covers/');
   },
 );
