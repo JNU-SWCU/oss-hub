@@ -1,23 +1,35 @@
 import { apiClient } from '@/lib/api-client';
-import type {
-  ExternalCollectionStatus,
-  SystemStatusData,
-  SystemStatusResponse,
-} from './types';
+import type { SystemStatus } from './types';
 
-const DEFAULT_EXTERNAL_COLLECTION: ExternalCollectionStatus = {
-  trackedRepositoryCount: 0,
-  lastSuccessAt: null,
-};
-
-export async function fetchSystemStatus(): Promise<SystemStatusData> {
-  const response = await apiClient<SystemStatusResponse>('system-status');
+export async function fetchSystemStatus(): Promise<SystemStatus> {
+  const response = await apiClient<Partial<SystemStatus> | null>(
+    'system-status',
+  );
+  const {
+    collection,
+    provisioning,
+    mail,
+    anomalies,
+    collectionRepositories,
+    externalCollection,
+  } = response ?? {};
+  if (
+    !collection ||
+    !provisioning ||
+    !mail ||
+    !anomalies ||
+    !collectionRepositories ||
+    !externalCollection
+  ) {
+    throw new Error('시스템 상태 응답 형식이 올바르지 않습니다');
+  }
   return {
-    status: response.collection,
-    collectionRepositories: response.collectionRepositories,
-
-    externalCollection:
-      response.externalCollection ?? DEFAULT_EXTERNAL_COLLECTION,
+    collection,
+    provisioning,
+    mail,
+    anomalies,
+    collectionRepositories,
+    externalCollection,
   };
 }
 
@@ -30,4 +42,11 @@ export function triggerCollection(): Promise<CollectionTriggerResult> {
   return apiClient<CollectionTriggerResult>('admin/collection/trigger', {
     method: 'POST',
   });
+}
+
+export async function retryProvisioning(teamId: string): Promise<void> {
+  await apiClient(
+    `system-status/provisioning/${encodeURIComponent(teamId)}/retry`,
+    { method: 'POST' },
+  );
 }

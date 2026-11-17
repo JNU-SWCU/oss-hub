@@ -30,12 +30,18 @@ export function formatRelativeTime(value: string, now: Date): string {
   return relativeTimeFormatter.format(Math.round(diffSeconds / 60), 'minute');
 }
 
-const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
+const STAMP_FORMAT = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
 });
 
-export function formatLastSuccess(value: string | null | undefined): string {
-  if (value == null) return '아직 성공한 수집 없음';
-  return `${formatRelativeTime(value, new Date())} (${DATE_TIME_FORMAT.format(new Date(value))})`;
+export function formatStamp(value: string): string {
+  const parts = STAMP_FORMAT.formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? '';
+  return `${part('month')}.${part('day')} ${part('hour')}:${part('minute')}`;
 }
