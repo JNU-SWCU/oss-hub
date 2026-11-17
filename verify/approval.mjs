@@ -75,7 +75,13 @@ async function allReviews(fetchImpl, token, repository, number) {
   return reviews;
 }
 
-async function approvedReviewers(fetchImpl, token, repository, number) {
+async function approvedReviewers(
+  fetchImpl,
+  token,
+  repository,
+  number,
+  headSha,
+) {
   const latest = new Map();
   const reviews = await allReviews(fetchImpl, token, repository, number);
   for (const review of reviews) {
@@ -89,12 +95,13 @@ async function approvedReviewers(fetchImpl, token, repository, number) {
     const login = review.user.login.toLowerCase();
     const previous = latest.get(login);
     if (!previous || at >= previous.at) {
-      latest.set(login, { at, state: review.state });
+      latest.set(login, { at, state: review.state, commit: review.commit_id });
     }
   }
   return [...latest]
-    .map(([login, { state }]) => [login, state])
-    .filter(([, state]) => state === 'APPROVED')
+    .filter(
+      ([, { state, commit }]) => state === 'APPROVED' && commit === headSha,
+    )
     .map(([login]) => login);
 }
 
@@ -131,31 +138,45 @@ export function createCiApproval({
       };
     }
     const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
-    let numbers;
+    let pulls;
     if (env.GITHUB_EVENT_NAME === 'push') {
-      const pulls = await github(
+      const merged = await github(
         fetchImpl,
         token,
         `/repos/${repository}/commits/${range.head}/pulls`,
       );
-      numbers = pulls
+      pulls = merged
         .filter((pull) => pull.merged_at)
-        .map((pull) => pull.number);
+        .map((pull) => ({ number: pull.number, headSha: pull.head?.sha }));
     } else {
-      numbers = [event.pull_request?.number].filter(Boolean);
+      pulls = event.pull_request?.number
+        ? [
+            {
+              number: event.pull_request.number,
+              headSha: event.pull_request.head?.sha,
+            },
+          ]
+        : [];
     }
-    if (numbers.length === 0) {
+    if (pulls.length === 0) {
       return {
         ok: false,
         detail: `no merged pull request found for ${range.head.slice(0, 9)}`,
       };
     }
-    for (const number of numbers) {
+    for (const { number, headSha } of pulls) {
+      if (!headSha) {
+        return {
+          ok: false,
+          detail: `#${number} has no head commit; cannot tell whether an approval covers it`,
+        };
+      }
       const approved = await approvedReviewers(
         fetchImpl,
         token,
         repository,
         number,
+        headSha,
       );
       const owner = approved.find((login) => users.includes(login));
       if (owner)
@@ -163,7 +184,7 @@ export function createCiApproval({
     }
     return {
       ok: false,
-      detail: `no approval from CODEOWNERS (${owners.join(' ')}) on PR ${numbers.map((number) => `#${number}`).join(', ')}`,
+      detail: `no approval from CODEOWNERS (${owners.join(' ')}) on the head commit of PR ${pulls.map(({ number }) => `#${number}`).join(', ')}`,
     };
   };
 }

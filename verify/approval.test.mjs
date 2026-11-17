@@ -40,9 +40,10 @@ function github(routes) {
 }
 
 let clock = Date.parse('2026-11-01T00:00:00Z');
-const review = (login, state) => ({
+const review = (login, state, commit = HEAD) => ({
   user: { login },
   state,
+  commit_id: commit,
   submitted_at: new Date((clock += 1000)).toISOString(),
 });
 const env = (ws, eventName) => ({
@@ -72,7 +73,7 @@ test('the last matching CODEOWNERS rule wins', () => {
 
 test('pull_request: only the latest non-comment review of a code owner counts', async (t) => {
   const ws = workspace(t, '/verify/ @Owner\n', {
-    pull_request: { number: 7 },
+    pull_request: { number: 7, head: { sha: HEAD } },
   });
   const check = (reviews) => {
     const { fetchImpl } = github({
@@ -100,6 +101,10 @@ test('pull_request: only the latest non-comment review of a code owner counts', 
     false,
   );
   assert.equal((await check([review('someone-else', 'APPROVED')])).ok, false);
+  assert.equal(
+    (await check([review('owner', 'APPROVED', 'a'.repeat(40))])).ok,
+    false,
+  );
 });
 
 test('push: the merged pull request of the pushed commit must carry the owner approval', async (t) => {
@@ -110,7 +115,7 @@ test('push: the merged pull request of the pushed commit must carry the owner ap
   const approved = github({
     [`/repos/org/repo/commits/${HEAD}/pulls`]: [
       { number: 3, merged_at: null },
-      { number: 9, merged_at: '2026-11-17T00:00:00Z' },
+      { number: 9, merged_at: '2026-11-17T00:00:00Z', head: { sha: HEAD } },
     ],
     '/repos/org/repo/pulls/9/reviews': [review('owner', 'APPROVED')],
     '/repos/org/repo/pulls/3/reviews': [],
@@ -138,7 +143,7 @@ test('push: the merged pull request of the pushed commit must carry the owner ap
 
 test('approval fails closed without a token, with team-only owners, or on API errors', async (t) => {
   const ws = workspace(t, '/verify/ @owner\n', {
-    pull_request: { number: 7 },
+    pull_request: { number: 7, head: { sha: HEAD } },
   });
   const noToken = await createCiApproval({
     env: { ...env(ws, 'pull_request'), GITHUB_TOKEN: '' },
@@ -148,7 +153,7 @@ test('approval fails closed without a token, with team-only owners, or on API er
   assert.equal(noToken.ok, false);
 
   const teamWs = workspace(t, '/verify/ @org/reviewers\n', {
-    pull_request: { number: 7 },
+    pull_request: { number: 7, head: { sha: HEAD } },
   });
   const team = await createCiApproval({
     env: env(teamWs, 'pull_request'),
@@ -170,7 +175,7 @@ test('approval fails closed without a token, with team-only owners, or on API er
 
 test('CODEOWNERS comes from the trusted base, so a PR cannot swap in its own owner', async (t) => {
   const ws = workspace(t, '/verify/ @owner\n', {
-    pull_request: { number: 7 },
+    pull_request: { number: 7, head: { sha: HEAD } },
   });
   const head = ws.repo.commit('swap owner', {
     '.github/CODEOWNERS': '/verify/ @intruder\n',
@@ -197,7 +202,7 @@ test('CODEOWNERS comes from the trusted base, so a PR cannot swap in its own own
 
 test('every reviews page is read, so a later CHANGES_REQUESTED past page 10 wins', async (t) => {
   const ws = workspace(t, '/verify/ @owner\n', {
-    pull_request: { number: 7 },
+    pull_request: { number: 7, head: { sha: HEAD } },
   });
   const pages = [[review('owner', 'APPROVED')]];
   while (pages.length < 11) {
