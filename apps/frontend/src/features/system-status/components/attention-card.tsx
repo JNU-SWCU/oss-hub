@@ -24,6 +24,11 @@ const RULE_LABEL = {
   MAIL_FAILED: '알림 메일 발송 실패',
 } as const satisfies Record<AnomalyRule, string>;
 
+const AUDIT_CATEGORY: Partial<Record<AnomalyRule, string>> = {
+  SELF_ADMIN_CHANGE: 'ACCOUNT',
+  OFF_HOURS_ADMIN_CHANGE: 'ACCOUNT',
+};
+
 const SEVERITY = {
   HIGH: {
     label: '심각',
@@ -76,6 +81,25 @@ interface AttentionCardProps extends RetryProps {
   readonly anomalies: readonly Anomaly[];
   readonly failedTeams: readonly ProvisioningFailedTeam[];
   readonly staleRepositories: readonly CollectionRepository[];
+}
+
+function targetLink({
+  rule,
+  target,
+}: Anomaly): { readonly href: string; readonly text: string } | null {
+  if (target === null) return null;
+  const category = AUDIT_CATEGORY[rule];
+  if (category === undefined || target.login === null) {
+    return {
+      href: `/dashboard/users/${encodeURIComponent(target.id)}`,
+      text: '사용자 보기',
+    };
+  }
+  const query = new URLSearchParams({ q: target.login, category });
+  return {
+    href: `/dashboard/audit-logs?${query.toString()}`,
+    text: '감사 로그 보기',
+  };
 }
 
 function FailedTeamRow({
@@ -149,10 +173,7 @@ function AnomalyRow({
 }) {
   const severity = SEVERITY[anomaly.severity];
   const label = RULE_LABEL[anomaly.rule];
-  const userHref =
-    anomaly.target?.kind === 'USER'
-      ? `/dashboard/users/${encodeURIComponent(anomaly.target.id)}`
-      : null;
+  const link = targetLink(anomaly);
   const head = (
     <>
       <StatusBadge variant={severity.variant}>{severity.label}</StatusBadge>
@@ -183,13 +204,13 @@ function AnomalyRow({
     return (
       <li className={cn(ROW, ROW_LINE, 'min-h-control', severity.stripe)}>
         {head}
-        {userHref ? (
+        {link ? (
           <Link
-            href={userHref}
+            href={link.href}
             className={TARGET_LINK}
-            aria-label={`${label} 사용자 보기`}
+            aria-label={`${label} ${link.text}`}
           >
-            사용자 보기
+            {link.text}
           </Link>
         ) : null}
       </li>

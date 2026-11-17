@@ -39,7 +39,11 @@ interface SystemStatusAnomalyResult {
   readonly rule: SystemStatusAnomalyRule;
   readonly severity: SystemStatusAnomalySeverity;
   readonly count: number;
-  readonly target: { readonly kind: 'USER'; readonly id: string } | null;
+  readonly target: {
+    readonly kind: 'USER';
+    readonly id: string;
+    readonly login: string | null;
+  } | null;
 }
 
 interface SystemStatusCollectionRepositoryResult {
@@ -201,7 +205,7 @@ function bulkRemovalAnomalies(
             rule: 'BULK_REMOVAL' as const,
             severity: 'HIGH' as const,
             count: peak,
-            target: { kind: 'USER' as const, id: actorId },
+            target: { kind: 'USER' as const, id: actorId, login: null },
           },
         ]
       : [];
@@ -213,15 +217,18 @@ function adminChangeAnomalies(
   severity: SystemStatusAnomalySeverity,
   changes: readonly AdminChangeEventDto[],
 ): SystemStatusAnomalyResult[] {
-  const countByUser = new Map<string, number>();
-  for (const { userId } of changes) {
-    countByUser.set(userId, (countByUser.get(userId) ?? 0) + 1);
+  const byUser = new Map<string, { login: string; count: number }>();
+  for (const { userId, login } of changes) {
+    byUser.set(userId, {
+      login,
+      count: (byUser.get(userId)?.count ?? 0) + 1,
+    });
   }
-  return [...countByUser].map(([id, count]) => ({
+  return [...byUser].map(([id, { login, count }]) => ({
     rule,
     severity,
     count,
-    target: { kind: 'USER', id },
+    target: { kind: 'USER', id, login },
   }));
 }
 

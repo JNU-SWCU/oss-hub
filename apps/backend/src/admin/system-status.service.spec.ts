@@ -228,7 +228,7 @@ describe('SystemStatusService', () => {
           rule: 'BULK_REMOVAL',
           severity: 'HIGH',
           count: 10,
-          target: { kind: 'USER', id: 'staff-a' },
+          target: { kind: 'USER', id: 'staff-a', login: null },
         },
       ]);
     });
@@ -248,11 +248,13 @@ describe('SystemStatusService', () => {
       findAdminChangeEvents.mockResolvedValue([
         {
           userId: 'admin-a',
+          login: 'admin-a-login',
           actorId: 'admin-a',
           occurredAt: new Date('2026-07-22T02:00:00.000Z'),
         },
         {
           userId: 'user-b',
+          login: 'user-b-login',
           actorId: 'admin-a',
           occurredAt: new Date('2026-07-22T02:00:00.000Z'),
         },
@@ -265,7 +267,7 @@ describe('SystemStatusService', () => {
           rule: 'SELF_ADMIN_CHANGE',
           severity: 'HIGH',
           count: 1,
-          target: { kind: 'USER', id: 'admin-a' },
+          target: { kind: 'USER', id: 'admin-a', login: 'admin-a-login' },
         },
       ]);
     });
@@ -274,11 +276,13 @@ describe('SystemStatusService', () => {
       findAdminChangeEvents.mockResolvedValue([
         {
           userId: 'user-b',
+          login: 'user-b-login',
           actorId: 'admin-a',
           occurredAt: new Date('2026-07-21T22:00:00.000Z'),
         },
         {
           userId: 'user-c',
+          login: 'user-c-login',
           actorId: null,
           occurredAt: new Date('2026-07-22T12:59:59.999Z'),
         },
@@ -293,16 +297,19 @@ describe('SystemStatusService', () => {
       findAdminChangeEvents.mockResolvedValue([
         {
           userId: 'user-b',
+          login: 'user-b-login',
           actorId: 'admin-a',
           occurredAt: new Date('2026-07-22T13:00:00.000Z'),
         },
         {
           userId: 'user-b',
+          login: 'user-b-login',
           actorId: 'admin-a',
           occurredAt: new Date('2026-07-21T21:59:59.999Z'),
         },
         {
           userId: 'user-c',
+          login: 'user-c-login',
           actorId: 'admin-a',
           occurredAt: new Date('2026-07-25T03:00:00.000Z'),
         },
@@ -315,13 +322,13 @@ describe('SystemStatusService', () => {
           rule: 'OFF_HOURS_ADMIN_CHANGE',
           severity: 'MEDIUM',
           count: 2,
-          target: { kind: 'USER', id: 'user-b' },
+          target: { kind: 'USER', id: 'user-b', login: 'user-b-login' },
         },
         {
           rule: 'OFF_HOURS_ADMIN_CHANGE',
           severity: 'MEDIUM',
           count: 1,
-          target: { kind: 'USER', id: 'user-c' },
+          target: { kind: 'USER', id: 'user-c', login: 'user-c-login' },
         },
       ]);
     });

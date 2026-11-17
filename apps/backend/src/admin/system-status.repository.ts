@@ -49,6 +49,7 @@ export interface BulkRemovalEventDto {
 
 export interface AdminChangeEventDto {
   readonly userId: string;
+  readonly login: string;
   readonly actorId: string | null;
   readonly occurredAt: Date;
 }
@@ -149,14 +150,25 @@ export class SystemStatusRepository {
     );
   }
 
-  findAdminChangeEvents(since: Date): Promise<readonly AdminChangeEventDto[]> {
-    return this.prisma.adminHistory.findMany({
+  async findAdminChangeEvents(
+    since: Date,
+  ): Promise<readonly AdminChangeEventDto[]> {
+    const events = await this.prisma.adminHistory.findMany({
       where: {
         event: { in: [AdminHistoryEvent.GRANTED, AdminHistoryEvent.REVOKED] },
         occurredAt: { gte: since },
       },
-      select: { userId: true, actorId: true, occurredAt: true },
+      select: {
+        userId: true,
+        actorId: true,
+        occurredAt: true,
+        user: { select: { nickname: true } },
+      },
     });
+    return events.map(({ user, ...event }) => ({
+      ...event,
+      login: user.nickname,
+    }));
   }
 
   async hasActiveCollectionRun(now: Date): Promise<boolean> {

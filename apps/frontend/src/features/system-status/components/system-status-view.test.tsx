@@ -50,7 +50,7 @@ const base: SystemStatus = {
       rule: 'OFF_HOURS_ADMIN_CHANGE',
       severity: 'MEDIUM',
       count: 1,
-      target: { kind: 'USER', id: 'user/42' },
+      target: { kind: 'USER', id: 'user/42', login: 'synthetic-admin' },
     },
   ],
   collectionRepositories: [],
@@ -275,13 +275,42 @@ describe('SystemStatusView', () => {
       expect(counts).toEqual(['2', '3', '1']);
     });
 
-    it('target이 USER면 사용자 상세 주소를 직접 만들고 null이면 링크를 만들지 않는다', () => {
-      const card = attentionCard(render(base));
+    it('관리자 권한 변경은 대상자 로그인으로 거른 감사 로그 주소를, 그 밖의 USER target은 사용자 상세 주소를 직접 만든다', () => {
+      const card = attentionCard(
+        render({
+          ...base,
+          anomalies: [
+            {
+              rule: 'BULK_REMOVAL',
+              severity: 'HIGH',
+              count: 12,
+              target: { kind: 'USER', id: 'user/42', login: null },
+            },
+            {
+              rule: 'SELF_ADMIN_CHANGE',
+              severity: 'HIGH',
+              count: 1,
+              target: { kind: 'USER', id: 'user-7', login: 'synthetic-self' },
+            },
+            {
+              rule: 'OFF_HOURS_ADMIN_CHANGE',
+              severity: 'MEDIUM',
+              count: 1,
+              target: { kind: 'USER', id: 'user-8', login: 'synthetic-admin' },
+            },
+            { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 3, target: null },
+          ],
+        }),
+      );
       const hrefs = [...card.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map(
-        (match) => match[1],
+        (match) => match[1]?.replaceAll('&amp;', '&'),
       );
 
-      expect(hrefs).toEqual(['/dashboard/users/user%2F42']);
+      expect(hrefs).toEqual([
+        '/dashboard/users/user%2F42',
+        '/dashboard/audit-logs?q=synthetic-self&category=ACCOUNT',
+        '/dashboard/audit-logs?q=synthetic-admin&category=ACCOUNT',
+      ]);
     });
 
     it('이상 징후가 없으면 목록과 버튼 없이 한 줄만 보여준다', () => {

@@ -350,7 +350,7 @@ it('raises BULK_REMOVAL for ten seeded rejections within ten minutes and not for
       rule: 'BULK_REMOVAL',
       severity: 'HIGH',
       count: 10,
-      target: { kind: 'USER', id: ADMIN_ID },
+      target: { kind: 'USER', id: ADMIN_ID, login: null },
     },
   ]);
 });
@@ -367,7 +367,7 @@ it('raises SELF_ADMIN_CHANGE only when the seeded admin change targets its own a
       rule: 'SELF_ADMIN_CHANGE',
       severity: 'HIGH',
       count: 1,
-      target: { kind: 'USER', id: SELF_SUBJECT_ID },
+      target: { kind: 'USER', id: SELF_SUBJECT_ID, login: SELF_SUBJECT_ID },
     },
   ]);
 });
@@ -392,7 +392,11 @@ it('raises OFF_HOURS_ADMIN_CHANGE for a seeded weekend change and ignores legacy
       rule: 'OFF_HOURS_ADMIN_CHANGE',
       severity: 'MEDIUM',
       count: 1,
-      target: { kind: 'USER', id: OFF_HOURS_SUBJECT_ID },
+      target: {
+        kind: 'USER',
+        id: OFF_HOURS_SUBJECT_ID,
+        login: OFF_HOURS_SUBJECT_ID,
+      },
     },
   ]);
 });

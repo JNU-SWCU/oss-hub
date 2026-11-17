@@ -50,7 +50,11 @@ describe('SystemStatusController', () => {
           rule: 'SELF_ADMIN_CHANGE' as const,
           severity: 'HIGH' as const,
           count: 1,
-          target: { kind: 'USER' as const, id: 'synthetic-admin' },
+          target: {
+            kind: 'USER' as const,
+            id: 'synthetic-admin',
+            login: 'synthetic-admin-login',
+          },
         },
       ],
       collectionRepositories: [

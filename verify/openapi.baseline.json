@@ -6534,11 +6534,16 @@
           },
           "id": {
             "type": "string"
+          },
+          "login": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "kind",
-          "id"
+          "id",
+          "login"
         ]
       },
       "SystemStatusAnomalyResponseDto": {
