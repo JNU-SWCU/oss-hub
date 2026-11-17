@@ -273,6 +273,7 @@ describe('RequirementsRepository.findByMilestoneId', () => {
     const result = await repository.findByMilestoneId(syntheticMilestoneId);
 
     expect(findMany).toHaveBeenCalledWith({
+      take: 21,
       where: {
         milestoneId: syntheticMilestoneId,
       },

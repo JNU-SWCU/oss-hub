@@ -739,6 +739,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     expect(result).toBe('removed');
 
     expect(teamFindMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,

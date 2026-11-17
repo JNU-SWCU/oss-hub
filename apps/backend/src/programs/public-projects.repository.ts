@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import type { Prisma, ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -117,6 +119,8 @@ function toProjectRow(
 
 @Injectable()
 export class PublicProjectsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async listPage(
@@ -175,22 +179,28 @@ export class PublicProjectsRepository {
   }
 
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
-    const rows = await this.prisma.repo.findMany({
-      where: {
-        visibility: 'PUBLIC',
-        publishedAt: { not: null },
-        teamRepos: {
-          some: {
-            team: {
-              ...LIVE_PROGRAM_TEAM,
-              OR: [{ leaderId: userId }, { members: { some: { userId } } }],
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerUser * READ_CAP.reposPerTeam,
+      'Repo per user',
+      (take) =>
+        this.prisma.repo.findMany({
+          take,
+          where: {
+            visibility: 'PUBLIC',
+            publishedAt: { not: null },
+            teamRepos: {
+              some: {
+                team: {
+                  ...LIVE_PROGRAM_TEAM,
+                  OR: [{ leaderId: userId }, { members: { some: { userId } } }],
+                },
+              },
             },
           },
-        },
-      },
-      orderBy: [{ publishedAt: 'desc' }, { githubRepoId: 'desc' }],
-      select: PROJECT_ROW_SELECT,
-    });
+          orderBy: [{ publishedAt: 'desc' }, { githubRepoId: 'desc' }],
+          select: PROJECT_ROW_SELECT,
+        }),
+    );
     return rows.flatMap((row) => {
       const project = toProjectRow(row, userId);
       return project === null ? [] : [project];

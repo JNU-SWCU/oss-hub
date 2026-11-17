@@ -245,6 +245,7 @@ describe('PublicProjectsRepository', () => {
       await repository.listForUser('synthetic-user-1');
 
       expect(findMany).toHaveBeenCalledWith({
+        take: 101,
         where: {
           visibility: 'PUBLIC',
           publishedAt: { not: null },

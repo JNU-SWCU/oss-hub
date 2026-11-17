@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable, Inject } from '@nestjs/common';
 import {
   Prisma,
@@ -741,6 +743,8 @@ export interface ApplicationCreateStore {
 
 @Injectable()
 export class ApplicationsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly reviewHistory: TeamHistoryRepository,
@@ -840,6 +844,7 @@ export class ApplicationsRepository {
           }
           const [events, jobs] = await Promise.all([
             transaction.outboxEvent.findMany({
+              take: teamIds.length,
               where: {
                 idempotencyKey: {
                   in: teamIds.map((id) => `repository-provision:${id}`),
@@ -852,6 +857,7 @@ export class ApplicationsRepository {
               },
             }),
             transaction.repositoryProvisionJob.findMany({
+              take: teamIds.length,
               where: { teamId: { in: teamIds } },
               select: {
                 teamId: true,
@@ -967,18 +973,22 @@ export class ApplicationsRepository {
     const [rows, totalItems] = await this.prisma.$transaction(
       async (transaction) => {
         const total = await transaction.team.count({ where });
-        const collected: TeamManagementListRow[] = [];
-        let remainingSkip = skip;
-        let remainingTake = query.pageSize;
-        for (const bucket of buckets) {
-          if (remainingTake <= 0) break;
+        const readBuckets = async (
+          index: number,
+          remainingSkip: number,
+          remainingTake: number,
+        ): Promise<TeamManagementListRow[]> => {
+          const bucket = buckets[index];
+          if (bucket === undefined || remainingTake <= 0) return [];
           const bucketCount = await transaction.team.count({
             where: bucket,
           });
-          if (remainingSkip >= bucketCount) {
-            remainingSkip -= bucketCount;
-            continue;
-          }
+          if (remainingSkip >= bucketCount)
+            return readBuckets(
+              index + 1,
+              remainingSkip - bucketCount,
+              remainingTake,
+            );
           const chunk = await transaction.team.findMany({
             where: bucket,
             orderBy: TEAM_MANAGEMENT_ORDER_BY,
@@ -986,10 +996,12 @@ export class ApplicationsRepository {
             take: remainingTake,
             select: TEAM_MANAGEMENT_LIST_SELECT,
           });
-          collected.push(...chunk);
-          remainingSkip = 0;
-          remainingTake -= chunk.length;
-        }
+          return [
+            ...chunk,
+            ...(await readBuckets(index + 1, 0, remainingTake - chunk.length)),
+          ];
+        };
+        const collected = await readBuckets(0, skip, query.pageSize);
         return [collected, total] as const;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
@@ -1005,20 +1017,30 @@ export class ApplicationsRepository {
   }
 
   async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
-    const programs = await this.prisma.program.findMany({
-      where: { lifecycle: { not: 'DELETED' } },
-      orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
-      select: {
-        coverFileId: true,
-        coverImageUrl: true,
-        id: true,
-        name: true,
-        trackType: true,
-        applicationStartAt: true,
-        applicationEndAt: true,
-        endAt: true,
-      },
-    });
+    const programs = await this.boundedReads.readCapped(
+      READ_CAP.programs,
+      'Program',
+      (take) =>
+        this.prisma.program.findMany({
+          take,
+          where: { lifecycle: { not: 'DELETED' } },
+          orderBy: [
+            { applicationStartAt: 'desc' },
+            { name: 'asc' },
+            { id: 'asc' },
+          ],
+          select: {
+            coverFileId: true,
+            coverImageUrl: true,
+            id: true,
+            name: true,
+            trackType: true,
+            applicationStartAt: true,
+            applicationEndAt: true,
+            endAt: true,
+          },
+        }),
+    );
 
     if (programs.length === 0) {
       return { programs: [] };
@@ -1418,6 +1440,7 @@ export class ApplicationsRepository {
       Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`,
     );
     const activeStudents = await database.user.findMany({
+      take: ids.length,
       where: {
         id: { in: ids },
         accountStatus: AccountStatus.ACTIVE,
@@ -2180,6 +2203,8 @@ export type RecordTeamMembershipAudit = (
 
 @Injectable()
 export class TeamRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly evidence: ProgramTeamRepositoryEvidenceRepository,
@@ -2394,27 +2419,34 @@ export class TeamRepository {
     };
   }
   async listStaffTeams(programId: string): Promise<StaffTeamRecord[]> {
-    const teams = await this.prisma.team.findMany({
-      where: { programId, archivedAt: null },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        leaderId: true,
-        members: {
+    const teams = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: { programId, archivedAt: null },
+          orderBy: { createdAt: 'asc' },
           select: {
-            userId: true,
-            user: {
+            id: true,
+            name: true,
+            leaderId: true,
+            members: {
               select: {
-                nickname: true,
-                ...USER_PROFILE_NAME_SELECT,
+                userId: true,
+                user: {
+                  select: {
+                    nickname: true,
+                    ...USER_PROFILE_NAME_SELECT,
+                  },
+                },
               },
+              take: READ_CAP.membersPerTeam,
+              orderBy: { createdAt: 'asc' },
             },
           },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-    });
+        }),
+    );
     return teams.map((team) => ({
       id: team.id,
       name: team.name,
@@ -2960,10 +2992,16 @@ async function enqueueRepositoryAccessSyncEvents(
   teamId: string,
   now: Date,
 ): Promise<void> {
-  const applications = await tx.team.findMany({
-    where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
-    select: { id: true },
-  });
+  const applications = await new BoundedReadRepository().readCapped(
+    READ_CAP.teamsPerProgram,
+    'Team per repository access sync',
+    (take) =>
+      tx.team.findMany({
+        take,
+        where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
+        select: { id: true },
+      }),
+  );
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
@@ -3043,6 +3081,8 @@ export type TeamDeletionResult =
 
 @Injectable()
 export class ProgramTeamDeletionRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly history: TeamHistoryRepository,
     private readonly prisma: PrismaService,
@@ -3101,10 +3141,16 @@ export class ProgramTeamDeletionRepository {
             };
           }
 
-          const recipients = await tx.teamMember.findMany({
-            where: { teamId },
-            select: { userId: true },
-          });
+          const recipients = await this.boundedReads.readCapped(
+            READ_CAP.membersPerTeam,
+            'TeamMember per team',
+            (take) =>
+              tx.teamMember.findMany({
+                take,
+                where: { teamId },
+                select: { userId: true },
+              }),
+          );
           const deletedAt = new Date();
           await recordNotification(
             {
@@ -3195,13 +3241,19 @@ async function deleteTeamTree(
     where: { aggregateType: 'Team', aggregateId: teamId },
   });
 
-  const decisionNotifications = await tx.notification.findMany({
-    where: {
-      type: 'APPLICATION_DECISION',
-      payload: { path: ['teamId'], equals: teamId },
-    },
-    select: { id: true },
-  });
+  const decisionNotifications = await new BoundedReadRepository().readCapped(
+    READ_CAP.notificationsPerTeam,
+    'Notification per team',
+    (take) =>
+      tx.notification.findMany({
+        take,
+        where: {
+          type: 'APPLICATION_DECISION',
+          payload: { path: ['teamId'], equals: teamId },
+        },
+        select: { id: true },
+      }),
+  );
   if (decisionNotifications.length > 0) {
     const decisionNotificationIds = decisionNotifications.map(
       (notification) => notification.id,

@@ -65,6 +65,7 @@ describe('ProgramOverviewRepository', () => {
       await repository.findEligibleProgramTeams(syntheticProgramId);
 
       expect(findMany).toHaveBeenCalledWith({
+        take: 51,
         where: {
           programId: syntheticProgramId,
           status: 'APPROVED',
@@ -100,6 +101,7 @@ describe('ProgramOverviewRepository', () => {
         await repository.findMilestoneSchedules(syntheticProgramId);
 
       expect(milestoneFindMany).toHaveBeenCalledWith({
+        take: 21,
         where: { programId: syntheticProgramId },
         orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
         select: { id: true, name: true, dueAt: true },

@@ -20,6 +20,7 @@ export class PublicEligibilityRepository {
     repositoryIds: readonly bigint[],
   ): Promise<readonly RepositoryObservationRow[]> {
     const repositories = await this.prisma.repo.findMany({
+      take: repositoryIds.length,
       where: {
         githubRepoId: { in: [...repositoryIds] },
         ...this.platformRepository.linkedRepoWhere(),

@@ -35,6 +35,7 @@ export class PublicProjectMetricsRepository {
     const unique = [...new Set(githubIds)];
     if (unique.length === 0) return new Map();
     const users = await this.prisma.user.findMany({
+      take: unique.length,
       where: { githubId: { in: unique } },
       select: { githubId: true, nickname: true },
     });
@@ -45,6 +46,7 @@ export class PublicProjectMetricsRepository {
     repositoryIds: readonly bigint[],
   ): Promise<readonly RepositoryContributionRows[]> {
     const repositories = await this.prisma.repo.findMany({
+      take: repositoryIds.length,
       where: {
         githubRepoId: { in: [...repositoryIds] },
         visibility: 'PUBLIC',

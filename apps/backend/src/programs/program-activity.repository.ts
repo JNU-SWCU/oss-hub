@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -12,6 +14,7 @@ export interface ProgramRepositoryLink {
 export interface ProgramActivitySummaryDataSource {
   readonly teamRepo: {
     findMany(args: {
+      readonly take: number;
       readonly where: {
         readonly validTo: null;
         readonly team: { readonly programId: { readonly in: string[] } };
@@ -31,6 +34,8 @@ export interface ProgramActivitySummaryDataSource {
 
 @Injectable()
 export class ProgramActivitySummaryRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     @Inject(PrismaService)
     private readonly prisma: ProgramActivitySummaryDataSource,
@@ -40,16 +45,22 @@ export class ProgramActivitySummaryRepository {
     programIds: readonly string[],
   ): Promise<readonly ProgramRepositoryLink[]> {
     if (programIds.length === 0) return [];
-    const rows = await this.prisma.teamRepo.findMany({
-      where: {
-        validTo: null,
-        team: { programId: { in: [...programIds] } },
-      },
-      select: {
-        team: { select: { programId: true } },
-        repoId: true,
-      },
-    });
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * READ_CAP.reposPerTeam * programIds.length,
+      'TeamRepo per program',
+      (take) =>
+        this.prisma.teamRepo.findMany({
+          take,
+          where: {
+            validTo: null,
+            team: { programId: { in: [...programIds] } },
+          },
+          select: {
+            team: { select: { programId: true } },
+            repoId: true,
+          },
+        }),
+    );
 
     return rows.map((row) => ({
       programId: row.team.programId,
@@ -99,6 +110,8 @@ export interface ProgramRepositoryActivity {
 
 @Injectable()
 export class ProgramActivityRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -108,46 +121,56 @@ export class ProgramActivityRepository {
     programId: string,
     studentUserId: string | null,
   ): Promise<ProgramActivityApplication[]> {
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId,
-        archivedAt: null,
-        AND: [
-          {
-            OR: [
-              { teamRepos: { some: { validTo: null } } },
-              { status: 'APPROVED', teamRepos: { none: { validTo: null } } },
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId,
+            archivedAt: null,
+            AND: [
+              {
+                OR: [
+                  { teamRepos: { some: { validTo: null } } },
+                  {
+                    status: 'APPROVED',
+                    teamRepos: { none: { validTo: null } },
+                  },
+                ],
+              },
+              ...(studentUserId
+                ? [
+                    this.platformRepository.programApplicationParticipantWhere(
+                      studentUserId,
+                    ),
+                  ]
+                : []),
             ],
           },
-          ...(studentUserId
-            ? [
-                this.platformRepository.programApplicationParticipantWhere(
-                  studentUserId,
-                ),
-              ]
-            : []),
-        ],
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        members: {
-          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-          select: { user: { select: { githubId: true, nickname: true } } },
-        },
-        teamRepos: {
-          where: { validTo: null },
-          take: 1,
-          select: { repoId: true },
-        },
-      },
-    });
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            members: {
+              orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+              select: { user: { select: { githubId: true, nickname: true } } },
+            },
+            teamRepos: {
+              where: { validTo: null },
+              take: 1,
+              select: { repoId: true },
+            },
+          },
+        }),
+    );
     const repositoryIds = applications.flatMap((application) =>
       application.teamRepos.map((link) => link.repoId),
     );
     const summaries = await readRepositorySummaries(this.prisma, repositoryIds);
     const ledger = await this.prisma.repo.findMany({
+      take: repositoryIds.length,
       where: { githubRepoId: { in: repositoryIds } },
       select: { githubRepoId: true, lastSuccessAt: true },
     });
@@ -185,6 +208,7 @@ export class ProgramActivityRepository {
     if (query.repositoryIds.length === 0) return [];
 
     const repositories = await this.prisma.repo.findMany({
+      take: query.repositoryIds.length,
       where: {
         githubRepoId: { in: [...query.repositoryIds] },
         ...this.platformRepository.linkedRepoWhere(),

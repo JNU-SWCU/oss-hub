@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable, Inject } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -70,6 +72,8 @@ export interface ProgramArchiveReader {
 }
 @Injectable()
 export class RequirementArchiveRepository implements ProgramArchiveReader {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(private readonly prisma: PrismaService) {}
   async findProgram(programId: string): Promise<ArchiveProgram | null> {
     return this.prisma.program.findUnique({
@@ -96,24 +100,30 @@ export class RequirementArchiveRepository implements ProgramArchiveReader {
     programId: string,
     teamId?: string,
   ): Promise<readonly RequirementArchiveTeam[]> {
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-        ...(teamId === undefined ? {} : { id: teamId }),
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        applicant: { select: USER_PROFILE_NAME_SELECT },
-        name: true,
-        members: {
-          orderBy: { createdAt: 'asc' },
-          select: { user: { select: { nickname: true } } },
-        },
-      },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId,
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+            ...(teamId === undefined ? {} : { id: teamId }),
+          },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            applicant: { select: USER_PROFILE_NAME_SELECT },
+            name: true,
+            members: {
+              orderBy: { createdAt: 'asc' },
+              select: { user: { select: { nickname: true } } },
+            },
+          },
+        }),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -274,6 +284,8 @@ export class RequirementCollectionReadRepository {
 }
 @Injectable()
 export class RequirementCollectionReadStoreRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly requirementCollectionReadRepository: RequirementCollectionReadRepository,
@@ -288,26 +300,32 @@ export class RequirementCollectionReadStoreRepository {
   async findDocuments(
     milestoneId: string,
   ): Promise<readonly RequirementRecord[]> {
-    const documents = await this.transaction.requirement.findMany({
-      where: {
-        milestoneId,
-      },
-      orderBy: { sortOrder: 'asc' },
-      select: {
-        id: true,
-        milestoneId: true,
-        name: true,
-        required: true,
-        submissionType: true,
-        sortOrder: true,
-        graceDueAt: true,
-        files: {
-          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
-          take: 1,
-          select: { id: true, originalFileName: true },
-        },
-      },
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        this.transaction.requirement.findMany({
+          take,
+          where: {
+            milestoneId,
+          },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            milestoneId: true,
+            name: true,
+            required: true,
+            submissionType: true,
+            sortOrder: true,
+            graceDueAt: true,
+            files: {
+              where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+              take: 1,
+              select: { id: true, originalFileName: true },
+            },
+          },
+        }),
+    );
     return documents.map(({ files, ...document }) => ({
       ...document,
       templateFileId: files[0]?.id ?? null,
@@ -317,19 +335,25 @@ export class RequirementCollectionReadStoreRepository {
   async findApplications(
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
-    const applications = await this.transaction.team.findMany({
-      where: { programId, status: 'APPROVED', archivedAt: null },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        applicant: { select: USER_PROFILE_NAME_SELECT },
-        name: true,
-        members: {
-          orderBy: { createdAt: 'asc' },
-          select: { user: { select: { nickname: true } } },
-        },
-      },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.transaction.team.findMany({
+          take,
+          where: { programId, status: 'APPROVED', archivedAt: null },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            applicant: { select: USER_PROFILE_NAME_SELECT },
+            name: true,
+            members: {
+              orderBy: { createdAt: 'asc' },
+              select: { user: { select: { nickname: true } } },
+            },
+          },
+        }),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -345,6 +369,7 @@ export class RequirementCollectionReadStoreRepository {
   ): Promise<readonly DocumentDeliveryCoordinate[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await this.transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
       where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
@@ -376,6 +401,7 @@ export class RequirementCollectionReadStoreRepository {
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await this.transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
       where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
@@ -728,6 +754,8 @@ type RequirementWriteScope = {
 };
 @Injectable()
 export class RequirementsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
@@ -748,17 +776,23 @@ export class RequirementsRepository {
     teamIds: readonly string[],
   ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
     if (teamIds.length === 0) return Promise.resolve([]);
-    return this.prisma.submission
-      .findMany({
-        where: {
-          teamId: { in: [...teamIds] },
-          requirement: {
-            milestone: { programId },
-          },
-        },
-        orderBy: { id: 'asc' },
-        select: { requirementId: true, teamId: true, status: true },
-      })
+    return this.boundedReads
+      .readCapped(
+        READ_CAP.requirementsPerProgram * teamIds.length,
+        'Submission per team',
+        (take) =>
+          this.prisma.submission.findMany({
+            take,
+            where: {
+              teamId: { in: [...teamIds] },
+              requirement: {
+                milestone: { programId },
+              },
+            },
+            orderBy: { id: 'asc' },
+            select: { requirementId: true, teamId: true, status: true },
+          }),
+      )
       .then((rows) =>
         rows.map(({ requirementId, teamId, status }) => ({
           requirementId: requirementId,
@@ -777,13 +811,19 @@ export class RequirementsRepository {
     );
   }
   async findByMilestoneId(milestoneId: string): Promise<RequirementRecord[]> {
-    const documents = await this.prisma.requirement.findMany({
-      where: {
-        milestoneId,
-      },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        this.prisma.requirement.findMany({
+          take,
+          where: {
+            milestoneId,
+          },
+          orderBy: { sortOrder: 'asc' },
+          select: documentRecordSelect,
+        }),
+    );
     return documents.map(toDocumentRecord);
   }
   async findActiveUser(githubId: bigint): Promise<RequirementViewer | null> {
@@ -874,6 +914,7 @@ export class RequirementsRepository {
   ): Promise<readonly SubmissionSummary[]> {
     if (documentIds.length === 0) return [];
     const submissions = await this.prisma.submission.findMany({
+      take: documentIds.length,
       where: {
         teamId,
         requirementId: { in: [...documentIds] },
@@ -1085,15 +1126,21 @@ export class RequirementsRepository {
   async findApprovedApplicationsForCollection(
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: collectionApplicationSelect,
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId,
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+          },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          select: collectionApplicationSelect,
+        }),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -1107,10 +1154,16 @@ export class RequirementsRepository {
     documentIds: readonly string[],
   ): Promise<readonly SubmissionCoordinate[]> {
     if (documentIds.length === 0) return [];
-    const rows = await this.prisma.submission.findMany({
-      where: { requirementId: { in: [...documentIds] } },
-      select: { requirementId: true, teamId: true },
-    });
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: { requirementId: { in: [...documentIds] } },
+          select: { requirementId: true, teamId: true },
+        }),
+    );
     return rows.map(({ requirementId, teamId }) => ({
       requirementId: requirementId,
       teamId,
@@ -1122,35 +1175,42 @@ export class RequirementsRepository {
     teamIds?: readonly string[],
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds?.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: {
-        requirementId: { in: [...documentIds] },
-        ...(teamIds === undefined ? {} : { teamId: { in: [...teamIds] } }),
-      },
-      select: {
-        requirementId: true,
-        teamId: true,
-        submittedAt: true,
-        revision: true,
-        status: true,
-        content: true,
-        files: {
-          where: unexpiredAttachedFileWhere(now),
-          orderBy: currentRevisionFileOrderBy,
-          take: 1,
-          select: {
-            originalFileName: true,
-            mimeType: true,
-            sizeBytes: true,
-            submissionHistory: { select: { revision: true } },
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: {
+            requirementId: { in: [...documentIds] },
+            ...(teamIds === undefined ? {} : { teamId: { in: [...teamIds] } }),
           },
-        },
-        histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
-          take: 1,
-        },
-      },
-    });
+          select: {
+            requirementId: true,
+            teamId: true,
+            submittedAt: true,
+            revision: true,
+            status: true,
+            content: true,
+            files: {
+              where: unexpiredAttachedFileWhere(now),
+              orderBy: currentRevisionFileOrderBy,
+              take: 1,
+              select: {
+                originalFileName: true,
+                mimeType: true,
+                sizeBytes: true,
+                submissionHistory: { select: { revision: true } },
+              },
+            },
+            histories: {
+              ...this.requirementCollectionReadRepository
+                .boundedReviewHistoryQuery,
+              take: 1,
+            },
+          },
+        }),
+    );
     return submissions.map((submission) => {
       const review = submission.histories[0] ?? null;
       const selectedFile =
@@ -1191,30 +1251,36 @@ export class RequirementsRepository {
     now: Date,
   ): Promise<readonly RequirementArchiveSubmissionRecord[]> {
     if (documentIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: { requirementId: { in: [...documentIds] } },
-      select: {
-        requirementId: true,
-        teamId: true,
-        submittedAt: true,
-        revision: true,
-        status: true,
-        content: true,
-        files: {
-          orderBy: currentRevisionFileOrderBy,
-          take: 1,
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: { requirementId: { in: [...documentIds] } },
           select: {
-            storageKey: true,
-            originalFileName: true,
-            mimeType: true,
-            sizeBytes: true,
-            lifecycle: true,
-            expiresAt: true,
-            submissionHistory: { select: { revision: true } },
+            requirementId: true,
+            teamId: true,
+            submittedAt: true,
+            revision: true,
+            status: true,
+            content: true,
+            files: {
+              orderBy: currentRevisionFileOrderBy,
+              take: 1,
+              select: {
+                storageKey: true,
+                originalFileName: true,
+                mimeType: true,
+                sizeBytes: true,
+                lifecycle: true,
+                expiresAt: true,
+                submissionHistory: { select: { revision: true } },
+              },
+            },
           },
-        },
-      },
-    });
+        }),
+    );
     return submissions.map((submission) => {
       const selectedFile =
         submission.files[0] === undefined
@@ -1623,7 +1689,8 @@ export class RequirementsRepository {
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<RequirementRecord[]> {
-    for (const [index, documentId] of documentIds.entries()) {
+    await documentIds.reduce(async (previous, documentId, index) => {
+      await previous;
       await scope.transaction.requirement.update({
         where: {
           id: documentId,
@@ -1632,12 +1699,18 @@ export class RequirementsRepository {
         data: { sortOrder: index + 1 },
         select: { id: true },
       });
-    }
-    const documents = await scope.transaction.requirement.findMany({
-      where: { milestoneId },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
+    }, Promise.resolve());
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        scope.transaction.requirement.findMany({
+          take,
+          where: { milestoneId },
+          orderBy: { sortOrder: 'asc' },
+          select: documentRecordSelect,
+        }),
+    );
     return documents.map(toDocumentRecord);
   }
   private async deleteDocumentIn(
@@ -1831,6 +1904,7 @@ export class RequirementsRepository {
     }
     return scope.transaction.submission
       .findMany({
+        take: input.documentIds.length * input.teamIds.length,
         where: {
           requirementId: { in: [...input.documentIds] },
           teamId: { in: [...input.teamIds] },
@@ -1875,26 +1949,38 @@ export class RequirementsRepository {
     transaction: Prisma.TransactionClient,
     milestoneId: string,
   ): Promise<readonly RequirementRecord[]> {
-    const documents = await transaction.requirement.findMany({
-      where: { milestoneId },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        transaction.requirement.findMany({
+          take,
+          where: { milestoneId },
+          orderBy: { sortOrder: 'asc' },
+          select: documentRecordSelect,
+        }),
+    );
     return documents.map(toDocumentRecord);
   }
   private async findApprovedApplicationsForCollectionIn(
     transaction: Prisma.TransactionClient,
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
-    const applications = await transaction.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: collectionApplicationSelect,
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        transaction.team.findMany({
+          take,
+          where: {
+            programId,
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+          },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          select: collectionApplicationSelect,
+        }),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -1909,10 +1995,16 @@ export class RequirementsRepository {
     documentIds: readonly string[],
   ): Promise<readonly SubmissionCoordinate[]> {
     if (documentIds.length === 0) return [];
-    const rows = await transaction.submission.findMany({
-      where: { requirementId: { in: [...documentIds] } },
-      select: { requirementId: true, teamId: true },
-    });
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        transaction.submission.findMany({
+          take,
+          where: { requirementId: { in: [...documentIds] } },
+          select: { requirementId: true, teamId: true },
+        }),
+    );
     return rows.map(({ requirementId, teamId }) => ({
       requirementId: requirementId,
       teamId,
@@ -1926,6 +2018,7 @@ export class RequirementsRepository {
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
       where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },

@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -123,6 +125,8 @@ type LockedProvisionJobRow = {
 
 @Injectable()
 export class RepositoriesRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
@@ -146,50 +150,57 @@ export class RepositoriesRepository {
       return [];
     }
 
-    const jobs = await this.prisma.repositoryProvisionJob.findMany({
-      where: {
-        team: {
-          status: ApplicationStatus.APPROVED,
+    const jobs = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerUser,
+      'RepositoryProvisionJob per user',
+      (take) =>
+        this.prisma.repositoryProvisionJob.findMany({
+          take,
+          where: {
+            team: {
+              status: ApplicationStatus.APPROVED,
 
-          members: { some: { user: { githubId } } },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-      select: {
-        status: true,
-        lastErrorCode: true,
-        updatedAt: true,
-        team: {
+              members: { some: { user: { githubId } } },
+            },
+          },
+          orderBy: { updatedAt: 'desc' },
           select: {
-            id: true,
-            repositoryConnectionMode: true,
-            applicant: {
-              select: { nickname: true },
-            },
-            program: {
-              select: { name: true },
-            },
-            name: true,
-            _count: { select: { members: true } },
-            teamRepos: {
-              where: { validTo: null },
-              take: 1,
+            status: true,
+            lastErrorCode: true,
+            updatedAt: true,
+            team: {
               select: {
-                repo: {
+                id: true,
+                repositoryConnectionMode: true,
+                applicant: {
+                  select: { nickname: true },
+                },
+                program: {
+                  select: { name: true },
+                },
+                name: true,
+                _count: { select: { members: true } },
+                teamRepos: {
+                  where: { validTo: null },
+                  take: 1,
                   select: {
-                    githubRepoId: true,
-                    ownerName: true,
-                    visibility: true,
-                    source: true,
+                    repo: {
+                      select: {
+                        githubRepoId: true,
+                        ownerName: true,
+                        visibility: true,
+                        source: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
-      },
-    });
+        }),
+    );
     const invitations = await this.prisma.repositoryInvitation.findMany({
+      take: jobs.flatMap((job) => job.team.teamRepos).length,
       where: {
         repoId: {
           in: jobs.flatMap((job) =>

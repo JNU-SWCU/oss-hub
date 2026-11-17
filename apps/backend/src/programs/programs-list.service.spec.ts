@@ -349,6 +349,7 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(findMany).toHaveBeenCalledWith({
+      take: 21,
       where: {
         programId: { in: ['program-a', 'program-b', 'program-c'] },
         members: { some: { userId: 'student-1' } },

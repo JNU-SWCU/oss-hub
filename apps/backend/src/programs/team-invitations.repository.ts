@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -173,6 +175,8 @@ function lockTeamRow(
 
 @Injectable()
 export class TeamInvitationsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly history: TeamHistoryRepository,
     private readonly prisma: PrismaService,
@@ -190,22 +194,28 @@ export class TeamInvitationsRepository {
   async findByInviteeId(
     inviteeId: string,
   ): Promise<ReceivedTeamInvitationRecord[]> {
-    const invitations = await this.prisma.teamInvitation.findMany({
-      where: { inviteeId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        team: {
-          select: {
-            name: true,
-            program: { select: { name: true, teamMaxSize: true } },
-            _count: { select: { members: true } },
+    const invitations = await this.boundedReads.readCapped(
+      READ_CAP.receivedInvitations,
+      'TeamInvitation per invitee',
+      (take) =>
+        this.prisma.teamInvitation.findMany({
+          take,
+          where: { inviteeId },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            team: {
+              select: {
+                name: true,
+                program: { select: { name: true, teamMaxSize: true } },
+                _count: { select: { members: true } },
+              },
+            },
+            invitedBy: {
+              select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
+            },
           },
-        },
-        invitedBy: {
-          select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
-        },
-      },
-    });
+        }),
+    );
 
     const official = invitations.map((invitation) => ({
       id: invitation.id,
@@ -226,11 +236,17 @@ export class TeamInvitationsRepository {
   }
 
   async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {
-    const invitations = await this.prisma.teamInvitation.findMany({
-      where: { teamId },
-      orderBy: { createdAt: 'desc' },
-      select: SENT_TEAM_INVITATION_SELECT,
-    });
+    const invitations = await this.boundedReads.readCapped(
+      READ_CAP.invitationsPerTeam,
+      'TeamInvitation per team',
+      (take) =>
+        this.prisma.teamInvitation.findMany({
+          take,
+          where: { teamId },
+          orderBy: { createdAt: 'desc' },
+          select: SENT_TEAM_INVITATION_SELECT,
+        }),
+    );
     return invitations.map(toSentTeamInvitationRecord);
   }
 
@@ -602,15 +618,22 @@ export class TeamInvitationsRepository {
           data: { teamId, programId, userId: inviteeId },
         });
 
-        const otherInvitations = await tx.teamInvitation.findMany({
-          where: {
-            programId,
-            inviteeId,
-            id: { not: invitationId },
-          },
-          orderBy: { id: 'asc' },
-        });
-        for (const other of otherInvitations) {
+        const otherInvitations = await this.boundedReads.readCapped(
+          READ_CAP.receivedInvitations,
+          'TeamInvitation per invitee',
+          (take) =>
+            tx.teamInvitation.findMany({
+              take,
+              where: {
+                programId,
+                inviteeId,
+                id: { not: invitationId },
+              },
+              orderBy: { id: 'asc' },
+            }),
+        );
+        await otherInvitations.reduce(async (previous, other) => {
+          await previous;
           const closed = await tx.teamInvitation.deleteMany({
             where: { id: other.id },
           });
@@ -623,7 +646,7 @@ export class TeamInvitationsRepository {
               now,
               'JOINED_ANOTHER_TEAM',
             );
-        }
+        }, Promise.resolve());
 
         await enqueueRepositoryAccessSyncEvents(
           this.platformRepository,
@@ -691,10 +714,16 @@ async function enqueueRepositoryAccessSyncEvents(
   teamId: string,
   now: Date,
 ): Promise<void> {
-  const applications = await tx.team.findMany({
-    where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
-    select: { id: true },
-  });
+  const applications = await new BoundedReadRepository().readCapped(
+    READ_CAP.teamsPerProgram,
+    'Team per repository access sync',
+    (take) =>
+      tx.team.findMany({
+        take,
+        where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
+        select: { id: true },
+      }),
+  );
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>

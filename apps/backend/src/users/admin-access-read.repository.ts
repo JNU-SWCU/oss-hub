@@ -57,6 +57,7 @@ export class AdminAccessReadRepository {
       ids.length === 0
         ? []
         : await prisma.user.findMany({
+            take: ids.length,
             where: { AND: [where, { id: { in: ids } }] },
             select: this.ADMIN_ACCESS_USER_SELECT,
           });

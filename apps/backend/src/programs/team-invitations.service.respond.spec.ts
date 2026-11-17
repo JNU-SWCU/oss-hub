@@ -334,6 +334,7 @@ describe('acceptTeamInvitationTransaction', () => {
     await run(tx);
 
     expect(tx.teamInvitation.findMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         programId: syntheticProgramId,
         inviteeId: syntheticUserId,
@@ -391,6 +392,7 @@ describe('acceptTeamInvitationTransaction', () => {
     });
 
     expect(tx.team.findMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,

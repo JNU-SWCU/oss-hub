@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { TeamHistoryEvent, type Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { ApplicationReviewHistoryTargetMissingError } from './teams.error';
@@ -30,6 +32,8 @@ interface InvitationSnapshot {
 
 @Injectable()
 export class TeamHistoryRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   async appendReviewHistory(
     client: ReviewHistoryWriterClient,
     input: AppendReviewHistoryInput,
@@ -126,11 +130,18 @@ export class TeamHistoryRepository {
     actorId: string,
     occurredAt: Date,
   ): Promise<void> {
-    const invitations = await transaction.teamInvitation.findMany({
-      where: { teamId },
-      orderBy: { id: 'asc' },
-    });
-    for (const invitation of invitations) {
+    const invitations = await this.boundedReads.readCapped(
+      READ_CAP.invitationsPerTeam,
+      'TeamInvitation per team',
+      (take) =>
+        transaction.teamInvitation.findMany({
+          take,
+          where: { teamId },
+          orderBy: { id: 'asc' },
+        }),
+    );
+    await invitations.reduce(async (previous, invitation) => {
+      await previous;
       await this.recordInvitationClosed(
         transaction,
         invitation,
@@ -139,7 +150,7 @@ export class TeamHistoryRepository {
         occurredAt,
         'TEAM_DELETED',
       );
-    }
+    }, Promise.resolve());
   }
 
   async recordInvitationClosed(

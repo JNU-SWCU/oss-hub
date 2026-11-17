@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
   AdminHistoryEvent,
@@ -61,6 +63,8 @@ const HISTORY_PAGE_SIZE = 500;
 
 @Injectable()
 export class SystemStatusRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platform: PlatformRepository,
@@ -203,23 +207,31 @@ export class SystemStatusRepository {
   async getCollectionRepositories(): Promise<
     readonly CollectionRepositoryStatusDto[]
   > {
-    const repositories = await this.prisma.repo.findMany({
-      where: {
-        presence: 'PRESENT',
-        source: 'ORG_PROVISIONED',
-        ...this.platform.collectionTargetRepoWhere(),
-      },
-      orderBy: { ownerName: 'asc' },
-      select: {
-        ownerName: true,
-        lastSuccessAt: true,
-        teamRepos: {
-          where: { validTo: null },
-          take: 1,
-          select: { team: { select: { program: { select: { name: true } } } } },
-        },
-      },
-    });
+    const repositories = await this.boundedReads.readCapped(
+      READ_CAP.repositories,
+      'Repo',
+      (take) =>
+        this.prisma.repo.findMany({
+          take,
+          where: {
+            presence: 'PRESENT',
+            source: 'ORG_PROVISIONED',
+            ...this.platform.collectionTargetRepoWhere(),
+          },
+          orderBy: { ownerName: 'asc' },
+          select: {
+            ownerName: true,
+            lastSuccessAt: true,
+            teamRepos: {
+              where: { validTo: null },
+              take: 1,
+              select: {
+                team: { select: { program: { select: { name: true } } } },
+              },
+            },
+          },
+        }),
+    );
     return repositories.map((repository) => ({
       repositoryName: repository.ownerName,
       programName: repository.teamRepos[0]?.team.program.name ?? null,

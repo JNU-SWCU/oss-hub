@@ -33,6 +33,7 @@ describe('program-activity-summary.repository', () => {
       ).findRepositoryLinks(['program-archived']);
 
       expect(findMany).toHaveBeenCalledWith({
+        take: 251,
         where: {
           validTo: null,
           team: { programId: { in: ['program-archived'] } },

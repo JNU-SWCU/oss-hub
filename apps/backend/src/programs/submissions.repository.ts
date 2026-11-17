@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { FileMetadataRepository } from './files.repository';
 import {
   SUBMISSION_REVIEW_EVENTS,
@@ -32,6 +34,8 @@ import type { PublishBlockedReason } from '../github/repository-publish.config';
 import type { SubmissionCompletionTargetRow } from './submission-completion.config';
 @Injectable()
 export class SubmissionsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly platformRepository: PlatformRepository,
     private readonly fileMetadata: FileMetadataRepository,
@@ -234,14 +238,20 @@ export class SubmissionsRepository {
           throw new RequirementPendingFileMissingError();
         }
       }
-      const files = await transaction.file.findMany({
-        where: {
-          submissionHistoryId: history.id,
-          lifecycle: FileLifecycle.ATTACHED,
-        },
-        orderBy: { createdAt: 'desc' },
-        select: attachedFileSelect,
-      });
+      const files = await this.boundedReads.readCapped(
+        READ_CAP.filesPerSubmission,
+        'File per submission',
+        (take) =>
+          transaction.file.findMany({
+            take,
+            where: {
+              submissionHistoryId: history.id,
+              lifecycle: FileLifecycle.ATTACHED,
+            },
+            orderBy: { createdAt: 'desc' },
+            select: attachedFileSelect,
+          }),
+      );
       return {
         id: submission.id,
         status: submission.status,
@@ -319,24 +329,28 @@ export type DashboardDocumentSubmissionRow = Prisma.SubmissionGetPayload<{
 export interface SubmissionDashboardSummaryDataSource {
   readonly team: {
     findMany(args: {
+      readonly take: number;
       readonly where: Prisma.TeamWhereInput;
       readonly select: typeof dashboardApplicationSelect;
     }): Promise<readonly DashboardApplicationRow[]>;
   };
   readonly milestone: {
     findMany(args: {
+      readonly take: number;
       readonly where: Prisma.MilestoneWhereInput;
       readonly select: typeof dashboardMilestoneSelect;
     }): Promise<readonly DashboardMilestoneRow[]>;
   };
   readonly requirement: {
     findMany(args: {
+      readonly take: number;
       readonly where: Prisma.RequirementWhereInput;
       readonly select: typeof dashboardRequirementSelect;
     }): Promise<readonly DashboardRequirementRow[]>;
   };
   readonly submission: {
     findMany(args: {
+      readonly take: number;
       readonly where: Prisma.SubmissionWhereInput;
       readonly select: typeof dashboardDocumentSubmissionSelect;
     }): Promise<readonly DashboardDocumentSubmissionRow[]>;
@@ -384,6 +398,8 @@ export interface SubmissionDashboardSummaryRepositoryPort {
 }
 @Injectable()
 export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     @Inject(PrismaService)
     private readonly prisma: SubmissionDashboardSummaryDataSource,
@@ -403,43 +419,67 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     const programFilter = { in: [...programIds] };
     const [applications, milestones, requirements, targetSubmissions] =
       await Promise.all([
-        this.prisma.team.findMany({
-          where: {
-            programId: programFilter,
-            status: ApplicationStatus.APPROVED,
-            archivedAt: null,
-          },
-          select: dashboardApplicationSelect,
-        }),
-        this.prisma.milestone.findMany({
-          where: { programId: programFilter },
-          select: dashboardMilestoneSelect,
-        }),
-        this.prisma.requirement.findMany({
-          where: {
-            required: true,
-            milestone: { is: { programId: programFilter } },
-          },
-          select: dashboardRequirementSelect,
-        }),
-        this.prisma.submission.findMany({
-          where: {
-            team: {
-              is: {
+        this.boundedReads.readCapped(
+          READ_CAP.teamsPerProgram * programIds.length,
+          'Team per program',
+          (take) =>
+            this.prisma.team.findMany({
+              take,
+              where: {
                 programId: programFilter,
                 status: ApplicationStatus.APPROVED,
                 archivedAt: null,
               },
-            },
-            requirement: {
-              is: {
-                milestone: { is: { programId: programFilter } },
+              select: dashboardApplicationSelect,
+            }),
+        ),
+        this.boundedReads.readCapped(
+          READ_CAP.milestonesPerProgram * programIds.length,
+          'Milestone per program',
+          (take) =>
+            this.prisma.milestone.findMany({
+              take,
+              where: { programId: programFilter },
+              select: dashboardMilestoneSelect,
+            }),
+        ),
+        this.boundedReads.readCapped(
+          READ_CAP.requirementsPerProgram * programIds.length,
+          'Requirement per program',
+          (take) =>
+            this.prisma.requirement.findMany({
+              take,
+              where: {
                 required: true,
+                milestone: { is: { programId: programFilter } },
               },
-            },
-          },
-          select: dashboardDocumentSubmissionSelect,
-        }),
+              select: dashboardRequirementSelect,
+            }),
+        ),
+        this.boundedReads.readCapped(
+          READ_CAP.submissionsPerProgram * programIds.length,
+          'Submission per program',
+          (take) =>
+            this.prisma.submission.findMany({
+              take,
+              where: {
+                team: {
+                  is: {
+                    programId: programFilter,
+                    status: ApplicationStatus.APPROVED,
+                    archivedAt: null,
+                  },
+                },
+                requirement: {
+                  is: {
+                    milestone: { is: { programId: programFilter } },
+                    required: true,
+                  },
+                },
+              },
+              select: dashboardDocumentSubmissionSelect,
+            }),
+        ),
       ]);
     const submissions: SubmissionDashboardSubmissionRecord[] = [];
     const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
@@ -489,6 +529,7 @@ async function findMatrixDocumentFirstSubmissions(
     return [];
   }
   const submissions = await prisma.submission.findMany({
+    take: scope.teamIds.length * scope.documentIds.length,
     where: {
       teamId: { in: [...scope.teamIds] },
       requirementId: { in: [...scope.documentIds] },
@@ -602,6 +643,8 @@ function toMatrixApplication(
 }
 @Injectable()
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -616,19 +659,25 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
   async findMilestones(
     programId: string,
   ): Promise<readonly MatrixMilestoneRecord[]> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: { programId },
-      orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        dueAt: true,
-        requirements: {
-          where: { required: true },
-          select: { id: true },
-        },
-      },
-    });
+    const milestones = await this.boundedReads.readCapped(
+      READ_CAP.milestonesPerProgram,
+      'Milestone per program',
+      (take) =>
+        this.prisma.milestone.findMany({
+          take,
+          where: { programId },
+          orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            dueAt: true,
+            requirements: {
+              where: { required: true },
+              select: { id: true },
+            },
+          },
+        }),
+    );
     return milestones.map(({ requirements: documents, ...milestone }) => ({
       ...milestone,
       requiredDocumentIds: documents.map((document) => document.id),
@@ -666,17 +715,23 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     teamIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]> {
     if (teamIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: {
-        teamId: { in: [...teamIds] },
-        status: SubmissionStatus.CHANGES_REQUESTED,
-        requirement: {},
-      },
-      select: {
-        teamId: true,
-        requirement: { select: { milestoneId: true } },
-      },
-    });
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerProgram * teamIds.length,
+      'Submission per team',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: {
+            teamId: { in: [...teamIds] },
+            status: SubmissionStatus.CHANGES_REQUESTED,
+            requirement: {},
+          },
+          select: {
+            teamId: true,
+            requirement: { select: { milestoneId: true } },
+          },
+        }),
+    );
     return submissions.map((submission) => ({
       teamId: submission.teamId,
       milestoneId: submission.requirement.milestoneId,
@@ -686,21 +741,27 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     teamIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]> {
     if (teamIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: {
-        teamId: { in: [...teamIds] },
-        requirement: { required: true },
-      },
-      select: {
-        id: true,
-        requirementId: true,
-        teamId: true,
-        status: true,
-        revision: true,
-        submittedAt: true,
-        requirement: { select: { milestoneId: true } },
-      },
-    });
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerProgram * teamIds.length,
+      'Submission per team',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: {
+            teamId: { in: [...teamIds] },
+            requirement: { required: true },
+          },
+          select: {
+            id: true,
+            requirementId: true,
+            teamId: true,
+            status: true,
+            revision: true,
+            submittedAt: true,
+            requirement: { select: { milestoneId: true } },
+          },
+        }),
+    );
     return submissions.map((submission) => ({
       id: submission.id,
       teamId: submission.teamId,

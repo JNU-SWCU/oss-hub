@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -297,6 +299,8 @@ export interface ProgramApplicationCounts {
 }
 @Injectable()
 export class ProgramsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -461,34 +465,48 @@ export class ProgramsRepository {
     });
   }
   async findApprovedApplications(programId: string) {
-    return this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      select: {
-        submissions: {
+    return this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId,
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+          },
           select: {
-            status: true,
-            requirement: { select: { id: true, milestoneId: true } },
-          } satisfies Prisma.SubmissionSelect,
-        },
-      },
-    });
+            submissions: {
+              select: {
+                status: true,
+                requirement: { select: { id: true, milestoneId: true } },
+              } satisfies Prisma.SubmissionSelect,
+            },
+          },
+        }),
+    );
   }
   async findViewerApplicationStatuses(
     programIds: readonly string[],
     userId: string,
   ): Promise<ReadonlyMap<string, ApplicationStatus>> {
     if (programIds.length === 0) return new Map();
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId: { in: [...programIds] },
-        ...this.platformRepository.programApplicationParticipantWhere(userId),
-      },
-      select: { programId: true, status: true },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerUser,
+      'Team per user',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId: { in: [...programIds] },
+            ...this.platformRepository.programApplicationParticipantWhere(
+              userId,
+            ),
+          },
+          select: { programId: true, status: true },
+        }),
+    );
     return new Map(
       applications.map((application) => [
         application.programId,
@@ -523,24 +541,29 @@ export class ProgramsRepository {
     return counts;
   }
   async findStudentActivityApplications(userId: string) {
-    return this.prisma.team
-      .findMany({
-        where: {
-          status: ApplicationStatus.APPROVED,
-          archivedAt: null,
-          ...this.platformRepository.programApplicationParticipantWhere(userId),
-        },
-        select: {
-          program: {
-            select: { id: true, name: true, applicationStartAt: true },
+    return this.boundedReads
+      .readCapped(READ_CAP.teamsPerUser, 'Team per user', (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+            ...this.platformRepository.programApplicationParticipantWhere(
+              userId,
+            ),
           },
-          teamRepos: {
-            where: { validTo: null },
-            take: 1,
-            select: { repoId: true },
+          select: {
+            program: {
+              select: { id: true, name: true, applicationStartAt: true },
+            },
+            teamRepos: {
+              where: { validTo: null },
+              take: 1,
+              select: { repoId: true },
+            },
           },
-        },
-      })
+        }),
+      )
       .then((teams) =>
         teams.map(({ teamRepos, ...team }) => ({
           ...team,
@@ -1106,6 +1129,8 @@ export interface SubmittedDocumentPairRow {
 }
 @Injectable()
 export class ProgramOverviewRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -1125,12 +1150,12 @@ export class ProgramOverviewRepository {
     if (!program) {
       return null;
     }
-    const [teamMemberRows, connectedRepositoryCount] = await Promise.all([
-      this.prisma.teamMember.findMany({
-        where: { programId },
-        select: { userId: true },
-        distinct: ['userId'],
-      }),
+    const [participantCount, connectedRepositoryCount] = await Promise.all([
+      this.prisma.$queryRaw<readonly { readonly count: number }[]>`
+        SELECT COUNT(DISTINCT member."userId")::int AS count
+        FROM "TeamMember" AS member
+        WHERE member."programId" = ${programId}
+      `.then((rows) => rows[0]?.count ?? 0),
       this.prisma.$queryRaw<readonly { readonly count: number }[]>`
         SELECT COUNT(*)::int AS count
         FROM team_repo AS link
@@ -1144,16 +1169,13 @@ export class ProgramOverviewRepository {
           )
       `.then((rows) => rows[0]?.count ?? 0),
     ]);
-    const participantIds = new Set<string>(
-      teamMemberRows.map((row) => row.userId),
-    );
     return {
       programId: program.id,
       name: program.name,
       trackType: program.trackType,
       milestoneCount: program._count.milestones,
       boardPostCount: program._count.boardPosts,
-      participantCount: participantIds.size,
+      participantCount,
       teamCount: program._count.teams,
       connectedRepositoryCount,
     };
@@ -1213,11 +1235,17 @@ export class ProgramOverviewRepository {
   async findMilestoneSchedules(
     programId: string,
   ): Promise<MilestoneSchedule[]> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: { programId },
-      orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-      select: { id: true, name: true, dueAt: true },
-    });
+    const milestones = await this.boundedReads.readCapped(
+      READ_CAP.milestonesPerProgram,
+      'Milestone per program',
+      (take) =>
+        this.prisma.milestone.findMany({
+          take,
+          where: { programId },
+          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+          select: { id: true, name: true, dueAt: true },
+        }),
+    );
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
       label: milestone.name,
@@ -1227,19 +1255,25 @@ export class ProgramOverviewRepository {
   async findRequirementCatalog(
     programId: string,
   ): Promise<RequirementCatalogEntry[]> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: { programId },
-      orderBy: { dueAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        requirements: {
-          where: {},
-          select: { id: true, required: true },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
+    const milestones = await this.boundedReads.readCapped(
+      READ_CAP.milestonesPerProgram,
+      'Milestone per program',
+      (take) =>
+        this.prisma.milestone.findMany({
+          take,
+          where: { programId },
+          orderBy: { dueAt: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            requirements: {
+              where: {},
+              select: { id: true, required: true },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        }),
+    );
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
       title: milestone.name,
@@ -1318,22 +1352,34 @@ export class ProgramOverviewRepository {
   findProgramApplications(
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
-    return this.prisma.team.findMany({
-      where: { programId, archivedAt: null },
-      select: { id: true },
-    });
+    return this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: { programId, archivedAt: null },
+          select: { id: true },
+        }),
+    );
   }
   findEligibleProgramTeams(
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
-    return this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      select: { id: true },
-    });
+    return this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId,
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+          },
+          select: { id: true },
+        }),
+    );
   }
   async findSubmittedDocumentPairs(
     teamIds: readonly string[],
@@ -1369,19 +1415,26 @@ export class ProgramOverviewRepository {
     return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
   }
   async listPublicTeams(programId: string): Promise<PublicTeamRow[]> {
-    const teams = await this.prisma.team.findMany({
-      where: { programId, archivedAt: null },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        leaderId: true,
-        members: {
-          select: { userId: true, user: { select: { nickname: true } } },
+    const teams = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: { programId, archivedAt: null },
           orderBy: { createdAt: 'asc' },
-        },
-      },
-    });
+          select: {
+            id: true,
+            name: true,
+            leaderId: true,
+            members: {
+              take: READ_CAP.membersPerTeam,
+              select: { userId: true, user: { select: { nickname: true } } },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        }),
+    );
     return teams.map((team) => ({
       teamId: team.id,
       name: team.name,

@@ -131,6 +131,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     expect(applications.calls).toHaveLength(1);
     expect(milestones.calls).toHaveLength(1);
     expect(applications.calls[0]).toEqual({
+      take: 101,
       where: {
         programId: { in: ['program-a', 'program-b'] },
         status: ApplicationStatus.APPROVED,
@@ -139,10 +140,12 @@ describe('SubmissionDashboardSummaryRepository', () => {
       select: { id: true, programId: true },
     });
     expect(milestones.calls[0]).toEqual({
+      take: 41,
       where: { programId: { in: ['program-a', 'program-b'] } },
       select: { id: true, programId: true },
     });
     expect(requirements.calls[0]).toEqual({
+      take: 801,
       where: {
         required: true,
         milestone: { is: { programId: { in: ['program-a', 'program-b'] } } },
@@ -154,6 +157,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
       },
     });
     expect(documentSubmissions.calls[0]).toEqual({
+      take: 40001,
       where: {
         team: {
           is: {
