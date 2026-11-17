@@ -130,6 +130,7 @@ export interface ProgramTeamView {
   readonly minMembers: number;
   readonly maxMembers: number;
   readonly status: ApplicationStatus;
+  readonly repositoryProvisioningStatus: TeamRepositoryProvisioningJobStatus;
   readonly canInvite: boolean;
   readonly canRemoveMembers: boolean;
   readonly canLeave: boolean;

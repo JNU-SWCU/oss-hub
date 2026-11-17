@@ -6,6 +6,11 @@ import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import { Global, Module } from '@nestjs/common';
 import { AuditLogReadRepository } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
+import { AccountAuditSourceService } from './account-audit-source.service';
+import { TeamAuditSourceService } from './team-audit-source.service';
+import { ProgramAuditSourceService } from './program-audit-source.service';
+import { SubmissionAuditSourceService } from './submission-audit-source.service';
+import { LoginAuditSourceService } from './login-audit-source.service';
 import { AuthConfig } from './auth.config';
 import { AuthSessionService } from './auth-session.service';
 import { HealthController } from './health.controller';
@@ -27,6 +32,16 @@ import { HistoryMetadataService } from './history-metadata.service';
 import { OriginGuard } from './origin.guard';
 import { RolesGuard } from './roles.guard';
 
+export const AUDIT_LOG_READ_PROVIDERS = [
+  AuditLogReadRepository,
+  AccountAuditSourceService,
+  TeamAuditSourceService,
+  ProgramAuditSourceService,
+  SubmissionAuditSourceService,
+  LoginAuditSourceService,
+  AuditLogReadService,
+] as const;
+
 @Global()
 @Module({
   controllers: [HealthController],
@@ -46,9 +61,8 @@ import { RolesGuard } from './roles.guard';
     HealthRepository,
     LockProgramTreeRepository,
     HealthService,
-    AuditLogReadRepository,
     HistoryMetadataService,
-    AuditLogReadService,
+    ...AUDIT_LOG_READ_PROVIDERS,
     RolesGuard,
     AuthConfig,
     AuthSessionService,

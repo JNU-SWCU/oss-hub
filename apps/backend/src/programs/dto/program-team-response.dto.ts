@@ -75,6 +75,7 @@ export class ProgramTeamResponseDto {
   declare readonly minMembers: number;
   declare readonly maxMembers: number;
   declare readonly status: ProgramTeamView['status'];
+  declare readonly repositoryProvisioningStatus: ProgramTeamView['repositoryProvisioningStatus'];
   declare readonly canInvite: boolean;
   declare readonly canRemoveMembers: boolean;
   declare readonly canLeave: boolean;
@@ -89,6 +90,7 @@ export class ProgramTeamResponseDto {
       minMembers: view.minMembers,
       maxMembers: view.maxMembers,
       status: view.status,
+      repositoryProvisioningStatus: view.repositoryProvisioningStatus,
       canInvite: view.canInvite,
       canRemoveMembers: view.canRemoveMembers,
       canLeave: view.canLeave,

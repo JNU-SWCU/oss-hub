@@ -5,7 +5,6 @@ import type {
 import type { AuthorityLabel } from '../../users/authority-label.types';
 import type {
   AccountStatus,
-  AdminOrigin,
   ApprovalStatus,
   LoginHistoryEvent,
 } from '@prisma/client';
@@ -17,12 +16,7 @@ import type {
   AdminAccessUserPage,
   AdminAccessUserHistory,
 } from '../../users/admin-access-read-ordering.repository';
-
-const ADMIN_GRANT_TIME_MEANINGS = {
-  MIGRATION: 'MIGRATED_QUALIFICATION_CREATED',
-  ADMIN: 'GRANTED',
-  BOOTSTRAP: 'GRANTED',
-} as const satisfies Readonly<Record<AdminOrigin, string>>;
+import { AdminGrantResponseDto } from './admin-grant-response.dto';
 
 class StaffAccessRequestHistoryItemResponseDto {
   declare readonly id: string;
@@ -193,18 +187,20 @@ export class AccessRequestsUserPageResponseDto {
   }
 }
 
-class AdminGrantResponseDto {
-  declare readonly origin: AdminOrigin;
-  declare readonly grantedAt: string;
-  declare readonly grantTimeMeaning: (typeof ADMIN_GRANT_TIME_MEANINGS)[AdminOrigin];
+class UserParticipationResponseDto {
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly teamName: string;
+  declare readonly isLeader: boolean;
 
   static from(
-    grant: NonNullable<AdminAccessUserDetail['adminGrant']>,
-  ): AdminGrantResponseDto {
+    participation: NonNullable<AdminAccessUserDetail['participations']>[number],
+  ): UserParticipationResponseDto {
     return {
-      origin: grant.origin,
-      grantedAt: grant.grantedAt.toISOString(),
-      grantTimeMeaning: ADMIN_GRANT_TIME_MEANINGS[grant.origin],
+      programId: participation.programId,
+      programName: participation.programName,
+      teamName: participation.teamName,
+      isLeader: participation.isLeader,
     };
   }
 }
@@ -232,6 +228,7 @@ export class AccessRequestsUserDetailResponseDto {
     readonly department: string | null;
     readonly isComplete: boolean;
   };
+  declare readonly participations: UserParticipationResponseDto[] | null;
   declare readonly adminGrant: AdminGrantResponseDto | null;
 
   static from(
@@ -254,6 +251,10 @@ export class AccessRequestsUserDetailResponseDto {
       pendingRequest: toPendingRequest(user.pendingRequest),
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       profile: user.profile,
+      participations:
+        user.participations?.map((participation) =>
+          UserParticipationResponseDto.from(participation),
+        ) ?? null,
       adminGrant: user.adminGrant
         ? AdminGrantResponseDto.from(user.adminGrant)
         : null,

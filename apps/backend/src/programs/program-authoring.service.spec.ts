@@ -1,3 +1,5 @@
+import { ProgramNoticePreviewService } from './program-notice-preview.service';
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import {
@@ -5,17 +7,13 @@ import {
   ProgramAuthoringUploadService,
 } from './files.service';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
   FileLifecycle,
   ProgramCategory,
   ProgramLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import {
-  ProgramNoticePreviewService,
-  ProgramAuthoringService,
-} from './programs.service';
+import { ProgramAuthoringService } from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import {
@@ -45,7 +43,7 @@ const programAuthoringService = new ProgramAuthoringService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
   new ProgramOrganizersService(),
@@ -59,7 +57,7 @@ describe('program-notice-preview.service', () => {
     const read = jest.fn(() => Promise.resolve(html));
     return {
       service: new ProgramNoticePreviewService(
-        Object.assign(new ProgramNoticeFetchClient(), { read }),
+        Object.assign(createProgramNoticeFetchClient(), { read }),
       ),
       read,
     };
@@ -73,6 +71,7 @@ describe('program-notice-preview.service', () => {
       description: 'First\nSecond',
       coverImages: [],
       warnings: ['NO_IMAGE'],
+      candidates: {},
     });
   });
 
@@ -97,7 +96,7 @@ describe('program-notice-preview.service', () => {
     });
     const read = jest.fn(() => pending);
     const service = new ProgramNoticePreviewService(
-      Object.assign(new ProgramNoticeFetchClient(), { read }),
+      Object.assign(createProgramNoticeFetchClient(), { read }),
     );
     const requests = [1, 2, 3, 4].map(() =>
       service.preview('staff-synthetic', source),
@@ -119,7 +118,7 @@ describe('program-notice-preview.service', () => {
   it('limits all actors combined to sixty requests per rolling minute', async () => {
     const read = jest.fn(() => Promise.resolve(html));
     const service = new ProgramNoticePreviewService(
-      Object.assign(new ProgramNoticeFetchClient(), { read }),
+      Object.assign(createProgramNoticeFetchClient(), { read }),
     );
     for (let index = 0; index < 60; index++)
       await service.preview(`staff-${index}`, source);
@@ -224,7 +223,7 @@ function setup() {
         {} as never,
         {} as never,
         new SubmissionFileAdmissionService(),
-        new ProgramNoticeFetchClient(),
+        createProgramNoticeFetchClient(),
       ),
       new ProgramAuthoringUploadTransactionRepository(),
       new ProgramOrganizersService(),
@@ -334,7 +333,7 @@ describe('ProgramAuthoringService', () => {
             {} as never,
             {} as never,
             new SubmissionFileAdmissionService(),
-            new ProgramNoticeFetchClient(),
+            createProgramNoticeFetchClient(),
           ),
         },
         ProgramAuthoringService,

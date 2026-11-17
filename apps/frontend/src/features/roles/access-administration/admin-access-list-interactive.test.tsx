@@ -550,6 +550,7 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
         staffNumber: '123456',
         isComplete: true,
       },
+      participations: [],
       ...overrides,
     });
   }

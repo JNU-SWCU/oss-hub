@@ -1,4 +1,4 @@
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
@@ -100,7 +100,7 @@ beforeAll(async () => {
           {} as never,
           {} as never,
           new SubmissionFileAdmissionService(),
-          new ProgramNoticeFetchClient(),
+          createProgramNoticeFetchClient(),
         ),
       },
       { provide: ProgramEditorRepository, useValue: repository },

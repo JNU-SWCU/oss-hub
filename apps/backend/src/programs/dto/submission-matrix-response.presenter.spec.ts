@@ -49,7 +49,7 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
     pageSize: 10,
     total: 11,
   };
-  expect(SubmissionMatrixResponseDto.from(result, 'program')).toEqual({
+  expect(SubmissionMatrixResponseDto.from(result)).toEqual({
     milestones: [
       { id: 'second', name: '후반', dueAt: dueAt.toISOString() },
       { id: 'first', name: '전반', dueAt: dueAt.toISOString() },
@@ -67,7 +67,6 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
             revision: 3,
             status: 'CHANGES_REQUESTED',
             submittedAt: dueAt.toISOString(),
-            reviewUrl: '/programs/program/submissions/submission/review',
             deliveryStatus: 'LATE',
             changesRequestedCount: 2,
           },
@@ -77,7 +76,6 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
             revision: 1,
             status: 'SUBMITTED',
             submittedAt: null,
-            reviewUrl: '/programs/program/submissions/undated/review',
             deliveryStatus: 'MISSING',
             changesRequestedCount: 0,
           },
@@ -87,7 +85,6 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
             revision: null,
             status: 'NOT_SUBMITTED',
             submittedAt: null,
-            reviewUrl: null,
             deliveryStatus: 'NO_REQUIRED_ITEMS',
             changesRequestedCount: 0,
           },

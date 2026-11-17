@@ -1,10 +1,10 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from './files.service';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { DomainException } from '../platform/error-code.error';
 import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 import {
@@ -23,7 +23,7 @@ const programEditorService = new ProgramEditorService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new UserProfileService(),
   new ProgramOrganizersService(),

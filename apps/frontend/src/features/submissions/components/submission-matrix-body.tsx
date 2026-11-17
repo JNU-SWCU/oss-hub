@@ -26,6 +26,7 @@ import type { SubmissionMatrixViewProps } from './submission-matrix-view';
 const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
 
 function matrixColumns(
+  programId: string,
   milestones: readonly MatrixMilestone[],
   now: Date,
   focused: boolean,
@@ -66,6 +67,7 @@ function matrixColumns(
       cellClassName: 'min-w-32',
       cell: (row) => (
         <MatrixCellContent
+          programId={programId}
           cell={cellForMilestone(row, milestone.id)}
           milestone={milestone}
           now={now}
@@ -202,6 +204,7 @@ export function MatrixBody(
           }
           scrollRegionLabel="마일스톤 제출 현황 표"
           columns={matrixColumns(
+            props.programId,
             visibleMilestones,
             props.now,
             selectedMilestone !== null,

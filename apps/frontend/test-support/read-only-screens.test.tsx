@@ -5,10 +5,12 @@ import { createTestQueryClient, renderWithQuery } from './render-with-query';
 import { StaffInsightsScreen } from '@/features/staff-insights/staff-insights-screen';
 import { SystemStatusScreen } from '@/features/system-status/components/system-status-screen';
 import { MyRepositoriesScreen } from '@/features/repositories/components/my-repositories-screen';
+import { MyProfileScreen } from '@/features/profile/components/my-profile-screen';
 import { PublicProfileView } from '@/features/profile/components/public-profile-view';
 import { ProjectDetailView } from '@/features/projects/components/project-detail-view';
 import { ActivityGraphContent } from '@/features/programs/catalog/components/activity-graph-panel';
 import type { PublicProfile } from '@/features/profile/public-profile-types';
+import type { UserProfile } from '@/features/profile/types';
 import type { ProjectDetail } from '@/features/projects/types';
 import type { StaffInsightsViewState } from '@/features/staff-insights/staff-insights-view';
 import type { MyRepositoriesState } from '@/features/repositories/types';
@@ -22,6 +24,7 @@ const api = vi.hoisted(() => ({
   system: vi.fn(),
   repositories: vi.fn(),
   profile: vi.fn(),
+  myProfile: vi.fn(),
   project: vi.fn(),
   activity: vi.fn(),
 }));
@@ -32,6 +35,7 @@ vi.mock('@/features/staff-insights/api', () => ({
 vi.mock('@/features/system-status/api', () => ({
   fetchSystemStatus: api.system,
   triggerCollection: vi.fn(),
+  retryProvisioning: vi.fn(),
 }));
 vi.mock('@/features/repositories/loader', () => ({
   loadMyRepositories: api.repositories,
@@ -41,6 +45,10 @@ vi.mock('@/features/profile/public-profile-api', async (importOriginal) => ({
     typeof import('@/features/profile/public-profile-api')
   >()),
   loadPublicProfile: api.profile,
+}));
+vi.mock('@/features/profile/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/profile/api')>()),
+  getMyProfile: api.myProfile,
 }));
 vi.mock('@/features/projects/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/projects/api')>()),
@@ -68,13 +76,13 @@ vi.mock('@/features/staff-insights/staff-insights-view', () => ({
 vi.mock('@/features/system-status/components/system-status-view', () => ({
   SystemStatusView: ({
     state,
-    onRetry,
+    onReload,
   }: {
     readonly state: SystemStatusViewState;
-    readonly onRetry: () => void;
+    readonly onReload: () => void;
   }) => (
     <output data-kind={state.kind}>
-      {state.kind === 'error' ? <button onClick={onRetry} /> : null}
+      {state.kind === 'error' ? <button onClick={onReload} /> : null}
     </output>
   ),
 }));
@@ -98,6 +106,17 @@ const profile: PublicProfile = {
   avatarUrl: null,
   projects: [],
   observedTotals: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
+};
+const myProfile: UserProfile = {
+  githubLogin: 'query-user',
+  memberKind: 'STAFF',
+  name: 'query-name',
+  studentId: null,
+  staffNumber: null,
+  department: null,
+  phone: null,
+  isComplete: true,
+  participations: [],
 };
 const project: ProjectDetail = {
   projectId: 'project-1',
@@ -158,6 +177,13 @@ const cases = [
     ready: 'h1',
   },
   {
+    name: 'my-profile',
+    render: () => <MyProfileScreen />,
+    load: api.myProfile,
+    data: myProfile,
+    ready: '[data-slot="user-profile-card"]',
+  },
+  {
     name: 'project',
     render: () => <ProjectDetailView projectId="project-1" />,
     load: api.project,
@@ -169,7 +195,7 @@ const cases = [
     render: () => <ActivityGraphContent programId="program-1" />,
     load: api.activity,
     data: activity,
-    ready: 'strong',
+    ready: 'tbody th[scope="row"]',
   },
 ];
 
@@ -246,9 +272,9 @@ describe('read-only screen queries', () => {
     view = await renderWithQuery(<ActivityGraphContent programId="old" />);
     await view.rerender(<ActivityGraphContent programId="new" />);
     await act(async () => old.resolve(activity));
-    expect(view.container.querySelector('strong')?.textContent).toBe(
-      'new-team',
-    );
+    expect(
+      view.container.querySelector('tbody th[scope="row"]')?.textContent,
+    ).toBe('new-team');
   });
 
   it.each(cases)(

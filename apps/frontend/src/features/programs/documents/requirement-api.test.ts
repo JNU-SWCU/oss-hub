@@ -6,6 +6,7 @@ import {
   updateRequirementGrace,
   getRequirementParticipantHistory,
   listRequirements,
+  requirementCurrentFileHref,
   requirementTemplateHref,
   submitRequirement,
   uploadRequirementFile,
@@ -218,6 +219,16 @@ describe('requirementTemplateHref', () => {
   it('apiPath를 통해 다운로드 경로 문자열을 만든다', () => {
     expect(requirementTemplateHref('milestone-1', 'document-1')).toBe(
       apiPath('milestones/milestone-1/documents/document-1/template'),
+    );
+  });
+});
+
+describe('requirementCurrentFileHref', () => {
+  it('지금 낸 파일의 경로를 식별자를 인코딩해 만든다', () => {
+    expect(requirementCurrentFileHref('milestone / 1', 'document / 1')).toBe(
+      apiPath(
+        'milestones/milestone%20%2F%201/documents/document%20%2F%201/submissions/current/file',
+      ),
     );
   });
 });

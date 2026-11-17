@@ -1,4 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import {
+  AdminHistoryEvent,
+  ProgramHistoryEvent,
+  Prisma,
+  RepositoryProvisionJobStatus,
+  TeamHistoryEvent,
+} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -13,6 +20,45 @@ export interface CollectionExternalCollectionStatusDto {
   readonly lastSuccessAt: Date | null;
 }
 
+interface ProvisioningFailedTeamDto {
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly programName: string;
+  readonly lastErrorCode: string | null;
+  readonly updatedAt: Date;
+}
+
+export interface ProvisioningStatusDto {
+  readonly pending: number;
+  readonly processing: number;
+  readonly retryable: number;
+  readonly failedFinal: number;
+  readonly failedTeams: readonly ProvisioningFailedTeamDto[];
+}
+
+export interface MailStatusDto {
+  readonly sent7d: number;
+  readonly failed7d: number;
+  readonly lastSentAt: Date | null;
+}
+
+export interface BulkRemovalEventDto {
+  readonly actorId: string;
+  readonly occurredAt: Date;
+}
+
+export interface AdminChangeEventDto {
+  readonly userId: string;
+  readonly login: string;
+  readonly actorId: string | null;
+  readonly occurredAt: Date;
+}
+
+const LIVE_TEAM_JOB_WHERE = {
+  team: { archivedAt: null, program: { lifecycle: { not: 'DELETED' } } },
+} satisfies Prisma.RepositoryProvisionJobWhereInput;
+const HISTORY_PAGE_SIZE = 500;
+
 @Injectable()
 export class SystemStatusRepository {
   constructor(
@@ -20,10 +66,131 @@ export class SystemStatusRepository {
     private readonly platform: PlatformRepository,
   ) {}
 
-  countFinalProvisionFailures(): Promise<number> {
-    return this.prisma.repositoryProvisionJob.count({
-      where: { status: 'FAILED_FINAL' },
-    });
+  async getProvisioningStatus(): Promise<ProvisioningStatusDto> {
+    const [counts, failed] = await Promise.all([
+      this.prisma.repositoryProvisionJob.groupBy({
+        by: ['status'],
+        where: LIVE_TEAM_JOB_WHERE,
+        _count: { _all: true },
+      }),
+      this.prisma.repositoryProvisionJob.findMany({
+        take: 100,
+        where: {
+          ...LIVE_TEAM_JOB_WHERE,
+          status: RepositoryProvisionJobStatus.FAILED_FINAL,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { teamId: 'asc' }],
+        select: {
+          teamId: true,
+          lastErrorCode: true,
+          updatedAt: true,
+          team: { select: { name: true, program: { select: { name: true } } } },
+        },
+      }),
+    ]);
+    const count = (status: RepositoryProvisionJobStatus): number =>
+      counts.find((row) => row.status === status)?._count._all ?? 0;
+    return {
+      pending: count(RepositoryProvisionJobStatus.PENDING),
+      processing: count(RepositoryProvisionJobStatus.PROCESSING),
+      retryable: count(RepositoryProvisionJobStatus.FAILED_RETRYABLE),
+      failedFinal: count(RepositoryProvisionJobStatus.FAILED_FINAL),
+      failedTeams: failed.map((job) => ({
+        teamId: job.teamId,
+        teamName: job.team.name,
+        programName: job.team.program.name,
+        lastErrorCode: job.lastErrorCode,
+        updatedAt: job.updatedAt,
+      })),
+    };
+  }
+
+  async getMailStatus(since: Date): Promise<MailStatusDto> {
+    const [sent7d, failed7d, last] = await Promise.all([
+      this.prisma.notification.count({
+        where: { channel: 'EMAIL', status: 'SENT', sentAt: { gte: since } },
+      }),
+      this.prisma.notification.count({
+        where: {
+          channel: 'EMAIL',
+          status: 'FAILED',
+          createdAt: { gte: since },
+        },
+      }),
+      this.prisma.notification.aggregate({
+        where: { channel: 'EMAIL', status: 'SENT' },
+        _max: { sentAt: true },
+      }),
+    ]);
+    return { sent7d, failed7d, lastSentAt: last._max.sentAt ?? null };
+  }
+
+  async findBulkRemovalEvents(
+    since: Date,
+  ): Promise<readonly BulkRemovalEventDto[]> {
+    const [teamEvents, programEvents] = await Promise.all([
+      readHistoryPages((after) =>
+        this.prisma.teamHistory.findMany({
+          take: HISTORY_PAGE_SIZE,
+          orderBy: { id: 'asc' },
+          where: {
+            ...(after === undefined ? {} : { id: { gt: after } }),
+            event: {
+              in: [TeamHistoryEvent.REJECTED, TeamHistoryEvent.DELETED],
+            },
+            actorId: { not: null },
+            occurredAt: { gte: since },
+          },
+          select: { id: true, actorId: true, occurredAt: true },
+        }),
+      ),
+      readHistoryPages((after) =>
+        this.prisma.programHistory.findMany({
+          take: HISTORY_PAGE_SIZE,
+          orderBy: { id: 'asc' },
+          where: {
+            ...(after === undefined ? {} : { id: { gt: after } }),
+            event: ProgramHistoryEvent.DELETED,
+            actorId: { not: null },
+            occurredAt: { gte: since },
+          },
+          select: { id: true, actorId: true, occurredAt: true },
+        }),
+      ),
+    ]);
+    return [...teamEvents, ...programEvents].flatMap(
+      ({ actorId, occurredAt }) =>
+        actorId === null ? [] : [{ actorId, occurredAt }],
+    );
+  }
+
+  async findAdminChangeEvents(
+    since: Date,
+  ): Promise<readonly AdminChangeEventDto[]> {
+    const events = await readHistoryPages((after) =>
+      this.prisma.adminHistory.findMany({
+        take: HISTORY_PAGE_SIZE,
+        orderBy: { id: 'asc' },
+        where: {
+          ...(after === undefined ? {} : { id: { gt: after } }),
+          event: { in: [AdminHistoryEvent.GRANTED, AdminHistoryEvent.REVOKED] },
+          occurredAt: { gte: since },
+        },
+        select: {
+          id: true,
+          userId: true,
+          actorId: true,
+          occurredAt: true,
+          user: { select: { nickname: true } },
+        },
+      }),
+    );
+    return events.map(({ user, userId, actorId, occurredAt }) => ({
+      userId,
+      actorId,
+      occurredAt,
+      login: user.nickname,
+    }));
   }
 
   async hasActiveCollectionRun(now: Date): Promise<boolean> {
@@ -75,5 +242,18 @@ export class SystemStatusRepository {
       trackedRepositoryCount: tracked._count._all,
       lastSuccessAt: tracked._max.lastSuccessAt ?? null,
     };
+  }
+}
+
+async function readHistoryPages<T extends { readonly id: string }>(
+  readPage: (after: string | undefined) => Promise<T[]>,
+): Promise<T[]> {
+  const events: T[] = [];
+  let after: string | undefined;
+  for (;;) {
+    const page = await readPage(after);
+    events.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return events;
+    after = page[page.length - 1]?.id;
   }
 }

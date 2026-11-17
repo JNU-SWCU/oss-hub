@@ -1,6 +1,8 @@
 import { ProgramCoverField } from './program-cover-field';
 import { ProgramNoticeImport } from './program-notice-import';
 import { ProgramOrganizerField } from './program-organizer-field';
+import { ProgramTeamSizeField } from './program-team-size-field';
+import { ProgramTrackTypeField } from './program-track-type-field';
 import { FormSection } from '@/components/form-section';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
@@ -12,10 +14,6 @@ import type {
   ProgramAuthoringState,
 } from './program-authoring-model';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
-import {
-  PROGRAM_TRACK_TYPE_LABELS,
-  PROGRAM_TRACK_TYPES,
-} from '../program-contract';
 
 type StepProps = {
   readonly state: ProgramAuthoringState;
@@ -38,6 +36,13 @@ export function ProgramAuthoringBasicStep({
           <ProgramNoticeImport
             currentName={state.name}
             currentDescription={state.description}
+            currentOrganizers={state.organizers}
+            applicationStartAt={state.applicationStartAt}
+            applicationEndAt={state.applicationEndAt}
+            operationStartAt={state.operationStartAt}
+            operationEndAt={state.operationEndAt}
+            teamMinSize={state.teamMinSize}
+            teamMaxSize={state.teamMaxSize}
             hasCover={Boolean(state.coverFile || state.externalCover)}
             sourceUrl={state.externalCover?.sourceUrl}
             onApply={(patch) => dispatch({ type: 'apply_notice', patch })}
@@ -57,9 +62,7 @@ export function ProgramAuthoringBasicStep({
       />
       <ProgramCoverField
         selection={state.externalCover ?? state.coverFile ?? null}
-        onChange={(file) =>
-          dispatch({ type: 'set_cover_file', file: file ?? null })
-        }
+        onChange={(file) => dispatch({ type: 'set_cover_file', file })}
       />
       <ProgramOrganizerField
         id="authoring-organizers"
@@ -69,70 +72,35 @@ export function ProgramAuthoringBasicStep({
           dispatch({ type: 'set_organizers', organizers })
         }
       />
-      <Field>
-        <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
-        <select
-          id="program-track-type"
-          className="h-control rounded-control border border-input bg-background px-4 text-body"
+      <div className="flex flex-wrap gap-x-12 gap-y-5">
+        <ProgramTrackTypeField
           value={state.trackType}
-          aria-invalid={Boolean(messageFor(issues, 'trackType'))}
-          aria-describedby={
-            messageFor(issues, 'trackType')
-              ? 'program-track-type-error'
-              : undefined
+          error={messageFor(issues, 'trackType')}
+          onChange={(trackType) =>
+            dispatch({ type: 'set_track_type', trackType })
           }
-          onChange={(event) =>
+        />
+        <ProgramTeamSizeField
+          minSize={state.teamMinSize}
+          maxSize={state.teamMaxSize}
+          minError={messageFor(issues, 'teamMinSize')}
+          maxError={messageFor(issues, 'teamMaxSize')}
+          onMinSizeChange={(value) =>
             dispatch({
-              type: 'set_track_type',
-              trackType: event.target
-                .value as (typeof PROGRAM_TRACK_TYPES)[number],
+              type: 'set_program_field',
+              field: 'teamMinSize',
+              value,
             })
           }
-        >
-          <option value="">선택</option>
-          {PROGRAM_TRACK_TYPES.map((trackType) => (
-            <option key={trackType} value={trackType}>
-              {PROGRAM_TRACK_TYPE_LABELS[trackType]}
-            </option>
-          ))}
-        </select>
-        <FieldError id="program-track-type-error" role="alert">
-          {messageFor(issues, 'trackType')}
-        </FieldError>
-      </Field>
-      <Field>
-        <FieldLabel>참여 인원 / 팀 규모 *</FieldLabel>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ProgramAuthoringTextField
-            id="team-minimum"
-            label="최소"
-            type="number"
-            value={state.teamMinSize}
-            error={messageFor(issues, 'teamMinSize')}
-            onChange={(value) =>
-              dispatch({
-                type: 'set_program_field',
-                field: 'teamMinSize',
-                value,
-              })
-            }
-          />
-          <ProgramAuthoringTextField
-            id="team-maximum"
-            label="최대"
-            type="number"
-            value={state.teamMaxSize}
-            error={messageFor(issues, 'teamMaxSize')}
-            onChange={(value) =>
-              dispatch({
-                type: 'set_program_field',
-                field: 'teamMaxSize',
-                value,
-              })
-            }
-          />
-        </div>
-      </Field>
+          onMaxSizeChange={(value) =>
+            dispatch({
+              type: 'set_program_field',
+              field: 'teamMaxSize',
+              value,
+            })
+          }
+        />
+      </div>
       <Field>
         <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
         <textarea

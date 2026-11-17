@@ -1,6 +1,6 @@
 ---
 title: Check system status
-description: Check whether GitHub activity collection is running correctly and restart collection when needed.
+description: Find what needs attention in repository provisioning, activity collection, and notification mail, and restart collection when needed.
 sidebar:
   order: 7
 ---
@@ -10,56 +10,61 @@ import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 import Verified from '~/components/Verified.astro';
 
-`시스템 상태` (System status) shows when each repository was last collected successfully. Start here if student activity counts have stopped changing or look unusual. Only administrators can open this screen.
+`시스템 상태` (System status) shows whether repository provisioning, GitHub activity collection, and notification mail are running correctly. Open it first when someone reports that student activity counts have stopped changing or a team repository was never created. Only administrators can open this screen.
 
-Collection runs automatically at the top of every hour, and every Sunday at 03:00 it rereads everything. You normally do not need to check this screen unless someone reports unusual numbers.
+Collection runs automatically at the top of every hour, and every Sunday at 03:00 it rereads everything.
 
-## Read collection status
+## Read the screen
 
 <Steps>
 1. Open `시스템 상태` (System status) in the `관리자` (Administrator) group on the left.
-2. Check the badge on the `수집 상태` (Collection status) card at the top.
-3. If the badge is not `정상` (Normal), read the description under it, then find the `지연` (Delayed) repositories in `수집 대상 상세` (Collection target details).
+2. Check the card at the top. If it says `이상 없음` (No issues), there's nothing to do.
+3. If you see `주의 필요` (Needs attention), handle each item as described below.
+4. Check the numbers for each area in `구역 현황` (Area status) below.
 </Steps>
-<Shot src="admin/status-full.webp" alt="The full system status screen. The collection status and data freshness cards are at the top, the Run collection now button is at the top right, and the collection target details table is below." caption="Full screen" />
+<Shot src="admin/status-full.webp" alt="The full system status screen. The needs attention card is at the top, the area status list with repository provisioning, activity collection, and notification mail rows is below, and the Run collection now button is at the top right." caption="Full screen" />
 
-The badge is one of `정상` (Normal), `지연` (Delayed), or `추적 대상 없음` (No tracked targets). The card also shows the `추적 저장소` (Tracked repositories) and `지연 저장소` (Delayed repositories) counts and `다음 주기 예상` (Expected next cycle).
+## Needs attention
 
-The badge is chosen by checking the table below from top to bottom. The first matching badge is shown.
+This card appears only when something needs work. Each item has a `심각` (Severe) or `주의` (Warning) badge and a count, and severe items come first.
 
-| Badge | Meaning | Screen description |
+<Shot src="admin/status-attention.webp" alt="The needs attention card. Under final repository provisioning failure, each team has a Retry button. Under delayed activity collection, five delayed repositories and a show more button are listed. Notification mail failure is at the bottom." caption="Needs attention" />
+
+- `저장소 발급 최종 실패` (Repository provisioning failed): Teams whose repository could not be created. Each row shows the team, program, error code, and last attempt time. Click `다시 시도` (Retry) to request provisioning again.
+- `활동 수집 지연` (Activity collection delayed): Repositories whose last successful collection is more than 2 hours old. The five most delayed repositories are shown, and `지연 저장소 N개 더 보기` (Show N more delayed repositories) expands the rest. If they're still delayed after the next hourly collection, go to Settings, then GitHub Apps, in the program office's GitHub organization and check that the collection app is installed and has permission.
+- `알림 메일 발송 실패` (Notification mail failed): The number of notification emails that couldn't be sent in the last 7 days.
+- Items that point to a person, such as administrator permission changes or bulk rejections and deletions, have a `사용자 보기` (View user) link that opens that user's page.
+
+A repository that fails is tried again in the next hourly collection. When that collection succeeds, it leaves `활동 수집 지연` (Activity collection delayed).
+
+The screen doesn't describe how to escalate a lasting stall to the service operator or developer. <Verified status="policy" />
+
+## Area status
+
+Each area has one row with a status badge and its numbers.
+
+| Area | Badge | Numbers |
 | --- | --- | --- |
-| `추적 대상 없음` (No tracked targets) | There are no repositories to collect yet. | Asks you to check whether the collection app is installed in the program GitHub organization and whether repositories are registered. |
-| `지연` (Delayed) | At least one repository last succeeded more than 2 hours ago. | Asks you to find the delayed repositories in `수집 대상 상세` (Collection target details) and, if they stay delayed after the next cycle, to check the collection app installation and permissions. |
-| `정상` (Normal) | None of the above applies. | None |
+| `저장소 발급` (Repository provisioning) | `정상` (Normal), or `실패` (Failed) when a final failure exists | `대기 중` (Waiting), `생성 중` (Creating), `재시도 대기` (Waiting to retry), `생성 실패` (Failed) |
+| `활동 수집` (Activity collection) | `정상` (Normal), `지연` (Delayed), or `추적 대상 없음` (No tracked targets). `수집 중` (Collecting) is added while collection runs. | `추적 저장소` (Tracked repositories), `지연 저장소` (Delayed repositories), `마지막 수집 성공` (Last successful collection), `다음 주기 예상` (Expected next cycle), `외부 추적 저장소` (External tracked repositories), `외부 마지막 수집 성공` (External last successful collection) |
+| `알림 메일` (Notification mail) | `정상` (Normal), or `실패` (Failed) when a send failed in the last 7 days | `최근 7일 발송` (Sent in last 7 days), `실패` (Failed), `마지막 발송` (Last sent) |
 
-A repository that fails is not held back; the next hourly collection simply tries it again. After one failure it can show `지연` (Delayed) for a few minutes just before the next hourly collection, and it returns to `정상` (Normal) when that collection succeeds. If it fails again, it stays `지연` (Delayed).
-
-The screen does not describe how to escalate a lasting stall to the service operator or developer. <Verified status="policy" />
-
-## What each card shows
-
-- `데이터 최신성` (Data freshness): `마지막 수집 성공` (Last successful collection) is the most recent successful collection time among organization repositories, with its age (for example, `3시간 전`, 3 hours ago).
-- `수집 대상 상세` (Collection target details): For each repository registered to a team, it shows `마지막 수집 성공` (Last successful collection) and a state of `정상` (Normal), `지연` (Delayed), or `수집 전` (Not collected yet). Delayed repositories come first, and the top shows delayed and total counts, such as `지연 1 / 전체 5` (Delayed 1 / Total 5). A repository is not registered or collected automatically just because it belongs to the organization.
-- `외부 저장소 수집` (External repository collection): This is collection for student personal repositories. If there are targets, it shows the tracked count and `마지막 수집 성공` (Last successful collection). If there are no targets, it shows `수집 대상 학생 개인 저장소가 없습니다` (There are no student personal repositories to collect). External collection is configured to run with organization collection at the top of every hour.
-
-<Shot src="admin/status-targets.webp" alt="The collection target details table, with repository, program, last successful collection, and state columns." caption="Collection target details" />
-
-When the screen is narrow, the right columns of `수집 대상 상세` (Collection target details) are cut off. Scroll the table sideways or widen the window.
+`추적 대상 없음` (No tracked targets) means there are no team repositories to collect yet. A repository isn't registered or collected just because it belongs to the organization. The `외부` (External) numbers cover student personal repositories, which are collected with the organization at the top of every hour. When there's no record, `기록 없음` (No record) appears.
 
 ## Run collection now
 
-Collection runs automatically on a schedule, but you can start it immediately when needed. Click `지금 수집 실행` (Run collection now) at the top right to receive a notification that the request was accepted. Collection takes time; wait for `마지막 수집 성공` (Last successful collection) to change. You do not need to click repeatedly.
+When it can't wait for the next hour, start collection right away. Click `지금 수집 실행` (Run collection now) at the top right. Collection takes time, so one click is enough.
 
-A gray button with a `수집 중` (Collecting) badge means collection is already running. Wait until it finishes before trying again. While the request is being sent, `실행 요청 중…` (Requesting execution…) appears briefly.
+While `활동 수집` (Activity collection) shows the `수집 중` (Collecting) badge, the button is gray. Try again after it finishes. While the request is being sent, `실행 요청 중…` (Requesting…) appears briefly.
 
 <Success>
-You see `수집 요청을 보냈습니다` (Collection request sent) and `수집 요청을 접수했습니다.` (Collection request accepted), and the [audit log](/oss-hub/en/admin/audit-log/) records `수집 실행` (Run collection). Because collection runs in the background, `마지막 수집 성공` (Last successful collection) may not change immediately. Allow some time, then refresh to check.
+You see `수집 요청을 접수했습니다.` (Collection request accepted) appears. Collection runs in the background, so `마지막 수집 성공` (Last successful collection) may not change right away. Give it some time, then refresh.
 </Success>
 
-<Recover title="If collection does not start or the screen will not open">
-- `수집을 시작하지 못했습니다` (Collection could not be started) and `수집을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.` (Collection could not be started. Try again shortly.) Wait and click again.
-- `시스템 상태를 불러오지 못했습니다` (System status could not be loaded): Refresh the page.
-- `최신 상태를 불러오지 못했습니다` (The latest status could not be loaded): Click `상태 다시 불러오기` (Reload status).
-- If the badge is not `정상` (Healthy), follow `수집 앱 설치·권한 확인` (Check collection app installation and permissions). In the program office's GitHub organization, go to Settings, then GitHub Apps, and check that the collection app is installed and has permission.
+<Recover title="If collection doesn't start or the screen won't open">
+- `수집을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.` (Collection couldn't be started. Try again shortly.): Wait and click again.
+- `저장소 발급을 다시 시도하지 못했습니다` (Provisioning couldn't be retried): Wait and click `다시 시도` (Retry) again.
+- `저장소 발급은 이미 다시 시도했거나 끝났습니다` (Provisioning was already retried or finished): The request was already handled. You don't need to click again.
+- `시스템 상태를 불러오지 못했습니다` (System status couldn't be loaded): Refresh the page.
+- `최신 상태를 불러오지 못했습니다` (The latest status couldn't be loaded): Click `상태 다시 불러오기` (Reload status).
 </Recover>

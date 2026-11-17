@@ -834,7 +834,7 @@
         "operationId": "AuditLogController_list",
         "parameters": [
           {
-            "name": "actor",
+            "name": "q",
             "required": false,
             "in": "query",
             "schema": {
@@ -849,6 +849,21 @@
             "schema": {
               "maxLength": 100,
               "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACCOUNT",
+                "OPERATION",
+                "SUBMISSION",
+                "LOGIN",
+                "SYSTEM"
+              ]
             }
           },
           {
@@ -927,6 +942,36 @@
         ]
       }
     },
+    "/api/v1/system-status/provisioning/{teamId}/retry": {
+      "post": {
+        "operationId": "SystemStatusController_retryProvisioning",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisioningRetryResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SystemStatus"
+        ]
+      }
+    },
     "/api/v1/admin/collection/trigger": {
       "post": {
         "operationId": "CollectionAdminController_trigger",
@@ -955,344 +1000,6 @@
         },
         "tags": [
           "CollectionAdmin"
-        ]
-      }
-    },
-    "/api/v1/users/me/notifications/team-decisions": {
-      "get": {
-        "operationId": "ApplicationDecisionNotificationsController_listUnread",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ApplicationDecisionNotificationResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "ApplicationDecisionNotifications"
-        ]
-      }
-    },
-    "/api/v1/users/me/notifications/team-decisions/{notificationId}/read": {
-      "patch": {
-        "operationId": "ApplicationDecisionNotificationsController_markRead",
-        "parameters": [
-          {
-            "name": "notificationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "ApplicationDecisionNotifications"
-        ]
-      }
-    },
-    "/api/v1/users/me/notifications/team-deletions": {
-      "get": {
-        "operationId": "ApplicationDecisionNotificationsController_listUnreadTeamDeletions",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamDeletionNotificationResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "ApplicationDecisionNotifications"
-        ]
-      }
-    },
-    "/api/v1/users/me/notifications/team-deletions/{notificationId}/read": {
-      "patch": {
-        "operationId": "ApplicationDecisionNotificationsController_markTeamDeletionRead",
-        "parameters": [
-          {
-            "name": "notificationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "ApplicationDecisionNotifications"
-        ]
-      }
-    },
-    "/api/v1/users/me/notification-email": {
-      "get": {
-        "operationId": "NotificationSettingsController_getMyNotificationSettings",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationSettingsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "NotificationSettings"
-        ]
-      },
-      "patch": {
-        "operationId": "NotificationSettingsController_updateMyNotificationEmail",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateNotificationEmailRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationSettingsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "NotificationSettings"
-        ]
-      }
-    },
-    "/api/v1/programs/{programId}/deadline-digest/preview": {
-      "post": {
-        "operationId": "DeadlineDigestController_preview",
-        "parameters": [
-          {
-            "name": "programId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeadlineDigestGuidanceRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeadlineDigestPreviewResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "DeadlineDigest"
-        ]
-      }
-    },
-    "/api/v1/programs/{programId}/deadline-digest/send": {
-      "post": {
-        "operationId": "DeadlineDigestController_send",
-        "parameters": [
-          {
-            "name": "programId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeadlineDigestSendRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeadlineDigestSendResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "DeadlineDigest"
-        ]
-      }
-    },
-    "/api/v1/ranking": {
-      "get": {
-        "operationId": "RankingController_findPage",
-        "parameters": [
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "year",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "period",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "THIS_YEAR",
-                "ALL"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RankingPageResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Ranking"
-        ]
-      }
-    },
-    "/api/v1/ranking/timeline": {
-      "get": {
-        "operationId": "RankingController_findTimeline",
-        "parameters": [
-          {
-            "name": "year",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RankingTimelineResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Ranking"
-        ]
-      }
-    },
-    "/api/v1/ranking/years": {
-      "get": {
-        "operationId": "RankingController_listYears",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RankingYearsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Ranking"
         ]
       }
     },
@@ -1866,6 +1573,27 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProgramIdResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ProgramAuthoring"
+        ]
+      }
+    },
+    "/api/v1/program-authoring/notices": {
+      "get": {
+        "operationId": "ProgramAuthoringController_notices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramNoticeListResponseDto"
                 }
               }
             }
@@ -4758,6 +4486,344 @@
         ]
       }
     },
+    "/api/v1/users/me/notifications/team-decisions": {
+      "get": {
+        "operationId": "ApplicationDecisionNotificationsController_listUnread",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApplicationDecisionNotificationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ApplicationDecisionNotifications"
+        ]
+      }
+    },
+    "/api/v1/users/me/notifications/team-decisions/{notificationId}/read": {
+      "patch": {
+        "operationId": "ApplicationDecisionNotificationsController_markRead",
+        "parameters": [
+          {
+            "name": "notificationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApplicationDecisionNotifications"
+        ]
+      }
+    },
+    "/api/v1/users/me/notifications/team-deletions": {
+      "get": {
+        "operationId": "ApplicationDecisionNotificationsController_listUnreadTeamDeletions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamDeletionNotificationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ApplicationDecisionNotifications"
+        ]
+      }
+    },
+    "/api/v1/users/me/notifications/team-deletions/{notificationId}/read": {
+      "patch": {
+        "operationId": "ApplicationDecisionNotificationsController_markTeamDeletionRead",
+        "parameters": [
+          {
+            "name": "notificationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApplicationDecisionNotifications"
+        ]
+      }
+    },
+    "/api/v1/users/me/notification-email": {
+      "get": {
+        "operationId": "NotificationSettingsController_getMyNotificationSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "NotificationSettings"
+        ]
+      },
+      "patch": {
+        "operationId": "NotificationSettingsController_updateMyNotificationEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationEmailRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "NotificationSettings"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/deadline-digest/preview": {
+      "post": {
+        "operationId": "DeadlineDigestController_preview",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadlineDigestGuidanceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadlineDigestPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DeadlineDigest"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/deadline-digest/send": {
+      "post": {
+        "operationId": "DeadlineDigestController_send",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadlineDigestSendRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadlineDigestSendResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DeadlineDigest"
+        ]
+      }
+    },
+    "/api/v1/ranking": {
+      "get": {
+        "operationId": "RankingController_findPage",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "THIS_YEAR",
+                "ALL"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingPageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Ranking"
+        ]
+      }
+    },
+    "/api/v1/ranking/timeline": {
+      "get": {
+        "operationId": "RankingController_findTimeline",
+        "parameters": [
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingTimelineResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Ranking"
+        ]
+      }
+    },
+    "/api/v1/ranking/years": {
+      "get": {
+        "operationId": "RankingController_listYears",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingYearsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Ranking"
+        ]
+      }
+    },
     "/api/v1/dashboard/student": {
       "get": {
         "operationId": "StudentDashboardController_dashboardSummary",
@@ -5254,9 +5320,43 @@
           "accountStatus"
         ]
       },
+      "UserParticipationResponseDto": {
+        "type": "object",
+        "properties": {
+          "programId": {
+            "type": "string"
+          },
+          "programName": {
+            "type": "string"
+          },
+          "teamName": {
+            "type": "string"
+          },
+          "isLeader": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "programId",
+          "programName",
+          "teamName",
+          "isLeader"
+        ]
+      },
       "UserProfileResponseDto": {
         "type": "object",
         "properties": {
+          "githubLogin": {
+            "type": "string"
+          },
+          "memberKind": {
+            "nullable": true,
+            "enum": [
+              "STUDENT",
+              "STAFF"
+            ],
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -5278,15 +5378,24 @@
           },
           "isComplete": {
             "type": "boolean"
+          },
+          "participations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserParticipationResponseDto"
+            }
           }
         },
         "required": [
+          "githubLogin",
+          "memberKind",
           "name",
           "studentId",
           "staffNumber",
           "department",
           "phone",
-          "isComplete"
+          "isComplete",
+          "participations"
         ]
       },
       "UpdateMyProfileRequestDto": {
@@ -6020,59 +6129,242 @@
           "expectedApprovalRequestId"
         ]
       },
+      "AuditPersonResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "login": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "login",
+          "role"
+        ]
+      },
+      "AuditTargetResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "login": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "programName": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "login",
+          "role",
+          "programName",
+          "teamName"
+        ]
+      },
+      "AuditChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "oneOf": [
+              {
+                "type": "string",
+                "nullable": true
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "after": {
+            "oneOf": [
+              {
+                "type": "string",
+                "nullable": true
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "field": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after",
+          "field"
+        ]
+      },
+      "AuditTeamMembershipResponseDto": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "LEAVE",
+              "REMOVE",
+              "TRANSFER_LEADER"
+            ]
+          },
+          "leaderChanged": {
+            "type": "boolean"
+          },
+          "teamDeleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operation",
+          "leaderChanged",
+          "teamDeleted"
+        ]
+      },
       "AuditLogRecordResponseDto": {
         "type": "object",
         "properties": {
+          "category": {
+            "enum": [
+              "ACCOUNT",
+              "OPERATION",
+              "SUBMISSION",
+              "LOGIN",
+              "SYSTEM"
+            ],
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
           "actor": {
-            "type": "string"
-          },
-          "actorHandle": {
-            "type": "string",
-            "nullable": true
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditPersonResponseDto"
+              }
+            ]
           },
           "action": {
             "type": "string"
           },
-          "targetType": {
-            "type": "string"
-          },
-          "targetId": {
-            "type": "string"
-          },
           "target": {
-            "type": "string"
+            "$ref": "#/components/schemas/AuditTargetResponseDto"
           },
-          "targetHandle": {
+          "change": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditChangeResponseDto"
+              }
+            ]
+          },
+          "requestId": {
             "type": "string",
             "nullable": true
+          },
+          "teamMembership": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditTeamMembershipResponseDto"
+              }
+            ]
           },
           "occurredAt": {
             "type": "string"
           },
           "legacy": {
             "type": "boolean"
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true
           }
         },
         "required": [
+          "category",
+          "metadata",
           "id",
           "actor",
-          "actorHandle",
           "action",
-          "targetType",
-          "targetId",
           "target",
-          "targetHandle",
+          "change",
+          "requestId",
+          "teamMembership",
           "occurredAt",
-          "legacy",
-          "metadata"
+          "legacy"
+        ]
+      },
+      "AuditCategoryCountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "ACCOUNT": {
+            "type": "number"
+          },
+          "OPERATION": {
+            "type": "number"
+          },
+          "SUBMISSION": {
+            "type": "number"
+          },
+          "LOGIN": {
+            "type": "number"
+          },
+          "SYSTEM": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "ACCOUNT",
+          "OPERATION",
+          "SUBMISSION",
+          "LOGIN",
+          "SYSTEM"
         ]
       },
       "AuditLogPageResponseDto": {
@@ -6092,13 +6384,17 @@
           },
           "limit": {
             "type": "number"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/AuditCategoryCountsResponseDto"
           }
         },
         "required": [
           "items",
           "total",
           "page",
-          "limit"
+          "limit",
+          "counts"
         ]
       },
       "CollectionSystemStatusResponseDto": {
@@ -6152,15 +6448,143 @@
           "safeReason"
         ]
       },
-      "RepositoryProvisioningSystemStatusResponseDto": {
+      "ProvisioningFailedTeamResponseDto": {
         "type": "object",
         "properties": {
-          "finalFailureCount": {
-            "type": "number"
+          "teamId": {
+            "type": "string"
+          },
+          "teamName": {
+            "type": "string"
+          },
+          "programName": {
+            "type": "string"
+          },
+          "lastErrorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string"
           }
         },
         "required": [
-          "finalFailureCount"
+          "teamId",
+          "teamName",
+          "programName",
+          "lastErrorCode",
+          "updatedAt"
+        ]
+      },
+      "ProvisioningSystemStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "pending": {
+            "type": "number"
+          },
+          "processing": {
+            "type": "number"
+          },
+          "retryable": {
+            "type": "number"
+          },
+          "failedFinal": {
+            "type": "number"
+          },
+          "failedTeams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProvisioningFailedTeamResponseDto"
+            }
+          }
+        },
+        "required": [
+          "pending",
+          "processing",
+          "retryable",
+          "failedFinal",
+          "failedTeams"
+        ]
+      },
+      "MailSystemStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "sent7d": {
+            "type": "number"
+          },
+          "failed7d": {
+            "type": "number"
+          },
+          "lastSentAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "sent7d",
+          "failed7d",
+          "lastSentAt"
+        ]
+      },
+      "SystemStatusAnomalyTargetResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "login": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "login"
+        ]
+      },
+      "SystemStatusAnomalyResponseDto": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": [
+              "BULK_REMOVAL",
+              "SELF_ADMIN_CHANGE",
+              "OFF_HOURS_ADMIN_CHANGE",
+              "PROVISIONING_FAILED",
+              "COLLECTION_STALE",
+              "MAIL_FAILED"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM"
+            ]
+          },
+          "count": {
+            "type": "number"
+          },
+          "target": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SystemStatusAnomalyTargetResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "rule",
+          "severity",
+          "count",
+          "target"
         ]
       },
       "SystemStatusCollectionRepositoryResponseDto": {
@@ -6210,8 +6634,17 @@
           "collection": {
             "$ref": "#/components/schemas/CollectionSystemStatusResponseDto"
           },
-          "repositoryProvisioning": {
-            "$ref": "#/components/schemas/RepositoryProvisioningSystemStatusResponseDto"
+          "provisioning": {
+            "$ref": "#/components/schemas/ProvisioningSystemStatusResponseDto"
+          },
+          "mail": {
+            "$ref": "#/components/schemas/MailSystemStatusResponseDto"
+          },
+          "anomalies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemStatusAnomalyResponseDto"
+            }
           },
           "collectionRepositories": {
             "type": "array",
@@ -6225,9 +6658,30 @@
         },
         "required": [
           "collection",
-          "repositoryProvisioning",
+          "provisioning",
+          "mail",
+          "anomalies",
           "collectionRepositories",
           "externalCollection"
+        ]
+      },
+      "ProvisioningRetryResponseDto": {
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "teamId",
+          "requestId",
+          "status"
         ]
       },
       "CollectionTriggerRequestDto": {
@@ -6251,539 +6705,6 @@
         "required": [
           "runId",
           "status"
-        ]
-      },
-      "ApplicationDecisionNotificationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "teamId": {
-            "type": "string"
-          },
-          "programId": {
-            "type": "string"
-          },
-          "programName": {
-            "type": "string"
-          },
-          "decision": {
-            "type": "string",
-            "enum": [
-              "APPROVED",
-              "REJECTED",
-              "SUBMITTED"
-            ]
-          },
-          "decidedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "teamId",
-          "programId",
-          "programName",
-          "decision",
-          "decidedAt"
-        ]
-      },
-      "TeamDeletionNotificationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "teamId": {
-            "type": "string"
-          },
-          "teamName": {
-            "type": "string"
-          },
-          "programId": {
-            "type": "string"
-          },
-          "programName": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string",
-            "nullable": true
-          },
-          "deletedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "teamId",
-          "teamName",
-          "programId",
-          "programName",
-          "message",
-          "deletedAt"
-        ]
-      },
-      "NotificationSettingsResponseDto": {
-        "type": "object",
-        "properties": {
-          "notificationEmail": {
-            "type": "string",
-            "nullable": true
-          },
-          "notifyEnabled": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "notificationEmail",
-          "notifyEnabled"
-        ]
-      },
-      "UpdateNotificationEmailRequestDto": {
-        "type": "object",
-        "properties": {
-          "notificationEmail": {
-            "type": "string",
-            "format": "email"
-          },
-          "notifyEnabled": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "notificationEmail",
-          "notifyEnabled"
-        ]
-      },
-      "DeadlineDigestGuidanceRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "staffGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          }
-        }
-      },
-      "DeadlineMailPreviewResponseDto": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          },
-          "html": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "subject",
-          "text",
-          "html"
-        ]
-      },
-      "DeadlineDigestPreviewResponseDto": {
-        "type": "object",
-        "properties": {
-          "applicationCount": {
-            "type": "number"
-          },
-          "milestoneCount": {
-            "type": "number"
-          },
-          "recipientCount": {
-            "type": "number"
-          },
-          "inactiveCount": {
-            "type": "number"
-          },
-          "optedOutCount": {
-            "type": "number"
-          },
-          "noEmailCount": {
-            "type": "number"
-          },
-          "staffRecipientCount": {
-            "type": "number"
-          },
-          "previewedAt": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string"
-          },
-          "studentPreviews": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "displayName": {
-                  "type": "string"
-                },
-                "subject": {
-                  "type": "string"
-                },
-                "text": {
-                  "type": "string"
-                },
-                "html": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "displayName",
-                "subject",
-                "text",
-                "html"
-              ]
-            }
-          },
-          "staffPreview": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DeadlineMailPreviewResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "applicationCount",
-          "milestoneCount",
-          "recipientCount",
-          "inactiveCount",
-          "optedOutCount",
-          "noEmailCount",
-          "staffRecipientCount",
-          "previewedAt",
-          "expiresAt",
-          "previewVersion",
-          "studentPreviews",
-          "staffPreview"
-        ]
-      },
-      "DeadlineDigestSendRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "staffGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "previewedAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          }
-        },
-        "required": [
-          "previewedAt",
-          "previewVersion"
-        ]
-      },
-      "DeadlineDigestSendResponseDto": {
-        "type": "object",
-        "properties": {
-          "applicationCount": {
-            "type": "number"
-          },
-          "milestoneCount": {
-            "type": "number"
-          },
-          "recipientCount": {
-            "type": "number"
-          },
-          "inactiveCount": {
-            "type": "number"
-          },
-          "optedOutCount": {
-            "type": "number"
-          },
-          "noEmailCount": {
-            "type": "number"
-          },
-          "staffRecipientCount": {
-            "type": "number"
-          },
-          "sentAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string"
-          },
-          "sentCount": {
-            "type": "number"
-          },
-          "duplicateCount": {
-            "type": "number"
-          },
-          "failedCount": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "applicationCount",
-          "milestoneCount",
-          "recipientCount",
-          "inactiveCount",
-          "optedOutCount",
-          "noEmailCount",
-          "staffRecipientCount",
-          "sentAt",
-          "previewVersion",
-          "sentCount",
-          "duplicateCount",
-          "failedCount"
-        ]
-      },
-      "PublicRankingEntryResponseDto": {
-        "type": "object",
-        "properties": {
-          "rank": {
-            "type": "number"
-          },
-          "previousRank": {
-            "type": "number",
-            "nullable": true
-          },
-          "githubLogin": {
-            "type": "string"
-          },
-          "commitCount": {
-            "type": "number"
-          },
-          "pullRequestCount": {
-            "type": "number"
-          },
-          "issueCount": {
-            "type": "number"
-          },
-          "repositoryCount": {
-            "type": "number"
-          },
-          "starCount": {
-            "type": "number"
-          },
-          "total": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "rank",
-          "previousRank",
-          "githubLogin",
-          "commitCount",
-          "pullRequestCount",
-          "issueCount",
-          "repositoryCount",
-          "starCount",
-          "total"
-        ]
-      },
-      "StaffRankingEntryResponseDto": {
-        "type": "object",
-        "properties": {
-          "rank": {
-            "type": "number"
-          },
-          "previousRank": {
-            "type": "number",
-            "nullable": true
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "githubLogin": {
-            "type": "string"
-          },
-          "department": {
-            "type": "string",
-            "nullable": true
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "commitCount": {
-            "type": "number"
-          },
-          "pullRequestCount": {
-            "type": "number"
-          },
-          "issueCount": {
-            "type": "number"
-          },
-          "repositoryCount": {
-            "type": "number"
-          },
-          "starCount": {
-            "type": "number"
-          },
-          "total": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "rank",
-          "previousRank",
-          "displayName",
-          "githubLogin",
-          "department",
-          "name",
-          "commitCount",
-          "pullRequestCount",
-          "issueCount",
-          "repositoryCount",
-          "starCount",
-          "total"
-        ]
-      },
-      "RankingPageResponseDto": {
-        "type": "object",
-        "properties": {
-          "year": {
-            "oneOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "all"
-                ]
-              }
-            ]
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/PublicRankingEntryResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/StaffRankingEntryResponseDto"
-                }
-              ]
-            }
-          },
-          "page": {
-            "type": "number"
-          },
-          "pageSize": {
-            "type": "number"
-          },
-          "total": {
-            "type": "number"
-          },
-          "dataAsOf": {
-            "type": "string",
-            "nullable": true
-          },
-          "viewerClass": {
-            "type": "string",
-            "enum": [
-              "public",
-              "staff",
-              "member"
-            ]
-          },
-          "nextCycleAt": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "year",
-          "items",
-          "page",
-          "pageSize",
-          "total",
-          "dataAsOf",
-          "viewerClass",
-          "nextCycleAt"
-        ]
-      },
-      "RankingTimelineSeriesResponseDto": {
-        "type": "object",
-        "properties": {
-          "ranks": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "nullable": true
-            }
-          },
-          "totals": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "nullable": true
-            }
-          },
-          "githubLogin": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "ranks",
-          "totals",
-          "githubLogin"
-        ]
-      },
-      "RankingTimelineResponseDto": {
-        "type": "object",
-        "properties": {
-          "year": {
-            "type": "number"
-          },
-          "months": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          },
-          "series": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RankingTimelineSeriesResponseDto"
-            }
-          }
-        },
-        "required": [
-          "year",
-          "months",
-          "series"
-        ]
-      },
-      "RankingYearsResponseDto": {
-        "type": "object",
-        "properties": {
-          "years": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          }
-        },
-        "required": [
-          "years"
         ]
       },
       "UpdateStudentRepositoryUrlRequestDto": {
@@ -7994,6 +7915,44 @@
           "id"
         ]
       },
+      "ProgramNoticeListItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "postedAt": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "url",
+          "title",
+          "postedAt",
+          "thumbnailUrl"
+        ]
+      },
+      "ProgramNoticeListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramNoticeListItemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "ProgramNoticePreviewRequestDto": {
         "type": "object",
         "properties": {
@@ -8005,6 +7964,59 @@
         "required": [
           "url"
         ]
+      },
+      "ProgramNoticeCandidatesResponseDto": {
+        "type": "object",
+        "properties": {
+          "organizers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "applicationPeriod": {
+            "type": "object",
+            "properties": {
+              "startsAt": {
+                "type": "string"
+              },
+              "endsAt": {
+                "type": "string"
+              }
+            },
+            "required": []
+          },
+          "operationPeriod": {
+            "type": "object",
+            "properties": {
+              "startsAt": {
+                "type": "string"
+              },
+              "endsAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "startsAt",
+              "endsAt"
+            ]
+          },
+          "teamSize": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ]
+          }
+        }
       },
       "ProgramNoticePreviewResponseDto": {
         "type": "object",
@@ -8034,6 +8046,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "candidates": {
+            "$ref": "#/components/schemas/ProgramNoticeCandidatesResponseDto"
           }
         },
         "required": [
@@ -8041,7 +8056,8 @@
           "sourceUrl",
           "name",
           "description",
-          "coverImages"
+          "coverImages",
+          "candidates"
         ]
       },
       "ProgramListResponseDto": {
@@ -8332,9 +8348,6 @@
           "dDay": {
             "type": "number"
           },
-          "deadlineLabel": {
-            "type": "string"
-          },
           "description": {
             "type": "string",
             "nullable": true
@@ -8373,7 +8386,6 @@
           "id",
           "name",
           "dDay",
-          "deadlineLabel",
           "description",
           "submissionItemCount",
           "viewerSubmissionStatus",
@@ -9180,6 +9192,19 @@
               "SUBMITTED"
             ]
           },
+          "repositoryProvisioningStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "SUCCEEDED",
+              "FAILED_RETRYABLE",
+              "FAILED_FINAL",
+              "NOT_REQUESTED",
+              "DISABLED",
+              "ANOMALOUS"
+            ]
+          },
           "canInvite": {
             "type": "boolean"
           },
@@ -9206,6 +9231,7 @@
           "minMembers",
           "maxMembers",
           "status",
+          "repositoryProvisioningStatus",
           "canInvite",
           "canRemoveMembers",
           "canLeave",
@@ -10797,10 +10823,6 @@
             "type": "string",
             "nullable": true
           },
-          "reviewUrl": {
-            "type": "string",
-            "nullable": true
-          },
           "deliveryStatus": {
             "type": "string",
             "enum": [
@@ -10820,7 +10842,6 @@
           "revision",
           "status",
           "submittedAt",
-          "reviewUrl",
           "deliveryStatus",
           "changesRequestedCount"
         ]
@@ -11981,6 +12002,539 @@
           "contentType",
           "size",
           "expiresAt"
+        ]
+      },
+      "ApplicationDecisionNotificationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "programId": {
+            "type": "string"
+          },
+          "programName": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED",
+              "SUBMITTED"
+            ]
+          },
+          "decidedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "teamId",
+          "programId",
+          "programName",
+          "decision",
+          "decidedAt"
+        ]
+      },
+      "TeamDeletionNotificationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "teamName": {
+            "type": "string"
+          },
+          "programId": {
+            "type": "string"
+          },
+          "programName": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "deletedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "teamId",
+          "teamName",
+          "programId",
+          "programName",
+          "message",
+          "deletedAt"
+        ]
+      },
+      "NotificationSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "notificationEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "notifyEnabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notificationEmail",
+          "notifyEnabled"
+        ]
+      },
+      "UpdateNotificationEmailRequestDto": {
+        "type": "object",
+        "properties": {
+          "notificationEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "notifyEnabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notificationEmail",
+          "notifyEnabled"
+        ]
+      },
+      "DeadlineDigestGuidanceRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "staffGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "DeadlineMailPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "text",
+          "html"
+        ]
+      },
+      "DeadlineDigestPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "applicationCount": {
+            "type": "number"
+          },
+          "milestoneCount": {
+            "type": "number"
+          },
+          "recipientCount": {
+            "type": "number"
+          },
+          "inactiveCount": {
+            "type": "number"
+          },
+          "optedOutCount": {
+            "type": "number"
+          },
+          "noEmailCount": {
+            "type": "number"
+          },
+          "staffRecipientCount": {
+            "type": "number"
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string"
+          },
+          "studentPreviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "html": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "displayName",
+                "subject",
+                "text",
+                "html"
+              ]
+            }
+          },
+          "staffPreview": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeadlineMailPreviewResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "applicationCount",
+          "milestoneCount",
+          "recipientCount",
+          "inactiveCount",
+          "optedOutCount",
+          "noEmailCount",
+          "staffRecipientCount",
+          "previewedAt",
+          "expiresAt",
+          "previewVersion",
+          "studentPreviews",
+          "staffPreview"
+        ]
+      },
+      "DeadlineDigestSendRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "staffGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "previewedAt",
+          "previewVersion"
+        ]
+      },
+      "DeadlineDigestSendResponseDto": {
+        "type": "object",
+        "properties": {
+          "applicationCount": {
+            "type": "number"
+          },
+          "milestoneCount": {
+            "type": "number"
+          },
+          "recipientCount": {
+            "type": "number"
+          },
+          "inactiveCount": {
+            "type": "number"
+          },
+          "optedOutCount": {
+            "type": "number"
+          },
+          "noEmailCount": {
+            "type": "number"
+          },
+          "staffRecipientCount": {
+            "type": "number"
+          },
+          "sentAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string"
+          },
+          "sentCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "applicationCount",
+          "milestoneCount",
+          "recipientCount",
+          "inactiveCount",
+          "optedOutCount",
+          "noEmailCount",
+          "staffRecipientCount",
+          "sentAt",
+          "previewVersion",
+          "sentCount",
+          "duplicateCount",
+          "failedCount"
+        ]
+      },
+      "PublicRankingEntryResponseDto": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "number"
+          },
+          "previousRank": {
+            "type": "number",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "commitCount": {
+            "type": "number"
+          },
+          "pullRequestCount": {
+            "type": "number"
+          },
+          "issueCount": {
+            "type": "number"
+          },
+          "repositoryCount": {
+            "type": "number"
+          },
+          "starCount": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "previousRank",
+          "githubLogin",
+          "commitCount",
+          "pullRequestCount",
+          "issueCount",
+          "repositoryCount",
+          "starCount",
+          "total"
+        ]
+      },
+      "StaffRankingEntryResponseDto": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "number"
+          },
+          "previousRank": {
+            "type": "number",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "commitCount": {
+            "type": "number"
+          },
+          "pullRequestCount": {
+            "type": "number"
+          },
+          "issueCount": {
+            "type": "number"
+          },
+          "repositoryCount": {
+            "type": "number"
+          },
+          "starCount": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "previousRank",
+          "displayName",
+          "githubLogin",
+          "department",
+          "name",
+          "commitCount",
+          "pullRequestCount",
+          "issueCount",
+          "repositoryCount",
+          "starCount",
+          "total"
+        ]
+      },
+      "RankingPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "all"
+                ]
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PublicRankingEntryResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StaffRankingEntryResponseDto"
+                }
+              ]
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "nullable": true
+          },
+          "viewerClass": {
+            "type": "string",
+            "enum": [
+              "public",
+              "staff",
+              "member"
+            ]
+          },
+          "nextCycleAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "year",
+          "items",
+          "page",
+          "pageSize",
+          "total",
+          "dataAsOf",
+          "viewerClass",
+          "nextCycleAt"
+        ]
+      },
+      "RankingTimelineSeriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "ranks": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "nullable": true
+            }
+          },
+          "totals": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "nullable": true
+            }
+          },
+          "githubLogin": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ranks",
+          "totals",
+          "githubLogin"
+        ]
+      },
+      "RankingTimelineResponseDto": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "number"
+          },
+          "months": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RankingTimelineSeriesResponseDto"
+            }
+          }
+        },
+        "required": [
+          "year",
+          "months",
+          "series"
+        ]
+      },
+      "RankingYearsResponseDto": {
+        "type": "object",
+        "properties": {
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "years"
         ]
       },
       "StudentDashboardMilestoneResponseDto": {
@@ -13468,6 +14022,13 @@
               "isComplete"
             ]
           },
+          "participations": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserParticipationResponseDto"
+            }
+          },
           "adminGrant": {
             "nullable": true,
             "type": "object",
@@ -13495,6 +14056,7 @@
           "pendingRequest",
           "lastLoginAt",
           "profile",
+          "participations",
           "adminGrant"
         ]
       },

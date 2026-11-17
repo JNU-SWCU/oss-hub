@@ -9,8 +9,12 @@ import { AdminAccessHistoryRepository } from './admin-access-history.repository'
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
+  ApplicationStatus,
   LoginHistoryEvent,
   PrismaClient,
+  ProgramCategory,
+  ProgramLifecycle,
+  ProgramTrackType,
   type Prisma,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -28,6 +32,7 @@ import {
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
+import { UsersRepository } from './users.repository';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -227,6 +232,130 @@ it('preserves history response pages and explains the actual reader SQL', async 
     staffAccessRequestPlan[0]?.['QUERY PLAN'][0]?.Plan['Actual Rows'],
   ).toBe(3);
   expect(loginHistoryPlan[0]?.['QUERY PLAN'][0]?.Plan['Actual Rows']).toBe(2);
+});
+it('lists only approved unarchived teams of live programs as participations, newest program first', async () => {
+  const seeds = [
+    {
+      key: 'older',
+      startAt: '2026-01-01T00:00:00.000Z',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      status: ApplicationStatus.APPROVED,
+      archivedAt: null,
+      leaderId: studentPlain.id,
+    },
+    {
+      key: 'newer',
+      startAt: '2026-03-01T00:00:00.000Z',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      status: ApplicationStatus.APPROVED,
+      archivedAt: null,
+      leaderId: studentPending.id,
+    },
+    {
+      key: 'submitted',
+      startAt: '2026-04-01T00:00:00.000Z',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      status: ApplicationStatus.SUBMITTED,
+      archivedAt: null,
+      leaderId: studentPlain.id,
+    },
+    {
+      key: 'rejected',
+      startAt: '2026-05-01T00:00:00.000Z',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      status: ApplicationStatus.REJECTED,
+      archivedAt: null,
+      leaderId: studentPlain.id,
+    },
+    {
+      key: 'archived',
+      startAt: '2026-06-01T00:00:00.000Z',
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      status: ApplicationStatus.APPROVED,
+      archivedAt: new Date('2026-06-02T00:00:00.000Z'),
+      leaderId: studentPlain.id,
+    },
+    {
+      key: 'deleted',
+      startAt: '2026-07-01T00:00:00.000Z',
+      lifecycle: ProgramLifecycle.DELETED,
+      status: ApplicationStatus.APPROVED,
+      archivedAt: null,
+      leaderId: studentPlain.id,
+    },
+  ];
+  const programIds = seeds.map((seed) => `${prefix}program:${seed.key}`);
+  try {
+    for (const seed of seeds) {
+      const programId = `${prefix}program:${seed.key}`;
+      const teamId = `${prefix}team:${seed.key}`;
+      const startAt = new Date(seed.startAt);
+      await prisma.program.create({
+        data: {
+          id: programId,
+          name: `synthetic-${seed.key}-program`,
+          organizers: ['synthetic-organizer'],
+          trackType: ProgramTrackType.EXTRACURRICULAR,
+          category: ProgramCategory.BASIC,
+          lifecycle: seed.lifecycle,
+          applicationTemplateKey: 'synthetic-template',
+          applicationTemplateVersion: 1,
+          applicationStartAt: startAt,
+          applicationEndAt: new Date(startAt.getTime() + 86_400_000),
+          startAt,
+          endAt: new Date(startAt.getTime() + 30 * 86_400_000),
+          description: 'synthetic-description',
+        },
+      });
+      await prisma.team.create({
+        data: {
+          id: teamId,
+          programId,
+          name: `synthetic-${seed.key}-team`,
+          leaderId: seed.leaderId,
+          applicantId: seed.leaderId,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status: seed.status,
+          archivedAt: seed.archivedAt,
+        },
+      });
+      await prisma.teamMember.create({
+        data: { teamId, programId, userId: studentPlain.id },
+      });
+    }
+    const expected = [
+      {
+        programId: `${prefix}program:newer`,
+        programName: 'synthetic-newer-program',
+        teamName: 'synthetic-newer-team',
+        isLeader: false,
+      },
+      {
+        programId: `${prefix}program:older`,
+        programName: 'synthetic-older-program',
+        teamName: 'synthetic-older-team',
+        isLeader: true,
+      },
+    ];
+
+    const detail = await service.get(adminPrincipal(), studentPlain.id);
+    const memberships = await new UsersRepository(
+      prisma,
+      new UserTransitionRepository(),
+    ).listParticipationMemberships(studentPlain.id);
+
+    expect(detail.participations).toEqual(expected);
+    expect(
+      new UserProfileService().participations(studentPlain.id, memberships),
+    ).toEqual(expected);
+  } finally {
+    await prisma.teamMember.deleteMany({
+      where: { programId: { in: programIds } },
+    });
+    await prisma.team.deleteMany({ where: { programId: { in: programIds } } });
+    await prisma.program.deleteMany({ where: { id: { in: programIds } } });
+  }
 });
 type QueryPlanRow = {
   readonly 'QUERY PLAN': readonly {

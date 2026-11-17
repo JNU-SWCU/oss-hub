@@ -19,6 +19,7 @@ import {
 } from '../platform/history-metadata.config';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
+import type { UserParticipationMembership } from './user-participation.config';
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
 >;
@@ -60,6 +61,7 @@ function buildService(
     readonly phoneAudit?: PhoneAuditChange;
     readonly staffNumberAudit?: StaffNumberAuditChange;
     readonly auditError?: Error;
+    readonly participationMemberships?: readonly UserParticipationMembership[];
   } = {},
 ) {
   const requireCurrent = overrides.consentError
@@ -142,8 +144,15 @@ function buildService(
       }
       return outcome;
     });
+  const listParticipationMemberships = jest
+    .fn<
+      ReturnType<UsersRepositoryPort['listParticipationMemberships']>,
+      Parameters<UsersRepositoryPort['listParticipationMemberships']>
+    >()
+    .mockResolvedValue(overrides.participationMemberships ?? []);
   const repository: UsersRepositoryPort = {
     findByGithubId,
+    listParticipationMemberships,
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
@@ -162,6 +171,7 @@ function buildService(
     ),
     requireCurrent,
     findByGithubId,
+    listParticipationMemberships,
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
@@ -185,14 +195,63 @@ async function captureDomainException(
 it('현행 동의를 확인한 뒤 GitHub 이름과 빈 프로필을 반환한다', async () => {
   const { service, requireCurrent } = buildService();
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
+    githubLogin: 'synthetic-user',
+    memberKind: MemberKind.STUDENT,
     name: 'GitHub 합성 이름',
     studentId: null,
     staffNumber: null,
     department: null,
     phone: null,
     isComplete: false,
+    participations: [],
   });
   expect(requireCurrent).toHaveBeenCalledWith(githubId);
+});
+it('내 프로필에 GitHub 로그인·가입 유형·참여 프로그램과 팀을 담는다', async () => {
+  const { service, listParticipationMemberships } = buildService({
+    participationMemberships: [
+      {
+        team: {
+          name: '합성 팀',
+          leaderId: 'synthetic-user',
+          program: { id: 'program-1', name: '합성 프로그램' },
+        },
+      },
+      {
+        team: {
+          name: '다른 합성 팀',
+          leaderId: 'other-user',
+          program: { id: 'program-2', name: '다른 합성 프로그램' },
+        },
+      },
+    ],
+  });
+  await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
+    githubLogin: 'synthetic-user',
+    memberKind: MemberKind.STUDENT,
+    participations: [
+      {
+        programId: 'program-1',
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        isLeader: true,
+      },
+      {
+        programId: 'program-2',
+        programName: '다른 합성 프로그램',
+        teamName: '다른 합성 팀',
+        isLeader: false,
+      },
+    ],
+  });
+  expect(listParticipationMemberships).toHaveBeenCalledWith('synthetic-user');
+});
+it('프로필 완료 여부만 확인할 때는 참여 프로그램을 조회하지 않는다', async () => {
+  const { service, listParticipationMemberships } = buildService();
+  await expect(service.requireCompleteProfile(githubId)).rejects.toMatchObject({
+    errorCode: { code: UsersErrorCode.PROFILE_INCOMPLETE },
+  });
+  expect(listParticipationMemberships).not.toHaveBeenCalled();
 });
 it('이름이 비어 있으면 학번과 학과가 있어도 미완료로 반환한다', async () => {
   const { service } = buildService({
@@ -207,12 +266,15 @@ it('이름이 비어 있으면 학번과 학과가 있어도 미완료로 반환
     },
   });
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
+    githubLogin: 'synthetic-user',
+    memberKind: MemberKind.STUDENT,
     name: '',
     studentId,
     staffNumber: null,
     department: input.department,
     phone: null,
     isComplete: false,
+    participations: [],
   });
 });
 it('동의 확인이 실패하면 사용자 조회를 시작하지 않는다', async () => {
@@ -225,9 +287,12 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
   const { service, completeProfileIfUnchanged, updateProfileFields } =
     buildService();
   await expect(service.completeMyProfile(githubId, input)).resolves.toEqual({
+    githubLogin: 'synthetic-user',
+    memberKind: MemberKind.STUDENT,
     ...input,
     staffNumber: null,
     isComplete: true,
+    participations: [],
   });
   expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -303,12 +368,15 @@ it('완료된 프로필의 연락처를 PATCH로 변경한다', async () => {
       phone: changedPhone,
     }),
   ).resolves.toEqual({
+    githubLogin: 'synthetic-user',
+    memberKind: MemberKind.STUDENT,
     name: input.name,
     studentId,
     staffNumber: null,
     department: input.department,
     phone: changedPhone,
     isComplete: true,
+    participations: [],
   });
   expect(updateProfileFields).toHaveBeenCalledWith(
     profileRecord(existingUser.id, {
@@ -424,9 +492,12 @@ describe('저장소가 넘긴 감사 콜백', () => {
       phoneAudit: { user: auditedEmptyUser, transition: 'set' },
     });
     await expect(service.completeMyProfile(githubId, input)).resolves.toEqual({
+      githubLogin,
+      memberKind: MemberKind.STUDENT,
       ...input,
       staffNumber: null,
       isComplete: true,
+      participations: [],
     });
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(

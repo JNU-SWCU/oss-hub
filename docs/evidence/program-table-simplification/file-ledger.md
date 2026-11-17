@@ -873,10 +873,10 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 | `apps/frontend/src/features/programs/authoring/program-edit-page.test.tsx` | keep | `program-edit-page.test.tsx` | 11 | present | 931 | 테스트만 변경: purge 응답 목을 `files`만으로 갱신 |
 | `apps/frontend/src/features/programs/teams/program-staff-team-detail-page.test.tsx` | keep | `program-staff-team-detail-page.test.tsx` | 11 | present | 1038 | 테스트만 변경: 옛 provisioning 상태 라벨 경우를 현재 enum 값으로 교체 |
 | `apps/frontend/src/features/audit-log/types.ts` | keep | `types.ts` | 11 | present | 94 | 감사 로그 action `APPLICATION_REPOSITORY_URL_CHANGED` 라벨 `저장소 주소 변경` 추가(F3); 필터 선택지와 `?action=` 해석에도 들어감 |
-| `apps/frontend/src/features/audit-log/audit-log-action.tsx` | keep | `audit-log-action.tsx` | 11 | present | 80 | 같은 action의 배지 색 `closed` 추가(전의 대체 색과 같음) |
-| `apps/frontend/src/features/audit-log/describe-templates.ts` | keep | `describe-templates.ts` | 11 | present | 271 | 같은 action의 문장 추가(대체 문장 대신 `…에서 팀 저장소 주소를 바꿨습니다`) |
-| `apps/frontend/src/features/audit-log/audit-log-action.test.tsx` | keep | `audit-log-action.test.tsx` | 11 | present | 47 | 테스트만 변경: 새 라벨·배지 경우 추가 |
-| `apps/frontend/src/features/audit-log/describe.test.ts` | keep | `describe.test.ts` | 11 | present | 511 | 테스트만 변경: 새 문장의 이름 있는 대상·대체 대상 경우 추가 |
+| `apps/frontend/src/features/audit-log/audit-log-action.tsx` | delete | - | 11 | deleted | 80 | Todo 11 audit-log UI 정리에서 삭제 |
+| `apps/frontend/src/features/audit-log/describe-templates.ts` | delete | - | 11 | deleted | 271 | Todo 11 audit-log UI 정리에서 삭제 |
+| `apps/frontend/src/features/audit-log/audit-log-action.test.tsx` | delete | - | 11 | deleted | 47 | Todo 11 audit-log UI 정리에서 삭제 |
+| `apps/frontend/src/features/audit-log/describe.test.ts` | delete | - | 11 | deleted | 511 | Todo 11 audit-log UI 정리에서 삭제 |
 
 ## Todo 11 후속: program_team_backup 스키마 삭제
 

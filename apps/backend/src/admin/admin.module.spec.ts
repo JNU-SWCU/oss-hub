@@ -1,5 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { GithubModule } from '../github/github.module';
+import { ProgramsModule } from '../programs/programs.module';
 import { UsersModule } from '../users/users.module';
 import { UserAccessController } from './user-access.controller';
 import { AdminModule } from './admin.module';
@@ -22,6 +23,7 @@ describe('AdminModule', () => {
   it('도메인 모듈은 exports로만 가져온다', () => {
     expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toEqual([
       GithubModule,
+      ProgramsModule,
       UsersModule,
     ]);
   });

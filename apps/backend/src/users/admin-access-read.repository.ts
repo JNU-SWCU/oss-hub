@@ -10,6 +10,10 @@ import { MemberKind, StaffAccessRequestStatus } from './user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { USER_APPROVAL_SELECT } from './user-history.config';
+import {
+  USER_PARTICIPATION_MEMBERSHIPS,
+  type UserParticipationMembership,
+} from './user-participation.config';
 import type { UserHistoryTransaction } from './user-history.repository';
 import {
   AdminAccessReadOrderingRepository,
@@ -160,6 +164,7 @@ export class AdminAccessReadRepository {
       adminGrant: user.admin
         ? { origin: user.admin.origin, grantedAt: user.admin.grantedAt }
         : null,
+      participationMemberships: user.teamMemberships,
     };
   }
   readonly ADMIN_ACCESS_USER_SELECT = {
@@ -181,6 +186,7 @@ export class AdminAccessReadRepository {
   readonly ADMIN_ACCESS_USER_DETAIL_SELECT = {
     ...this.ADMIN_ACCESS_USER_SELECT,
     admin: { select: { userId: true, origin: true, grantedAt: true } },
+    teamMemberships: USER_PARTICIPATION_MEMBERSHIPS,
   } as const satisfies Prisma.UserSelect;
 }
 function adminAccessWhere(
@@ -268,6 +274,7 @@ export type AdminAccessUserRow = Omit<
 export type AdminAccessUserDetailRow = AdminAccessUserRow & {
   readonly staffNumber: string | null;
   readonly adminGrant: AdminAccessUserDetail['adminGrant'];
+  readonly participationMemberships: readonly UserParticipationMembership[];
 };
 
 export type AdminAccessUserDetailRecord = Omit<

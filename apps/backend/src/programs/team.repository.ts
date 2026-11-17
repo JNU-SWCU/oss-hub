@@ -2021,8 +2021,17 @@ export interface TeamProgramRecord {
   readonly teamMaxSize: number;
 }
 
+export interface TeamProvisioningSource extends Pick<
+  TeamApplicationRow,
+  'status' | 'repositoryConnectionMode' | 'updatedAt' | 'outbox' | 'job'
+> {
+  readonly enabled: boolean;
+  readonly repositoryId: bigint | null;
+}
+
 export interface TeamDetailRecord {
   readonly hasActivity: boolean;
+  readonly provisioning: TeamProvisioningSource;
   readonly id: string;
   readonly name: string;
   readonly leaderId: string;
@@ -2306,7 +2315,9 @@ export class TeamRepository {
             name: true,
             leaderId: true,
             status: true,
-            teamRepos: { where: { validTo: null }, select: { repoId: true } },
+            updatedAt: true,
+            repositoryConnectionMode: true,
+            teamRepos: OPEN_TEAM_REPO_SELECT,
             _count: {
               select: {
                 submissions: true,
@@ -2315,7 +2326,11 @@ export class TeamRepository {
             },
             programId: true,
             program: {
-              select: { teamMinSize: true, teamMaxSize: true },
+              select: {
+                teamMinSize: true,
+                teamMaxSize: true,
+                repositoryProvisioningEnabled: true,
+              },
             },
             members: {
               select: {
@@ -2335,6 +2350,21 @@ export class TeamRepository {
     });
     if (!membership) return null;
     const team = membership.team;
+    const [outbox, job] = await Promise.all([
+      this.prisma.outboxEvent.findUnique({
+        where: { idempotencyKey: `repository-provision:${team.id}` },
+        select: { status: true, createdAt: true },
+      }),
+      this.prisma.repositoryProvisionJob.findUnique({
+        where: { teamId: team.id },
+        select: {
+          status: true,
+          updatedAt: true,
+          lastErrorCode: true,
+          repoId: true,
+        },
+      }),
+    ]);
     return {
       id: team.id,
       name: team.name,
@@ -2343,6 +2373,15 @@ export class TeamRepository {
       teamMinSize: team.program.teamMinSize,
       teamMaxSize: team.program.teamMaxSize,
       status: team.status,
+      provisioning: {
+        status: team.status,
+        repositoryConnectionMode: team.repositoryConnectionMode,
+        updatedAt: team.updatedAt,
+        enabled: team.program.repositoryProvisioningEnabled,
+        repositoryId: team.teamRepos[0]?.repo.githubRepoId ?? null,
+        outbox,
+        job,
+      },
       hasActivity:
         team.teamRepos.length > 0 ||
         team._count.submissions > 0 ||

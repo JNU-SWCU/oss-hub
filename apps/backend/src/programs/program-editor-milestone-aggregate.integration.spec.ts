@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   FileMetadataRepository,
   FileCleanupRepository,
@@ -21,7 +22,6 @@ import {
   RequirementsRepository,
 } from './requirements.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { FileLifecycle, Prisma } from '@prisma/client';
@@ -1295,7 +1295,7 @@ function createFaultingEditor(
       {} as never,
       {} as never,
       new SubmissionFileAdmissionService(),
-      new ProgramNoticeFetchClient(),
+      createProgramNoticeFetchClient(),
     ),
     new UserProfileService(),
     new ProgramOrganizersService(),
@@ -1371,7 +1371,7 @@ function pausingAggregateEditorAt(
       {} as never,
       {} as never,
       new SubmissionFileAdmissionService(),
-      new ProgramNoticeFetchClient(),
+      createProgramNoticeFetchClient(),
     ),
     new UserProfileService(),
     new ProgramOrganizersService(),

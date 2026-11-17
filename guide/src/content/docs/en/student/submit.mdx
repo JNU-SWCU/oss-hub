@@ -1,6 +1,6 @@
 ---
 title: Submit documents
-description: Check milestone requirements and submit each item in its specified format.
+description: Check milestone requirements and upload each item in its specified format.
 sidebar:
   order: 7
 ---
@@ -10,20 +10,24 @@ import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 
-Only approved teams can submit documents. You cannot submit without an application or while awaiting approval.
+Only approved teams can submit documents. You can't submit without an application or while awaiting approval. You upload documents item by item, not per milestone.
 
 ## Open a submission item
 
 <Steps>
 
-1. In the program's `내 제출물` (My submissions), check the number of required items for each milestone and any revision-request or rejection statuses. `우리 팀` (Our team) shows the same submission status.
-2. Click the milestone title. If you used `제출하기` (Submit) beside a milestone or a dashboard link, that milestone's dialog opens directly.
-3. Click `올리기` (Upload) for the item you want to submit. Previously submitted items show `수정` (Edit) while editing is allowed.
+1. In program details, under `마일스톤` (Milestones), click a milestone row. The row expands and shows its submission items. The milestone in progress starts expanded.
+2. Click `올리기` (Upload) on the item you want to submit. Items you've already submitted show `교체` (Replace) instead.
+3. If an item has a `양식` (Template) line, click the filename to download the template.
 
 </Steps>
-<Shot src="student/requirement-checklist.webp" alt="Milestone submission dialog, with a status and Upload button for each item. ③ points to Upload on the first unsubmitted item." caption="③ Upload the item you want to submit" />
+<Shot src="student/requirement-checklist.webp" alt="An expanded milestone with its submission items. ① points to the milestone row, ② to Upload on the presentation item, and ③ to the template filename. The already submitted plan item shows Replace." caption="① Milestone row, ② Upload on the item, ③ Download the template" />
 
-Expanding a milestone in program details gives you access to the same submission items and templates. If an item has a template file, click its filename to download it.
+When a milestone has only one submission item, that item's `올리기` (Upload) sits right on the milestone row. Clicking it expands the row and opens the form.
+
+<Shot src="student/requirement-row-action.webp" alt="Collapsed milestone list. ① points to Upload on the midterm row, which has a single item." caption="① A single item uploads straight from the row" />
+
+`내 제출물` (My submissions) shows the same items. Clicking a milestone there opens a dialog, and the items inside work the same way.
 
 ## Submit in the required format
 
@@ -34,25 +38,29 @@ Expanding a milestone in program details gives you access to the same submission
 <Steps>
 
 1. Provide the required text or file. Follow the file formats and size limit shown on screen. Currently, PDF, HWP, and ZIP files up to 5 MB are accepted.
-2. If needed, add a `제출 코멘트 (선택)` (Submission comment, optional). It may be left empty for any input format and is limited to 2,000 characters.
+2. If needed, add a `제출 코멘트 (선택)` (Submission comment, optional). It may be left empty and is limited to 2,000 characters.
 3. Click `제출` (Submit). The button stays disabled until the required input is provided.
 
 </Steps>
-<Shot src="student/requirement-file.webp" alt="Form for a file-required item. ① points to the file picker; ③ points to Submit." caption="File-only item: ① Choose a file, ③ Submit" />
-<Shot src="student/requirement-text.webp" alt="Form for a text-required item. ① points to the text field; ③ points to Submit." caption="Text-only item: ① Enter text, ③ Submit" />
-<Shot src="student/requirement-either.webp" alt="Form where text and file are both optional. ① outlines the text field and file picker; ③ points to Submit." caption="An item accepting text, a file, or both" />
+<Shot src="student/requirement-file.webp" alt="Form for a file-required item. ① points to the file picker; ② points to Submit." caption="File-only item: ① Choose a file, ② Submit" />
+<Shot src="student/requirement-text.webp" alt="Form for a text-required item. ① points to the text field; ② points to Submit." caption="Text-only item: ① Enter text, ② Submit" />
+<Shot src="student/requirement-either.webp" alt="Form where text and file are both optional. ① outlines the text field and file picker; ② points to Submit." caption="An item accepting text, a file, or both" />
 
 <Success>
-  Once saved, the form closes and the item changes to `검토 대기` (Awaiting review). Check the submission time and the saved version in `제출·검토 이력` (Submission and review history).
+  Once saved, the form closes and the item changes to `검토 대기` (Awaiting review). The item row shows the submission time and the uploaded filename. Open the file with `보기` (View).
 </Success>
 
-Before the deadline, use `수정` (Edit) on an item awaiting review to submit a new version. Approved or rejected items cannot be resubmitted. If you receive a revision request, follow [Resubmit after a revision request](/oss-hub/en/student/resubmit/).
+## Replace a submission
 
-<Recover title="When you cannot submit">
+Until the deadline, use `교체` (Replace) on an item awaiting review to submit a new version. The form is the same as the first time, and its button reads `다시 제출` (Resubmit).
+
+Approved, rejected, or closed items have no button. The item row shows only the reason. If you receive a revision request, follow [Resubmit after a revision request](/oss-hub/en/student/resubmit/).
+
+<Recover title="When you can't submit">
 
 - Check whether your application is approved in [Our team](/oss-hub/en/student/my-team/).
-- You cannot make a first submission after the deadline. If the item has a grace deadline, you can submit until then; submissions after the original deadline are marked late.
+- You can't make a first submission after the deadline. If the item has a grace deadline, you can submit until then; submissions after the original deadline are marked late.
 - If a file error appears, check the displayed format, size, and archive-file guidance, then select the file again.
-- If a message says the submission or review result has changed, what you just entered was not saved. Check the latest status, reopen the item, and submit again.
+- If a message says the submission or review result has changed, what you just entered wasn't saved. Check the latest status, reopen the item, and submit again.
 
 </Recover>

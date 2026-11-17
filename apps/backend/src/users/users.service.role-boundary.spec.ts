@@ -66,6 +66,7 @@ function buildService(
   const userHistory = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
+    listParticipationMemberships: jest.fn().mockResolvedValue([]),
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
@@ -100,12 +101,15 @@ describe('역할 변경 경계', () => {
       },
     });
     await expect(service.getMyProfile(githubId)).resolves.toEqual({
+      githubLogin: '',
+      memberKind: MemberKind.STUDENT,
       name: input.name,
       studentId,
       staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,
+      participations: [],
     });
     await expect(
       service.requireCompleteProfile(githubId),
@@ -129,9 +133,12 @@ describe('역할 변경 경계', () => {
     });
     const profile = await service.completeMyProfile(githubId, input);
     expect(profile).toEqual({
+      githubLogin: '',
+      memberKind: MemberKind.STUDENT,
       ...input,
       staffNumber: null,
       isComplete: true,
+      participations: [],
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
       expect.anything(),
@@ -168,12 +175,15 @@ describe('역할 변경 경계', () => {
       department: input.department,
     });
     expect(profile).toEqual({
+      githubLogin: '',
+      memberKind: MemberKind.STAFF,
       name: input.name,
       studentId: null,
       staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,
+      participations: [],
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
       expect.anything(),

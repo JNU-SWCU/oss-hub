@@ -15,23 +15,28 @@ const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
+export type MilestoneCountdownTone = 'ahead' | 'soon' | 'closed';
+
+export function milestoneCountdown(
+  dDay: number,
+  pastDue: boolean,
+): { readonly label: string; readonly tone: MilestoneCountdownTone } {
+  if (pastDue || dDay < 0) return { label: '마감', tone: 'closed' };
+  if (dDay === 0) return { label: 'D-Day', tone: 'soon' };
+  return { label: `D-${dDay}`, tone: dDay <= 3 ? 'soon' : 'ahead' };
+}
+
 function trackTypeLabel(trackType: ProgramTrackType): string {
   return PROGRAM_TRACK_TYPE_LABELS[trackType];
 }
 
-export function programDetailMeta(
-  program: Pick<
-    ProgramDetail,
-    'organizers' | 'trackType' | 'applicationPeriod'
-  >,
-): { readonly context: string; readonly period: string } {
+export function programDetailContext(
+  program: Pick<ProgramDetail, 'organizers' | 'trackType'>,
+): string {
   const organizers = programOrganizersLabel(program.organizers);
-  const context =
-    program.trackType === null
-      ? organizers
-      : `${organizers} · ${trackTypeLabel(program.trackType)}`;
-  const period = `신청 기간 ${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`;
-  return { context, period };
+  return program.trackType === null
+    ? organizers
+    : `${organizers} · ${trackTypeLabel(program.trackType)}`;
 }
 
 export function formatSeoulDate(value: string): string {
@@ -58,9 +63,20 @@ function seoulParts(value: string): Record<string, string> {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
-function formatSeoulDateOnly(value: string): string {
-  const { year, month, day } = seoulParts(value);
-  return `${year}.${month}.${day}`;
+export function formatSeoulDateRange(
+  startsAt: string,
+  endsAt: string,
+  formatEnd: (endsAt: string, format: (value: string) => string) => string = (
+    value,
+    format,
+  ) => format(value),
+): string {
+  const start = seoulParts(startsAt);
+  const end = formatEnd(endsAt, (value) => {
+    const { year, month, day } = seoulParts(value);
+    return year === start.year ? `${month}.${day}` : `${year}.${month}.${day}`;
+  });
+  return `${start.year}.${start.month}.${start.day} ~ ${end}`;
 }
 
 export function formatSeoulShortDateTime(value: string): string {

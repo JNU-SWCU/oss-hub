@@ -1,4 +1,5 @@
 import { isRecord } from '@/lib/is-record';
+import { parseUserParticipations } from '@/lib/user-participation';
 import type {
   AdminAccessDetail,
   AdminAccessFacetCounts,
@@ -67,8 +68,13 @@ export function parseAdminAccessDetail(value: unknown): AdminAccessDetail {
     throw new AdminAccessResponseError();
   }
   const profile = value.profile;
+  const participationsWithheld = value.participations === null;
+  const participations = participationsWithheld
+    ? null
+    : parseUserParticipations(value.participations);
   if (
     !isAdminAccessListItem(value) ||
+    (!participationsWithheld && participations === null) ||
     !isRecord(profile) ||
     !(profile.name === null || typeof profile.name === 'string') ||
     !(profile.studentId === null || typeof profile.studentId === 'string') ||
@@ -85,6 +91,7 @@ export function parseAdminAccessDetail(value: unknown): AdminAccessDetail {
       department: profile.department,
       isComplete: profile.isComplete,
     },
+    participations,
   };
 }
 

@@ -144,15 +144,17 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     await act(async () => {
       current.resolve({ ...editableProgram, trackType: null });
     });
-    const track = container.querySelector('select');
-    if (!(track instanceof HTMLSelectElement)) {
+    const track = Array.from(
+      container.querySelectorAll<HTMLInputElement>(
+        '[role="radiogroup"] input[type="radio"]',
+      ),
+    ).find((option) => option.closest('label')?.textContent === '비교과');
+    if (track === undefined) {
       throw new TypeError('교과 구분 선택을 찾지 못했습니다.');
     }
-    await act(async () => {
-      track.value = 'EXTRACURRICULAR';
-      track.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    expect(track.value).toBe('EXTRACURRICULAR');
+    expect(track.checked).toBe(false);
+    await act(async () => track.click());
+    expect(track.checked).toBe(true);
 
     await act(async () => {
       root.queryClient.setQueryData(programFeatureKey('program-1', 'edit'), {
@@ -161,7 +163,7 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       });
     });
 
-    expect(track.value).toBe('EXTRACURRICULAR');
+    expect(track.checked).toBe(true);
   });
 
   it('30초 이내에 다시 열어도 캐시 대신 최신 서버 값으로 편집을 시작한다', async () => {
@@ -185,7 +187,9 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       );
     });
     expect(getEditableProgramMock).toHaveBeenCalledTimes(2);
-    expect(container.textContent).toContain('변경된 프로그램');
+    expect(
+      container.querySelector<HTMLInputElement>('#program-name')?.value,
+    ).toBe('변경된 프로그램');
   });
 
   it('마일스톤 마감을 앞당긴 직후 새 마감 이후의 프로그램 종료일을 저장한다', async () => {

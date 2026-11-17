@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import {
@@ -5,7 +6,6 @@ import {
   ProgramAuthoringUploadService,
 } from './files.service';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './programs.error';
 import {
@@ -27,7 +27,7 @@ const programAuthoringService = new ProgramAuthoringService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
   new ProgramOrganizersService(),

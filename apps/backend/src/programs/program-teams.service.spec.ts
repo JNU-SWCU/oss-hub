@@ -64,6 +64,15 @@ const DETAIL: TeamDetailRecord = {
   teamMinSize: 2,
   teamMaxSize: 4,
   status: 'SUBMITTED',
+  provisioning: {
+    status: 'SUBMITTED',
+    repositoryConnectionMode: 'NEW',
+    updatedAt: new Date('2026-07-02T00:00:00.000Z'),
+    enabled: true,
+    repositoryId: null,
+    outbox: null,
+    job: null,
+  },
   members: [
     {
       userId: STUDENT.id,
@@ -72,6 +81,24 @@ const DETAIL: TeamDetailRecord = {
     },
   ],
 };
+
+const APPROVED_PROVISIONING = {
+  ...DETAIL.provisioning,
+  status: 'APPROVED',
+} as const;
+const PROCESSED_OUTBOX = {
+  status: 'PROCESSED',
+  createdAt: new Date('2026-07-03T00:00:00.000Z'),
+} as const;
+const PENDING_OUTBOX = { ...PROCESSED_OUTBOX, status: 'PENDING' } as const;
+const provisionJob = (
+  status: NonNullable<TeamDetailRecord['provisioning']['job']>['status'],
+) => ({
+  status,
+  updatedAt: new Date('2026-07-04T00:00:00.000Z'),
+  lastErrorCode: 'GITHUB_OPERATIONS_AUTHENTICATION',
+  repoId: null,
+});
 
 function buildService(overrides: {
   readonly student?: TeamStudentActor | null;
@@ -271,6 +298,7 @@ describe('TeamMembershipService', () => {
       detail: {
         ...DETAIL,
         status: 'APPROVED',
+        provisioning: APPROVED_PROVISIONING,
         members: [
           ...DETAIL.members,
           {
@@ -291,6 +319,7 @@ describe('TeamMembershipService', () => {
       minMembers: 2,
       maxMembers: 4,
       status: 'APPROVED',
+      repositoryProvisioningStatus: 'ANOMALOUS',
       isLeader: true,
       canInvite: true,
       canRemoveMembers: true,
@@ -313,6 +342,72 @@ describe('TeamMembershipService', () => {
     expect(result).not.toHaveProperty('joinCode');
     expect(result).not.toHaveProperty('locked');
   });
+
+  it.each([
+    ['신청 전', DETAIL.provisioning, 'NOT_REQUESTED'],
+    [
+      '대기 중인 요청',
+      { ...APPROVED_PROVISIONING, outbox: PENDING_OUTBOX },
+      'PENDING',
+    ],
+    [
+      '생성 중',
+      {
+        ...APPROVED_PROVISIONING,
+        outbox: PROCESSED_OUTBOX,
+        job: provisionJob('PROCESSING'),
+      },
+      'PROCESSING',
+    ],
+    [
+      '재시도 대기',
+      {
+        ...APPROVED_PROVISIONING,
+        outbox: PROCESSED_OUTBOX,
+        job: provisionJob('FAILED_RETRYABLE'),
+      },
+      'FAILED_RETRYABLE',
+    ],
+    [
+      '생성 실패',
+      {
+        ...APPROVED_PROVISIONING,
+        outbox: PROCESSED_OUTBOX,
+        job: provisionJob('FAILED_FINAL'),
+      },
+      'FAILED_FINAL',
+    ],
+    [
+      '생성 완료',
+      {
+        ...APPROVED_PROVISIONING,
+        outbox: PROCESSED_OUTBOX,
+        job: provisionJob('SUCCEEDED'),
+      },
+      'SUCCEEDED',
+    ],
+    [
+      '요청 없이 남은 작업',
+      { ...APPROVED_PROVISIONING, job: provisionJob('SUCCEEDED') },
+      'ANOMALOUS',
+    ],
+  ] as const)(
+    '발급 상태는 %s일 때 원시 상태값만 내려주고 오류 정보는 싣지 않는다',
+    async (_label, provisioning, expected) => {
+      const { service } = buildService({
+        detail: { ...DETAIL, provisioning },
+      });
+
+      const result = present(
+        await service.getMe(GITHUB_ID, PROGRAM_ID),
+        '내 팀',
+      );
+
+      expect(result.repositoryProvisioningStatus).toBe(expected);
+      expect(JSON.stringify(result)).not.toContain('GITHUB_OPERATIONS');
+      expect(result).not.toHaveProperty('safeErrorClass');
+    },
+  );
 
   it('승인된 1인 팀장은 나갈 수도 제외할 수도 없다고 미리 알린다', async () => {
     const { service } = buildService({

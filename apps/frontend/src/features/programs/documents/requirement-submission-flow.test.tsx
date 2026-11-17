@@ -122,7 +122,7 @@ it('keeps the revision observed when editing and reloads after a concurrent subm
   );
   function editButton() {
     const button = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === '수정',
+      (button) => button.textContent?.trim() === '교체',
     );
     if (button === undefined) throw new TypeError('Missing edit button');
     return button;

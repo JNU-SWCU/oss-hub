@@ -13,12 +13,15 @@ const SYNTHETIC_STUDENT = {
 } as const;
 
 export const F3_SAVED_PROFILE = {
+  githubLogin: 'synthetic-saved-login',
+  memberKind: 'STUDENT',
   name: '합성 저장된 이름',
   studentId: '260901',
   staffNumber: null,
   department: '인공지능학부',
   phone: '1'.repeat(10),
   isComplete: true,
+  participations: [],
 } as const;
 
 export const F3_SAVED_NOTIFICATION = {

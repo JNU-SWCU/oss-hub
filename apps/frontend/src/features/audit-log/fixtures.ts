@@ -1,116 +1,144 @@
-const ACCESS_METADATA_V2 = {
-  schemaVersion: 2,
-  eventKind: 'ROLE_REQUEST_APPROVED',
-  actor: { displayName: null, githubLogin: 'synthetic-admin' },
-  target: { displayName: null, githubLogin: 'synthetic-target-login' },
-  before: { role: null, accountStatus: 'ACTIVE', requestStatus: 'PENDING' },
-  after: {
-    role: 'STUDENT',
-    accountStatus: 'ACTIVE',
-    requestStatus: 'APPROVED',
+const TARGET_DEFAULTS = {
+  name: null,
+  login: null,
+  role: null,
+  programName: null,
+  teamName: null,
+} as const;
+
+export const AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE = {
+  id: 'audit-role-change',
+  occurredAt: '2026-11-17T05:03:00.000Z',
+  action: 'USER_ROLE_CHANGED',
+  category: 'ACCOUNT',
+  actor: {
+    id: 'user-admin',
+    name: '김예시',
+    login: 'synthetic-admin',
+    role: 'ADMIN',
   },
-} as const;
-
-const REPOSITORY_PUBLISH_METADATA = {
-  schemaVersion: 1,
-  repositoryId: 'repository-synthetic-1',
-  before: { visibility: 'PRIVATE' },
-  after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:00:00.000Z' },
-} as const;
-
-const REPOSITORY_PUBLISH_METADATA_V2 = {
-  schemaVersion: 2,
-  repositoryId: 'repository-synthetic-2',
-  repositoryFullName: 'synthetic-org/synthetic-repo',
-  before: { visibility: 'PRIVATE' },
-  after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:10:00.000Z' },
-} as const;
-
-const APPLICATION_DECISION_METADATA_V2 = {
-  schemaVersion: 2,
-  programName: '합성 프로그램',
-  applicantGithubLogin: 'synthetic-applicant',
-  before: { status: 'SUBMITTED' },
-  after: { status: 'APPROVED' },
-} as const;
-
-export const AUDIT_LOG_ACCESS_RECORD_FIXTURE = {
-  id: 'audit-access-approved',
-  actor: 'synthetic-admin',
-  actorHandle: 'synthetic-admin',
-  action: 'STAFF_ROLE_REQUEST_APPROVED',
-  targetType: 'ROLE_REQUEST',
-  targetId: 'request-synthetic-1',
-  target: 'synthetic-target-login',
-  targetHandle: 'synthetic-target-login',
-  occurredAt: '2026-07-24T03:00:00.000Z',
+  target: {
+    ...TARGET_DEFAULTS,
+    type: 'USER',
+    id: 'user-target',
+    name: '박샘플',
+    login: 'synthetic-target',
+    role: 'STAFF',
+  },
+  change: { field: 'role', before: 'STUDENT', after: 'STAFF' },
+  requestId: null,
+  teamMembership: null,
   legacy: false,
-  metadata: ACCESS_METADATA_V2,
+  metadata: { schemaVersion: 2, eventKind: 'DIRECT_ROLE_CHANGED' },
 } as const;
 
-export const AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE = {
-  id: 'audit-repository-published',
-  actor: 'synthetic-staff',
-  actorHandle: 'synthetic-staff',
-  action: 'REPOSITORY_PUBLISHED',
-  targetType: 'REPOSITORY',
-  targetId: 'repository-synthetic-1',
-  target: 'REPOSITORY / repository-synthetic-1',
-  targetHandle: null,
-  occurredAt: '2026-07-24T04:00:00.000Z',
-  legacy: false,
-  metadata: REPOSITORY_PUBLISH_METADATA,
-} as const;
-
-export const AUDIT_LOG_REPOSITORY_PUBLISHED_RESOLVED_RECORD_FIXTURE = {
-  id: 'audit-repository-published-resolved',
-  actor: 'synthetic-staff',
-  actorHandle: 'synthetic-staff',
-  action: 'REPOSITORY_PUBLISHED',
-  targetType: 'REPOSITORY',
-  targetId: 'repository-synthetic-2',
-  target: 'synthetic-org/synthetic-repo',
-  targetHandle: null,
-  occurredAt: '2026-07-24T04:10:00.000Z',
-  legacy: false,
-  metadata: REPOSITORY_PUBLISH_METADATA_V2,
-} as const;
-
-export const AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE = {
+const AUDIT_LOG_APPLICATION_RECORD_FIXTURE = {
   id: 'audit-application-approved',
-  actor: 'synthetic-staff',
-  actorHandle: 'synthetic-staff',
+  occurredAt: '2026-11-17T04:10:00.000Z',
   action: 'APPLICATION_APPROVED',
-  targetType: 'APPLICATION',
-  targetId: 'application-synthetic-1',
-  target: '합성 프로그램 · @synthetic-applicant',
-  targetHandle: null,
-  occurredAt: '2026-07-24T06:00:00.000Z',
+  category: 'OPERATION',
+  actor: {
+    id: 'user-staff',
+    name: '최운영',
+    login: 'synthetic-staff',
+    role: 'STAFF',
+  },
+  target: {
+    ...TARGET_DEFAULTS,
+    type: 'APPLICATION',
+    id: 'application-1',
+    login: 'synthetic-applicant',
+    programName: '합성 클라우드 프로그램',
+    teamName: '클라우드 3팀',
+  },
+  change: { field: 'status', before: 'SUBMITTED', after: 'APPROVED' },
+  requestId: null,
+  teamMembership: null,
   legacy: false,
-  metadata: APPLICATION_DECISION_METADATA_V2,
+  metadata: { schemaVersion: 2 },
 } as const;
 
-export const AUDIT_LOG_LEGACY_RECORD_FIXTURE = {
-  id: 'audit-legacy',
-  actor: 'synthetic-admin',
-  actorHandle: 'synthetic-admin',
-  action: 'STAFF_ROLE_REQUEST_APPROVED',
-  targetType: 'ROLE_REQUEST',
-  targetId: 'request-legacy',
-  target: 'ROLE_REQUEST / request-legacy',
-  targetHandle: null,
-  occurredAt: '2026-07-24T02:00:00.000Z',
-  legacy: true,
-  metadata: null,
+const AUDIT_LOG_SUBMISSION_RECORD_FIXTURE = {
+  id: 'audit-submission',
+  occurredAt: '2026-11-17T03:40:00.000Z',
+  action: 'SUBMISSION_RESUBMITTED',
+  category: 'SUBMISSION',
+  actor: {
+    id: 'user-student',
+    name: '이예제',
+    login: 'synthetic-student',
+    role: 'STUDENT',
+  },
+  target: {
+    ...TARGET_DEFAULTS,
+    type: 'SUBMISSION',
+    id: 'submission-1',
+    name: '중간보고서',
+    programName: '합성 클라우드 프로그램',
+    teamName: '클라우드 1팀',
+  },
+  change: { field: 'revision', before: null, after: '2' },
+  requestId: null,
+  teamMembership: null,
+  legacy: false,
+  metadata: { schemaVersion: 1, requirementName: '중간보고서', revision: 2 },
+} as const;
+
+const AUDIT_LOG_SYSTEM_RECORD_FIXTURE = {
+  id: 'audit-system',
+  occurredAt: '2026-11-16T09:02:00.000Z',
+  action: 'GRANT_ADMIN_ACCESS',
+  category: 'SYSTEM',
+  actor: null,
+  target: {
+    ...TARGET_DEFAULTS,
+    type: 'USER',
+    id: 'user-seed',
+    login: 'synthetic-seed',
+    role: 'ADMIN',
+  },
+  change: null,
+  requestId: null,
+  teamMembership: null,
+  legacy: false,
+  metadata: { schemaVersion: 1, recordKind: 'BOOTSTRAP' },
+} as const;
+
+const AUDIT_LOG_UNKNOWN_ACTOR_RECORD_FIXTURE = {
+  id: 'audit-unknown-actor',
+  occurredAt: '2026-11-16T08:00:00.000Z',
+  action: 'LOGIN',
+  category: 'LOGIN',
+  actor: {
+    id: 'user-nameless',
+    name: null,
+    login: 'synthetic-nameless',
+    role: 'UNSELECTED',
+  },
+  target: {
+    ...TARGET_DEFAULTS,
+    type: 'USER',
+    id: 'user-nameless',
+    login: 'synthetic-nameless',
+    role: 'UNSELECTED',
+  },
+  change: null,
+  requestId: null,
+  teamMembership: null,
+  legacy: false,
+  metadata: { schemaVersion: 1, provider: 'github' },
 } as const;
 
 export const AUDIT_LOG_PAGE_RESPONSE_FIXTURE = {
   items: [
-    AUDIT_LOG_ACCESS_RECORD_FIXTURE,
-    AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
-    AUDIT_LOG_LEGACY_RECORD_FIXTURE,
+    AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+    AUDIT_LOG_APPLICATION_RECORD_FIXTURE,
+    AUDIT_LOG_SUBMISSION_RECORD_FIXTURE,
+    AUDIT_LOG_SYSTEM_RECORD_FIXTURE,
+    AUDIT_LOG_UNKNOWN_ACTOR_RECORD_FIXTURE,
   ],
-  total: 21,
+  total: 5,
   page: 1,
   limit: 20,
+  counts: { ACCOUNT: 1, OPERATION: 1, SUBMISSION: 1, LOGIN: 1, SYSTEM: 1 },
 } as const;

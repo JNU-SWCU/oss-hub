@@ -1,547 +1,170 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { AuditLogView } from './audit-log-view';
+import { AuditLogView, type AuditLogViewProps } from './audit-log-view';
+import { parseAuditLogPage } from './parser';
+import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 
-const baseProps = {
-  filters: { actor: '', action: '', from: '', to: '' },
+const fixture = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE);
+
+const baseProps: AuditLogViewProps = {
+  records: fixture.items,
+  counts: fixture.counts,
+  filters: { q: '', action: '', from: '', to: '' },
+  activeFilterCount: 0,
+  category: '',
+  view: 'feed',
   page: 1,
   limit: 20,
-  total: 0,
+  total: fixture.total,
+  isLoading: false,
+  errorMessage: null,
+  now: new Date('2026-11-17T06:00:00.000Z'),
   onFilterChange: vi.fn(),
   onSearch: vi.fn(),
   onReset: vi.fn(),
+  onCategoryChange: vi.fn(),
+  onViewChange: vi.fn(),
   onPageChange: vi.fn(),
   onRetry: vi.fn(),
 };
 
-function isButtonDisabled(html: string, label: string): boolean {
-  const button = html.match(new RegExp(`<button[^>]*>${label}</button>`))?.[0];
-  if (button === undefined) {
-    throw new Error(`"${label}" 버튼을 찾지 못했습니다.`);
-  }
+function render(overrides: Partial<AuditLogViewProps> = {}) {
+  return renderToStaticMarkup(<AuditLogView {...baseProps} {...overrides} />);
+}
 
-  return / disabled=""/.test(button);
+function text(html: string) {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 }
 
 describe('AuditLogView', () => {
-  it('로딩 스켈레톤을 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        isLoading
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('aria-busy="true"');
-    expect(html).toContain('감사 로그를 불러오는 중');
-  });
-
-  it('기록이 없으면 빈 상태를 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('기록이 없습니다');
-  });
-
-  it('조회 조건 설명을 제공한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('관리 작업 이력을 조회합니다.');
-  });
-
-  it('조회 실패와 다시 시도 동작을 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        isLoading={false}
-        errorMessage="감사 로그를 불러오지 못했습니다."
-      />,
-    );
-
-    expect(html).toContain('감사 로그를 불러오지 못했습니다.');
-    expect(html).toContain('다시 시도');
-  });
-
-  it('행마다 서술문·발생 일시·상대 시각을 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-1',
-            actor: 'synthetic-admin',
-            action: 'STAFF_ROLE_REQUEST_APPROVED',
-            targetType: 'ROLE_REQUEST',
-            targetId: 'request-1',
-            target: 'synthetic-target',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('synthetic-admin');
-    expect(html).toContain('@synthetic-target');
-    expect(html).toContain('님의 교직원 권한 요청을 승인했습니다');
-
-    expect(html).toContain('data-variant="approved"');
-    expect(html).toContain('승인');
-    expect(html).toContain('권한 요청');
-    expect(html).toContain('synthetic-target');
-    expect(html).not.toContain('request-1');
-
-    expect(html).toContain('<time dateTime="2026-07-24T03:00:00.000Z"');
-  });
-
-  it('승인 행은 행위자·대상 열에서 문장 밖에도 두 사람을 보여 준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-named-approval',
-            actor: '합성 교직원',
-            actorHandle: 'synthetic-staff',
-            action: 'STAFF_ROLE_REQUEST_APPROVED',
-            targetType: 'ROLE_REQUEST',
-            targetId: 'request-named',
-            target: '합성 대기 사용자',
-            targetHandle: 'synthetic-pending',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('행위자');
-    expect(html).toContain('대상');
-    expect(html).toContain('합성 교직원');
-    expect(html).toContain('합성 대기 사용자');
-    expect(html).toContain('@synthetic-pending');
-  });
-
-  it('target이 legacy 폴백 라벨이면 서술문에서 코드체로 표시하고 @를 붙이지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-legacy',
-            actor: 'synthetic-admin',
-            action: 'STAFF_ROLE_REQUEST_APPROVED',
-            targetType: 'ROLE_REQUEST',
-            targetId: 'request-legacy',
-            target: 'ROLE_REQUEST / request-legacy',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('<code');
-    expect(html).toContain('권한 요청');
-    expect(html).toContain('request-legacy');
-    expect(html).not.toContain('@request-legacy');
-
-    expect(html).not.toContain('request-legacy님');
-  });
-
-  it('REPOSITORY_PUBLISHED 행도 서술문과 targetType 한국어 라벨로 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-repository-published',
-            actor: 'synthetic-staff',
-            action: 'REPOSITORY_PUBLISHED',
-            targetType: 'REPOSITORY',
-            targetId: 'repository-synthetic-1',
-            target: 'REPOSITORY / repository-synthetic-1',
-            occurredAt: '2026-07-24T04:00:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('저장소');
-    expect(html).toContain('공개로 전환했습니다');
-    expect(html).toContain('repository-synthetic-1');
-  });
-
-  it('PROGRAM_CREATED 행이 이름을 받으면 서술문과 메타 라인 모두 cuid 대신 이름을 "@" 없이 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-program-created',
-            actor: 'synthetic-staff',
-            action: 'PROGRAM_CREATED',
-            targetType: 'PROGRAM',
-            targetId: 'cuid-synthetic-program-1',
-            target: '합성 프로그램 이름',
-            occurredAt: '2026-07-24T04:30:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('합성 프로그램 이름');
-    expect(html).not.toContain('@합성 프로그램 이름');
-
-    expect(html).not.toContain('cuid-synthetic-program-1');
-  });
-
-  it('PROGRAM_CREATED 행이 이름을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-program-created-fallback',
-            actor: 'synthetic-staff',
-            action: 'PROGRAM_CREATED',
-            targetType: 'PROGRAM',
-            targetId: 'cuid-synthetic-program-2',
-            target: 'PROGRAM / cuid-synthetic-program-2',
-            occurredAt: '2026-07-24T04:31:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('cuid-synthetic-program-2');
-  });
-
-  it('REPOSITORY_PUBLISHED 행이 전체 이름(owner/name)을 받으면 메타 라인이 cuid 대신 그 이름을 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-repository-resolved',
-            actor: 'synthetic-staff',
-            action: 'REPOSITORY_PUBLISHED',
-            targetType: 'REPOSITORY',
-            targetId: 'cuid-synthetic-repository-1',
-            target: 'synthetic-org/synthetic-repo',
-            occurredAt: '2026-07-24T04:32:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('synthetic-org/synthetic-repo');
-    expect(html).not.toContain('cuid-synthetic-repository-1');
-  });
-
-  it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자)을 받으면 메타 라인이 cuid 대신 그 라벨을 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-application-resolved',
-            actor: 'synthetic-staff',
-            action: 'APPLICATION_APPROVED',
-            targetType: 'APPLICATION',
-            targetId: 'cuid-synthetic-application-1',
-            target: '합성 프로그램 · @synthetic-applicant',
-            occurredAt: '2026-07-24T04:33:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('합성 프로그램 · @synthetic-applicant');
-    expect(html).not.toContain('cuid-synthetic-application-1');
-  });
-
-  it('APPLICATION_APPROVED 행이 라벨을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-application-fallback',
-            actor: 'synthetic-staff',
-            action: 'APPLICATION_APPROVED',
-            targetType: 'APPLICATION',
-            targetId: 'cuid-synthetic-application-2',
-            target: 'APPLICATION / cuid-synthetic-application-2',
-            occurredAt: '2026-07-24T04:34:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('cuid-synthetic-application-2');
-  });
-
-  it('USER_PHONE_UPDATED 행은 transition으로만 전화번호 감사 문장을 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-user-phone-set',
-            actor: 'synthetic-admin',
-            action: 'USER_PHONE_UPDATED',
-            targetType: 'USER',
-            targetId: 'user-synthetic-1',
-            target: 'synthetic-target-login',
-            occurredAt: '2026-09-07T03:00:00.000Z',
-            phoneTransition: 'SET',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
+  it('shows names before GitHub logins for actors and targets', () => {
+    const html = text(render());
 
     expect(html).toContain(
-      'synthetic-admin</span><span>님이 </span><span class="font-medium">@synthetic-target-login</span><span>님의 전화번호를 등록했습니다',
+      '김예시 관리자 → 박샘플 회원 유형 변경 학생 → 교직원',
     );
-    expect(html).toContain('전화번호 수정');
-    expect(html).toContain('USER_PHONE_UPDATED');
-    expect(html).not.toContain('synthetic-secret-phone-value');
-    expect(html).not.toContain('9999');
+    expect(html).not.toContain('@synthetic-admin');
+    expect(html).not.toContain('@synthetic-target');
   });
 
-  it('좁은 화면에서는 앞선 메타 열을 숨기고 전화번호 변경 문장을 줄바꿈해 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-user-phone-replaced-mobile',
-            actor: 'synthetic-admin',
-            action: 'USER_PHONE_UPDATED',
-            targetType: 'USER',
-            targetId: 'user-synthetic-mobile',
-            target: 'synthetic-target-login',
-            occurredAt: '2026-09-07T03:00:00.000Z',
-            phoneTransition: 'REPLACED',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
+  it('labels a nameless actor as unknown with the login and a missing actor as the system', () => {
+    const html = text(render());
 
-    expect(html.match(/hidden[^\"]*md:table-cell/g)).toHaveLength(6);
-    expect(html).toContain('whitespace-normal');
-    expect(html).toContain('님의 전화번호를 변경했습니다');
+    expect(html).toContain('알 수 없음 @synthetic-nameless 미선택 로그인');
+    expect(html).toContain(
+      '시스템 → 알 수 없음 @synthetic-seed 관리자 권한 부여',
+    );
   });
 
-  it('알 수 없는 action도 원본 값을 담은 폴백 문장으로 숨기지 않고 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-unknown',
-            actor: 'synthetic-admin',
-            action: 'LEGACY_SYNTHETIC_ACTION',
-            targetType: 'ROLE_REQUEST',
-            targetId: 'request-1',
-            target: 'synthetic-target',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
+  it('renders team, document and revision parts in the feed', () => {
+    const html = text(render());
 
-    expect(html).toContain('기타 작업');
-    expect(html).toContain('LEGACY_SYNTHETIC_ACTION');
-    expect(html).toContain('작업을 수행했습니다');
+    expect(html).toContain(
+      '최운영 교직원 → 클라우드 3팀 합성 클라우드 프로그램 신청 승인 검토 중 → 승인',
+    );
+    expect(html).toContain(
+      '클라우드 1팀 중간보고서 합성 클라우드 프로그램 서류 재제출 v2',
+    );
   });
 
-  it('필터 이름을 각 컨트롤과 연결한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
+  it('groups the feed under day dividers', () => {
+    const html = text(render());
 
-    for (const [label, id] of [
-      ['행위자', 'audit-actor'],
-      ['작업 종류', 'audit-action'],
-      ['시작일', 'audit-from'],
-      ['종료일', 'audit-to'],
-    ]) {
-      expect(html).toContain(`<label for="${id}"`);
-      expect(html).toContain(`id="${id}"`);
-      expect(html).toContain(label);
-    }
+    expect(html).toContain('오늘 · 11월 17일 (화)');
+    expect(html).toContain('어제 · 11월 16일 (월)');
+    expect(html.indexOf('오늘')).toBeLessThan(html.indexOf('어제'));
   });
 
-  it('백엔드 action registry 전체(REPOSITORY_PUBLISHED 포함)를 필터의 API 값과 한국어 표시 이름으로 제공한다', () => {
-    for (const [value, label] of [
-      ['', '전체'],
-      ['STAFF_ROLE_REQUEST_APPROVED', '승인'],
-      ['STAFF_ROLE_REQUEST_REJECTED', '반려'],
-      ['STAFF_ROLE_REQUEST_REVOKED', '회수'],
-      ['STAFF_ROLE_REQUEST_RESTORED', '복구'],
-      ['USER_ROLE_CHANGED', '역할 변경'],
-      ['USER_ACCOUNT_STATUS_CHANGED', '계정 상태 변경'],
-      ['REPOSITORY_PUBLISHED', '저장소 공개'],
-    ]) {
-      const html = renderToStaticMarkup(
-        <AuditLogView
-          {...baseProps}
-          filters={{ ...baseProps.filters, action: value }}
-          records={[]}
-          isLoading={false}
-          errorMessage={null}
-        />,
-      );
+  it('shows category chips with counts from the response and marks the selection', () => {
+    const html = render({ category: 'SUBMISSION' });
 
-      expect(html).toContain(
-        `<option value="${value}" selected="">${label}</option>`,
+    expect(text(html)).toContain(
+      '전체 5 권한·계정 1 운영 1 서류 1 로그인 1 시스템 1',
+    );
+    expect(html).toMatch(/aria-pressed="true"[^>]*>서류/);
+    expect(html).toMatch(/aria-pressed="false"[^>]*>전체/);
+  });
+
+  it('renders the same records as a sortable table in table view', () => {
+    const html = render({ view: 'table' });
+
+    for (const header of ['시각', '행위자', '역할', '동작', '대상']) {
+      expect(html).toMatch(
+        new RegExp(
+          `<th[^>]*aria-sort="[a-z]+"[^>]*>\\s*<button[^>]*>${header}`,
+        ),
       );
     }
+    expect(html).toMatch(
+      /<th[^>]*aria-sort="descending"[^>]*>\s*<button[^>]*>시각/,
+    );
+    expect(html).toContain('변경');
+    expect(text(html)).toContain('김예시');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>표/);
   });
 
-  it('전체 건수와 현재 페이지를 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        page={2}
-        total={45}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('총 45건');
-    expect(html).toContain('2 / 3 페이지');
+  it('shows the loading skeleton, empty state and retryable failure', () => {
+    expect(render({ isLoading: true })).toContain('감사 로그를 불러오는 중');
+    expect(render({ records: [] })).toContain('기록이 없습니다');
+    const failed = render({ errorMessage: '감사 로그를 불러오지 못했습니다.' });
+    expect(failed).toContain('감사 로그를 불러오지 못했습니다.');
+    expect(failed).toContain('다시 시도');
   });
 
-  it('첫 페이지에서는 이전으로, 마지막 페이지에서는 다음으로 넘어갈 수 없다', () => {
-    const firstPage = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        page={1}
-        total={25}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-    const lastPage = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        page={2}
-        total={25}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
+  it('collapses the filter form behind a 필터 button below sm and shows the active filter count', () => {
+    const idle = render();
+    const filtered = render({ activeFilterCount: 2 });
 
-    expect(isButtonDisabled(firstPage, '이전')).toBe(true);
-    expect(isButtonDisabled(firstPage, '다음')).toBe(false);
-    expect(isButtonDisabled(lastPage, '이전')).toBe(false);
-    expect(isButtonDisabled(lastPage, '다음')).toBe(true);
+    expect(idle).toMatch(
+      /<button[^>]*aria-expanded="false"[^>]*aria-controls="audit-filters"[^>]*>필터<\/button>/,
+    );
+    expect(filtered).toMatch(
+      /aria-controls="audit-filters"[^>]*>필터<span[^>]*>2<\/span>/,
+    );
+    expect(idle).toMatch(
+      /<form id="audit-filters"[^>]*class="hidden [^"]*sm:grid/,
+    );
   });
 
-  it('결과가 한 페이지에 다 들어가면 양쪽 이동을 모두 막는다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        page={1}
-        total={3}
-        isLoading={false}
-        errorMessage={null}
-      />,
+  it('keeps category chips on one horizontally scrollable line below sm', () => {
+    const chips = render().match(
+      /<div role="group"[^>]*class="([^"]*)"[^>]*aria-label="분류"/,
     );
 
-    expect(html).toContain('1 / 1 페이지');
-    expect(isButtonDisabled(html, '이전')).toBe(true);
-    expect(isButtonDisabled(html, '다음')).toBe(true);
+    expect(chips?.[1]).toContain('flex-nowrap');
+    expect(chips?.[1]).toContain('overflow-x-auto');
+    expect(chips?.[1]).toContain('sm:flex-wrap');
   });
 
-  it('기록이 20건을 넘어도 한 페이지에 담긴 만큼만 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-1',
-            actor: 'synthetic-admin',
-            action: 'STAFF_ROLE_REQUEST_APPROVED',
-            targetType: 'ROLE_REQUEST',
-            targetId: 'request-1',
+  it('shows only time and actor columns below sm with the rest on a second line', () => {
+    const html = render({ view: 'table' });
 
-            target: 'ROLE_REQUEST / request-1',
-            occurredAt: '2026-07-24T03:00:00.000Z',
-          },
-        ]}
-        page={1}
-        total={100}
-        isLoading={false}
-        errorMessage={null}
-      />,
+    for (const header of ['역할', '동작', '대상', '변경']) {
+      expect(html).toMatch(
+        new RegExp(
+          `<th[^>]*class="[^"]*hidden sm:table-cell[^"]*"[^>]*>(<button[^>]*>)?${header}`,
+        ),
+      );
+    }
+    const detail = html.match(
+      /data-slot="audit-row-detail" class="[^"]*sm:hidden[^"]*">([\s\S]*?)<\/td>/,
     );
-
-    expect(html).toContain('총 100건');
-    expect(html).toContain('1 / 5 페이지');
-    expect(html).toContain('request-1');
+    expect(detail).not.toBeNull();
+    expect(text(detail?.[1] ?? '')).toContain(
+      '관리자 회원 유형 변경 박샘플 학생 → 교직원',
+    );
   });
 
-  it('표 스크롤 영역에 접근성 이름을 부여한다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[]}
-        isLoading={false}
-        errorMessage={null}
-      />,
+  it('lets the actor cell and its second line wrap below sm without changing the shared cell', () => {
+    const html = render({ view: 'table' });
+    const actorCell = html.match(
+      /<td data-slot="table-cell" class="([^"]*)"><div class="flex min-w-0 flex-col gap-1">/,
     );
 
-    expect(html).toContain('감사 로그 표');
+    expect(actorCell?.[1]).toContain('whitespace-normal');
+    expect(actorCell?.[1]).toContain('sm:whitespace-nowrap');
+    expect(html).toMatch(
+      /data-slot="audit-row-detail" class="[^"]*break-keep [^"]*\[overflow-wrap:anywhere\][^"]*sm:hidden/,
+    );
   });
 });

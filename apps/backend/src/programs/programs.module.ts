@@ -1,3 +1,4 @@
+import { ProgramNoticePreviewService } from './program-notice-preview.service';
 import {
   FileMetadataRepository,
   ProgramAuthoringUploadTransactionRepository,
@@ -39,7 +40,6 @@ import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import {
   ProgramAuthoringService,
-  ProgramNoticePreviewService,
   ProgramLifecycleService,
   ProgramsService,
   ProgramCreationService,
@@ -79,6 +79,11 @@ import { ProgramTeamRepositoryEvidenceRepository } from './program-team-reposito
 import { TeamMembershipService } from './team-membership.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramNoticeHtmlClient } from './program-notice-html.client';
+import { ProgramNoticeUrlClient } from './program-notice-url.client';
+import { ProgramNoticeExtractClient } from './program-notice-extract.client';
+import { ProgramNoticeCandidatesClient } from './program-notice-candidates.client';
+import { ProgramNoticeListClient } from './program-notice-list.client';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
@@ -197,6 +202,11 @@ import { ProgramOrganizersService } from './program-organizers.service';
     ProgramAuthoringService,
     ProgramNoticePreviewService,
     ProgramNoticeFetchClient,
+    ProgramNoticeHtmlClient,
+    ProgramNoticeUrlClient,
+    ProgramNoticeExtractClient,
+    ProgramNoticeCandidatesClient,
+    ProgramNoticeListClient,
     ProgramAuthoringUploadRepository,
     ProgramAuthoringUploadService,
     ProgramCoverService,

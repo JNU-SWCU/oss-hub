@@ -6,7 +6,8 @@ export async function fetchAuditLogs(
   params: AuditLogListParams,
 ): Promise<AuditLogPage> {
   const search = new URLSearchParams();
-  if (params.actor) search.set('actor', params.actor);
+  if (params.q) search.set('q', params.q);
+  if (params.category) search.set('category', params.category);
   if (params.action) search.set('action', params.action);
   if (params.from) search.set('from', params.from);
   if (params.to) search.set('to', params.to);

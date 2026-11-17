@@ -31,6 +31,7 @@ describe('notice import authoring contract', () => {
       description: '첫 문단\n\n둘째 문단',
       coverImages: [externalCover.imageUrl],
       warnings: [],
+      candidates: {},
     };
     vi.mocked(apiClient).mockResolvedValueOnce(result);
     expect(
@@ -124,5 +125,36 @@ describe('notice import authoring contract', () => {
     ).toBeNull();
     expect(api.uploadCoverFile).not.toHaveBeenCalled();
     expect(api.deleteUpload).toHaveBeenCalledWith('obsolete');
+  });
+
+  it('writes checked candidates into the creation manifest without changing milestones', () => {
+    const initial = createInitialProgramAuthoringState({
+      idempotencyKey: 'notice',
+      milestoneId: 'manual-milestone',
+    });
+    const patch = {
+      organizers: ['새 주관기관'],
+      applicationStartAt: '2026-11-01T09:00',
+      applicationEndAt: '2026-11-10T18:00',
+      operationStartAt: '2026-11-11T09:00',
+      operationEndAt: '2026-11-30T18:00',
+      teamMinSize: '2',
+      teamMaxSize: '4',
+    };
+    const updated = programAuthoringReducer(initial, {
+      type: 'apply_notice',
+      patch,
+    });
+    expect(updated).toMatchObject(patch);
+    expect(updated.milestones).toEqual(initial.milestones);
+    expect(buildProgramAuthoringManifest(updated, new Map())).toMatchObject({
+      organizers: ['새 주관기관'],
+      applicationStartAt: '2026-11-01T00:00:00.000Z',
+      applicationEndAt: '2026-11-10T09:00:00.000Z',
+      startAt: '2026-11-11T00:00:00.000Z',
+      endAt: '2026-11-30T09:00:00.000Z',
+      teamMinSize: 2,
+      teamMaxSize: 4,
+    });
   });
 });

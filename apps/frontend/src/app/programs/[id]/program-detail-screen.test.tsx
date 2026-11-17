@@ -78,7 +78,6 @@ const program: ProgramDetail = {
       name: '합성 결과물',
       dueAt: '2028-01-01T00:00:00Z',
       dDay: 10,
-      deadlineLabel: 'D-10',
       description: null,
       submissionItemCount: 1,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
@@ -125,16 +124,14 @@ describe('ProgramDetailScreen의 실제 상세 화면', () => {
     );
   });
 
-  it('실제 마일스톤과 제출 링크를 그리고 별도 체크리스트를 붙이지 않는다', async () => {
+  it('실제 마일스톤을 그리고 제출 링크나 별도 체크리스트를 붙이지 않는다', async () => {
     await renderScreen();
     expect(container.querySelector('#milestones')?.textContent).toContain(
       '합성 결과물',
     );
     expect(
-      container.querySelector(
-        'a[href="/programs/program%3Abasic/documents?milestoneId=milestone-1"]',
-      ),
-    ).not.toBeNull();
+      container.querySelector('#milestones a[href*="/documents"]'),
+    ).toBeNull();
     expect(container.querySelector('[data-testid="checklist"]')).toBeNull();
     expect(navigation.router.replace).not.toHaveBeenCalled();
   });

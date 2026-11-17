@@ -146,6 +146,7 @@ export enum ApplicationsErrorCode {
   INVITEE_NOT_ELIGIBLE = 'APP_033',
   INVITEE_UNAVAILABLE = 'APP_034',
   TEAM_MAX_SIZE_EXCEEDED = 'APP_035',
+  REPOSITORY_PROVISION_NOT_RETRYABLE = 'APP_037',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -171,6 +172,11 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.TEAM_MAX_SIZE_EXCEEDED,
     status: 422,
     message: '프로그램의 최대 팀 인원을 초과할 수 없습니다.',
+  },
+  [ApplicationsErrorCode.REPOSITORY_PROVISION_NOT_RETRYABLE]: {
+    code: ApplicationsErrorCode.REPOSITORY_PROVISION_NOT_RETRYABLE,
+    status: 409,
+    message: '최종 실패한 저장소 발급만 다시 시도할 수 있습니다.',
   },
   [ApplicationsErrorCode.APPLICATION_NOT_FOUND]: {
     code: ApplicationsErrorCode.APPLICATION_NOT_FOUND,

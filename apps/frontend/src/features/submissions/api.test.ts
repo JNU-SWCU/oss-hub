@@ -193,7 +193,6 @@ describe('submissions api', () => {
         name: '최종 제출',
         dueAt: '2026-09-30T14:59:59.000Z',
         dDay: 69,
-        deadlineLabel: 'D-69',
         submissionType: 'TEXT',
         instructions: null,
       },

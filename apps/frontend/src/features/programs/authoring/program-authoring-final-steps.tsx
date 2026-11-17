@@ -85,7 +85,7 @@ export function ProgramAuthoringReviewStep({
                 }
               />
               <ReviewFact
-                label="팀 인원"
+                label="인원"
                 value={`${state.teamMinSize}명 ~ ${state.teamMaxSize}명`}
               />
               <ReviewFact

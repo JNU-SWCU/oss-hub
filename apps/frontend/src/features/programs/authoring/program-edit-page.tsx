@@ -66,6 +66,7 @@ import {
   ProgramEditSkeleton,
   ProgramEditView,
 } from './program-edit-view';
+import { invalidFieldFocusTarget } from './program-track-type-field';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
 const OPERATIONS_SECTION_HASH = '#operations';
@@ -164,7 +165,7 @@ export function ProgramEditPage({
         '[aria-invalid="true"]',
       ) ?? null;
     if (firstInvalidField === null) return;
-    firstInvalidField.focus({ preventScroll: true });
+    invalidFieldFocusTarget(firstInvalidField).focus({ preventScroll: true });
     firstInvalidField.scrollIntoView?.({ block: 'center' });
   }, [errors]);
 

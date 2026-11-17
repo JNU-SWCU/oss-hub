@@ -49,7 +49,6 @@ async function installProgramRoutes(
         name: '최종 제출',
         dueAt: '2026-08-10T14:59:59.000Z',
         dDay: 10,
-        deadlineLabel: 'D-10',
         description: null,
         submissionItemCount: 1,
         viewerSubmissionStatus: null,
@@ -155,7 +154,9 @@ async function openActivityDeepLink(page: Page): Promise<void> {
   await expect(activity.getByText('활동 현황', { exact: true })).toBeVisible();
 
   await expect(
-    activity.getByText('참여 저장소 6', { exact: true }),
+    activity
+      .locator('[data-metric="commitCount"]')
+      .getByText('참여 저장소 6', { exact: true }),
   ).toBeVisible();
 }
 
@@ -247,26 +248,40 @@ for (const viewport of [
     await installProgramRoutes(page, rows);
     await page.goto(`/programs/${programId}#activity`);
     const card = page.locator('section#activity > div[data-slot="card"]');
-    await expect(card.getByRole('meter')).toHaveCount(6);
-    await expect(
+    const readTeamTable = () =>
       card
-        .getByRole('meter', { name: '합성 팀 B Commit', exact: true })
-        .locator('div'),
-    ).toHaveAttribute('style', 'width: 50%;');
-    const disclosure = card.locator('summary').first();
+        .locator('.sr-only tbody tr')
+        .evaluateAll((rows) =>
+          rows.map((row) =>
+            [...row.children].map((cell) => cell.textContent ?? ''),
+          ),
+        );
+    await expect(card.locator('[data-slot="activity-chart"]')).toHaveCount(3);
+    const commitBars = card.locator(
+      '[data-metric="commitCount"] path.recharts-rectangle',
+    );
+    await expect(commitBars).toHaveCount(2);
+    const [teamA, teamB] = await commitBars.evaluateAll((bars) =>
+      bars.map((bar) => bar.getBoundingClientRect().width),
+    );
+    expect(teamB / teamA).toBeCloseTo(0.5, 1);
+    const before = await readTeamTable();
+    expect(before).toEqual([
+      ['합성 팀 A', '40', '2', '0'],
+      ['합성 팀 B', '20', '4', '1'],
+      ['합성 수집 실패 팀', '0', '0', '0'],
+    ]);
+    const disclosures = card.locator('ul[aria-label="팀원별 기여"] button');
     const member = card.getByText('@synthetic-zero', { exact: true });
     await expect(member).toBeHidden();
-    await disclosure.focus();
+    await disclosures.first().focus();
     await page.keyboard.press('Enter');
     await expect(member).toBeVisible();
     await expect(
-      card.getByText('아직 기여 없음', { exact: true }),
+      card.getByText('@synthetic-contributor-with-a-long-name', {
+        exact: true,
+      }),
     ).toBeVisible();
-    const before = await card
-      .getByRole('meter')
-      .evaluateAll((elements) =>
-        elements.map((element) => element.getAttribute('aria-valuenow')),
-      );
     await page.screenshot({
       path: testInfo.outputPath('after-desktop-or-mobile.png'),
     });
@@ -281,14 +296,8 @@ for (const viewport of [
     await page.keyboard.press('Space');
     await expect(member).toBeHidden();
     await page.reload();
-    await expect(card.getByRole('meter')).toHaveCount(6);
-    expect(
-      await card
-        .getByRole('meter')
-        .evaluateAll((elements) =>
-          elements.map((element) => element.getAttribute('aria-valuenow')),
-        ),
-    ).toEqual(before);
+    await expect(card.locator('[data-slot="activity-chart"]')).toHaveCount(3);
+    expect(await readTeamTable()).toEqual(before);
     await expect(member).toBeHidden();
     await expect(
       card.getByText('저장소가 연결되지 않았습니다.', { exact: true }),
@@ -297,12 +306,16 @@ for (const viewport of [
       card.getByText('아직 수집된 활동이 없습니다.', { exact: true }),
     ).toBeVisible();
     await expect(
-      card.getByText('활동 수집에 실패했습니다', { exact: true }),
+      card.getByText('합성 수집 실패 팀 · 활동 수집에 실패했습니다', {
+        exact: true,
+      }),
     ).toBeVisible();
     await expect(
-      card.getByText('기여도 수집이 온전하지 않습니다', { exact: true }),
+      card.getByText('합성 팀 B · 기여도 수집이 온전하지 않습니다', {
+        exact: true,
+      }),
     ).toBeVisible();
-    await expect(card.locator('summary')).toHaveCount(2);
+    await expect(disclosures).toHaveCount(2);
     await context.close();
   });
 
@@ -342,7 +355,9 @@ test('해시 없이 들어오면 활동 영역으로 끌려가지 않는다', as
   await page.goto(`/programs/${programId}`);
   const activity = page.locator('#activity');
   await expect(
-    activity.getByText('참여 저장소 6', { exact: true }),
+    activity
+      .locator('[data-metric="commitCount"]')
+      .getByText('참여 저장소 6', { exact: true }),
   ).toBeVisible();
 
   await page.waitForTimeout(1_500);

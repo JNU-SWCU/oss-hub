@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
   ProgramAuthoringUploadService,
@@ -6,7 +7,6 @@ import {
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import {
@@ -30,7 +30,7 @@ const programAuthoringService = new ProgramAuthoringService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
   new ProgramOrganizersService(),
@@ -39,7 +39,7 @@ const programAuthoringUploadService = new ProgramAuthoringUploadService(
   {} as never,
   {} as never,
   new SubmissionFileAdmissionService(),
-  new ProgramNoticeFetchClient(),
+  createProgramNoticeFetchClient(),
 );
 
 describe('program-authoring-payload-hash', () => {

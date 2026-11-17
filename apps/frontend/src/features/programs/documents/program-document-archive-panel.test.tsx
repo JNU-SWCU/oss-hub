@@ -32,7 +32,6 @@ function milestone(id: string, name: string): ProgramMilestone {
     name,
     dueAt: '2026-08-01T00:00:00.000Z',
     dDay: 1,
-    deadlineLabel: 'D-1',
     description: null,
     submissionItemCount: 0,
     viewerSubmissionStatus: null,

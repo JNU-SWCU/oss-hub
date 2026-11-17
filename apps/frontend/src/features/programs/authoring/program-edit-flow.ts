@@ -13,6 +13,11 @@ import type {
 } from './dto';
 import { isProgramEndAtUndecided } from './program-end-at';
 import {
+  TEAM_MAX_SIZE_MESSAGE,
+  TEAM_MIN_SIZE_MESSAGE,
+  teamSizeValue,
+} from './program-team-size';
+import {
   programOrganizersError,
   type ProgramTrackType,
 } from '../program-contract';
@@ -202,10 +207,6 @@ export function changedMilestoneFields(
   return PROGRAM_MILESTONE_FIELDS.filter(
     (field) => initial[field] !== current[field],
   );
-}
-
-function teamSizeValue(value: string): number | null {
-  return value.trim() === '' ? null : Number(value);
 }
 
 export function buildProgramEditInput(
@@ -513,8 +514,16 @@ function mapProblemFieldErrors(
         errors.endAt = fieldError.message;
         break;
       case 'teamMinSize':
+        errors.team =
+          fieldError.code === 'INVALID_TEAM_RANGE'
+            ? TEAM_MIN_SIZE_MESSAGE
+            : fieldError.message;
+        break;
       case 'teamMaxSize':
-        errors.team = fieldError.message;
+        errors.team =
+          fieldError.code === 'INVALID_TEAM_RANGE'
+            ? TEAM_MAX_SIZE_MESSAGE
+            : fieldError.message;
         break;
       case 'description':
         errors.description = fieldError.message;

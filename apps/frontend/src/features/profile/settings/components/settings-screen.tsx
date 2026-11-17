@@ -202,7 +202,8 @@ export function SettingsScreen({
     setSubmitError(null);
 
     try {
-      await updateMyProfile(profileRequest);
+      const savedProfile = await updateMyProfile(profileRequest);
+      queryClient.setQueryData(featureKey('profile'), savedProfile);
       void queryClient.invalidateQueries({ queryKey: featureKey('profile') });
 
       const savedStudentId = profileRequest.studentId;

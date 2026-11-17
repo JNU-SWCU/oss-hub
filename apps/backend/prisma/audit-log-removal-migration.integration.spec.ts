@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuditLogReadRepository } from '../src/platform/audit-log-read.repository';
+import type { AuditEntry } from '../src/platform/audit-entry.types';
 import {
-  AuditLogReadService,
-  type AuditLogRecord,
-} from '../src/platform/audit-log-read.service';
+  createAuditLogReadService,
+  EMPTY_COUNTS,
+} from '../src/platform/audit-log-mapping.fixture';
 import { PrismaService } from '../src/platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
@@ -77,20 +78,20 @@ const DELETE_BUCKET_ROWS = 11;
 const RECORD_KEYS = [
   'action',
   'actor',
-  'actorHandle',
+  'category',
+  'change',
   'id',
   'legacy',
   'metadata',
   'occurredAt',
+  'requestId',
   'target',
-  'targetHandle',
-  'targetId',
-  'targetType',
+  'teamMembership',
 ];
 
 const feedThroughRepository = () =>
   inAuditFixture(prisma, (transaction) =>
-    new AuditLogReadService(
+    createAuditLogReadService(
       new AuditLogReadRepository(transaction as never),
     ).list({ page: 1, limit: 100 }),
   );
@@ -100,22 +101,16 @@ const feedExpectedFromAuditLog = async () => {
     transaction.$queryRawUnsafe<Parameters<typeof mapStoredRows>[0]>(
       bindAuditFixtureSql(`
         ${routeBlock(copySql)}
-        SELECT a.id, a."occurredAt", a.action, a."targetType", a."targetId", a.metadata,
-          NULL::text AS "historyKind",
-          jsonb_build_object('nickname', actor.login) AS actor,
-          CASE a."targetType"
-            WHEN 'PROGRAM' THEN program.name
-            WHEN 'APPLICATION' THEN application_program.name
-            WHEN 'REPOSITORY' THEN repo.owner_name END AS "joinedTarget"
+        SELECT a.id, 'ACCOUNT' AS source, a."occurredAt", a.action,
+          a."targetType", a."targetId", a.metadata,
+          NULL::text AS "historyKind", 'ACCOUNT' AS category,
+          jsonb_build_object('id', actor.id, 'name', actor.name,
+            'login', actor.login, 'role', actor.type) AS actor,
+          NULL::jsonb AS subject, NULL::text AS "programName",
+          NULL::text AS "teamName", NULL::text AS "repositoryName"
         FROM "AuditLog" a
         JOIN routed ON routed.id = a.id AND routed.route NOT LIKE 'DELETE%'
         JOIN "User" actor ON actor.id = a."actorId"
-        LEFT JOIN "Program" program ON a."targetType" = 'PROGRAM' AND program.id = a."targetId"
-        LEFT JOIN program_team_backup.application_team_map map
-          ON a."targetType" = 'APPLICATION' AND map."applicationId" = a."targetId"
-        LEFT JOIN "Program" application_program ON application_program.id = map."programId"
-        LEFT JOIN "repo" repo
-          ON a."targetType" = 'REPOSITORY' AND repo.github_repo_id::text = a."targetId"
         ORDER BY a.id
       `),
     ),
@@ -127,8 +122,9 @@ const mapStoredRows = async (
   rows: Awaited<ReturnType<AuditLogReadRepository['list']>>['rows'],
 ) =>
   (
-    await new AuditLogReadService({
-      list: () => Promise.resolve({ rows, total: rows.length }),
+    await createAuditLogReadService({
+      list: () =>
+        Promise.resolve({ rows, total: rows.length, counts: EMPTY_COUNTS }),
     }).list({ page: 1, limit: 100 })
   ).items;
 
@@ -142,10 +138,13 @@ const pairedAuditIds = () =>
     return new Map(rows.map((row) => [row.id, row.auditId]));
   });
 
-const withoutIdAndTime = (record: AuditLogRecord) => ({
-  ...record,
-  id: '',
-  occurredAt: new Date(0),
+const copiedFacts = (record: AuditEntry) => ({
+  action: record.action,
+  targetType: record.target.type,
+  targetId: record.target.id,
+  actorLogin: record.actor?.login ?? null,
+  legacy: record.legacy,
+  metadata: record.metadata,
 });
 
 const addRow = (
@@ -432,7 +431,7 @@ describe('audit screen parity after the copy', () => {
       if (actual === undefined) continue;
       expect(Object.keys(actual).sort()).toEqual(RECORD_KEYS);
       expect(actual.legacy).toBe(actual.metadata === null);
-      expect(withoutIdAndTime(actual)).toEqual(withoutIdAndTime(row));
+      expect(copiedFacts(actual)).toEqual(copiedFacts(row));
       const allowance = paired.has(actual.id) ? PAIRED_ROW_ALLOWANCE_MS : 0;
       expect(
         Math.abs(actual.occurredAt.getTime() - row.occurredAt.getTime()),
@@ -443,7 +442,7 @@ describe('audit screen parity after the copy', () => {
   it('keeps per-action counts apart from the delete buckets', async () => {
     const expected = await feedExpectedFromAuditLog();
     await applyAuditFixtureSql(prisma, copySql);
-    const countByAction = (rows: readonly AuditLogRecord[]) =>
+    const countByAction = (rows: readonly AuditEntry[]) =>
       rows.reduce<Record<string, number>>(
         (counts, row) => ({
           ...counts,

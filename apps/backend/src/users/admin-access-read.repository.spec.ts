@@ -214,6 +214,82 @@ describe('admin access read profile completeness', () => {
       profile: { isComplete: false },
     });
   });
+  it('reads only approved, live team memberships and maps them to participations', async () => {
+    const prisma = prismaReturning({
+      ...userRow({
+        id: 'student',
+        role: 'STUDENT',
+        name: '가나다 학생',
+        studentId: '202601',
+        department: '소프트웨어공학과',
+        pendingRequest: null,
+      }),
+      teamMemberships: [
+        {
+          team: {
+            name: '합성 팀',
+            leaderId: 'student',
+            program: { id: 'program-1', name: '합성 프로그램' },
+          },
+        },
+        {
+          team: {
+            name: '다른 합성 팀',
+            leaderId: 'other-student',
+            program: { id: 'program-2', name: '다른 합성 프로그램' },
+          },
+        },
+      ],
+    });
+    const detail = toDetail(
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+      ).findAdminAccessUserById(prisma, 'student'),
+    );
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          teamMemberships: {
+            where: {
+              team: {
+                status: 'APPROVED',
+                archivedAt: null,
+                program: { lifecycle: { not: 'DELETED' } },
+              },
+            },
+            orderBy: [
+              { team: { program: { startAt: 'desc' } } },
+              { programId: 'asc' },
+            ],
+            select: {
+              team: {
+                select: {
+                  name: true,
+                  leaderId: true,
+                  program: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        }) as unknown,
+      }),
+    );
+    expect(detail?.participations).toEqual([
+      {
+        programId: 'program-1',
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        isLeader: true,
+      },
+      {
+        programId: 'program-2',
+        programName: '다른 합성 프로그램',
+        teamName: '다른 합성 팀',
+        isLeader: false,
+      },
+    ]);
+    expect(detail).not.toHaveProperty('participationMemberships');
+  });
   it('leaves the pending-request projection untouched for a revoked staff member', async () => {
     const prisma = prismaReturning(
       userRow({
@@ -434,6 +510,7 @@ function userRow(options: UserRowOptions): AdminAccessUserDetailSource {
     accountStatus: AccountStatus.ACTIVE,
     createdAt: options.createdAt ?? at,
     loginHistories: [],
+    teamMemberships: [],
   };
 }
 function prismaReturning(row: ReturnType<typeof userRow>) {

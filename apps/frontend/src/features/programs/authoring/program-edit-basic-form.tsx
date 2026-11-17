@@ -2,9 +2,10 @@ import { ProgramCoverField } from './program-cover-field';
 import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramNoticeImport } from './program-notice-import';
 import { ProgramOrganizerField } from './program-organizer-field';
+import { ProgramTeamSizeField } from './program-team-size-field';
+import { ProgramTrackTypeField } from './program-track-type-field';
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -12,16 +13,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
 import type { EditableProgram } from './dto';
-import {
-  type ProgramEditableField,
-  type ProgramEditErrors,
-  type ProgramEditFieldValue,
-  type ProgramEditForm,
+import type {
+  ProgramEditableField,
+  ProgramEditErrors,
+  ProgramEditFieldValue,
+  ProgramEditForm,
 } from './program-edit-flow';
-import {
-  PROGRAM_TRACK_TYPE_LABELS,
-  PROGRAM_TRACK_TYPES,
-} from '../program-contract';
 import { programHref } from '../program-paths';
 import { ProgramDeadlineControl } from './program-deadline-control';
 
@@ -57,6 +54,13 @@ export function ProgramEditBasicForm({
           <ProgramNoticeImport
             currentName={form.name}
             currentDescription={form.description}
+            currentOrganizers={form.organizers}
+            applicationStartAt={form.applicationStartAt}
+            applicationEndAt={form.applicationEndAt}
+            operationStartAt={form.startAt}
+            operationEndAt={form.endAt}
+            teamMinSize={form.teamMinSize}
+            teamMaxSize={form.teamMaxSize}
             hasCover={Boolean(
               coverSelection ||
               (coverSelection === undefined && program.coverImageUrl),
@@ -67,6 +71,20 @@ export function ProgramEditBasicForm({
               if (patch.name !== undefined) onFieldChange('name', patch.name);
               if (patch.description !== undefined)
                 onFieldChange('description', patch.description);
+              if (patch.organizers !== undefined)
+                onFieldChange('organizers', patch.organizers);
+              if (patch.applicationStartAt !== undefined)
+                onFieldChange('applicationStartAt', patch.applicationStartAt);
+              if (patch.applicationEndAt !== undefined)
+                onFieldChange('applicationEndAt', patch.applicationEndAt);
+              if (patch.operationStartAt !== undefined)
+                onFieldChange('startAt', patch.operationStartAt);
+              if (patch.operationEndAt !== undefined)
+                onFieldChange('endAt', patch.operationEndAt);
+              if (patch.teamMinSize !== undefined)
+                onFieldChange('teamMinSize', patch.teamMinSize);
+              if (patch.teamMaxSize !== undefined)
+                onFieldChange('teamMaxSize', patch.teamMaxSize);
               if (patch.externalCover !== undefined)
                 onCoverChange(patch.externalCover);
             }}
@@ -75,20 +93,7 @@ export function ProgramEditBasicForm({
       }
       description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
     >
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
-          <Input
-            id="program-name"
-            value={form.name}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={errors.name ? 'program-name-error' : undefined}
-            onChange={(event) => onFieldChange('name', event.target.value)}
-          />
-          <FieldError id="program-name-error" role="alert">
-            {errors.name}
-          </FieldError>
-        </Field>
+      <div className="grid items-start gap-8 md:grid-cols-[14rem_minmax(0,1fr)]">
         <ProgramCoverField
           selection={coverSelection}
           currentImageUrl={program.coverImageUrl}
@@ -96,107 +101,62 @@ export function ProgramEditBasicForm({
           serverError={errors.coverUploadId}
           onChange={onCoverChange}
         />
-        <ProgramOrganizerField
-          id="program-organizers"
-          value={form.organizers}
-          error={errors.organizers}
-          disabled={isSaving}
-          onChange={(organizers) => onFieldChange('organizers', organizers)}
-        />
-        <Field>
-          <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
-          <select
-            id="program-track-type"
-            className="h-control rounded-control border border-input bg-background px-4 text-body"
-            value={form.trackType}
-            aria-invalid={Boolean(errors.trackType)}
-            aria-describedby={
-              errors.trackType ? 'program-track-type-error' : undefined
-            }
-            onChange={(event) => onFieldChange('trackType', event.target.value)}
-          >
-            <option value="">선택</option>
-            {PROGRAM_TRACK_TYPES.map((trackType) => (
-              <option key={trackType} value={trackType}>
-                {PROGRAM_TRACK_TYPE_LABELS[trackType]}
-              </option>
-            ))}
-          </select>
-          <FieldError id="program-track-type-error" role="alert">
-            {errors.trackType}
-          </FieldError>
-        </Field>
-        <Field>
-          <FieldLabel>팀 인원 *</FieldLabel>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="space-y-2">
-              <FieldLabel
-                className="text-small"
-                htmlFor="program-team-min-size"
-              >
-                최소
-              </FieldLabel>
-              <Input
-                id="program-team-min-size"
-                type="number"
-                min="1"
-                value={form.teamMinSize}
-                aria-invalid={Boolean(errors.team)}
-                aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
-                onChange={(event) =>
-                  onFieldChange('teamMinSize', event.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <FieldLabel
-                className="text-small"
-                htmlFor="program-team-max-size"
-              >
-                최대
-              </FieldLabel>
-              <Input
-                id="program-team-max-size"
-                type="number"
-                min="1"
-                value={form.teamMaxSize}
-                aria-invalid={Boolean(errors.team)}
-                aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
-                onChange={(event) =>
-                  onFieldChange('teamMaxSize', event.target.value)
-                }
-              />
-            </div>
-          </div>
-          <FieldError id="program-team-size-error" role="alert">
-            {errors.team}
-          </FieldError>
-          <FieldDescription
-            id="program-team-size-description"
-            className="break-keep"
-          >
-            개인으로만 신청받으려면 최소·최대 인원을 모두 1명으로 설정하세요.
-          </FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
-          <textarea
-            id="program-description"
-            value={form.description}
-            aria-invalid={Boolean(errors.description)}
-            aria-describedby={
-              errors.description ? 'program-description-error' : undefined
-            }
-            onChange={(event) =>
-              onFieldChange('description', event.target.value)
-            }
-            className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
+            <Input
+              id="program-name"
+              value={form.name}
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'program-name-error' : undefined}
+              onChange={(event) => onFieldChange('name', event.target.value)}
+            />
+            <FieldError id="program-name-error" role="alert">
+              {errors.name}
+            </FieldError>
+          </Field>
+          <ProgramOrganizerField
+            id="program-organizers"
+            value={form.organizers}
+            error={errors.organizers}
+            disabled={isSaving}
+            onChange={(organizers) => onFieldChange('organizers', organizers)}
           />
-          <FieldError id="program-description-error" role="alert">
-            {errors.description}
-          </FieldError>
-        </Field>
-      </FieldGroup>
+          <div className="flex flex-wrap gap-x-12 gap-y-5">
+            <ProgramTrackTypeField
+              value={form.trackType}
+              error={errors.trackType}
+              onChange={(trackType) => onFieldChange('trackType', trackType)}
+            />
+            <ProgramTeamSizeField
+              minSize={form.teamMinSize}
+              maxSize={form.teamMaxSize}
+              minError={errors.team}
+              maxError={errors.team}
+              onMinSizeChange={(value) => onFieldChange('teamMinSize', value)}
+              onMaxSizeChange={(value) => onFieldChange('teamMaxSize', value)}
+            />
+          </div>
+          <Field>
+            <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
+            <textarea
+              id="program-description"
+              value={form.description}
+              aria-invalid={Boolean(errors.description)}
+              aria-describedby={
+                errors.description ? 'program-description-error' : undefined
+              }
+              onChange={(event) =>
+                onFieldChange('description', event.target.value)
+              }
+              className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
+            />
+            <FieldError id="program-description-error" role="alert">
+              {errors.description}
+            </FieldError>
+          </Field>
+        </FieldGroup>
+      </div>
     </FormSection>
   );
 }

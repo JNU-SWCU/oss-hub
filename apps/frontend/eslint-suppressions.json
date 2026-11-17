@@ -119,7 +119,7 @@
   },
   "src/features/programs/catalog/program-detail.test.tsx": {
     "local/design-no-hex-color": {
-      "count": 4
+      "count": 1
     }
   },
   "src/features/programs/authoring/program-edit-milestone-dialog.test.tsx": {

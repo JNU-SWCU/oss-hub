@@ -1,8 +1,8 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from './files.service';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { FileLifecycle } from '@prisma/client';
 import { type ProgramAuthoringUploadFile } from './files.error';
@@ -14,7 +14,7 @@ const programAuthoringUploadService = new ProgramAuthoringUploadService(
   {} as never,
   {} as never,
   new SubmissionFileAdmissionService(),
-  new ProgramNoticeFetchClient(),
+  createProgramNoticeFetchClient(),
 );
 
 const PNG = Buffer.from(

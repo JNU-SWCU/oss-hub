@@ -27,13 +27,11 @@ export class MatrixCellResponseDto {
   declare readonly revision: number | null;
   declare readonly status: MatrixCellStatus;
   declare readonly submittedAt: string | null;
-  declare readonly reviewUrl: string | null;
   declare readonly deliveryStatus: DocumentDeliveryStatus;
   declare readonly changesRequestedCount: number;
 
   static from(
     cell: SubmissionMatrixResult['rows'][number]['cells'][number],
-    programId: string,
   ): MatrixCellResponseDto {
     return {
       milestoneId: cell.milestoneId,
@@ -41,10 +39,6 @@ export class MatrixCellResponseDto {
       revision: cell.revision,
       status: cell.status,
       submittedAt: cell.submittedAt?.toISOString() ?? null,
-      reviewUrl:
-        cell.submissionId === null
-          ? null
-          : `/programs/${programId}/submissions/${cell.submissionId}/review`,
       deliveryStatus: cell.deliveryStatus,
       changesRequestedCount: cell.changesRequestedCount,
     };
@@ -60,16 +54,13 @@ export class MatrixRowResponseDto {
 
   static from(
     row: SubmissionMatrixResult['rows'][number],
-    programId: string,
   ): MatrixRowResponseDto {
     return {
       teamId: row.teamId,
       applicationMode: row.applicationMode,
       displayName: row.displayName,
       githubLogins: [...row.githubLogins],
-      cells: row.cells.map((cell) =>
-        MatrixCellResponseDto.from(cell, programId),
-      ),
+      cells: row.cells.map((cell) => MatrixCellResponseDto.from(cell)),
     };
   }
 }
@@ -81,15 +72,12 @@ export class SubmissionMatrixResponseDto {
   declare readonly pageSize: number;
   declare readonly total: number;
 
-  static from(
-    result: SubmissionMatrixResult,
-    programId: string,
-  ): SubmissionMatrixResponseDto {
+  static from(result: SubmissionMatrixResult): SubmissionMatrixResponseDto {
     return {
       milestones: result.milestones.map((milestone) =>
         MatrixMilestoneResponseDto.from(milestone),
       ),
-      rows: result.rows.map((row) => MatrixRowResponseDto.from(row, programId)),
+      rows: result.rows.map((row) => MatrixRowResponseDto.from(row)),
       page: result.page,
       pageSize: result.pageSize,
       total: result.total,

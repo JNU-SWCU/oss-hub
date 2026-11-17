@@ -15,7 +15,6 @@ export interface SubmissionFormData {
     readonly name: string;
     readonly dueAt: string;
     readonly dDay: number;
-    readonly deadlineLabel: string;
     readonly submissionType: SubmissionType;
     readonly instructions: string | null;
   };
@@ -125,7 +124,6 @@ export interface MatrixCell {
   readonly revision: number | null;
   readonly status: MatrixCellStatus;
   readonly submittedAt: string | null;
-  readonly reviewUrl: string | null;
   readonly changesRequestedCount: number;
 }
 

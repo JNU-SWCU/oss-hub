@@ -1,12 +1,17 @@
+import type { UserParticipation } from '@/lib/user-participation';
+
 type DepartmentType = 'DEPARTMENT' | 'PROGRAM_OFFICE';
 
 export interface UserProfile {
+  readonly githubLogin: string;
+  readonly memberKind: 'STUDENT' | 'STAFF' | null;
   readonly name: string;
   readonly studentId: string | null;
   readonly staffNumber: string | null;
   readonly department: string | null;
   readonly phone: string | null;
   readonly isComplete: boolean;
+  readonly participations: readonly UserParticipation[];
 }
 
 export interface CompleteProfileRequest {

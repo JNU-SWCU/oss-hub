@@ -25,7 +25,6 @@ const submittedCell: MatrixCell = {
   status: 'SUBMITTED',
   deliveryStatus: 'COMPLETE',
   submittedAt: '2026-08-19T10:00:00+09:00',
-  reviewUrl: '/programs/program-1/submissions/submission-existing/review',
   changesRequestedCount: 0,
 };
 
@@ -95,7 +94,6 @@ describe('cellForMilestone', () => {
       status: 'NOT_SUBMITTED',
       deliveryStatus: 'MISSING',
       submittedAt: null,
-      reviewUrl: null,
       changesRequestedCount: 0,
     });
   });
@@ -187,7 +185,6 @@ describe('matrixCellAction', () => {
     status: 'NOT_SUBMITTED',
     deliveryStatus: 'MISSING',
     submittedAt: null,
-    reviewUrl: null,
     changesRequestedCount: 0,
   };
 

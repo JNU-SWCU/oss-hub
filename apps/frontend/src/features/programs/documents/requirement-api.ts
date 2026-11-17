@@ -98,3 +98,12 @@ export function requirementTemplateHref(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/template`,
   );
 }
+
+export function requirementCurrentFileHref(
+  milestoneId: string,
+  documentId: string,
+): string {
+  return apiPath(
+    `${documentPath(milestoneId, documentId)}/submissions/current/file`,
+  );
+}

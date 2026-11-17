@@ -96,7 +96,7 @@ export function shouldHighlightRequirementReview(
   return display === 'CHANGES_REQUESTED' || display === 'REJECTED';
 }
 
-export type RequirementReviewNoticeTone = 'warning' | 'neutral';
+type RequirementReviewNoticeTone = 'warning' | 'neutral';
 
 export function requirementReviewNoticeTone(
   display: RequirementReviewDisplay,

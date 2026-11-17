@@ -1,11 +1,9 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { createServer, request, type Server } from 'node:http';
 import type { RequestOptions } from 'node:https';
-import {
-  ProgramNoticeFetchClient,
-  type NoticeTransport,
-} from './program-notice-fetch.client';
+import { type NoticeTransport } from './program-notice-fetch.client';
 
-const client = new ProgramNoticeFetchClient();
+const client = createProgramNoticeFetchClient();
 
 const source = new URL(
   'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
@@ -138,6 +136,17 @@ it('rejects a streamed body larger than the byte bound', async () => {
 it('times out a stalled upstream connection', async () => {
   stalled = true;
   await expect(client.read(source, transport, 30)).rejects.toThrow();
+});
+
+it('uses the same bounded transport for a stalled notice list', async () => {
+  stalled = true;
+  await expect(
+    client.read(
+      new URL('https://sojoong.kr/notice/notice-board/'),
+      transport,
+      30,
+    ),
+  ).rejects.toThrow();
 });
 
 it('bounds DNS resolution by the same overall deadline and never starts a late request', async () => {

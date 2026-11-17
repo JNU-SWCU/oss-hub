@@ -1,442 +1,104 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AUDIT_LOG_ACCESS_RECORD_FIXTURE,
-  AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE,
-  AUDIT_LOG_LEGACY_RECORD_FIXTURE,
-  AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-  AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE,
-  AUDIT_LOG_REPOSITORY_PUBLISHED_RESOLVED_RECORD_FIXTURE,
-} from './fixtures';
 import { AuditLogResponseError, parseAuditLogPage } from './parser';
+import {
+  AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
+  AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+} from './fixtures';
 
-const AUDIT_LOG_USER_PHONE_RECORD_FIXTURE = {
-  id: 'audit-user-phone-updated',
-  actor: 'synthetic-admin',
-  actorHandle: 'synthetic-admin',
-  action: 'USER_PHONE_UPDATED',
-  targetType: 'USER',
-  targetId: 'user-synthetic-1',
-  target: 'synthetic-target-login',
-  targetHandle: 'synthetic-target-login',
-  occurredAt: '2026-09-07T03:00:00.000Z',
-  legacy: false,
-  metadata: {
-    schemaVersion: 1,
-    actor: { displayName: null, githubLogin: 'synthetic-admin' },
-    target: { displayName: null, githubLogin: 'synthetic-target-login' },
-    transition: 'SET',
-    phone: 'synthetic-secret-phone-value',
-    lastFour: '9999',
-  },
-} as const;
+function pageWith(item: Record<string, unknown>) {
+  return { ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE, items: [item] };
+}
 
 describe('parseAuditLogPage', () => {
-  it('실제 백엔드 응답 모양({ items, total, page, limit })을 파싱한다', () => {
+  it('returns raw parts and category counts from the backend', () => {
     const page = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE);
 
-    expect(page).toEqual({
-      items: [
-        {
-          id: 'audit-access-approved',
-          actor: 'synthetic-admin',
-          actorHandle: 'synthetic-admin',
-          action: 'STAFF_ROLE_REQUEST_APPROVED',
-          targetType: 'ROLE_REQUEST',
-          targetId: 'request-synthetic-1',
-          target: 'synthetic-target-login',
-          targetHandle: 'synthetic-target-login',
-          occurredAt: '2026-07-24T03:00:00.000Z',
-        },
-        {
-          id: 'audit-repository-published',
-          actor: 'synthetic-staff',
-          actorHandle: 'synthetic-staff',
-          action: 'REPOSITORY_PUBLISHED',
-          targetType: 'REPOSITORY',
-          targetId: 'repository-synthetic-1',
-          target: 'REPOSITORY / repository-synthetic-1',
-          targetHandle: null,
-          occurredAt: '2026-07-24T04:00:00.000Z',
-        },
-        {
-          id: 'audit-legacy',
-          actor: 'synthetic-admin',
-          actorHandle: 'synthetic-admin',
-          action: 'STAFF_ROLE_REQUEST_APPROVED',
-          targetType: 'ROLE_REQUEST',
-          targetId: 'request-legacy',
-          target: 'ROLE_REQUEST / request-legacy',
-          targetHandle: null,
-          occurredAt: '2026-07-24T02:00:00.000Z',
-        },
-      ],
-      total: 21,
-      page: 1,
-      limit: 20,
+    expect(page.counts).toEqual(AUDIT_LOG_PAGE_RESPONSE_FIXTURE.counts);
+    expect(page.items[0]).toEqual({
+      id: 'audit-role-change',
+      occurredAt: '2026-11-17T05:03:00.000Z',
+      action: 'USER_ROLE_CHANGED',
+      category: 'ACCOUNT',
+      actor: AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE.actor,
+      target: AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE.target,
+      change: { field: 'role', before: 'STUDENT', after: 'STAFF' },
+      requestId: null,
+      teamMembership: null,
+      phoneTransition: null,
     });
   });
 
-  it('raw metadata를 파싱 결과에서 완전히 제거한다', () => {
-    const page = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE);
-
-    for (const item of page.items) {
-      expect(item).not.toHaveProperty('metadata');
-      expect(item).not.toHaveProperty('legacy');
-    }
-  });
-
-  it('USER_PHONE_UPDATED metadata는 transition만 보존하고 전화번호 값은 버린다', () => {
-    const page = parseAuditLogPage({
-      items: [AUDIT_LOG_USER_PHONE_RECORD_FIXTURE],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-
-    expect(page.items[0]?.phoneTransition).toBe('SET');
-    expect(page.items[0]).not.toHaveProperty('metadata');
-    expect(JSON.stringify(page)).not.toContain('synthetic-secret-phone-value');
-    expect(JSON.stringify(page)).not.toContain('9999');
-  });
-
-  it('과거의 배열 응답 계약(비페이지 모양)은 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage([
-        AUDIT_LOG_ACCESS_RECORD_FIXTURE,
-        AUDIT_LOG_LEGACY_RECORD_FIXTURE,
-      ]),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('page 최상위 객체에 예상 밖 키가 있으면 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage({
-        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-        items: [],
-        unexpected: 'field',
-      }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('page 최상위 객체에 필수 키가 없으면 거부한다', () => {
-    const withoutLimit: Record<string, unknown> = {
-      ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-    };
-    delete withoutLimit.limit;
-    expect(() => parseAuditLogPage(withoutLimit)).toThrow(
-      AuditLogResponseError,
-    );
-  });
-
-  it('total·page·limit이 정수가 아니면 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage({ ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE, total: -1 }),
-    ).toThrow(AuditLogResponseError);
-    expect(() =>
-      parseAuditLogPage({ ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE, page: 0 }),
-    ).toThrow(AuditLogResponseError);
-    expect(() =>
-      parseAuditLogPage({ ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE, limit: 1.5 }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('행 하나에 예상 밖 키가 있으면 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage({
-        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-        items: [{ ...AUDIT_LOG_ACCESS_RECORD_FIXTURE, extra: 'field' }],
-      }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('행 하나에 필수 키가 없으면 거부한다', () => {
-    const withoutTarget: Record<string, unknown> = {
-      ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
-    };
-    delete withoutTarget.target;
-    expect(() =>
-      parseAuditLogPage({
-        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-        items: [withoutTarget],
-      }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('화면 DTO만 있는 행(legacy·metadata 없음)은 거절하고 private metadata는 투영하지 않는다', () => {
-    const secret = 'synthetic-secret-audit-metadata';
-    const screenDtoOnly: Record<string, unknown> = {
-      ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
-    };
-    delete screenDtoOnly.legacy;
-    delete screenDtoOnly.metadata;
-
-    expect(() =>
-      parseAuditLogPage({
-        items: [screenDtoOnly],
-        total: 1,
-        page: 1,
-        limit: 20,
-      }),
-    ).toThrow(AuditLogResponseError);
-
-    const page = parseAuditLogPage({
-      items: [
-        {
-          ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
-          metadata: { ...AUDIT_LOG_ACCESS_RECORD_FIXTURE.metadata, secret },
-        },
-      ],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-    expect(page.items[0]).not.toHaveProperty('metadata');
-    expect(page.items[0]).not.toHaveProperty('legacy');
-    expect(JSON.stringify(page)).not.toContain(secret);
-  });
-
-  it('legacy가 true인데 metadata가 null이 아니면 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage({
-        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-        items: [
-          {
-            ...AUDIT_LOG_LEGACY_RECORD_FIXTURE,
-            metadata: { schemaVersion: 1 },
-          },
-        ],
-      }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('legacy가 false인데 metadata가 null이면 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage({
-        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-        items: [{ ...AUDIT_LOG_ACCESS_RECORD_FIXTURE, metadata: null }],
-      }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('USER_PHONE_UPDATED transition이 SET/REPLACED가 아니면 거부한다', () => {
-    expect(() =>
-      parseAuditLogPage({
-        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
-        items: [
-          {
-            ...AUDIT_LOG_USER_PHONE_RECORD_FIXTURE,
-            metadata: {
-              ...AUDIT_LOG_USER_PHONE_RECORD_FIXTURE.metadata,
-              transition: 'CLEARED',
-            },
-          },
-        ],
-      }),
-    ).toThrow(AuditLogResponseError);
-  });
-
-  it('REPOSITORY_PUBLISHED 행(schemaVersion 1 sibling 타입)의 폴백 라벨을 그대로 통과시킨다', () => {
-    const page = parseAuditLogPage({
-      items: [AUDIT_LOG_REPOSITORY_PUBLISHED_RECORD_FIXTURE],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-
-    expect(page.items[0]).toMatchObject({
-      action: 'REPOSITORY_PUBLISHED',
-      target: 'REPOSITORY / repository-synthetic-1',
-    });
-  });
-
-  it('REPOSITORY_PUBLISHED 행이 전체 이름(owner/name) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {
-    const page = parseAuditLogPage({
-      items: [AUDIT_LOG_REPOSITORY_PUBLISHED_RESOLVED_RECORD_FIXTURE],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-
-    expect(page.items[0]).toMatchObject({
-      action: 'REPOSITORY_PUBLISHED',
-      target: 'synthetic-org/synthetic-repo',
-    });
-  });
-
-  function membershipWireRecord(metadata: unknown) {
-    return {
-      id: 'audit-team-membership',
-      actor: 'synthetic-student',
-      actorHandle: 'synthetic-student',
-      action: 'TEAM_MEMBERSHIP_CHANGED',
-      targetType: 'TEAM',
-      targetId: 'team-synthetic-1',
-      target: '합성 프로그램 · 합성 팀',
-      targetHandle: null,
-      occurredAt: '2026-07-24T07:00:00.000Z',
-      legacy: false,
-      metadata,
-    };
-  }
-
-  function membershipMetadata(
-    overrides: Record<string, unknown> = {},
-  ): Record<string, unknown> {
-    return {
-      schemaVersion: 1,
-      programName: '합성 프로그램',
-      teamName: '합성 팀',
-      operation: 'LEAVE',
-      removedUserId: 'synthetic-leader',
-      previousLeaderId: 'synthetic-leader',
-      nextLeaderId: 'synthetic-successor',
-      ...overrides,
-    };
-  }
-
-  function parseOne(record: unknown) {
-    return parseAuditLogPage({ items: [record], total: 1, page: 1, limit: 20 })
-      .items[0];
-  }
-
-  it('TEAM_MEMBERSHIP_CHANGED 행의 탈퇴·승계 사실을 투영하고 user id는 내려보내지 않는다', () => {
-    const item = parseOne(membershipWireRecord(membershipMetadata()));
-
-    expect(item.teamMembership).toEqual({
-      operation: 'LEAVE',
-      leaderChanged: true,
-      teamDeleted: false,
-    });
-    expect(item).not.toHaveProperty('metadata');
-    expect(JSON.stringify(item)).not.toContain('synthetic-successor');
-    expect(JSON.stringify(item)).not.toContain('synthetic-leader');
-  });
-
-  it('내보내기는 팀장이 그대로임을(leaderChanged=false) 남긴다', () => {
-    const item = parseOne(
-      membershipWireRecord(
-        membershipMetadata({
+  it('keeps backend-decided team membership facts as given', () => {
+    const page = parseAuditLogPage(
+      pageWith({
+        ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+        action: 'TEAM_MEMBERSHIP_CHANGED',
+        teamMembership: {
           operation: 'REMOVE',
-          removedUserId: 'synthetic-member',
-          nextLeaderId: 'synthetic-leader',
-        }),
-      ),
+          leaderChanged: false,
+          teamDeleted: true,
+        },
+      }),
     );
 
-    expect(item.teamMembership).toEqual({
+    expect(page.items[0]?.teamMembership).toEqual({
       operation: 'REMOVE',
-      leaderChanged: false,
-      teamDeleted: false,
-    });
-  });
-
-  it('nextLeaderId가 null이면 팀이 삭제된 사실로 읽는다', () => {
-    const item = parseOne(
-      membershipWireRecord(
-        membershipMetadata({
-          removedUserId: 'synthetic-sole',
-          previousLeaderId: 'synthetic-sole',
-          nextLeaderId: null,
-        }),
-      ),
-    );
-
-    expect(item.teamMembership).toEqual({
-      operation: 'LEAVE',
       leaderChanged: false,
       teamDeleted: true,
     });
   });
 
-  it('계약을 벗어난 metadata는 행을 버리지 않고 상세만 비운다', () => {
-    for (const broken of [
-      membershipMetadata({ schemaVersion: 2 }),
-      membershipMetadata({ operation: 'TRANSFER' }),
-      membershipMetadata({ previousLeaderId: undefined }),
-      membershipMetadata({ teamName: '' }),
-      membershipMetadata({ nextLeaderId: 42 }),
-    ]) {
-      const item = parseOne(membershipWireRecord(broken));
-      expect(item.action).toBe('TEAM_MEMBERSHIP_CHANGED');
-      expect(item.target).toBe('합성 프로그램 · 합성 팀');
-      expect(item).not.toHaveProperty('teamMembership');
-    }
-  });
-
-  it('다른 action의 행에는 팀 구성 요약을 붙이지 않는다', () => {
-    const item = parseOne({
-      ...membershipWireRecord(membershipMetadata()),
-      action: 'TEAM_JOINED',
-    });
-
-    expect(item).not.toHaveProperty('teamMembership');
-  });
-
-  it('TEAM_RENAMED 행은 바뀜기 전 이름을 투영한다', () => {
-    const item = parseOne({
-      ...membershipWireRecord({
-        schemaVersion: 1,
-        programName: '합성 프로그램',
-        teamName: '새 팀이름',
-        previousName: '옛 팀이름',
+  it('keeps boolean grant changes as raw facts', () => {
+    const page = parseAuditLogPage(
+      pageWith({
+        ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+        action: 'REVOKE_STAFF_ACCESS',
+        change: { field: 'hasStaffAccess', before: true, after: false },
       }),
-      action: 'TEAM_RENAMED',
+    );
+
+    expect(page.items[0]?.change).toEqual({
+      field: 'hasStaffAccess',
+      before: true,
+      after: false,
     });
-
-    expect(item.teamPreviousName).toBe('옛 팀이름');
-    expect(item).not.toHaveProperty('metadata');
   });
 
-  it('이전 이름이 없거나 모양이 어긋나면 행을 버리지 않고 그 값만 비운다', () => {
-    for (const broken of [
-      { schemaVersion: 1, programName: '합성', teamName: '새 이름' },
-      {
-        schemaVersion: 2,
-        programName: '합성',
-        teamName: '새 이름',
-        previousName: '옛 이름',
-      },
-      {
-        schemaVersion: 1,
-        programName: '합성',
-        teamName: '새 이름',
-        previousName: '',
-      },
-    ]) {
-      const item = parseOne({
-        ...membershipWireRecord(broken),
-        action: 'TEAM_RENAMED',
-      });
-      expect(item.action).toBe('TEAM_RENAMED');
-      expect(item).not.toHaveProperty('teamPreviousName');
-    }
-  });
-
-  it('다른 action의 행에는 이전 팀 이름을 붙이지 않는다', () => {
-    const item = parseOne({
-      ...membershipWireRecord({
-        schemaVersion: 1,
-        programName: '합성 프로그램',
-        teamName: '합성 팀',
-        previousName: '옛 팀이름',
+  it('reads the stored phone transition only for phone updates', () => {
+    const phone = parseAuditLogPage(
+      pageWith({
+        ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+        action: 'USER_PHONE_UPDATED',
+        metadata: { schemaVersion: 1, transition: 'REPLACED' },
       }),
-      action: 'TEAM_CREATED',
-    });
+    );
 
-    expect(item).not.toHaveProperty('teamPreviousName');
+    expect(phone.items[0]?.phoneTransition).toBe('REPLACED');
   });
 
-  it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {
-    const page = parseAuditLogPage({
-      items: [AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
+  it.each([
+    ['legacy display strings', { actorHandle: 'old' }],
+    ['an unknown category', { category: 'BILLING' }],
+    ['a string actor', { actor: 'synthetic-admin' }],
+    ['a target without parts', { target: { type: 'USER', id: 'x' } }],
+    ['a malformed membership', { teamMembership: { operation: 'LEAVE' } }],
+    ['a change without its field', { change: { before: 'A', after: 'B' } }],
+    ['a numeric change value', { change: { field: 'x', before: 1, after: 2 } }],
+    ['metadata on a legacy row', { legacy: true }],
+  ])('rejects %s', (_name, override) => {
+    expect(() =>
+      parseAuditLogPage(
+        pageWith({ ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE, ...override }),
+      ),
+    ).toThrow(AuditLogResponseError);
+  });
 
-    expect(page.items[0]).toMatchObject({
-      action: 'APPLICATION_APPROVED',
-      target: '합성 프로그램 · @synthetic-applicant',
-    });
+  it('rejects a page without category counts', () => {
+    const { items, total, page, limit } = AUDIT_LOG_PAGE_RESPONSE_FIXTURE;
+    const withoutCounts = { items, total, page, limit };
+
+    expect(() => parseAuditLogPage(withoutCounts)).toThrow(
+      AuditLogResponseError,
+    );
   });
 });

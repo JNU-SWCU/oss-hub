@@ -13,6 +13,10 @@ import {
   UserProfileFields,
   UserProfileRecord,
 } from './profile-validation.config';
+import type {
+  UserParticipation,
+  UserParticipationMembership,
+} from './user-participation.config';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -159,6 +163,18 @@ export class UserProfileService {
       return 'STAFF';
     }
     return source.memberKind === MemberKind.STUDENT ? 'STUDENT' : null;
+  }
+
+  participations(
+    userId: string,
+    memberships: readonly UserParticipationMembership[],
+  ): UserParticipation[] {
+    return memberships.map(({ team }) => ({
+      programId: team.program.id,
+      programName: team.program.name,
+      teamName: team.name,
+      isLeader: team.leaderId === userId,
+    }));
   }
 }
 

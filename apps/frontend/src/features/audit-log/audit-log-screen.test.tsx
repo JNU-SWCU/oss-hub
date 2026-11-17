@@ -7,6 +7,8 @@ import {
 } from '../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditLogPage, AuditLogRecord } from './types';
+import { parseAuditLogPage } from './parser';
+import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 
 vi.mock('next/navigation', () => ({
   useSearchParams: useTestSearchParams,
@@ -51,20 +53,20 @@ function props(): CapturedViewProps {
   return captured.props;
 }
 
+const fixture = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE);
+
 function record(id: string): AuditLogRecord {
-  return {
-    id,
-    actor: 'synthetic-admin',
-    action: 'STAFF_ROLE_REQUEST_APPROVED',
-    targetType: 'USER',
-    targetId: `synthetic-target-${id}`,
-    target: `synthetic-target-${id}`,
-    occurredAt: '2026-07-24T04:00:00.000Z',
-  };
+  return { ...fixture.items[0], id };
 }
 
 function page(ids: readonly string[], total: number): AuditLogPage {
-  return { items: ids.map(record), total, page: 1, limit: total };
+  return {
+    items: ids.map(record),
+    total,
+    page: 1,
+    limit: total,
+    counts: fixture.counts,
+  };
 }
 
 function deferred<T>(): {

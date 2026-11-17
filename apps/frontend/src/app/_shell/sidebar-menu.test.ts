@@ -139,16 +139,17 @@ describe('sidebarGroupsFor (context)', () => {
     );
   });
 
-  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청을 보여 준다', () => {
+  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청·내 정보를 보여 준다', () => {
     expect(STAFF_MENU).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
+      { label: '내 정보', href: '/dashboard/me' },
     ]);
     const groups = sidebarGroupsFor('dashboard', STAFF);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('교직원');
-    expect(groups[0]?.items).toHaveLength(3);
+    expect(groups[0]?.items).toHaveLength(4);
     expect(
       groups[0]?.items.map(({ label, href }) => ({ label, href })),
     ).not.toContainEqual({ label: '사용자 목록', href: '/dashboard/users' });
@@ -164,6 +165,7 @@ describe('sidebarGroupsFor (context)', () => {
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
+      { label: '내 정보', href: '/dashboard/me' },
     ]);
     expect(groups[1]?.label).toBe('관리자');
     expect(
@@ -194,6 +196,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/my-repos',
         '/dashboard/activity',
+        '/dashboard/me',
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
@@ -207,6 +210,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/dashboard/insights',
         '/dashboard/applicants',
+        '/dashboard/me',
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
@@ -220,6 +224,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/audit-logs',
         '/dashboard/system-status',
         '/dashboard/applicants',
+        '/dashboard/me',
       ],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
@@ -229,6 +234,30 @@ describe('sidebarGroupsFor (context)', () => {
 
       expect(actual).toEqual(expected);
       expect(new Set(actual).size).toBe(actual.length);
+    },
+  );
+
+  it.each([
+    ['학생', STUDENT],
+    ['교직원', STAFF],
+    ['교직원·관리자', STAFF_ADMIN],
+    [
+      '학생·관리자',
+      { memberKind: 'STUDENT', hasStaffAccess: false, hasAdminAccess: true },
+    ],
+    [
+      '관리자 단독',
+      { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
+    ],
+  ] satisfies readonly [string, MemberAccess][])(
+    '%s 대시보드 메뉴에 내 정보가 한 번 있다',
+    (_, access) => {
+      const items = sidebarGroupsFor('dashboard', access)
+        .flatMap((group) => group.items)
+        .filter((item) => item.href === '/dashboard/me');
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({ label: '내 정보', icon: 'person' });
     },
   );
 
@@ -462,6 +491,10 @@ describe('isCurrentSidebarItem', () => {
       isCurrentSidebarItem('/dashboard/applicants', '/dashboard', ''),
     ).toBe(false);
     expect(isCurrentSidebarItem('/my-repos', '/dashboard', '')).toBe(false);
+    expect(isCurrentSidebarItem('/dashboard/me', '/dashboard/me', '')).toBe(
+      true,
+    );
+    expect(isCurrentSidebarItem('/dashboard/me', '/dashboard', '')).toBe(false);
   });
 });
 

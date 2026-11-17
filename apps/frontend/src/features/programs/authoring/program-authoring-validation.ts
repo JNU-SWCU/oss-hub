@@ -17,6 +17,10 @@ import {
   type ProgramAuthoringIssue,
 } from './program-authoring-validation-helpers';
 import { programOrganizersError } from '../program-contract';
+import {
+  TEAM_MAX_SIZE_MESSAGE,
+  TEAM_MIN_SIZE_MESSAGE,
+} from './program-team-size';
 
 export type { ProgramAuthoringIssue } from './program-authoring-validation-helpers';
 
@@ -93,21 +97,9 @@ function validateBasic(
   const minimum = Number(state.teamMinSize);
   const maximum = Number(state.teamMaxSize);
   if (!Number.isInteger(minimum) || minimum < 1 || minimum > 100)
-    issues.push(
-      issue(
-        'teamMinSize',
-        'basic',
-        '최소 팀 인원은 1명 이상 100명 이하여야 합니다.',
-      ),
-    );
+    issues.push(issue('teamMinSize', 'basic', TEAM_MIN_SIZE_MESSAGE));
   if (!Number.isInteger(maximum) || maximum > 100 || maximum < minimum)
-    issues.push(
-      issue(
-        'teamMaxSize',
-        'basic',
-        '최대 팀 인원은 최소 이상 100명 이하여야 합니다.',
-      ),
-    );
+    issues.push(issue('teamMaxSize', 'basic', TEAM_MAX_SIZE_MESSAGE));
   required(issues, state.description, 'description', '소개를 입력해 주세요.');
   return issues;
 }

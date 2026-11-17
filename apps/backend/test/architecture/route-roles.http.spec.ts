@@ -52,6 +52,7 @@ const cases = [
 
 const unavailable = [
   ['GET', '/system-status', staff, 403],
+  ['POST', '/system-status/provisioning/t/retry', staff, 403],
   ['GET', '/program-authoring/upload-policy', student, 409],
 ] as const;
 

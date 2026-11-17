@@ -9,44 +9,32 @@ import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
   FailureState,
-  ListPanel,
   PageHeader,
   SectionHeading,
   StatusBadge,
 } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
-import { MilestoneRow } from '../documents/components/milestone-row';
-import { RequirementSection } from '../documents/requirement-list';
-import { milestoneSubmissionAccess } from '../documents/milestone-submission-access';
-import type { MilestoneSubmissionAccess } from '../documents/milestone-submission-access';
 import {
-  programDetailMeta,
-  isPastDue,
-  formatSeoulDate,
-} from './program-detail-format';
-import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
-import { formatProgramEndAt } from '../authoring/program-end-at';
+  milestoneSubmissionNotice,
+  ProgramMilestoneTimeline,
+} from '../documents/components/program-milestone-timeline';
+import { milestoneSubmissionAccess } from '../documents/milestone-submission-access';
+import { programDetailContext } from './program-detail-format';
+import { ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from '../program-paths';
 import type { ProgramOverview } from './program-overview-dto';
 import { getProgramRecruitmentState } from './program-list';
 import { PROGRAM_LIST_STATUS_LABELS } from './program-list-labels';
-import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './dto';
-import type { ViewerRole } from '../program-contract';
-
-export { ProgramFactBar };
+import { cn } from '@/lib/utils';
+import type { ProgramDetail, ProgramListItem } from './dto';
 
 export type RenderSignInApply = (applyHref: string) => ReactNode;
 
 const ACTIVITY_SECTION_ID = 'activity';
 const ACTIVITY_HASH = `#${ACTIVITY_SECTION_ID}`;
-
-function milestoneNameId(milestoneId: string): string {
-  return `milestone-${milestoneId}-name`;
-}
 
 const SCROLL_HANDOVER_EVENTS = [
   'wheel',
@@ -126,10 +114,19 @@ function detailStatusBadge(program: ProgramDetail): {
 
 const APPLY_BLOCKED_REASON = '종료된 프로그램이라 신청을 받지 않습니다.';
 
+const HEADER_ACTION_CLASS = 'flex-1 sm:flex-none';
+
+function showsApplyEntry(viewer: ProgramDetail['viewer']): boolean {
+  return (
+    viewer.role === null ||
+    (viewer.role === 'STUDENT' && viewer.applicationStatus === null)
+  );
+}
+
 function BlockedApplyEntry({ label }: { readonly label: string }) {
   const reasonId = useId();
   return (
-    <div className="grid justify-items-start gap-2 sm:justify-items-end">
+    <div className={cn('grid gap-2 sm:justify-items-end', HEADER_ACTION_CLASS)}>
       <Button type="button" disabled aria-describedby={reasonId}>
         {label}
       </Button>
@@ -166,33 +163,24 @@ export function ProgramActions({
   readonly program: ProgramDetail;
   readonly renderSignInApply: RenderSignInApply;
 }) {
-  const role = program.viewer.role;
-
-  const applyBlocked = isEnded(program);
+  if (!showsApplyEntry(program.viewer)) return null;
+  if (isEnded(program)) return <BlockedApplyEntry label="신청하기" />;
 
   const applyHref = programHref(program.id, '/apply');
-  if (
-    role === null ||
-    (role === 'STUDENT' && program.viewer.applicationStatus === null)
-  ) {
-    return applyBlocked ? (
-      <BlockedApplyEntry label="신청하기" />
-    ) : (
-      <Button asChild>
-        {role === null ? (
-          renderSignInApply(applyHref)
-        ) : (
-          <Link href={applyHref}>신청하기</Link>
-        )}
-      </Button>
-    );
-  }
-  return null;
+  return (
+    <Button asChild className={HEADER_ACTION_CLASS}>
+      {program.viewer.role === null ? (
+        renderSignInApply(applyHref)
+      ) : (
+        <Link href={applyHref}>신청하기</Link>
+      )}
+    </Button>
+  );
 }
 
 function ProgramEditAction({ programId }: { readonly programId: string }) {
   return (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="outline" size="sm" className={HEADER_ACTION_CLASS}>
       <Link href={programEditHref(programId)}>
         <Pencil aria-hidden="true" />
         편집
@@ -207,7 +195,7 @@ function ProgramNotificationsAction({
   readonly programId: string;
 }) {
   return (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="outline" size="sm" className={HEADER_ACTION_CLASS}>
       <Link href={programHref(programId, '/notifications')}>
         <Mail aria-hidden="true" />
         알림
@@ -245,110 +233,26 @@ export function ProgramDetailFailureState({
   );
 }
 
-function MilestoneGroup({
-  program,
-  milestone,
-  position,
-  submissionAccess,
-  defaultOpen,
-}: {
-  readonly program: ProgramDetail;
-  readonly milestone: ProgramDetail['milestones'][number];
-  readonly position: number;
-
-  readonly submissionAccess: MilestoneSubmissionAccess;
-
-  readonly defaultOpen: boolean;
-}) {
-  const contentId = useId();
-  const foldable = hasSubmissionDetail(milestone, program.viewer.role);
-  const row = (
-    <MilestoneRow
-      programId={program.id}
-      milestone={milestone}
-      position={position}
-      nameId={milestoneNameId(milestone.id)}
-      disclosureContentId={foldable ? contentId : undefined}
-      viewerRole={program.viewer.role}
-      submissionAccess={submissionAccess}
-    />
-  );
-  const detail = (
-    <RequirementSection
-      programId={program.id}
-      milestoneId={milestone.id}
-      viewerRole={program.viewer.role}
-      closed={isPastDue(milestone.dueAt)}
-      dueAt={milestone.dueAt}
-      submissionAccess={submissionAccess}
-    />
-  );
-  const groupProps = {
-    role: 'listitem',
-    'data-testid': 'milestone-group',
-    'aria-labelledby': milestoneNameId(milestone.id),
-    className: '[&+&]:border-t-2 [&+&]:border-border',
-  } as const;
-
-  if (!foldable) {
-    return (
-      <article {...groupProps}>
-        {row}
-        {detail}
-      </article>
-    );
-  }
-  return (
-    <Collapsible defaultOpen={defaultOpen} asChild>
-      <article {...groupProps}>
-        {row}
-
-        <CollapsibleContent
-          id={contentId}
-          className="data-[state=closed]:hidden"
-          forceMount
-        >
-          {detail}
-        </CollapsibleContent>
-      </article>
-    </Collapsible>
-  );
-}
-
-function hasSubmissionDetail(
-  milestone: ProgramMilestone,
-  viewerRole: ViewerRole,
-): boolean {
-  if (viewerRole === null || viewerRole === 'PENDING') return false;
-  return milestone.submissionItemCount > 0;
-}
-
-function initiallyOpenMilestoneId(program: ProgramDetail): string | null {
-  const foldable = program.milestones.filter((milestone) =>
-    hasSubmissionDetail(milestone, program.viewer.role),
-  );
-  if (foldable.length === 0) return null;
-  const current = foldable.find((milestone) => !isPastDue(milestone.dueAt));
-  return (current ?? foldable[foldable.length - 1]).id;
-}
-
 export function ProgramMilestones({
   program,
 }: {
   readonly program: ProgramDetail;
 }) {
   const submissionAccess = milestoneSubmissionAccess(program.viewer);
-  const openMilestoneId = initiallyOpenMilestoneId(program);
   return (
     <section
       id="milestones"
-      className="grid scroll-mt-24 gap-4"
+      className="@container grid scroll-mt-24 gap-6"
       aria-labelledby="milestones-title"
     >
       <SectionHeading
         id="milestones-title"
         title="마일스톤"
-        meta={`${program.milestones.length}개`}
+        meta={milestoneSubmissionNotice(
+          program.milestones,
+          program.viewer.role,
+          submissionAccess,
+        )}
       />
       {program.milestones.length === 0 ? (
         <EmptyState
@@ -364,22 +268,12 @@ export function ProgramMilestones({
           }
         />
       ) : (
-        <ListPanel role="list">
-          {program.milestones.map((milestone, index) => (
-            <MilestoneGroup
-              key={milestone.id}
-              program={program}
-              milestone={milestone}
-              position={index + 1}
-              submissionAccess={submissionAccess}
-
-              defaultOpen={
-                program.viewer.role === 'STAFF' ||
-                milestone.id === openMilestoneId
-              }
-            />
-          ))}
-        </ListPanel>
+        <ProgramMilestoneTimeline
+          programId={program.id}
+          milestones={program.milestones}
+          viewerRole={program.viewer.role}
+          submissionAccess={submissionAccess}
+        />
       )}
     </section>
   );
@@ -397,7 +291,15 @@ export function ProgramDetailReadyState({
   useActivityHashScroll();
 
   const badge = detailStatusBadge(program);
-  const meta = programDetailMeta(program);
+  const actions =
+    program.viewer.role === 'STAFF' ? (
+      <>
+        <ProgramEditAction programId={program.id} />
+        <ProgramNotificationsAction programId={program.id} />
+      </>
+    ) : showsApplyEntry(program.viewer) ? (
+      <ProgramActions program={program} renderSignInApply={renderSignInApply} />
+    ) : null;
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
@@ -411,46 +313,26 @@ export function ProgramDetailReadyState({
         </div>
         <div className="grid min-w-0 content-start gap-6">
           <PageHeader
+            titleClassName={cn(
+              'text-2xl sm:text-3xl',
+              'sm:py-[calc((var(--control-height)_-_1lh)_/_2)]',
+            )}
             title={
-              <span className="flex flex-wrap items-center gap-3">
-                <span className="min-w-0 text-2xl [overflow-wrap:anywhere] sm:text-3xl">
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="min-w-0 [overflow-wrap:anywhere]">
                   {program.name}
                 </span>
                 <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
               </span>
             }
-            description={
-              <>
-                {`${meta.context} · `}
-                <span>{meta.period}</span>
-              </>
-            }
+            description={programDetailContext(program)}
             actions={
-              <>
-                {program.viewer.role === 'STAFF' ? (
-                  <>
-                    <ProgramEditAction programId={program.id} />
-                    <ProgramNotificationsAction programId={program.id} />
-                  </>
-                ) : null}
-                <ProgramActions
-                  program={program}
-                  renderSignInApply={renderSignInApply}
-                />
-              </>
+              actions === null ? undefined : (
+                <div className="flex w-full gap-3 sm:w-auto">{actions}</div>
+              )
             }
           />
-          {program.operatingPeriod ? (
-            <p className="text-sm text-muted-foreground">
-              운영 기간 {formatSeoulDate(program.operatingPeriod.startsAt)} ~{' '}
-              {formatProgramEndAt(
-                program.operatingPeriod.endsAt,
-                formatSeoulDate,
-              )}
-            </p>
-          ) : null}
-          <ProgramSummary program={program} />
-          <ProgramFactBar program={program} overview={overview} />
+          <ProgramSummary program={program} overview={overview} />
         </div>
       </div>
       <ProgramMilestones program={program} />

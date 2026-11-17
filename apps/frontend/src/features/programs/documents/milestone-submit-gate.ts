@@ -71,11 +71,7 @@ export type MilestoneRowSubmitGate =
     }
   | { readonly kind: 'unchanged' }
   | { readonly kind: 'unknown' }
-  | {
-      readonly kind: 'open';
-      readonly status: SubmissionStatus;
-      readonly resubmission: boolean;
-    };
+  | { readonly kind: 'open'; readonly status: SubmissionStatus };
 
 export function milestoneRowSubmitGate(
   milestone: Pick<ProgramMilestone, 'dueAt' | 'viewerSubmissionStatus'>,
@@ -84,10 +80,8 @@ export function milestoneRowSubmitGate(
   if (submissionAccess.kind === 'unchanged') return { kind: 'unchanged' };
   const status = milestone.viewerSubmissionStatus;
   if (status !== null) {
-    const resubmission = status === 'CHANGES_REQUESTED';
-
     if (
-      !resubmission &&
+      status !== 'CHANGES_REQUESTED' &&
       !(status === 'NOT_SUBMITTED' && !isPastDue(milestone.dueAt))
     ) {
       return { kind: 'settled', status };
@@ -95,7 +89,7 @@ export function milestoneRowSubmitGate(
     if (submissionAccess.kind === 'blocked') {
       return { kind: 'blocked', access: submissionAccess };
     }
-    return { kind: 'open', status, resubmission };
+    return { kind: 'open', status };
   }
 
   if (submissionAccess.kind === 'blocked') {

@@ -11,6 +11,9 @@ import { AdminAccessDetailScreen } from './components/admin-access-detail-screen
 import type { AdminAccessDetailState } from './components/admin-access-detail-content';
 import type { AdminAccessDetailMutationController } from './components/admin-access-detail-mutation';
 
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock('./admin-access-detail-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./admin-access-detail-api')>()),
   loadAdminAccessDetail: vi.fn(),

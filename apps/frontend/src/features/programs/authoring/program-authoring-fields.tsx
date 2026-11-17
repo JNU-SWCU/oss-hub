@@ -1,4 +1,3 @@
-import type { HTMLInputTypeAttribute } from 'react';
 import {
   Field,
   FieldDescription,
@@ -11,9 +10,6 @@ import type { ProgramAuthoringIssue } from './program-authoring-validation';
 export type ProgramAuthoringTextFieldProps = {
   readonly id: string;
   readonly label: string;
-  readonly type?: HTMLInputTypeAttribute;
-  readonly min?: string;
-  readonly max?: string;
   readonly value: string;
   readonly error?: string;
   readonly description?: string;
@@ -23,9 +19,6 @@ export type ProgramAuthoringTextFieldProps = {
 export function ProgramAuthoringTextField({
   id,
   label,
-  type,
-  min,
-  max,
   value,
   error,
   description,
@@ -45,9 +38,6 @@ export function ProgramAuthoringTextField({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input
         id={id}
-        type={type}
-        min={min}
-        max={max}
         value={value}
         aria-invalid={Boolean(error)}
         aria-describedby={describedBy || undefined}

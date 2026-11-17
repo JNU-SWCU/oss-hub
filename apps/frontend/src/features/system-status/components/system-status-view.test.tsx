@@ -1,64 +1,195 @@
 import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
-  CollectionRepositoryStatus,
-  ExternalCollectionStatus,
+  ActionNotice,
+  CollectionRepository,
+  ProvisioningFailedTeam,
   SystemStatus,
-  TriggerNotice,
 } from '../types';
 import { SystemStatusView } from './system-status-view';
 
-const normal: SystemStatus = {
-  health: 'NORMAL',
-  trackedRepositoryCount: 2,
-  staleRepositoryCount: 0,
-  lastSuccessAt: '2026-07-25T11:00:00.000Z',
-  nextCycleAt: null,
-  currentRunStatus: 'IDLE',
-  safeReason: null,
+const NOW = new Date('2026-11-17T00:32:00.000Z');
+
+const teamA: ProvisioningFailedTeam = {
+  teamId: 'team-a',
+  teamName: '리베이스',
+  programName: '합성 클라우드 캠프',
+  lastErrorCode: 'NAME_CONFLICT',
+  updatedAt: '2026-11-17T00:12:00.000Z',
+};
+const teamB: ProvisioningFailedTeam = {
+  teamId: 'team-b',
+  teamName: '머지왕',
+  programName: '합성 클라우드 캠프',
+  lastErrorCode: null,
+  updatedAt: '2026-11-16T13:40:00.000Z',
 };
 
-const emptyExternalCollection: ExternalCollectionStatus = {
-  trackedRepositoryCount: 0,
-  lastSuccessAt: null,
+const base: SystemStatus = {
+  collection: {
+    health: 'NORMAL',
+    trackedRepositoryCount: 42,
+    staleRepositoryCount: 0,
+    lastSuccessAt: '2026-11-17T00:00:00.000Z',
+    nextCycleAt: '2026-11-17T01:00:00.000Z',
+    currentRunStatus: 'IDLE',
+  },
+  provisioning: {
+    pending: 3,
+    processing: 1,
+    retryable: 2,
+    failedFinal: 2,
+    failedTeams: [teamA, teamB],
+  },
+  mail: { sent7d: 1280, failed7d: 3, lastSentAt: '2026-11-17T00:00:00.000Z' },
+  anomalies: [
+    { rule: 'PROVISIONING_FAILED', severity: 'HIGH', count: 2, target: null },
+    { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 3, target: null },
+    {
+      rule: 'OFF_HOURS_ADMIN_CHANGE',
+      severity: 'MEDIUM',
+      count: 1,
+      target: { kind: 'USER', id: 'user/42', login: 'synthetic-admin' },
+    },
+  ],
+  collectionRepositories: [],
+  externalCollection: {
+    trackedRepositoryCount: 7,
+    lastSuccessAt: '2026-11-16T22:32:00.000Z',
+  },
 };
 
-type LooseViewState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'error' }
-  | {
-      readonly kind: 'success';
-      readonly status: SystemStatus;
-      readonly collectionRepositories?: readonly CollectionRepositoryStatus[];
-      readonly externalCollection?: ExternalCollectionStatus;
-    };
+const clear: SystemStatus = {
+  ...base,
+  provisioning: {
+    pending: 0,
+    processing: 0,
+    retryable: 0,
+    failedFinal: 0,
+    failedTeams: [],
+  },
+  mail: { sent7d: 0, failed7d: 0, lastSentAt: null },
+  anomalies: [],
+};
+
+function hoursAgo(hours: number): string {
+  return new Date(NOW.getTime() - hours * 3_600_000).toISOString();
+}
+
+function staleRepository(
+  name: string,
+  hours: number,
+  programName: string | null = '합성 클라우드 캠프',
+): CollectionRepository {
+  return {
+    repositoryName: `jnu-oss/${name}`,
+    programName,
+    lastSuccessAt: hoursAgo(hours),
+    stale: true,
+  };
+}
+
+function delayedWith(
+  repositories: readonly CollectionRepository[],
+): SystemStatus {
+  const staleCount = repositories.filter(
+    (repository) => repository.stale,
+  ).length;
+  return {
+    ...base,
+    collection: {
+      ...base.collection,
+      health: 'DELAYED',
+      staleRepositoryCount: staleCount,
+    },
+    anomalies: [
+      ...base.anomalies,
+      {
+        rule: 'COLLECTION_STALE',
+        severity: 'MEDIUM',
+        count: staleCount,
+        target: null,
+      },
+    ],
+    collectionRepositories: repositories,
+  };
+}
+
+function toggleTags(card: string): string[] {
+  return openingTags(card, 'button').filter((tag) =>
+    tag.includes(' aria-expanded="'),
+  );
+}
+
+function listedRepositories(card: string): string[] {
+  return [...text(card).matchAll(/jnu-oss\/([\w-]+)/g)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+interface Overrides {
+  readonly freshness?: 'current' | 'refreshing' | 'stale';
+  readonly isTriggering?: boolean;
+  readonly retryingTeamIds?: readonly string[];
+  readonly notice?: ActionNotice | null;
+}
 
 function render(
-  state: LooseViewState,
-  overrides: {
-    readonly isTriggering?: boolean;
-    readonly triggerNotice?: TriggerNotice | null;
-  } = {},
+  state: 'loading' | 'error' | SystemStatus,
+  overrides: Overrides = {},
 ): string {
-  const resolvedState =
-    state.kind === 'success'
-      ? {
-          ...state,
-          freshness: 'current' as const,
-          collectionRepositories: state.collectionRepositories ?? [],
-          externalCollection:
-            state.externalCollection ?? emptyExternalCollection,
-        }
-      : state;
   return renderToStaticMarkup(
     <SystemStatusView
-      state={resolvedState}
-      onRetry={() => undefined}
+      state={
+        typeof state === 'string'
+          ? { kind: state }
+          : {
+              kind: 'success',
+              freshness: overrides.freshness ?? 'current',
+              status: state,
+            }
+      }
+      onReload={() => undefined}
       onTrigger={() => undefined}
       isTriggering={overrides.isTriggering ?? false}
-      triggerNotice={overrides.triggerNotice ?? null}
+      onRetryProvisioning={() => undefined}
+      retryingTeamIds={overrides.retryingTeamIds ?? []}
+      notice={overrides.notice ?? null}
     />,
+  );
+}
+
+function text(html: string): string {
+  return html.replace(/<[^>]+>/g, '');
+}
+
+function attentionCard(html: string): string {
+  const start = html.indexOf('aria-label="주의 필요"');
+  const end = html.indexOf('data-slot="section-heading"');
+  if (start === -1 || end === -1) throw new Error('attention card not found');
+  return html.slice(start, end);
+}
+
+function areaRows(html: string): string[] {
+  return html.split('data-slot="list-row"').slice(1);
+}
+
+function badgeVariants(fragment: string): string[] {
+  return [
+    ...fragment.matchAll(
+      /data-slot="status-badge"[^>]*data-variant="([a-z]+)"/g,
+    ),
+  ].map((match) => match[1] ?? '');
+}
+
+function openingTags(fragment: string, tag: string): string[] {
+  return fragment.match(new RegExp(`<${tag}\\b[^>]*>`, 'g')) ?? [];
+}
+
+function linkHrefs(fragment: string): string[] {
+  return [...fragment.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((match) =>
+    (match[1] ?? '').replaceAll('&amp;', '&'),
   );
 }
 
@@ -92,298 +223,414 @@ function findRetry(node: ReactNode): (() => void) | undefined {
 }
 
 describe('SystemStatusView', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('loading 상태를 busy skeleton으로 안전하게 표시한다', () => {
-    const html = render({ kind: 'loading' });
+    const html = render('loading');
     expect(html).toContain('role="status"');
-    expect(html).toContain('시스템 상태를 불러오는 중');
     expect(html).toContain('aria-busy="true"');
     expect(html).not.toContain('undefined');
   });
 
-  it('추적 중인 저장소가 없는 EMPTY 응답은 빈 상태로 표시한다', () => {
-    const html = render({
-      kind: 'success',
-      status: {
-        ...normal,
-        health: 'EMPTY',
-        trackedRepositoryCount: 0,
-        lastSuccessAt: null,
-        safeReason: 'NO_TRACKED_REPOSITORIES',
-      },
-    });
-    expect(html).toContain('아직 추적 중인 저장소가 없습니다');
-
-    expect(html).toContain(
-      '사업단 GitHub 조직에 수집 연동 앱이 설치되어 있는지, 조직에 저장소가 등록되어 있는지 확인해 주세요.',
-    );
-    expect(html).not.toContain('시스템 상태 요약');
-  });
-
-  it('저장소가 하나도 없으면 GitHub App이 무엇인지 설명한다', () => {
-    const html = render({
-      kind: 'success',
-      status: {
-        ...normal,
-        health: 'EMPTY',
-        trackedRepositoryCount: 0,
-        safeReason: 'NO_TRACKED_REPOSITORIES',
-      },
-    });
-
-    expect(html).toContain('수집 앱 설치·권한 확인');
-
-    expect(html).toContain('개인 계정이 아닌 조직에 설치');
-    expect(html).toContain('사업단 GitHub 조직의 Settings');
-    expect(html).toContain('Settings → GitHub Apps');
-  });
-
-  it('수집이 정상이면 GitHub App 설명을 띄우지 않는다', () => {
-    const html = render({ kind: 'success', status: normal });
-
-    expect(html).not.toContain('수집 앱 설치·권한 확인');
-  });
-
   it('transport error는 내부 오류를 노출하지 않고 재시도를 표시한다', () => {
-    const html = render({ kind: 'error' });
-    expect(html).toContain('시스템 상태를 불러오지 못했습니다');
-    expect(html).toContain('잠시 후 다시 시도해 주세요.');
-    expect(html).toContain('다시 시도');
-    expect(html).not.toContain('synthetic transport failure');
-  });
-
-  it('NORMAL 응답은 통합된 수집 상태 카드에 health, 사유, 추적·지연 저장소 수를 표시한다', () => {
-    const html = render({ kind: 'success', status: normal });
-    expect(html).toContain('정상');
-    expect(html).toContain('데이터 수집이 정상적으로 운영되고 있습니다.');
-    expect(html).toContain('추적 저장소');
-    expect(html).toContain('지연 저장소');
-    expect(html).not.toContain('전체 순회');
-  });
-
-  it('IDLE일 때는 run 상태 배지("수집 중")를 표시하지 않는다', () => {
-    const html = render({ kind: 'success', status: normal });
-    expect(html).not.toMatch(/data-slot="status-badge"[^>]*>수집 중<\/span>/);
-  });
-
-  it('PROCESSING일 때는 애니메이션 점과 함께 "수집 중" 배지를 표시한다', () => {
-    const html = render({
-      kind: 'success',
-      status: { ...normal, currentRunStatus: 'PROCESSING' },
-    });
-    expect(html).toContain('수집 중');
-    expect(html).toContain('before:animate-pulse');
-    expect(html).toContain('motion-reduce:before:animate-none');
-  });
-
-  it('DELAYED 상태는 지연 사유와 다음 행동을 함께 표시한다', () => {
-    const html = render({
-      kind: 'success',
-      status: {
-        ...normal,
-        health: 'DELAYED',
-        staleRepositoryCount: 1,
-        safeReason: 'STALE_DATA',
-      },
-    });
-    expect(html).toContain('지연');
-    expect(html).toContain(
-      '마지막 수집 성공이 2시간보다 오래된 저장소가 있습니다.',
-    );
-    expect(html).toContain(
-      '아래 ‘수집 대상 상세’에서 지연된 저장소를 확인하고',
-    );
-    expect(html).toContain('수집 앱 설치·권한 확인');
-    expect(html).not.toContain('token');
-    expect(html).not.toContain('githubId');
-  });
-
-  it('다음 주기 예상 시각이 있으면 상대·절대 시각을 함께 표시하고, 없으면 생략한다', () => {
-    const withNextCycle = render({
-      kind: 'success',
-      status: { ...normal, nextCycleAt: '2026-07-25T12:00:00.000Z' },
-    });
-    expect(withNextCycle).toContain('다음 주기 예상');
-    expect(withNextCycle).toContain('2026');
-
-    const withoutNextCycle = render({ kind: 'success', status: normal });
-    expect(withoutNextCycle).not.toContain('다음 주기 예상');
-  });
-
-  it('요약 카드 아래에 저장소별 마지막 수집 성공과 지연을 지연 먼저 보여준다', () => {
-    const html = render({
-      kind: 'success',
-      status: { ...normal, health: 'DELAYED', staleRepositoryCount: 1 },
-      collectionRepositories: [
-        {
-          repositoryName: 'jnu-oss/fresh',
-          programName: '오픈소스 입문 프로그램',
-          lastSuccessAt: '2026-07-25T10:59:00.000Z',
-          stale: false,
-        },
-        {
-          repositoryName: 'jnu-oss/late',
-          programName: null,
-          lastSuccessAt: '2026-07-25T07:00:00.000Z',
-          stale: true,
-        },
-        {
-          repositoryName: 'jnu-oss/new',
-          programName: null,
-          lastSuccessAt: null,
-          stale: false,
-        },
-      ],
-    });
-    expect(html).toContain('aria-label="수집 대상 상세"');
-    expect(html).toContain('지연 1 / 전체 3');
-    expect(html.indexOf('jnu-oss/late')).toBeLessThan(
-      html.indexOf('jnu-oss/fresh'),
-    );
-    expect(html).toContain('수집 전');
-    expect(html).toContain('아직 성공한 수집 없음');
-    expect(html).not.toContain('Commit');
-  });
-
-  it('마지막 수집 성공 시각을 상대 나이와 함께 표시하고, 없으면 아직 없다고 표시한다', () => {
-    const succeeded = render({ kind: 'success', status: normal });
-    expect(succeeded).toContain('마지막 수집 성공');
-    expect(succeeded).toContain('2026');
-    expect(succeeded).not.toContain('최근 수집 활동');
-
-    const never = render({
-      kind: 'success',
-      status: { ...normal, lastSuccessAt: null },
-    });
-    expect(never).toContain('아직 성공한 수집 없음');
-  });
-
-  describe('외부 저장소 수집 section', () => {
-    it('연결된 external 저장소가 0개면 이유와 다음 행동을 설명하는 빈 상태를 보여준다', () => {
-      const html = render({ kind: 'success', status: normal });
-      expect(html).toContain('aria-label="외부 저장소 수집"');
-      expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
-
-      expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
-      expect(html).toContain('저장소를 연결하면 바로 수집을 시작합니다');
-
-      expect(html).toContain(
-        '팀장이나 교직원이 프로그램 팀 화면에서 조직 밖 공개 저장소 주소를',
-      );
-      expect(html).not.toContain('>OWN<');
-      expect(html).not.toContain('저장소 탐색을 실행');
-
-      expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
-      expect(html).not.toContain('탐색을 실행한 학생이 없어');
-    });
-
-    it('org가 EMPTY 상태여도 external 섹션은 계속 렌더링한다(서로 독립된 파이프라인)', () => {
-      const html = render({
-        kind: 'success',
-        status: {
-          ...normal,
-          health: 'EMPTY',
-          safeReason: 'NO_TRACKED_REPOSITORIES',
-        },
-      });
-      expect(html).toContain('aria-label="외부 저장소 수집"');
-    });
-
-    it('연결된 external 저장소가 있으면 추적 수와 마지막 수집 성공 시각을 표시한다', () => {
-      const html = render({
-        kind: 'success',
-        status: normal,
-        externalCollection: {
-          trackedRepositoryCount: 5,
-          lastSuccessAt: '2026-08-10T09:00:00.000Z',
-        },
-      });
-      expect(html).toContain('5개 추적 중');
-      expect(html).toContain('5개');
-      expect(html).toContain('마지막 수집 성공');
-      expect(html).not.toContain('Commit 40');
-      expect(html).not.toContain('수집 대상 학생 개인 저장소가 없습니다');
-    });
-
-    it('org 요약 카드의 추적 저장소 수는 external 값과 섞이지 않는다', () => {
-      const html = render({
-        kind: 'success',
-        status: { ...normal, trackedRepositoryCount: 2 },
-        externalCollection: {
-          trackedRepositoryCount: 5,
-          lastSuccessAt: null,
-        },
-      });
-
-      expect(html).toMatch(/추적 저장소<\/dt><dd[^>]*>2(<!-- -->)?개/);
-      expect(html).toContain('5개 추적 중');
-    });
+    const html = render('error');
+    expect(html).toContain('data-slot="failure-state"');
+    expect(openingTags(html, 'button')).toHaveLength(1);
+    expect(html).not.toContain('aria-label="주의 필요"');
   });
 
   it('error 상태의 재시도 버튼이 전달된 handler를 호출한다', () => {
-    const onRetry = vi.fn();
+    const onReload = vi.fn();
     const outer = SystemStatusView({
       state: { kind: 'error' },
-      onRetry,
+      onReload,
       onTrigger: () => undefined,
       isTriggering: false,
-      triggerNotice: null,
+      onRetryProvisioning: () => undefined,
+      retryingTeamIds: [],
+      notice: null,
     }) as ReactElement;
     const rendered = (outer.type as (props: typeof outer.props) => ReactNode)(
       outer.props,
     );
     const retry = findRetry(rendered);
-    expect(retry).toBe(onRetry);
+    expect(retry).toBe(onReload);
     retry?.();
-    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onReload).toHaveBeenCalledTimes(1);
   });
 
-  it('평상시에는 수집 트리거 버튼이 활성화되어 있다', () => {
-    const html = render({ kind: 'success', status: normal });
-    const button = buttonTagContaining(html, '지금 수집 실행');
+  describe('주의 필요', () => {
+    it('구역 현황보다 먼저 나오고 이상 징후를 받은 순서와 심각도대로 보여준다', () => {
+      const html = render(base);
+      const card = attentionCard(html);
 
-    expect(button).not.toContain('disabled=""');
-  });
-
-  it('트리거 요청이 진행 중이면 버튼을 비활성화하고 진행 문구를 보여준다', () => {
-    const html = render(
-      { kind: 'success', status: normal },
-      { isTriggering: true },
-    );
-    const button = buttonTagContaining(html, '실행 요청 중');
-    expect(button).toContain('disabled=""');
-  });
-
-  it('이미 수집이 진행 중(PROCESSING)이면 요청 중이 아니어도 버튼을 비활성화한다', () => {
-    const html = render({
-      kind: 'success',
-      status: { ...normal, currentRunStatus: 'PROCESSING' },
+      expect(html.indexOf('aria-label="주의 필요"')).toBeLessThan(
+        html.indexOf('data-slot="section-heading"'),
+      );
+      expect(badgeVariants(card)).toEqual(['rejected', 'pending', 'pending']);
+      const counts = [...text(card).matchAll(/(\d+)건/g)].map(
+        (match) => match[1],
+      );
+      expect(counts).toEqual(['2', '3', '1']);
     });
-    const button = buttonTagContaining(html, '지금 수집 실행');
-    expect(button).toContain('disabled=""');
+
+    it('관리자 권한 변경은 대상자 로그인으로 거른 감사 로그 주소를, 그 밖의 USER target은 사용자 상세 주소를 직접 만든다', () => {
+      const card = attentionCard(
+        render({
+          ...base,
+          anomalies: [
+            {
+              rule: 'BULK_REMOVAL',
+              severity: 'HIGH',
+              count: 12,
+              target: { kind: 'USER', id: 'user/42', login: null },
+            },
+            {
+              rule: 'SELF_ADMIN_CHANGE',
+              severity: 'HIGH',
+              count: 1,
+              target: { kind: 'USER', id: 'user-7', login: 'synthetic-self' },
+            },
+            {
+              rule: 'OFF_HOURS_ADMIN_CHANGE',
+              severity: 'MEDIUM',
+              count: 1,
+              target: { kind: 'USER', id: 'user-8', login: 'synthetic-admin' },
+            },
+            { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 3, target: null },
+          ],
+        }),
+      );
+
+      expect(linkHrefs(card)).toEqual([
+        '/dashboard/users/user%2F42',
+        '/dashboard/audit-logs?q=synthetic-self',
+        '/dashboard/audit-logs?q=synthetic-admin',
+      ]);
+    });
+
+    it('행위자 없는 권한 부여가 만든 이상 징후는 분류로 좁히지 않고 대상자 로그인으로만 감사 로그를 거른다', () => {
+      const card = attentionCard(
+        render({
+          ...base,
+          anomalies: [
+            {
+              rule: 'OFF_HOURS_ADMIN_CHANGE',
+              severity: 'MEDIUM',
+              count: 1,
+              target: {
+                kind: 'USER',
+                id: 'bootstrap-user',
+                login: 'bootstrap-subject',
+              },
+            },
+          ],
+        }),
+      );
+      const [href = ''] = linkHrefs(card);
+      const [path, search] = href.split('?');
+      const query = new URLSearchParams(search);
+
+      expect(path).toBe('/dashboard/audit-logs');
+      expect([...query.keys()]).toEqual(['q']);
+      expect(query.get('q')).toBe('bootstrap-subject');
+    });
+
+    it('이상 징후가 없으면 목록과 버튼 없이 한 줄만 보여준다', () => {
+      const card = attentionCard(render(clear));
+
+      expect(text(card)).toContain('이상 없음');
+      expect(openingTags(card, 'li')).toEqual([]);
+      expect(openingTags(card, 'button')).toEqual([]);
+      expect(openingTags(card, 'h2')).toEqual([]);
+    });
+
+    it('저장소 발급 실패 아래에 실패 팀을 나열하고 팀마다 다시 시도 버튼을 둔다', () => {
+      const card = attentionCard(render(base));
+      const buttons = openingTags(card, 'button');
+
+      expect(buttons).toHaveLength(2);
+      expect(buttons[0]).toContain(
+        'aria-label="리베이스 저장소 발급 다시 시도"',
+      );
+      expect(buttons[1]).toContain('aria-label="머지왕 저장소 발급 다시 시도"');
+      expect(text(card)).toContain('리베이스 합성 클라우드 캠프');
+      expect(text(card)).toContain('NAME_CONFLICT · 11.17 09:12');
+      expect(card).toMatch(/datetime="2026-11-16T13:40:00\.000Z"/i);
+    });
+
+    it('오류 코드가 없는 팀은 시각만 보여준다', () => {
+      const card = attentionCard(render(base));
+
+      expect(openingTags(card, 'code')).toHaveLength(1);
+      expect(text(card)).toContain('머지왕 합성 클라우드 캠프11.16 22:40');
+    });
+
+    it('다시 시도 중인 팀의 버튼만 비활성으로 표시하고 포커스는 잃지 않게 둔다', () => {
+      const card = attentionCard(
+        render(base, { retryingTeamIds: [teamA.teamId] }),
+      );
+      const [first, second] = openingTags(card, 'button');
+
+      expect(first).toContain('aria-disabled="true"');
+      expect(first).toContain('aria-label="리베이스 저장소 발급 다시 시도 중"');
+      expect(first).not.toContain('disabled=""');
+      expect(second).toContain('aria-disabled="false"');
+    });
+
+    it('실패 팀 목록이 비어 있는 발급 실패 징후는 버튼 없는 한 줄로 보여준다', () => {
+      const card = attentionCard(
+        render({
+          ...base,
+          provisioning: { ...base.provisioning, failedTeams: [] },
+        }),
+      );
+
+      expect(badgeVariants(card)).toEqual(['rejected', 'pending', 'pending']);
+      expect(openingTags(card, 'button')).toEqual([]);
+    });
+
+    it('활동 수집 지연 아래에 지연 저장소만 이름, 프로그램, 마지막 수집 성공과 함께 나열한다', () => {
+      const html = render(
+        delayedWith([
+          staleRepository('alpha', 5),
+          {
+            repositoryName: 'jnu-oss/healthy',
+            programName: '합성 클라우드 캠프',
+            lastSuccessAt: hoursAgo(1),
+            stale: false,
+          },
+          {
+            repositoryName: 'jnu-oss/never-collected',
+            programName: '합성 클라우드 캠프',
+            lastSuccessAt: null,
+            stale: false,
+          },
+        ]),
+      );
+      const card = attentionCard(html);
+
+      expect(text(card)).toMatch(
+        /활동 수집 지연\s*1건\s*jnu-oss\/alpha 합성 클라우드 캠프\s*마지막 수집 성공 5시간 전/,
+      );
+      expect(card).toMatch(/datetime="2026-11-16T19:32:00\.000Z"/i);
+      expect(html).not.toContain('jnu-oss/healthy');
+      expect(html).not.toContain('jnu-oss/never-collected');
+      expect(openingTags(card, 'button')).toHaveLength(2);
+    });
+
+    it('가장 오래 지연된 저장소부터 보여주고 프로그램이 없으면 이름만 적는다', () => {
+      const card = attentionCard(
+        render(
+          delayedWith([
+            staleRepository('alpha', 5),
+            staleRepository('bravo', 12, null),
+            staleRepository('charlie', 8),
+          ]),
+        ),
+      );
+
+      expect(listedRepositories(card)).toEqual(['bravo', 'charlie', 'alpha']);
+      expect(text(card)).toMatch(/jnu-oss\/bravo\s*마지막 수집 성공 12시간 전/);
+      expect(text(card)).not.toContain('null');
+    });
+
+    it('지연 저장소가 다섯 개를 넘으면 가장 오래된 다섯 개만 보이고 나머지는 접어 둔다', () => {
+      const card = attentionCard(
+        render(
+          delayedWith(
+            ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name, index) =>
+              staleRepository(name, index + 3),
+            ),
+          ),
+        ),
+      );
+      const toggles = toggleTags(card);
+
+      expect(listedRepositories(card)).toEqual(['g', 'f', 'e', 'd', 'c']);
+      expect(toggles).toHaveLength(1);
+      expect(toggles[0]).toContain('aria-expanded="false"');
+      expect(text(card)).toContain('2개 더 보기');
+    });
+
+    it('지연 저장소가 다섯 개 이하면 모두 보이고 접는 버튼을 두지 않는다', () => {
+      const card = attentionCard(
+        render(
+          delayedWith(
+            ['a', 'b', 'c', 'd', 'e'].map((name, index) =>
+              staleRepository(name, index + 3),
+            ),
+          ),
+        ),
+      );
+
+      expect(listedRepositories(card)).toHaveLength(5);
+      expect(toggleTags(card)).toEqual([]);
+    });
   });
 
-  it('트리거 성공 알림은 role="alert"로 즉시 통지되고 원문 오류를 노출하지 않는다', () => {
-    const html = render(
-      { kind: 'success', status: normal },
-      {
-        triggerNotice: {
-          kind: 'success',
-          message: '수집을 시작했습니다. 최신 상태를 다시 불러왔습니다.',
-        },
-      },
-    );
-    expect(html).toContain('role="alert"');
-    expect(html).toContain('수집 요청을 보냈습니다');
-    expect(html).toContain(
-      '수집을 시작했습니다. 최신 상태를 다시 불러왔습니다.',
-    );
+  describe('구역 현황', () => {
+    it('저장소 발급, 활동 수집, 알림 메일 순서로 수치를 보여준다', () => {
+      const rows = areaRows(render(base)).map(text);
+
+      expect(rows).toHaveLength(3);
+      expect(rows[0]).toContain(
+        '대기 중 3 · 생성 중 1 · 재시도 대기 2 · 생성 실패 2',
+      );
+      expect(rows[1]).toContain(
+        '추적 저장소 42개 · 지연 저장소 0개 · 마지막 수집 성공 32분 전 · 다음 주기 예상 28분 후',
+      );
+      expect(rows[1]).toContain(
+        '외부 추적 저장소 7개 · 외부 마지막 수집 성공 2시간 전',
+      );
+      expect(rows[2]).toContain(
+        '최근 7일 발송 1,280건 · 실패 3건 · 마지막 발송 11.17 09:00',
+      );
+    });
+
+    it('실패가 있는 구역과 없는 구역을 배지로 구분한다', () => {
+      const failing = areaRows(render(base)).map(badgeVariants);
+      const healthy = areaRows(render(clear)).map(badgeVariants);
+
+      expect(failing).toEqual([['rejected'], ['approved'], ['pending']]);
+      expect(healthy).toEqual([['approved'], ['approved'], ['approved']]);
+    });
+
+    it.each([
+      ['EMPTY', 'closed'],
+      ['NORMAL', 'approved'],
+      ['DELAYED', 'pending'],
+    ] as const)('활동 수집 %s 상태를 %s 배지로 보여준다', (health, variant) => {
+      const rows = areaRows(
+        render({ ...base, collection: { ...base.collection, health } }),
+      );
+
+      expect(badgeVariants(rows[1] ?? '')).toEqual([variant]);
+    });
+
+    it('수집 기록과 다음 주기가 없으면 기록 없음으로 적고 다음 주기는 생략한다', () => {
+      const rows = areaRows(
+        render({
+          ...clear,
+          collection: {
+            ...base.collection,
+            lastSuccessAt: null,
+            nextCycleAt: null,
+          },
+          externalCollection: {
+            trackedRepositoryCount: 0,
+            lastSuccessAt: null,
+          },
+        }),
+      ).map(text);
+
+      expect(rows[1]).toContain('지연 저장소 0개 · 마지막 수집 성공 기록 없음');
+      expect(rows[1]).toContain(
+        '외부 추적 저장소 0개 · 외부 마지막 수집 성공 기록 없음',
+      );
+      expect(rows[1]).not.toContain('다음 주기 예상');
+      expect(rows[2]).toContain('마지막 발송 기록 없음');
+    });
+
+    it('PROCESSING일 때만 움직이는 수집 중 배지를 더한다', () => {
+      const idle = areaRows(render(base));
+      const processing = areaRows(
+        render({
+          ...base,
+          collection: { ...base.collection, currentRunStatus: 'PROCESSING' },
+        }),
+      );
+
+      expect(badgeVariants(idle[1] ?? '')).toEqual(['approved']);
+      expect(badgeVariants(processing[1] ?? '')).toEqual([
+        'approved',
+        'recruiting',
+      ]);
+      expect(processing[1]).toContain('before:animate-pulse');
+      expect(processing[1]).toContain('motion-reduce:before:animate-none');
+    });
   });
 
-  it('조직 밖 public 저장소 탐색 패널을 더 이상 렌더링하지 않는다', () => {
-    const html = render({ kind: 'success', status: normal });
-    expect(html).not.toContain('조직 밖 public 저장소 탐색');
-    expect(html).not.toContain('discover-external-github-login');
-    expect(html).not.toContain('학생 GitHub 로그인');
-    expect(html).not.toContain('지금 탐색 실행');
+  describe('지금 수집 실행', () => {
+    it('평상시에는 활성화되어 있다', () => {
+      const button = buttonTagContaining(render(base), '지금 수집 실행');
+
+      expect(button).not.toContain('disabled=""');
+    });
+
+    it('요청이 진행 중이면 비활성화하고 진행 문구를 보여준다', () => {
+      const html = render(base, { isTriggering: true });
+
+      expect(buttonTagContaining(html, '실행 요청 중')).toContain(
+        'disabled=""',
+      );
+    });
+
+    it('이미 수집이 진행 중이면 요청 중이 아니어도 비활성화한다', () => {
+      const html = render({
+        ...base,
+        collection: { ...base.collection, currentRunStatus: 'PROCESSING' },
+      });
+
+      expect(buttonTagContaining(html, '지금 수집 실행')).toContain(
+        'disabled=""',
+      );
+    });
+  });
+
+  describe('알림', () => {
+    it('알림이 없으면 status도 alert도 만들지 않는다', () => {
+      const html = render(base);
+
+      expect(html).not.toContain('role="status"');
+      expect(html).not.toContain('role="alert"');
+    });
+
+    it('성공 알림은 status로, 오류 알림은 alert로 알린다', () => {
+      const success = render(base, {
+        notice: { kind: 'success', message: '합성 성공 알림' },
+      });
+      const failure = render(base, {
+        notice: { kind: 'error', message: '합성 오류 알림' },
+      });
+
+      expect(success).toMatch(/<p role="status"[^>]*>합성 성공 알림<\/p>/);
+      expect(success).not.toContain('role="alert"');
+      expect(failure).toMatch(/role="alert"[^>]*>.*합성 오류 알림/);
+      expect(failure).not.toContain('role="status"');
+    });
+
+    it('알림은 목록 뒤에 떠서 실패 팀 행을 밀어내지 않는다', () => {
+      const html = render(base, {
+        notice: { kind: 'error', message: '합성 오류 알림' },
+      });
+
+      expect(html.indexOf('합성 오류 알림')).toBeGreaterThan(
+        html.lastIndexOf('data-slot="list-row"'),
+      );
+    });
+
+    it('최신 조회가 실패하면 마지막 상태와 함께 다시 불러오기 버튼을 보여준다', () => {
+      const html = render(base, { freshness: 'stale' });
+
+      expect(html).toContain('role="alert"');
+      expect(openingTags(attentionCard(html), 'button')).toHaveLength(2);
+      expect(buttonTagContaining(html, '상태 다시 불러오기')).not.toContain(
+        'disabled=""',
+      );
+    });
+
+    it('다시 불러오는 동안에는 화면을 밀지 않는 status로만 알린다', () => {
+      const html = render(base, { freshness: 'refreshing' });
+
+      expect(html).toMatch(/<p role="status" class="sr-only">/);
+    });
   });
 });

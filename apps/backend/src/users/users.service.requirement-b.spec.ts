@@ -64,6 +64,7 @@ function buildService(
   const userHistory = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
+    listParticipationMemberships: jest.fn().mockResolvedValue([]),
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,

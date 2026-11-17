@@ -3,7 +3,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from './prisma.service';
 import { AuditLogReadRepository } from './audit-log-read.repository';
 import { seedRepo } from '../../test/repo-ledger.fixture';
-import { AuditLogReadService } from './audit-log-read.service';
+import { createAuditLogReadService } from './audit-log-mapping.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -23,20 +23,20 @@ const REPOSITORY_NAME = 'audit-history/repository';
 const RECORD_KEYS = [
   'action',
   'actor',
-  'actorHandle',
+  'category',
+  'change',
   'id',
   'legacy',
   'metadata',
   'occurredAt',
+  'requestId',
   'target',
-  'targetHandle',
-  'targetId',
-  'targetType',
+  'teamMembership',
 ];
 
 describe('Audit history feed', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogReadService(new AuditLogReadRepository(prisma));
+  const service = createAuditLogReadService(new AuditLogReadRepository(prisma));
 
   function seedUserHistory(row: {
     readonly id: string;
@@ -198,13 +198,13 @@ describe('Audit history feed', () => {
     ]);
     expect(result.items[1]).toMatchObject({
       action: 'PROGRAM_CREATED',
-      targetType: 'PROGRAM',
-      targetId: PROGRAM_ID,
-      target: 'Original program',
+      category: 'OPERATION',
+      target: { type: 'PROGRAM', id: PROGRAM_ID, name: 'Original program' },
       legacy: false,
     });
     expect(result.items[2]).toMatchObject({
-      target: 'Original · T',
+      category: 'OPERATION',
+      target: { type: 'TEAM', name: 'T', programName: 'Original' },
       legacy: false,
     });
     for (const record of result.items) {
@@ -213,7 +213,7 @@ describe('Audit history feed', () => {
     }
   });
 
-  it('actor 필터는 로그인 일부를 대소문자 없이 찾고 행위자 없는 행은 필터가 없을 때만 남긴다', async () => {
+  it('검색어는 행위자 로그인 일부를 대소문자 없이 찾고 행위자 없는 행은 검색어가 없을 때만 남긴다', async () => {
     await seedUserHistory({
       id: `${TEST_PREFIX}actor-admin`,
       action: 'ACTOR_FILTER',
@@ -238,15 +238,18 @@ describe('Audit history feed', () => {
       limit: 20,
     });
     const filtered = await service.list({
-      actor: '233-ADMIN',
+      q: '233-ADMIN',
       action: 'ACTOR_FILTER',
       page: 1,
       limit: 20,
     });
 
-    expect(unfiltered.items.map((record) => record.actor)).toEqual([
-      'synthetic-233-Admin',
-      'synthetic-233-staff',
+    expect(
+      unfiltered.items.map((record) => record.actor?.login ?? null),
+    ).toEqual(['synthetic-233-Admin', 'synthetic-233-staff', null]);
+    expect(unfiltered.items.map((record) => record.category)).toEqual([
+      'ACCOUNT',
+      'ACCOUNT',
       'SYSTEM',
     ]);
     expect(filtered.items.map((record) => record.id)).toEqual([
@@ -273,7 +276,7 @@ describe('Audit history feed', () => {
     });
 
     const result = await service.list({
-      actor: '233-admin',
+      q: '233-admin',
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       from: '2080-07-24',
       to: '2080-07-24',
@@ -351,7 +354,7 @@ describe('Audit history feed', () => {
       limit: 20,
     });
 
-    expect(result.items.map((record) => record.targetId)).toEqual([
+    expect(result.items.map((record) => record.target.id)).toEqual([
       'end',
       'start',
     ]);
@@ -421,15 +424,17 @@ describe('Audit history feed', () => {
     expect(
       result.items.map((record) => [
         record.action,
-        record.actor,
-        record.target,
+        record.actor?.login ?? null,
+        record.target.name,
+        record.target.programName,
         record.metadata,
       ]),
     ).toEqual([
       [
         'TEAM_RENAMED',
         'synthetic-233-Admin',
-        `${program} · After`,
+        'After',
+        program,
         {
           schemaVersion: 1,
           programName: program,
@@ -440,7 +445,8 @@ describe('Audit history feed', () => {
       [
         'TEAM_MEMBERSHIP_CHANGED',
         'synthetic-233-Admin',
-        `${program} · ${TEAM_NAME}`,
+        TEAM_NAME,
+        program,
         {
           schemaVersion: 1,
           programName: program,
@@ -453,17 +459,31 @@ describe('Audit history feed', () => {
       ],
       [
         'TEAM_DELETED',
-        'SYSTEM',
-        `${program} · Deleted team`,
+        null,
+        'Deleted team',
+        program,
         { schemaVersion: 1, programName: program, teamName: 'Deleted team' },
       ],
       [
         'APPLICATION_REJECTED',
         'synthetic-233-Admin',
-        `${program} · ${TEAM_NAME}`,
+        TEAM_NAME,
+        program,
         { schemaVersion: 1, programName: program, teamName: TEAM_NAME },
       ],
     ]);
+    expect(result.items.map((record) => record.change)).toEqual([
+      { field: 'teamName', before: 'Before', after: 'After' },
+      null,
+      null,
+      null,
+    ]);
+    expect(result.items[1]?.teamMembership).toEqual({
+      operation: 'REMOVE',
+      leaderChanged: false,
+      teamDeleted: true,
+    });
+    expect(result.items[2]?.category).toBe('SYSTEM');
     expect(result.total).toBe(4);
   });
 
@@ -512,10 +532,331 @@ describe('Audit history feed', () => {
       limit: 20,
     });
 
-    expect(result.items.map((record) => record.target)).toEqual([
-      REPOSITORY_NAME,
-      PROGRAM_NAME,
-      `PROGRAM / ${TEST_PREFIX}gone-program`,
+    expect(
+      result.items.map((record) => [record.target.id, record.target.name]),
+    ).toEqual([
+      [REPOSITORY_GITHUB_ID.toString(), REPOSITORY_NAME],
+      [PROGRAM_ID, PROGRAM_NAME],
+      [`${TEST_PREFIX}gone-program`, null],
     ]);
+  });
+
+  it('제출·로그인 이력을 같은 피드에 SUBMISSION·LOGIN 분류로 합치고 분류별 건수를 센다', async () => {
+    const day = '2080-05-01';
+    const named = await prisma.user.create({
+      data: {
+        id: `${TEST_PREFIX}named`,
+        githubId: 9_233_000_004n,
+        nickname: 'synthetic-233-named',
+        name: 'Synthetic Named Student',
+        type: 'STUDENT',
+        department: 'Synthetic department',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: new Date('2080-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2080-01-01T00:00:00.000Z'),
+      },
+    });
+    const milestone = await prisma.milestone.create({
+      data: {
+        programId: PROGRAM_ID,
+        name: 'Synthetic milestone',
+        startAt: new Date('2027-01-01T00:00:00.000Z'),
+        dueAt: new Date('2027-02-01T00:00:00.000Z'),
+      },
+    });
+    const requirement = await prisma.requirement.create({
+      data: {
+        milestoneId: milestone.id,
+        name: 'Synthetic report',
+        required: true,
+        sortOrder: 1,
+      },
+    });
+    const submission = await prisma.submission.create({
+      data: {
+        requirementId: requirement.id,
+        teamId: TEAM_ID,
+        submittedById: named.id,
+        revision: 2,
+      },
+    });
+    await prisma.submissionHistory.create({
+      data: {
+        id: `${TEST_PREFIX}submission`,
+        submissionId: submission.id,
+        event: 'RESUBMITTED',
+        revision: 2,
+        actorId: named.id,
+        createdAt: new Date(`${day}T02:00:00.000Z`),
+      },
+    });
+    await prisma.loginHistory.create({
+      data: {
+        id: `${TEST_PREFIX}login`,
+        userId: named.id,
+        event: 'LOGIN',
+        success: true,
+        loginAt: new Date(`${day}T01:00:00.000Z`),
+      },
+    });
+
+    const all = await service.list({ from: day, to: day, page: 1, limit: 20 });
+    const logins = await service.list({
+      from: day,
+      to: day,
+      category: 'LOGIN',
+      page: 1,
+      limit: 20,
+    });
+    const byName = await service.list({
+      from: day,
+      to: day,
+      q: 'named student',
+      page: 1,
+      limit: 20,
+    });
+
+    expect(all.items).toEqual([
+      expect.objectContaining({
+        id: `${TEST_PREFIX}submission`,
+        action: 'SUBMISSION_RESUBMITTED',
+        category: 'SUBMISSION',
+        actor: {
+          id: named.id,
+          name: 'Synthetic Named Student',
+          login: 'synthetic-233-named',
+          role: 'STUDENT',
+        },
+        target: {
+          type: 'SUBMISSION',
+          id: submission.id,
+          name: 'Synthetic report',
+          login: null,
+          role: null,
+          programName: PROGRAM_NAME,
+          teamName: TEAM_NAME,
+        },
+        change: { field: 'revision', before: null, after: '2' },
+      }),
+      expect.objectContaining({
+        id: `${TEST_PREFIX}login`,
+        action: 'LOGIN',
+        category: 'LOGIN',
+        actor: {
+          id: named.id,
+          name: 'Synthetic Named Student',
+          login: 'synthetic-233-named',
+          role: 'STUDENT',
+        },
+      }),
+    ]);
+    expect(all.counts).toEqual({
+      ACCOUNT: 0,
+      OPERATION: 0,
+      SUBMISSION: 1,
+      LOGIN: 1,
+      SYSTEM: 0,
+    });
+    expect(logins.items.map((record) => record.id)).toEqual([
+      `${TEST_PREFIX}login`,
+    ]);
+    expect([logins.total, logins.counts.SUBMISSION]).toEqual([1, 1]);
+    expect(byName.total).toBe(2);
+  });
+
+  it('검색어는 행에 표시되는 이름·로그인(이벤트 시점 스냅숏 우선, 없으면 현재 사용자)과 일치한다', async () => {
+    const day = '2080-06-01';
+    const renamed = await prisma.user.create({
+      data: {
+        id: `${TEST_PREFIX}renamed`,
+        githubId: 9_233_000_005n,
+        nickname: 'synthetic-233-current-login',
+        name: 'Synthetic Current Name',
+        type: 'STUDENT',
+        department: 'Synthetic department',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: new Date('2080-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2080-01-01T00:00:00.000Z'),
+      },
+    });
+    const data = {
+      schemaVersion: 1,
+      recordKind: 'DOMAIN_EVENT',
+      action: 'SNAPSHOT_SEARCH_PROBE',
+      targetType: 'USER',
+      targetId: renamed.id,
+      metadata: {
+        schemaVersion: 2,
+        eventKind: 'DIRECT_ROLE_CHANGED',
+        actor: {
+          displayName: 'Synthetic Historic Actor',
+          githubLogin: 'synthetic-233-historic-actor',
+        },
+        target: {
+          displayName: 'Synthetic Historic Target',
+          githubLogin: 'synthetic-233-historic-target',
+        },
+        before: {
+          role: 'STUDENT',
+          accountStatus: 'ACTIVE',
+          requestStatus: null,
+        },
+        after: { role: 'STAFF', accountStatus: 'ACTIVE', requestStatus: null },
+      },
+    };
+    await prisma.$executeRaw`
+      INSERT INTO "UserHistory" ("id", "userId", "actorId", "event", "occurredAt", "recordedAt", "source", "data")
+      VALUES (${`${TEST_PREFIX}snapshot-search`}, ${renamed.id}, ${renamed.id}, 'TYPE_CHANGED',
+        ${new Date(`${day}T01:00:00.000Z`)}, now(), 'APPLICATION', ${JSON.stringify(data)}::jsonb)`;
+
+    const totalFor = async (q: string) =>
+      (await service.list({ q, from: day, to: day, page: 1, limit: 20 })).total;
+
+    expect(
+      await Promise.all(
+        [
+          'Historic Actor',
+          'historic-actor',
+          'Historic Target',
+          'historic-target',
+          'Current Name',
+          'current-login',
+        ].map(totalFor),
+      ),
+    ).toEqual([1, 1, 1, 1, 0, 0]);
+  });
+
+  it('스냅숏에 표시 이름이 없으면 현재 User.name을 이름으로 돌려주고 그 이름으로 검색된다', async () => {
+    const day = '2080-06-04';
+    const named = await prisma.user.create({
+      data: {
+        id: `${TEST_PREFIX}nameless-snapshot`,
+        githubId: 9_233_000_006n,
+        nickname: 'synthetic-233-joined-login',
+        name: 'Synthetic Joined Name',
+        type: 'STUDENT',
+        department: 'Synthetic department',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: new Date('2080-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2080-01-01T00:00:00.000Z'),
+      },
+    });
+    const data = {
+      schemaVersion: 1,
+      recordKind: 'DOMAIN_EVENT',
+      action: 'NAMELESS_SNAPSHOT_PROBE',
+      targetType: 'USER',
+      targetId: named.id,
+      metadata: {
+        schemaVersion: 1,
+        actor: { displayName: null, githubLogin: 'synthetic-233-old-login' },
+        target: { displayName: null, githubLogin: 'synthetic-233-old-login' },
+        changes: [],
+      },
+    };
+    await prisma.$executeRaw`
+      INSERT INTO "UserHistory" ("id", "userId", "actorId", "event", "occurredAt", "recordedAt", "source", "data")
+      VALUES (${`${TEST_PREFIX}nameless-snapshot`}, ${named.id}, ${named.id}, 'PROFILE_UPDATED',
+        ${new Date(`${day}T01:00:00.000Z`)}, now(), 'APPLICATION', ${JSON.stringify(data)}::jsonb)`;
+
+    const result = await service.list({
+      q: 'Joined Name',
+      from: day,
+      to: day,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]?.actor).toEqual({
+      id: named.id,
+      name: 'Synthetic Joined Name',
+      login: 'synthetic-233-old-login',
+      role: 'STUDENT',
+    });
+    expect(result.items[0]?.target).toMatchObject({
+      name: 'Synthetic Joined Name',
+      login: 'synthetic-233-old-login',
+    });
+  });
+
+  it('공유 요청 id는 계정·팀·프로그램 이력 모두에서 그대로 내보낸다', async () => {
+    const day = '2080-06-02';
+    const requestId = `${TEST_PREFIX}shared-request`;
+    const accountData = {
+      schemaVersion: 1,
+      recordKind: 'DOMAIN_EVENT',
+      action: 'SHARED_REQUEST_PROBE',
+      targetType: 'USER',
+      targetId: STAFF_ID,
+      metadata: { schemaVersion: 1, requestId },
+    };
+    await prisma.$executeRaw`
+      INSERT INTO "UserHistory" ("id", "userId", "actorId", "event", "occurredAt", "recordedAt", "source", "data")
+      VALUES (${`${TEST_PREFIX}request-account`}, ${STAFF_ID}, ${ADMIN_ID}, 'PROFILE_UPDATED',
+        ${new Date(`${day}T03:00:00.000Z`)}, now(), 'APPLICATION', ${JSON.stringify(accountData)}::jsonb)`;
+    await seedTeamHistory({
+      id: `${TEST_PREFIX}request-team`,
+      event: 'RENAMED',
+      occurredAt: `${day}T02:00:00.000Z`,
+      data: { previousName: 'Before', name: 'After', requestId },
+    });
+    await prisma.programHistory.create({
+      data: {
+        id: `${TEST_PREFIX}request-program`,
+        programId: PROGRAM_ID,
+        actorId: ADMIN_ID,
+        event: 'CREATED',
+        occurredAt: new Date(`${day}T01:00:00.000Z`),
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          metadata: { schemaVersion: 1, programName: 'P', requestId },
+        },
+      },
+    });
+
+    const result = await service.list({
+      from: day,
+      to: day,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(result.items.map((record) => [record.id, record.requestId])).toEqual(
+      [
+        [`${TEST_PREFIX}request-account`, requestId],
+        [`${TEST_PREFIX}request-team`, requestId],
+        [`${TEST_PREFIX}request-program`, requestId],
+      ],
+    );
+  });
+
+  it('스냅숏이 없는 과거 신청 이벤트는 현재 신청자 이름·로그인으로 채우지 않는다', async () => {
+    const day = '2080-06-03';
+    await seedTeamHistory({
+      id: `${TEST_PREFIX}v1-application`,
+      event: 'APPROVED',
+      occurredAt: `${day}T01:00:00.000Z`,
+      data: {
+        applicationId: `${TEST_PREFIX}application`,
+        revision: 1,
+        rejectionReason: null,
+      },
+    });
+
+    const result = await service.list({
+      from: day,
+      to: day,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(result.items[0]?.target).toMatchObject({
+      type: 'APPLICATION',
+      name: null,
+      login: null,
+      teamName: TEAM_NAME,
+    });
   });
 });
