@@ -32,6 +32,7 @@ vi.mock('@/features/staff-insights/api', () => ({
 vi.mock('@/features/system-status/api', () => ({
   fetchSystemStatus: api.system,
   triggerCollection: vi.fn(),
+  retryProvisioning: vi.fn(),
 }));
 vi.mock('@/features/repositories/loader', () => ({
   loadMyRepositories: api.repositories,
@@ -68,13 +69,13 @@ vi.mock('@/features/staff-insights/staff-insights-view', () => ({
 vi.mock('@/features/system-status/components/system-status-view', () => ({
   SystemStatusView: ({
     state,
-    onRetry,
+    onReload,
   }: {
     readonly state: SystemStatusViewState;
-    readonly onRetry: () => void;
+    readonly onReload: () => void;
   }) => (
     <output data-kind={state.kind}>
-      {state.kind === 'error' ? <button onClick={onRetry} /> : null}
+      {state.kind === 'error' ? <button onClick={onReload} /> : null}
     </output>
   ),
 }));

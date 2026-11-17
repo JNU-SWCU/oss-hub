@@ -1,42 +1,58 @@
 export type CollectionHealth = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
-export type CurrentRunStatus = 'IDLE' | 'PROCESSING';
-
-export type SystemStatusSafeReason = 'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
-
-export interface SystemStatus {
+interface CollectionStatus {
   readonly health: CollectionHealth;
   readonly trackedRepositoryCount: number;
   readonly staleRepositoryCount: number;
   readonly lastSuccessAt: string | null;
   readonly nextCycleAt: string | null;
-  readonly currentRunStatus: CurrentRunStatus;
-  readonly safeReason: SystemStatusSafeReason | null;
+  readonly currentRunStatus: 'IDLE' | 'PROCESSING';
 }
 
-export interface CollectionRepositoryStatus {
-  readonly repositoryName: string;
-  readonly programName: string | null;
-  readonly lastSuccessAt: string | null;
-  readonly stale: boolean;
+export interface ProvisioningFailedTeam {
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly programName: string;
+  readonly lastErrorCode: string | null;
+  readonly updatedAt: string;
 }
 
-export interface ExternalCollectionStatus {
-  readonly trackedRepositoryCount: number;
-  readonly lastSuccessAt: string | null;
+interface ProvisioningStatus {
+  readonly pending: number;
+  readonly processing: number;
+  readonly retryable: number;
+  readonly failedFinal: number;
+  readonly failedTeams: readonly ProvisioningFailedTeam[];
 }
 
-export interface SystemStatusResponse {
-  readonly collection: SystemStatus;
-  readonly collectionRepositories: readonly CollectionRepositoryStatus[];
-
-  readonly externalCollection?: ExternalCollectionStatus;
+interface MailStatus {
+  readonly sent7d: number;
+  readonly failed7d: number;
+  readonly lastSentAt: string | null;
 }
 
-export interface SystemStatusData {
-  readonly status: SystemStatus;
-  readonly collectionRepositories: readonly CollectionRepositoryStatus[];
-  readonly externalCollection: ExternalCollectionStatus;
+export type AnomalyRule =
+  | 'BULK_REMOVAL'
+  | 'SELF_ADMIN_CHANGE'
+  | 'OFF_HOURS_ADMIN_CHANGE'
+  | 'PROVISIONING_FAILED'
+  | 'COLLECTION_STALE'
+  | 'MAIL_FAILED';
+
+export type AnomalySeverity = 'HIGH' | 'MEDIUM';
+
+export interface Anomaly {
+  readonly rule: AnomalyRule;
+  readonly severity: AnomalySeverity;
+  readonly count: number;
+  readonly target: { readonly kind: 'USER'; readonly id: string } | null;
+}
+
+export interface SystemStatus {
+  readonly collection: CollectionStatus;
+  readonly provisioning: ProvisioningStatus;
+  readonly mail: MailStatus;
+  readonly anomalies: readonly Anomaly[];
 }
 
 export type SystemStatusViewState =
@@ -46,10 +62,9 @@ export type SystemStatusViewState =
       readonly kind: 'success';
       readonly freshness: 'current' | 'refreshing' | 'stale';
       readonly status: SystemStatus;
-      readonly collectionRepositories: readonly CollectionRepositoryStatus[];
-      readonly externalCollection: ExternalCollectionStatus;
     };
 
-export type TriggerNotice =
-  | { readonly kind: 'success'; readonly message: string }
-  | { readonly kind: 'error'; readonly message: string };
+export interface ActionNotice {
+  readonly kind: 'success' | 'error';
+  readonly message: string;
+}
