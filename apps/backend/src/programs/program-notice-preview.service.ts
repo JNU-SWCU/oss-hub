@@ -28,25 +28,23 @@ export class ProgramNoticePreviewService {
       const list = this.client.extractProgramNoticeList(
         await this.client.read(new URL(PROGRAM_NOTICE_LIST_URL)),
       );
-      const items: ProgramNoticeList['items'][number][] = [];
-      for (const item of list.items) {
-        const remaining = deadline - Date.now();
-        if (item.thumbnailUrl || remaining <= 0) {
-          items.push(item);
-          continue;
-        }
-        try {
-          const source = this.client.parseProgramNoticeUrl(item.url);
-          const preview = this.client.extractProgramNotice(
-            await this.client.read(source, undefined, remaining),
-            source,
-          );
-          items.push({ ...item, thumbnailUrl: preview.coverImages[0] ?? null });
-        } catch (error) {
-          if (!(error instanceof DomainException)) throw error;
-          items.push(item);
-        }
-      }
+      const items = await Promise.all(
+        list.items.map(async (item) => {
+          const remaining = deadline - Date.now();
+          if (item.thumbnailUrl || remaining <= 0) return item;
+          try {
+            const source = this.client.parseProgramNoticeUrl(item.url);
+            const preview = this.client.extractProgramNotice(
+              await this.client.read(source, undefined, remaining),
+              source,
+            );
+            return { ...item, thumbnailUrl: preview.coverImages[0] ?? null };
+          } catch (error) {
+            if (!(error instanceof DomainException)) throw error;
+            return item;
+          }
+        }),
+      );
       return { items };
     });
   }
