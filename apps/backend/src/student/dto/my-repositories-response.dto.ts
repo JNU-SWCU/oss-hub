@@ -40,7 +40,7 @@ export class MyRepositoryItemResponseDto {
 }
 
 export class MyRepositoriesResponseDto {
-  declare readonly items: readonly MyRepositoryItemResponseDto[];
+  declare readonly items: MyRepositoryItemResponseDto[];
 
   static from(items: readonly MyRepositoryResult[]): MyRepositoriesResponseDto {
     return {

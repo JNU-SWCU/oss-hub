@@ -25,6 +25,8 @@ import {
   ProgramAuthoringService,
 } from './programs.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiHeader } from '@nestjs/swagger';
+import { ApiFileUpload } from '../platform/api-contract.decorator';
 import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-upload-response.dto';
 import { ProgramIdResponseDto } from './dto/program-id-response.dto';
 import { ProgramAuthoringRequestDto } from './dto/program-authoring-request.dto';
@@ -66,6 +68,7 @@ export class ProgramAuthoringController {
       limits: { fileSize: SUBMISSION_UPLOAD_MAX_BYTES },
     }),
   )
+  @ApiFileUpload()
   async upload(
     @Req() request: SessionIdentity,
     @UploadedFile() file: ProgramAuthoringUploadFile | undefined,
@@ -84,6 +87,7 @@ export class ProgramAuthoringController {
       limits: { fileSize: PROGRAM_COVER_MAX_BYTES, files: 1 },
     }),
   )
+  @ApiFileUpload()
   async uploadCover(
     @Req() request: SessionIdentity,
     @UploadedFile() file: ProgramAuthoringUploadFile | undefined,
@@ -109,6 +113,7 @@ export class ProgramAuthoringController {
   @Protected()
   @Roles(STAFF_AUDIENCE, authoringUnavailable)
   @UseGuards(OriginGuard)
+  @ApiHeader({ name: 'idempotency-key', required: false })
   async create(
     @Req() request: SessionIdentity,
     @Headers('idempotency-key') idempotencyKey: string | undefined,

@@ -45,10 +45,10 @@ export class ActivityPointResponseDto {
 
 export class ActivityTimelineResponseDto {
   declare readonly dataAsOf: string | null;
-  declare readonly programs: readonly ActivityProgramResponseDto[];
+  declare readonly programs: ActivityProgramResponseDto[];
   declare readonly series: {
     readonly granularity: ActivityGranularity;
-    readonly points: readonly ActivityPointResponseDto[];
+    readonly points: ActivityPointResponseDto[];
   };
 
   static from(result: ActivityTimelineResult): ActivityTimelineResponseDto {

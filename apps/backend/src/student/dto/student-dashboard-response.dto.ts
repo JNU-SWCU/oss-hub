@@ -33,6 +33,41 @@ export class StudentDashboardMilestoneResponseDto {
   }
 }
 
+class StudentDashboardProgressResponseDto {
+  declare readonly approvedCount: number;
+  declare readonly inReviewCount: number;
+  declare readonly totalCount: number;
+
+  static from(
+    progress: NonNullable<StudentDashboardItem['progress']>,
+  ): StudentDashboardProgressResponseDto {
+    return {
+      approvedCount: progress.approvedCount,
+      inReviewCount: progress.inReviewCount,
+      totalCount: progress.totalCount,
+    };
+  }
+}
+
+class StudentDashboardRepositoryResponseDto {
+  declare readonly repositoryName: string | null;
+  declare readonly provisionStatus:
+    'NOT_STARTED' | RepositoryProvisionJobStatus;
+  declare readonly invitationStatus: RepositoryInvitationStatus | null;
+  declare readonly githubUrl: string | null;
+
+  static from(
+    repository: NonNullable<StudentDashboardItem['repository']>,
+  ): StudentDashboardRepositoryResponseDto {
+    return {
+      repositoryName: repository.repositoryName,
+      provisionStatus: repository.provisionStatus,
+      invitationStatus: repository.invitationStatus,
+      githubUrl: repository.githubUrl,
+    };
+  }
+}
+
 export class StudentDashboardItemResponseDto {
   declare readonly coverImageUrl: string | null;
   declare readonly teamId: string;
@@ -44,19 +79,10 @@ export class StudentDashboardItemResponseDto {
   declare readonly teamUrl: string;
   declare readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   declare readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
-  declare readonly progress: {
-    readonly approvedCount: number;
-    readonly inReviewCount: number;
-    readonly totalCount: number;
-  } | null;
+  declare readonly progress: StudentDashboardProgressResponseDto | null;
   declare readonly detailUrl: string;
   declare readonly checklistUrl: string;
-  declare readonly repository: {
-    readonly repositoryName: string | null;
-    readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
-    readonly invitationStatus: RepositoryInvitationStatus | null;
-    readonly githubUrl: string | null;
-  } | null;
+  declare readonly repository: StudentDashboardRepositoryResponseDto | null;
 
   static from(item: StudentDashboardItem): StudentDashboardItemResponseDto {
     return {
@@ -70,16 +96,20 @@ export class StudentDashboardItemResponseDto {
       nextMilestone: item.nextMilestone
         ? StudentDashboardMilestoneResponseDto.from(item.nextMilestone)
         : null,
-      progress: item.progress,
+      progress: item.progress
+        ? StudentDashboardProgressResponseDto.from(item.progress)
+        : null,
       detailUrl: item.detailUrl,
       checklistUrl: item.checklistUrl,
-      repository: item.repository,
+      repository: item.repository
+        ? StudentDashboardRepositoryResponseDto.from(item.repository)
+        : null,
     };
   }
 }
 
 export class StudentDashboardResponseDto {
-  declare readonly items: readonly StudentDashboardItemResponseDto[];
+  declare readonly items: StudentDashboardItemResponseDto[];
 
   static from(
     items: readonly StudentDashboardItem[],

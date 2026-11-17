@@ -9,9 +9,9 @@ import type {
   RequirementCollectionSubmission,
   RequirementRecord,
   DocumentDeliveryStatus,
-  RequirementSubmittedContent,
 } from '../requirements.repository';
 import type { SubmissionReviewDecision } from '../submissions.repository';
+import { RequirementTextContentResponseDto } from './requirement-text-content-response.dto';
 export class RequirementCollectionMilestoneResponseDto {
   declare readonly id: string;
   declare readonly programId: string;
@@ -75,7 +75,7 @@ export class RequirementCollectionCellResponseDto {
   declare readonly submittedAt: string | null;
   declare readonly revision: number | null;
   declare readonly file: RequirementCollectionFileResponseDto | null;
-  declare readonly content: RequirementSubmittedContent | null;
+  declare readonly content: RequirementTextContentResponseDto | null;
   declare readonly status: SubmissionStatus | null;
   declare readonly review: RequirementCollectionReviewResponseDto | null;
   static from(
@@ -103,7 +103,9 @@ export class RequirementCollectionCellResponseDto {
         submission.file === null
           ? null
           : RequirementCollectionFileResponseDto.from(submission.file),
-      content: submission.content,
+      content: submission.content
+        ? RequirementTextContentResponseDto.from(submission.content)
+        : null,
       status: submission.status,
       review:
         submission.review === null
@@ -116,8 +118,8 @@ export class RequirementCollectionRowResponseDto {
   declare readonly teamId: string;
   declare readonly teamName: string;
   declare readonly applicantName: string | null;
-  declare readonly memberNicknames: readonly string[];
-  declare readonly cells: readonly RequirementCollectionCellResponseDto[];
+  declare readonly memberNicknames: string[];
+  declare readonly cells: RequirementCollectionCellResponseDto[];
   static from(
     row: RequirementCollectionResult['rows'][number],
     documents: readonly RequirementRecord[],
@@ -126,7 +128,7 @@ export class RequirementCollectionRowResponseDto {
       teamId: row.application.teamId,
       teamName: row.application.teamName,
       applicantName: row.application.applicantName,
-      memberNicknames: row.application.memberNicknames,
+      memberNicknames: [...row.application.memberNicknames],
       cells: documents.map((document, index) =>
         RequirementCollectionCellResponseDto.from(
           document,
@@ -166,13 +168,13 @@ export class RequirementCollectionDocumentTotalResponseDto {
 }
 export class RequirementCollectionResponseDto {
   declare readonly milestone: RequirementCollectionMilestoneResponseDto;
-  declare readonly documents: readonly RequirementCollectionDocumentResponseDto[];
-  declare readonly rows: readonly RequirementCollectionRowResponseDto[];
+  declare readonly documents: RequirementCollectionDocumentResponseDto[];
+  declare readonly rows: RequirementCollectionRowResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly total: number;
   declare readonly filterCounts: RequirementCollectionFilterCountsResponseDto;
-  declare readonly documentTotals: readonly RequirementCollectionDocumentTotalResponseDto[];
+  declare readonly documentTotals: RequirementCollectionDocumentTotalResponseDto[];
   static from(
     result: RequirementCollectionResult,
   ): RequirementCollectionResponseDto {
@@ -202,8 +204,8 @@ export class RequirementDeliveryCollectionRowResponseDto {
   declare readonly teamId: string;
   declare readonly teamName: string;
   declare readonly applicantName: string | null;
-  declare readonly memberNicknames: readonly string[];
-  declare readonly cells: readonly RequirementCollectionCellResponseDto[];
+  declare readonly memberNicknames: string[];
+  declare readonly cells: RequirementCollectionCellResponseDto[];
   declare readonly deliveryStatus: DocumentDeliveryStatus;
   static from(
     row: RequirementCollectionRowResponseDto,
@@ -221,13 +223,13 @@ export class RequirementDeliveryCollectionRowResponseDto {
 }
 export class RequirementDeliveryCollectionResponseDto {
   declare readonly milestone: RequirementCollectionMilestoneResponseDto;
-  declare readonly documents: readonly RequirementCollectionDocumentResponseDto[];
-  declare readonly rows: readonly RequirementDeliveryCollectionRowResponseDto[];
+  declare readonly documents: RequirementCollectionDocumentResponseDto[];
+  declare readonly rows: RequirementDeliveryCollectionRowResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly total: number;
   declare readonly filterCounts: RequirementCollectionFilterCountsResponseDto;
-  declare readonly documentTotals: readonly RequirementCollectionDocumentTotalResponseDto[];
+  declare readonly documentTotals: RequirementCollectionDocumentTotalResponseDto[];
   declare readonly deliveryCounts: {
     readonly missing: number;
     readonly late: number;

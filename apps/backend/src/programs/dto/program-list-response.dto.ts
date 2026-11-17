@@ -1,7 +1,6 @@
 import { type ApplicationStatus } from '@prisma/client';
 import type {
   PersonalizedProgramListItem,
-  ProgramListItemNote,
   ProgramListPage,
   ProgramListPageItem,
 } from '../programs.service';
@@ -10,14 +9,17 @@ export class ProgramListResponseDto {
   declare readonly coverImageUrl: string | null;
   declare readonly id: string;
   declare readonly name: string;
-  declare readonly organizers: readonly string[];
+  declare readonly organizers: string[];
   declare readonly trackType: PersonalizedProgramListItem['trackType'];
   declare readonly applicationStartAt: string;
   declare readonly applicationEndAt: string;
   declare readonly endAt: string;
   declare readonly description: string;
 
-  declare readonly note?: ProgramListItemNote;
+  declare readonly note?: {
+    readonly text: string;
+    readonly icon?: 'team';
+  };
 
   declare readonly viewerApplicationStatus?: ApplicationStatus;
 
@@ -30,7 +32,7 @@ export class ProgramListResponseDto {
       coverImageUrl: program.coverImageUrl,
       id: program.id,
       name: program.name,
-      organizers: program.organizers,
+      organizers: [...program.organizers],
       trackType: program.trackType,
       applicationStartAt: program.applicationStartAt.toISOString(),
       applicationEndAt: program.applicationEndAt.toISOString(),
@@ -45,7 +47,7 @@ export class ProgramListResponseDto {
 }
 
 export class ProgramListPageResponseDto {
-  declare readonly items: readonly ProgramListResponseDto[];
+  declare readonly items: ProgramListResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly totalItems: number;

@@ -55,8 +55,8 @@ export class MatrixRowResponseDto {
   declare readonly teamId: string;
   declare readonly applicationMode: MatrixApplicationMode;
   declare readonly displayName: string;
-  declare readonly githubLogins: readonly string[];
-  declare readonly cells: readonly MatrixCellResponseDto[];
+  declare readonly githubLogins: string[];
+  declare readonly cells: MatrixCellResponseDto[];
 
   static from(
     row: SubmissionMatrixResult['rows'][number],
@@ -66,7 +66,7 @@ export class MatrixRowResponseDto {
       teamId: row.teamId,
       applicationMode: row.applicationMode,
       displayName: row.displayName,
-      githubLogins: row.githubLogins,
+      githubLogins: [...row.githubLogins],
       cells: row.cells.map((cell) =>
         MatrixCellResponseDto.from(cell, programId),
       ),
@@ -75,8 +75,8 @@ export class MatrixRowResponseDto {
 }
 
 export class SubmissionMatrixResponseDto {
-  declare readonly milestones: readonly MatrixMilestoneResponseDto[];
-  declare readonly rows: readonly MatrixRowResponseDto[];
+  declare readonly milestones: MatrixMilestoneResponseDto[];
+  declare readonly rows: MatrixRowResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly total: number;

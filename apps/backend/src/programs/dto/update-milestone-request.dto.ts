@@ -66,7 +66,7 @@ export class UpdateMilestoneRequestDto implements EditMilestoneCommand {
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => UpdateRequirementRequestDto)
-  declare readonly documents: readonly UpdateRequirementRequestDto[];
+  declare readonly documents: UpdateRequirementRequestDto[];
 
   @IsString()
   @Matches(/^[a-f0-9]{64}$/)

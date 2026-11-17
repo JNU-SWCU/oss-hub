@@ -13,6 +13,7 @@ import {
   Delete,
   Header,
 } from '@nestjs/common';
+import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import {
@@ -128,6 +129,18 @@ export class ProgramApplicationsController {
   @Get()
   @Protected()
   @Roles(STAFF_AUDIENCE, staffListOnly)
+  @ApiExtraModels(
+    ApplicationListPageResponseDto,
+    TeamManagementListPageResponseDto,
+  )
+  @ApiOkResponse({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(ApplicationListPageResponseDto) },
+        { $ref: getSchemaPath(TeamManagementListPageResponseDto) },
+      ],
+    },
+  })
   async list(
     @Param('programId') programId: string,
     @Query() query: ApplicationListRequestDto,

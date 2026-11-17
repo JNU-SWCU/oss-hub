@@ -64,9 +64,20 @@ export class AdminAccessUserResponseDto {
 }
 
 export class AdminAccessFacetsResponseDto {
-  declare readonly roles: AdminAccessFacets['roles'];
-  declare readonly accountStatuses: AdminAccessFacets['accountStatuses'];
-  declare readonly pendingRequests: AdminAccessFacets['pendingRequests'];
+  declare readonly roles: {
+    readonly unassigned: number;
+    readonly student: number;
+    readonly staff: number;
+    readonly admin: number;
+  };
+  declare readonly accountStatuses: {
+    readonly active: number;
+    readonly deactivated: number;
+  };
+  declare readonly pendingRequests: {
+    readonly none: number;
+    readonly pending: number;
+  };
 
   static from(facets: AdminAccessFacets): AdminAccessFacetsResponseDto {
     return {
@@ -78,7 +89,7 @@ export class AdminAccessFacetsResponseDto {
 }
 
 export class AdminAccessUserPageResponseDto {
-  declare readonly items: readonly AdminAccessUserResponseDto[];
+  declare readonly items: AdminAccessUserResponseDto[];
   declare readonly page: number;
   declare readonly limit: number;
   declare readonly total: number;
@@ -95,6 +106,19 @@ export class AdminAccessUserPageResponseDto {
   }
 }
 
+class DecidedRequestResponseDto {
+  declare readonly id: string;
+  declare readonly status: NonNullable<
+    AdminAccessMutationResult['decidedRequest']
+  >['status'];
+
+  static from(
+    request: NonNullable<AdminAccessMutationResult['decidedRequest']>,
+  ): DecidedRequestResponseDto {
+    return { id: request.id, status: request.status };
+  }
+}
+
 export class AdminAccessMutationResponseDto {
   declare readonly id: string;
   declare readonly role: AuthorityLabel | null;
@@ -102,7 +126,7 @@ export class AdminAccessMutationResponseDto {
   declare readonly pendingRequest: PendingRequestResponseDto | null;
   declare readonly approvalStatus: ApprovalStatus;
   declare readonly approvalRequestId: string | null;
-  declare readonly decidedRequest: AdminAccessMutationResult['decidedRequest'];
+  declare readonly decidedRequest: DecidedRequestResponseDto | null;
 
   static from(
     result: AdminAccessMutationResult,
@@ -112,7 +136,9 @@ export class AdminAccessMutationResponseDto {
       role: result.role,
       accountStatus: result.accountStatus,
       pendingRequest: toPendingRequest(result.pendingRequest),
-      decidedRequest: result.decidedRequest,
+      decidedRequest: result.decidedRequest
+        ? DecidedRequestResponseDto.from(result.decidedRequest)
+        : null,
       approvalStatus: result.approvalStatus,
       approvalRequestId: result.approvalRequestId,
     };

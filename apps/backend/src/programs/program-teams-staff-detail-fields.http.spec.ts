@@ -102,9 +102,13 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
     application: {
       id: 'application-1',
       status: 'APPROVED',
+      repositoryConnectionMode: 'NEW',
       repository: {
+        id: 'repository-1',
         url: 'https://github.com/synthetic-org/synthetic-repo',
         visibility: 'PRIVATE',
+        publishEligible: false,
+        blockedReasons: ['PROGRAM_NOT_ENDED'],
       },
       repositoryProvisioning: {
         enabled: true,
@@ -113,6 +117,8 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
         safeErrorClass: null,
       },
     },
+    repositoryContributions: null,
+    repositoryUrlHistory: { items: [], nextCursor: null },
   });
 
   const response = await getTeamDetail(await sessionCookieFor(6001n));
@@ -143,6 +149,8 @@ it('신청이 없어도(application: null) 금지 필드가 없다', async () =>
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
     ],
     application: null,
+    repositoryContributions: null,
+    repositoryUrlHistory: { items: [], nextCursor: null },
   });
 
   const response = await getTeamDetail(await sessionCookieFor(6002n));
