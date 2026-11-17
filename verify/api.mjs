@@ -245,7 +245,12 @@ function canonical(value) {
     return Object.fromEntries(
       Object.keys(value)
         .sort()
-        .map((key) => [key, canonical(value[key])]),
+        .map((key) => [
+          key,
+          key === 'enum' && Array.isArray(value[key])
+            ? [...value[key]].sort()
+            : canonical(value[key]),
+        ]),
     );
   }
   return value;

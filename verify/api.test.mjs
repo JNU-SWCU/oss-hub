@@ -262,6 +262,35 @@ test('an API change without a baseline update is reported as stale', async (t) =
   ]);
 });
 
+test('enum order alone does not make the baseline stale', async (t) => {
+  const withEnum = (values) => {
+    const spec = baseSpec();
+    spec.components.schemas.Item.properties.name = {
+      type: 'string',
+      enum: values,
+    };
+    return spec;
+  };
+  const repo = tempRepo(t);
+  const base = repo.commit('base', {
+    [CONTROLLER]: controllerSource(),
+    [BASELINE]: json(withEnum(['DELETED', 'REVERTED'])),
+  });
+  repo.markRemoteMain(base);
+  const head = repo.commit('chore: unrelated', { 'docs/x.md': 'x\n' });
+  const findings = await checkApi({
+    lint: noLint,
+    cwd: repo.dir,
+    ranges: [{ base, head, ref: 'main' }],
+    dump: dumpOf(withEnum(['REVERTED', 'DELETED'])),
+    tool: stubOasdiff(t),
+  });
+  assert.equal(
+    findings.some((item) => item.rule === 'api-baseline-stale'),
+    false,
+  );
+});
+
 test('fails closed when the trusted base has no baseline', async (t) => {
   const { repo, base } = apiRepo(t, { baseline: false });
   const head = repo.commit('add baseline', { [BASELINE]: json(baseSpec()) });
