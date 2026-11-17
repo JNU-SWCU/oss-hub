@@ -85,12 +85,22 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'UserProfileResponseDto',
     () =>
       UserProfileResponseDto.from({
+        githubLogin: 'octo',
+        memberKind: 'STUDENT',
         name: 'Octo Cat',
         studentId: '2026000001',
         department: 'Computer Science',
         phone: 'redacted-synthetic-phone',
         staffNumber: null,
         isComplete: true,
+        participations: [
+          {
+            programId: 'program-1',
+            programName: 'Program A',
+            teamName: 'Team A',
+            isLeader: false,
+          },
+        ],
       }),
   ],
 ];

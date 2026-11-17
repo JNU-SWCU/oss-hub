@@ -91,8 +91,8 @@ describe('상태별 기본 렌더링', () => {
   });
 });
 
-describe('머리말 — 이름·GitHub 링크·역할/상태 배지 (중복 제거된 헤더)', () => {
-  it('이름(h1)·@githubLogin·GitHub 외부 링크·역할/상태 배지를 그린다', () => {
+describe('프로필 카드 머리말 — 이름·GitHub 링크·역할/상태 배지', () => {
+  it('이름·@githubLogin·GitHub 외부 링크·역할/상태 배지를 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -113,7 +113,7 @@ describe('머리말 — 이름·GitHub 링크·역할/상태 배지 (중복 제�
     expect(html).toContain('활성');
   });
 
-  it('이름이 없으면 "이름 미등록"을 제목으로 쓴다', () => {
+  it('이름이 없으면 "이름 미등록"을 이름 자리에 쓴다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -144,13 +144,24 @@ describe('머리말 — 이름·GitHub 링크·역할/상태 배지 (중복 제�
   });
 });
 
-describe('프로필 섹션 — "기본 정보 입력" dt/dd 제거, 미완료 경고로 대체', () => {
-  it('이름/학번/학과만 dt/dd로 그리고, 완료 상태면 경고가 없다', () => {
+describe('프로필 카드 — 가입 유형별 항목과 미완료 경고', () => {
+  it('학생은 학번·학과·참여 프로그램과 팀을 그리고 교직원 번호는 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
-          detail: adminDetail(),
+          detail: adminDetail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            participations: [
+              {
+                programId: 'program-1',
+                programName: '합성 프로그램',
+                teamName: '합성 팀',
+                isLeader: true,
+              },
+            ],
+          }),
           history: adminHistory(),
         }}
         onRetry={() => {}}
@@ -162,11 +173,63 @@ describe('프로필 섹션 — "기본 정보 입력" dt/dd 제거, 미완료 �
     expect(html).toContain('202601');
     expect(html).toContain('학과');
     expect(html).toContain('인공지능학부');
+    expect(html).toContain('참여 프로그램·팀');
+    expect(html).toContain('href="/programs/program-1"');
+    expect(html).toContain('합성 프로그램');
+    expect(html).toContain('합성 팀 · 팀장');
+    expect(html).not.toContain('교직원 번호');
     expect(html).not.toContain('기본 정보 입력');
     expect(html).not.toContain('프로필 미완성');
   });
 
-  it('프로필이 미완료면 섹션 상단에 경고 문구를 그린다', () => {
+  it('교직원은 교직원 번호·소속을 그리고 학번과 참여 프로그램은 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: adminDetail({
+            profile: {
+              name: '홍길동',
+              studentId: null,
+              staffNumber: 'STAFF-42',
+              department: 'SW중심대학사업단',
+              isComplete: true,
+            },
+          }),
+          history: adminHistory(),
+        }}
+        onRetry={() => {}}
+        mutation={adminMutation()}
+      />,
+    );
+
+    expect(html).toContain('교직원 번호');
+    expect(html).toContain('STAFF-42');
+    expect(html).toContain('소속');
+    expect(html).toContain('SW중심대학사업단');
+    expect(html).not.toContain('학번');
+    expect(html).not.toContain('참여 프로그램·팀');
+  });
+
+  it('가입 유형이 없으면 가입 유형 미선택으로 알리고 유형별 항목은 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: adminDetail({ role: null, memberKind: null }),
+          history: adminHistory(),
+        }}
+        onRetry={() => {}}
+        mutation={adminMutation()}
+      />,
+    );
+
+    expect(html).toContain('가입 유형 미선택');
+    expect(html).not.toContain('학번');
+    expect(html).not.toContain('교직원 번호');
+  });
+
+  it('프로필이 미완료면 관리자 전용 구역에 경고 문구를 그린다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{

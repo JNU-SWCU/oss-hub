@@ -151,6 +151,7 @@ describe('관리자 접근 통합 API 클라이언트', () => {
           department: '소프트웨어공학과',
           isComplete: true,
         },
+        participations: [],
       });
 
       await fetchAdminAccessDetail('synthetic:user');
@@ -263,6 +264,12 @@ describe('관리자 접근 통합 API 클라이언트', () => {
     });
 
     it('상세', () => {
+      const participation = {
+        programId: 'program-1',
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        isLeader: true,
+      };
       const detail = parseAdminAccessDetail({
         ...listItem(),
         profile: {
@@ -271,8 +278,60 @@ describe('관리자 접근 통합 API 클라이언트', () => {
           department: null,
           isComplete: false,
         },
+        participations: [{ ...participation, teamId: 'internal-team-id' }],
       });
       expect(detail.profile.isComplete).toBe(false);
+      expect(detail.participations).toEqual([participation]);
+    });
+
+    it.each([
+      ['참여 프로그램 누락', undefined],
+      ['배열이 아닌 참여 프로그램', {}],
+      [
+        '프로그램 ID가 빈 참여 프로그램',
+        [
+          {
+            programId: '',
+            programName: '합성 프로그램',
+            teamName: '합성 팀',
+            isLeader: false,
+          },
+        ],
+      ],
+      [
+        '팀 이름이 없는 참여 프로그램',
+        [
+          {
+            programId: 'program-1',
+            programName: '합성 프로그램',
+            isLeader: false,
+          },
+        ],
+      ],
+      [
+        '팀장 여부가 불리언이 아닌 참여 프로그램',
+        [
+          {
+            programId: 'program-1',
+            programName: '합성 프로그램',
+            teamName: '합성 팀',
+            isLeader: 'true',
+          },
+        ],
+      ],
+    ])('상세 — %s은 거부한다', (_label, participations) => {
+      expect(() =>
+        parseAdminAccessDetail({
+          ...listItem(),
+          profile: {
+            name: '합성 사용자',
+            studentId: null,
+            department: null,
+            isComplete: false,
+          },
+          participations,
+        }),
+      ).toThrow(AdminAccessResponseError);
     });
 
     it('이력', () => {

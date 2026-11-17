@@ -10,6 +10,10 @@ import { DomainException } from '../platform/error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { UserTransitionRepository } from './user-transition.repository';
 import { type UserProfileRecord } from './profile-validation.config';
+import {
+  USER_PARTICIPATION_MEMBERSHIPS,
+  type UserParticipationMembership,
+} from './user-participation.config';
 import { randomUUID } from 'node:crypto';
 
 type StudentIdFillOutcome = 'filled' | 'conflict' | 'taken';
@@ -64,6 +68,9 @@ export type RecordStaffNumberAudit = (
 
 export interface UsersRepositoryPort {
   findByGithubId(githubId: bigint): Promise<UserProfileRecord | null>;
+  listParticipationMemberships(
+    userId: string,
+  ): Promise<readonly UserParticipationMembership[]>;
   completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
@@ -112,6 +119,14 @@ export class UsersRepository implements UsersRepositoryPort {
       select: PROFILE_MEMBER_SELECT,
     });
     return user ? toUserProfileRecord(user) : null;
+  }
+  listParticipationMemberships(
+    userId: string,
+  ): Promise<readonly UserParticipationMembership[]> {
+    return this.prisma.teamMember.findMany({
+      ...USER_PARTICIPATION_MEMBERSHIPS,
+      where: { ...USER_PARTICIPATION_MEMBERSHIPS.where, userId },
+    });
   }
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,

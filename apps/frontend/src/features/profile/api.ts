@@ -1,5 +1,6 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
+import { parseUserParticipations } from '@/lib/user-participation';
 import { isConsistentCompleteProfile } from './profile-requirements';
 import type {
   CompleteProfileRequest,
@@ -22,8 +23,17 @@ export class ProfileResponseError extends Error {
 }
 
 function parseProfile(value: unknown): UserProfile {
+  const participations = isRecord(value)
+    ? parseUserParticipations(value.participations)
+    : null;
   if (
     !isRecord(value) ||
+    participations === null ||
+    typeof value.githubLogin !== 'string' ||
+    value.githubLogin.trim().length === 0 ||
+    (value.memberKind !== null &&
+      value.memberKind !== 'STUDENT' &&
+      value.memberKind !== 'STAFF') ||
     typeof value.name !== 'string' ||
     (value.studentId !== null && typeof value.studentId !== 'string') ||
     (value.staffNumber !== null && typeof value.staffNumber !== 'string') ||
@@ -41,12 +51,15 @@ function parseProfile(value: unknown): UserProfile {
     throw new ProfileResponseError();
   }
   return {
+    githubLogin: value.githubLogin,
+    memberKind: value.memberKind,
     name: value.name,
     studentId: value.studentId,
     staffNumber: value.staffNumber,
     department: value.department,
     phone: value.phone,
     isComplete: value.isComplete,
+    participations,
   };
 }
 

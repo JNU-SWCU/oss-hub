@@ -95,6 +95,7 @@ describe('member authority completion negative contract', () => {
       .mockResolvedValue('student-id-taken');
     const repository: UsersRepositoryPort = {
       findByGithubId: jest.fn().mockResolvedValue(student),
+      listParticipationMemberships: jest.fn().mockResolvedValue([]),
       completeProfileIfUnchanged,
       fillStudentId: jest.fn(),
       updateProfileFields: jest.fn(),

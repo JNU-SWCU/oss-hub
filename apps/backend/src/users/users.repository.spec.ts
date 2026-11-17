@@ -1,3 +1,6 @@
+import { PrismaService } from '../platform/prisma.service';
+import { UserTransitionRepository } from './user-transition.repository';
+import { UsersRepository } from './users.repository';
 import { usersRepositoryHarness } from './users.repository.spec-support';
 import { profileRecord } from './member-authority-test-fixtures';
 
@@ -67,4 +70,48 @@ describe('UsersRepository flat profile reads', () => {
       });
     },
   );
+});
+
+describe('UsersRepository participation reads', () => {
+  it('reads only approved, live team memberships of the user, newest program first', async () => {
+    const membership = {
+      team: {
+        name: '합성 팀',
+        leaderId: 'synthetic-user',
+        program: { id: 'program-1', name: '합성 프로그램' },
+      },
+    };
+    const findMany = jest.fn().mockResolvedValue([membership]);
+    const repository = new UsersRepository(
+      Object.assign(new PrismaService(), { teamMember: { findMany } }),
+      new UserTransitionRepository(),
+    );
+
+    await expect(
+      repository.listParticipationMemberships('synthetic-user'),
+    ).resolves.toEqual([membership]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'synthetic-user',
+        team: {
+          status: 'APPROVED',
+          archivedAt: null,
+          program: { lifecycle: { not: 'DELETED' } },
+        },
+      },
+      orderBy: [
+        { team: { program: { startAt: 'desc' } } },
+        { programId: 'asc' },
+      ],
+      select: {
+        team: {
+          select: {
+            name: true,
+            leaderId: true,
+            program: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+  });
 });

@@ -35,7 +35,10 @@ export type AdminAccessControlKind =
   'memberKind' | 'adminAccess' | 'accountStatus';
 
 const LAYOUT = {
-  field: { frame: 'grid gap-2', trigger: 'h-11' },
+  field: {
+    frame: 'flex flex-wrap items-center justify-between gap-x-3 gap-y-2',
+    trigger: 'h-11 w-40',
+  },
   cell: { frame: undefined, trigger: 'h-9 w-28' },
   stacked: {
     frame: 'grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2',
@@ -112,9 +115,9 @@ export function AdminAccessControl({
           : null;
     const reasonId = idPrefix + '-member-kind-reset-reason';
     return (
-      <div className={LAYOUT.field.frame}>
-        {label}
-        <div className="grid min-w-0 max-w-44 gap-2">
+      <>
+        <div className={LAYOUT.field.frame}>
+          {label}
           <div className="flex flex-wrap items-center gap-2">
             {memberKind}
             <Button
@@ -131,16 +134,16 @@ export function AdminAccessControl({
               가입 유형 되돌리기
             </Button>
           </div>
-          {reason ? (
-            <p
-              id={reasonId}
-              className="min-w-0 whitespace-normal break-words text-sm text-muted-foreground"
-            >
-              {reason}
-            </p>
-          ) : null}
         </div>
-      </div>
+        {reason ? (
+          <p
+            id={reasonId}
+            className="min-w-0 whitespace-normal break-words text-sm text-muted-foreground"
+          >
+            {reason}
+          </p>
+        ) : null}
+      </>
     );
   }
   const controls = {

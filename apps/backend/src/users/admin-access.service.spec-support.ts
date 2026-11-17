@@ -181,7 +181,14 @@ export class InMemoryAdminAccessRepository
   findById(): Promise<AdminAccessUserDetailRow | null> {
     const target = this.authoritativeTarget ?? this.target;
     return Promise.resolve(
-      target ? { ...target, staffNumber: null, adminGrant: null } : null,
+      target
+        ? {
+            ...target,
+            staffNumber: null,
+            adminGrant: null,
+            participationMemberships: [],
+          }
+        : null,
     );
   }
   listStaffAccessRequestHistory(

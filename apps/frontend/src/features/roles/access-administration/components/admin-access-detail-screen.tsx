@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AdminAccessDetailData } from '../admin-access-detail-api';
 import { adminAccessDetailKey, invalidateAdminAccess } from '../queries';
-import type { AccessWorkspace } from '../admin-access-list-query';
+import {
+  accessListPath,
+  type AccessWorkspace,
+} from '../admin-access-list-query';
 import {
   adminAccessMutationSuccessMessage,
   applyAdminAccessConflictProjection,
@@ -13,6 +16,7 @@ import {
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
 import { runAdminAccessMutation } from '../admin-access-mutation-outcome';
+import { useAdminAccessUrlState } from '../admin-access-url-state';
 import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 import { useAdminAccessDetailState } from './use-admin-access-detail-state';
 import { AdminAccessDetailContentForState } from './admin-access-detail-content';
@@ -29,6 +33,7 @@ function AdminAccessDetailScreenForUser({
   readonly workspace?: AccessWorkspace;
 }) {
   const client = useQueryClient();
+  const { listSearch } = useAdminAccessUrlState(workspace);
   const { state, retry, historyLoading, historyError, changeHistoryPage } =
     useAdminAccessDetailState(userId);
 
@@ -174,6 +179,11 @@ function AdminAccessDetailScreenForUser({
       mutation={mutation}
       layoutContext={layoutContext}
       workspace={workspace}
+      listHref={
+        listSearch
+          ? `${accessListPath(workspace)}?${listSearch}`
+          : accessListPath(workspace)
+      }
       historyLoading={historyLoading}
       historyError={historyError}
       onStaffAccessRequestPageChange={(page) =>

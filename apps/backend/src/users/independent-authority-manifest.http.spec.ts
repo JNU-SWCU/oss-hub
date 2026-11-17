@@ -50,6 +50,7 @@ const detail = {
     department: '인공지능학부',
     isComplete: true,
   },
+  participations: [],
 };
 function createPatchBody(command: string): string {
   return JSON.stringify({ command });

@@ -20,15 +20,20 @@ import {
 } from '../admin-access-mutation-policy';
 import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 import { AdminAccessControl } from './admin-access-controls';
+import type { DetailHeadingTag } from './admin-access-detail-layout';
+
+const CONTROL_ROW_CLASS_NAME = 'grid gap-2 py-3 first:pt-0 last:pb-0';
 
 interface AdminAccessMutationActionsProps {
   readonly detail: CanonicalAdminAccessDetail;
+  readonly headingTag?: DetailHeadingTag;
   readonly processingAction: AdminAccessMutationAction | null;
   readonly onRequestAction: (action: AdminAccessMutationAction) => void;
 }
 
 export function AdminAccessMutationActions({
   detail,
+  headingTag: HeadingTag = 'h2',
   processingAction,
   onRequestAction,
 }: AdminAccessMutationActionsProps) {
@@ -41,17 +46,22 @@ export function AdminAccessMutationActions({
   } as const;
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
-        <CardTitle>접근 변경</CardTitle>
-        <CardDescription>
-          가입 유형을 확인하고 관리자 접근과 계정 상태를 변경합니다.
-        </CardDescription>
+        <CardTitle>
+          <HeadingTag>접근 변경</HeadingTag>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-6">
-        <AdminAccessControl kind="memberKind" {...controlProps} />
-        <AdminAccessControl kind="adminAccess" {...controlProps} />
-        <AdminAccessControl kind="accountStatus" {...controlProps} />
+      <CardContent className="divide-y divide-border/50">
+        <div className={CONTROL_ROW_CLASS_NAME}>
+          <AdminAccessControl kind="memberKind" {...controlProps} />
+        </div>
+        <div className={CONTROL_ROW_CLASS_NAME}>
+          <AdminAccessControl kind="adminAccess" {...controlProps} />
+        </div>
+        <div className={CONTROL_ROW_CLASS_NAME}>
+          <AdminAccessControl kind="accountStatus" {...controlProps} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -74,7 +84,7 @@ export function AdminAccessPendingRequestCard({
   const { approvalBlockedReason } = deriveAdminAccessGuards(detail);
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>대기 중인 요청</CardTitle>
         <CardDescription>

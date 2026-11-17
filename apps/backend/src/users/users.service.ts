@@ -20,17 +20,21 @@ import {
   type UpdateProfileFieldsInput,
 } from './users.repository';
 import { type UserProfileRecord } from './profile-validation.config';
+import type { UserParticipation } from './user-participation.config';
 
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
 export interface UserProfile {
+  readonly githubLogin: string;
+  readonly memberKind: MemberKind | null;
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string | null;
   readonly phone: string | null;
   readonly staffNumber: string | null;
   readonly isComplete: boolean;
+  readonly participations: readonly UserParticipation[];
 }
 
 export interface PatchUserProfileInput {
@@ -156,8 +160,8 @@ export class UsersService {
   }
 
   async requireCompleteProfile(githubId: bigint): Promise<void> {
-    const profile = this.toUserProfile(await this.requireUser(githubId));
-    if (!profile.isComplete) {
+    const user = await this.requireUser(githubId);
+    if (!this.userProfileService.isCompleteUserProfile(user)) {
       throw new DomainException(
         USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
       );
@@ -399,14 +403,20 @@ export class UsersService {
     return user;
   }
 
-  private toUserProfile(record: UserProfileRecord): UserProfile {
+  private async toUserProfile(record: UserProfileRecord): Promise<UserProfile> {
     return {
+      githubLogin: record.githubLogin ?? '',
+      memberKind: record.memberKind,
       name: record.name ?? '',
       studentId: record.studentId,
       department: record.department,
       phone: record.phone ?? null,
       staffNumber: record.staffNumber ?? null,
       isComplete: this.userProfileService.isCompleteUserProfile(record),
+      participations: this.userProfileService.participations(
+        record.id,
+        await this.repository.listParticipationMemberships(record.id),
+      ),
     };
   }
 

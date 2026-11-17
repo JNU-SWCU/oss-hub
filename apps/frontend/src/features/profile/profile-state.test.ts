@@ -99,12 +99,15 @@ describe('profile onboarding state', () => {
   it('목록 밖의 저장 학과는 기타 직접 입력으로 프리필한다', () => {
     expect(
       createInitialProfileForm({
+        githubLogin: 'synthetic-login',
+        memberKind: 'STUDENT',
         name: '합성 사용자',
         studentId: null,
         staffNumber: null,
         department: '합성 융합전공',
         phone: null,
         isComplete: false,
+        participations: [],
       }),
     ).toMatchObject({
       departmentOption: OTHER_DEPARTMENT,
@@ -117,12 +120,15 @@ describe('profile onboarding state', () => {
     expect(
       getProfileRedirect(
         {
+          githubLogin: 'synthetic-login',
+          memberKind: 'STUDENT',
           name: '합성 사용자',
           studentId: '1'.repeat(6),
           staffNumber: null,
           department: '인공지능학부',
           phone: TEN_DIGIT_PHONE,
           isComplete: true,
+          participations: [],
         },
         'STUDENT',
         nextPath,
@@ -131,12 +137,15 @@ describe('profile onboarding state', () => {
     expect(
       getProfileRedirect(
         {
+          githubLogin: 'synthetic-login',
+          memberKind: 'STUDENT',
           name: 'GitHub 합성 이름',
           studentId: null,
           staffNumber: null,
           department: null,
           phone: null,
           isComplete: false,
+          participations: [],
         },
         'STUDENT',
         nextPath,

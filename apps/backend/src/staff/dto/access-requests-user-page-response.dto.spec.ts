@@ -95,6 +95,14 @@ describe('access request response DTO allowlists', () => {
         department: '소프트웨어공학과',
         isComplete: true,
       },
+      participations: [
+        {
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          teamName: '합성 팀',
+          isLeader: true,
+        },
+      ],
     });
     const history = AccessRequestsUserHistoryResponseDto.from({
       staffAccessRequests: {
@@ -135,6 +143,14 @@ describe('access request response DTO allowlists', () => {
       createdAt: ACCOUNT_CREATED_AT.toISOString(),
     });
     expect(detail.profile.studentId).toBe('123456');
+    expect(detail.participations).toEqual([
+      {
+        programId: 'program-1',
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        isLeader: true,
+      },
+    ]);
     expect(history.staffAccessRequests.items[0]?.createdAt).toBe(
       PENDING_AT.toISOString(),
     );

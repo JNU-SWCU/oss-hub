@@ -17,15 +17,10 @@ export function detailRootTag(
   return layoutContext === 'overlay' ? 'div' : 'main';
 }
 
-export function detailHeadingTags(
+export function detailSectionHeadingTag(
   layoutContext: AdminAccessDetailLayoutContext,
-): {
-  readonly title: 'h1' | 'h2';
-  readonly section: DetailHeadingTag;
-} {
-  return layoutContext === 'overlay'
-    ? { title: 'h2', section: 'h3' }
-    : { title: 'h1', section: 'h2' };
+): DetailHeadingTag {
+  return layoutContext === 'overlay' ? 'h3' : 'h2';
 }
 
 export function detailRootClassName(
@@ -49,7 +44,7 @@ export function AdminAccessDetailLoading({
     <Root
       className={detailRootClassName(
         layoutContext,
-        'mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8',
+        'mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8',
       )}
     >
       <Skeleton

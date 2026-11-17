@@ -1,3 +1,5 @@
+import type { UserParticipation } from '@/lib/user-participation';
+
 export type AdminAccessRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 export type AdminAccessRoleFilter = 'UNASSIGNED' | AdminAccessRole;
 export type AdminAccessAccountStatus = 'ACTIVE' | 'DEACTIVATED';
@@ -70,6 +72,7 @@ export interface AdminAccessProfile {
 
 export interface AdminAccessDetail extends AdminAccessListItem {
   readonly profile: AdminAccessProfile;
+  readonly participations: readonly UserParticipation[];
 }
 
 export interface AdminAccessStaffAccessRequestHistoryItem {

@@ -1,5 +1,6 @@
 import { StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
+import { CardTitle } from '@/components/ui/card';
 import type {
   AdminAccessLoginHistoryItem,
   AdminAccessStaffAccessRequestHistoryItem,
@@ -31,6 +32,7 @@ function HistoryPaginationControls({
   readonly isLoading: boolean;
   readonly onPageChange: (page: number) => void;
 }) {
+  if (totalPages <= 1 && page <= 1) return null;
   return (
     <div className="flex items-center justify-end gap-3 text-sm">
       <span>
@@ -79,24 +81,23 @@ export function StaffAccessRequestHistorySection({
       aria-labelledby="admin-access-role-request-history"
       className="grid gap-3"
     >
-      <HeadingTag
-        id="admin-access-role-request-history"
-        className="font-heading text-lg font-semibold"
-      >
-        요청 이력
-      </HeadingTag>
+      <CardTitle>
+        <HeadingTag id="admin-access-role-request-history">
+          요청 이력
+        </HeadingTag>
+      </CardTitle>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           역할 요청 이력이 없습니다.
         </p>
       ) : (
-        <ul className="grid gap-2">
+        <ul className="divide-y divide-border/50">
           {items.map((request) => {
             const status = ROLE_REQUEST_STATUS[request.status];
             return (
               <li
                 key={request.id}
-                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-sm"
+                className="grid gap-1 py-2 text-sm first:pt-0 last:pb-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge variant={status.variant}>
@@ -145,26 +146,23 @@ export function LoginHistorySection({
       aria-labelledby="admin-access-login-history"
       className="grid gap-3"
     >
-      <HeadingTag
-        id="admin-access-login-history"
-        className="font-heading text-lg font-semibold"
-      >
-        로그인 이력
-      </HeadingTag>
+      <CardTitle>
+        <HeadingTag id="admin-access-login-history">로그인 이력</HeadingTag>
+      </CardTitle>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">로그인 이력이 없습니다.</p>
       ) : (
-        <ul className="grid gap-2">
+        <ul className="divide-y divide-border/50">
           {items.map((event) => (
             <li
               key={event.id}
-              className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0"
             >
               <StatusBadge variant={event.success ? 'approved' : 'rejected'}>
                 {event.event === 'LOGIN' ? '로그인' : '로그아웃'}
                 {event.success ? '' : ' 실패'}
               </StatusBadge>
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground tabular-nums">
                 {formatAdminAccessDateTime(event.loginAt)}
               </span>
             </li>

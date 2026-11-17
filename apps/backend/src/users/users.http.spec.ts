@@ -27,17 +27,23 @@ const validBody = {
 };
 const completeProfile = { ...validBody, isComplete: true };
 const completeProfileResponse = {
+  githubLogin: 'synthetic-login',
+  memberKind: 'STUDENT',
   ...completeProfile,
   staffNumber: null,
+  participations: [],
 };
 const usersService = {
   getMyProfile: jest.fn().mockResolvedValue({
+    githubLogin: 'synthetic-login',
+    memberKind: 'STUDENT',
     name: 'GitHub 합성 이름',
     studentId: null,
     department: null,
     phone: null,
     staffNumber: null,
     isComplete: false,
+    participations: [],
   }),
   completeMyProfile: jest.fn().mockResolvedValue(completeProfileResponse),
   patchMyProfile: jest.fn().mockResolvedValue(completeProfileResponse),

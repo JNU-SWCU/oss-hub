@@ -31,3 +31,4 @@ export { FailureState } from './failure-state';
 
 export { AppShell } from './app-shell';
 export { StatusMessagePage } from './status-message-page';
+export { UserProfileCard } from './user-profile-card';

@@ -74,7 +74,7 @@ export function AdminAccessUserCell({
       <Link
         href={accessDetailPath(workspace, item.id, listSearch)}
         className="line-clamp-2 break-all font-medium underline-offset-2 hover:underline"
-        scroll={false}
+        scroll={!isQueue}
       >
         {item.name ?? '이름 미등록'}
       </Link>

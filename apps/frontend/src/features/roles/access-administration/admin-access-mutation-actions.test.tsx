@@ -40,6 +40,7 @@ function detail(
       staffNumber: null,
       isComplete: true,
     },
+    participations: [],
     ...overrides,
   };
 }
