@@ -74,7 +74,7 @@ For an account that has not completed registration, with membership type `미지
 <Success>
 A notification such as `…님에 대한 가입 유형 되돌리기 처리를 완료했습니다.` (Registration type has been reset for …) includes the GitHub ID and action, and the screen shows the new values. Action names are `가입 유형 되돌리기` (Reset registration type), `관리자 접근 허용` (Grant administrator access), and `관리자 접근 회수` (Revoke administrator access). A reset account's membership type becomes `미지정` (Unassigned).
 
-The [audit log](/oss-hub/en/admin/audit-log/) records a reset as `역할 변경` (Role change) and administrator access grants and revocations as `기타 작업` (Other action). Details for `기타 작업` (Other action) show English action names such as `GRANT_ADMIN_ACCESS` as-is.
+The [audit log](/oss-hub/en/admin/audit-log/) records a reset as `회원 유형 변경` (Membership type change). Administrator access grants and revocations appear as `관리자 권한 부여` (Grant administrator permission) and `관리자 권한 회수` (Revoke administrator permission).
 </Success>
 
 <Recover title="If a control is locked or a change is rejected">
