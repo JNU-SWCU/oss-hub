@@ -19,6 +19,7 @@ import { FormSection } from '@/components/form-section';
 import { cn } from '@/lib/utils';
 import type { EditableProgram } from './dto';
 import {
+  teamSizeValue,
   type ProgramEditableField,
   type ProgramEditErrors,
   type ProgramEditFieldValue,
@@ -83,7 +84,8 @@ function TeamSizeStepper({
   readonly invalid: boolean;
   readonly onChange: (value: string) => void;
 }) {
-  const size = Number.parseInt(value, 10);
+  const parsed = teamSizeValue(value);
+  const size = parsed !== null && Number.isFinite(parsed) ? parsed : Number.NaN;
   return (
     <div className={TEAM_STEPPER_CLASS}>
       <Button
@@ -93,7 +95,9 @@ function TeamSizeStepper({
         className={TEAM_STEPPER_BUTTON_CLASS}
         aria-label={`${label} 줄이기`}
         disabled={!(size > TEAM_SIZE_FLOOR)}
-        onClick={() => onChange(String(size - 1))}
+        onClick={() =>
+          onChange(String(Math.max(TEAM_SIZE_FLOOR, Math.ceil(size) - 1)))
+        }
       >
         <Minus aria-hidden="true" />
       </Button>
@@ -115,7 +119,11 @@ function TeamSizeStepper({
         className={TEAM_STEPPER_BUTTON_CLASS}
         aria-label={`${label} 늘리기`}
         onClick={() =>
-          onChange(String(size >= TEAM_SIZE_FLOOR ? size + 1 : TEAM_SIZE_FLOOR))
+          onChange(
+            String(
+              size >= TEAM_SIZE_FLOOR ? Math.floor(size) + 1 : TEAM_SIZE_FLOOR,
+            ),
+          )
         }
       >
         <Plus aria-hidden="true" />

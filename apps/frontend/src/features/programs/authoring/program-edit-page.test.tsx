@@ -378,6 +378,17 @@ describe('ProgramEditPage 컴포넌트', () => {
     return input;
   }
 
+  async function typeTeamSize(bound: 'min' | 'max', text: string) {
+    const input = teamSizeInput(bound);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(input, text);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
   async function renderLoadedPage() {
     await act(async () => {
       root.render(
@@ -927,19 +938,52 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
     await renderLoadedPage();
-    const maximum = teamSizeInput('max');
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        'value',
-      )?.set?.call(maximum, '');
-      maximum.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    await typeTeamSize('max', '');
     expect(teamSizeInput('max').value).toBe('');
     expect(labelledButton('최대 인원 줄이기').disabled).toBe(true);
 
     await act(async () => labelledButton('최대 인원 늘리기').click());
     expect(teamSizeInput('max').value).toBe('1');
+  });
+
+  it('지수 표기로 적은 인원도 저장과 같은 숫자로 읽어 한 명씩 늘리고 줄인다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramMock.mockResolvedValue(editableProgram);
+
+    await renderLoadedPage();
+    await typeTeamSize('max', '1e1');
+    expect(teamSizeInput('max').value).toBe('1e1');
+
+    await act(async () => labelledButton('최대 인원 늘리기').click());
+    expect(teamSizeInput('max').value).toBe('11');
+
+    await typeTeamSize('max', '1e1');
+    await act(async () => labelledButton('최대 인원 줄이기').click());
+    expect(teamSizeInput('max').value).toBe('9');
+
+    await saveProgram();
+    expect(updateProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      expect.objectContaining({ teamMaxSize: 9 }),
+    );
+  });
+
+  it('소수로 적은 인원은 늘리거나 줄이면 가까운 정수로 맞춘다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await renderLoadedPage();
+    await typeTeamSize('max', '2.5');
+    await act(async () => labelledButton('최대 인원 줄이기').click());
+    expect(teamSizeInput('max').value).toBe('2');
+
+    await typeTeamSize('max', '2.5');
+    await act(async () => labelledButton('최대 인원 늘리기').click());
+    expect(teamSizeInput('max').value).toBe('3');
+
+    await typeTeamSize('min', '1.5');
+    await act(async () => labelledButton('최소 인원 줄이기').click());
+    expect(teamSizeInput('min').value).toBe('1');
+    expect(labelledButton('최소 인원 줄이기').disabled).toBe(true);
   });
 
   it('마일스톤 편집기에 저장 안 한 입력이 있으면 나가기가 확인창을 거친다', async () => {
