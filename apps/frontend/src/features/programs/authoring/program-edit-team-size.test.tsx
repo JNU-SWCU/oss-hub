@@ -55,8 +55,8 @@ const viewProps = {
   onCancelDelete: noOp,
 };
 
-describe('개인형 유형 프로그램의 팀 인원 (#936)', () => {
-  it('수정 화면이 참여 유형과 무관하게 팀 인원 칸을 보여 준다', () => {
+describe('개인형 유형 프로그램의 인원 (#936)', () => {
+  it('수정 화면이 참여 유형과 무관하게 인원 칸을 보여 준다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         onCoverChange={() => undefined}
@@ -75,7 +75,7 @@ describe('개인형 유형 프로그램의 팀 인원 (#936)', () => {
     expect(html).toContain('value="5"');
   });
 
-  it('저장 payload가 개인형 프로그램의 팀 인원도 그대로 싣는다', () => {
+  it('저장 payload가 개인형 프로그램의 인원도 그대로 싣는다', () => {
     const form = toProgramEditForm(individualProgram);
 
     const input = buildProgramEditInput(form, []);
