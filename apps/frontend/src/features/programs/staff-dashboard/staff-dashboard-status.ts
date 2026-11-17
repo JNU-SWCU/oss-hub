@@ -22,36 +22,3 @@ export function getStaffProgramRecruitmentState(
     now,
   );
 }
-
-export interface StaffDashboardStatusSummary {
-  readonly recruiting: number;
-  readonly inProgress: number;
-  readonly ended: number;
-}
-
-export function summarizeStaffDashboardStatuses(
-  programs: readonly StaffDashboardProgramSummary[],
-  now: Date,
-): StaffDashboardStatusSummary {
-  let recruiting = 0;
-  let inProgress = 0;
-  let ended = 0;
-
-  for (const program of programs) {
-    switch (getStaffProgramRecruitmentState(program, now)) {
-      case 'recruiting':
-        recruiting += 1;
-        break;
-      case 'in_progress':
-        inProgress += 1;
-        break;
-      case 'ended':
-        ended += 1;
-        break;
-      case 'upcoming':
-        break;
-    }
-  }
-
-  return { recruiting, inProgress, ended };
-}

@@ -4925,7 +4925,55 @@
     "/api/v1/dashboard/staff/summary": {
       "get": {
         "operationId": "StaffDashboardController_summary",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "default": "",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "recruiting",
+                "in_progress",
+                "upcoming",
+                "ended"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -13183,10 +13231,30 @@
             "items": {
               "$ref": "#/components/schemas/StaffDashboardProgramSummaryResponseDto"
             }
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "catalogTotal": {
+            "type": "number"
+          },
+          "statusSummary": {
+            "$ref": "#/components/schemas/StaffDashboardStatusSummaryResponseDto"
           }
         },
         "required": [
-          "programs"
+          "programs",
+          "page",
+          "pageSize",
+          "total",
+          "catalogTotal",
+          "statusSummary"
         ]
       },
       "StaffInsightsScopeResponseDto": {
@@ -14190,6 +14258,25 @@
         "required": [
           "staffAccessRequests",
           "loginHistory"
+        ]
+      },
+      "StaffDashboardStatusSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "recruiting": {
+            "type": "number"
+          },
+          "inProgress": {
+            "type": "number"
+          },
+          "ended": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "recruiting",
+          "inProgress",
+          "ended"
         ]
       }
     }

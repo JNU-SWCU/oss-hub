@@ -49,8 +49,23 @@ export function staffDashboardProgram(
   };
 }
 
-export const staffDashboardSummary: StaffDashboardSummary = {
-  programs: [
+export function staffDashboardSummaryOf(
+  programs: readonly StaffDashboardProgramSummary[],
+  overrides: Partial<StaffDashboardSummary> = {},
+): StaffDashboardSummary {
+  return {
+    programs,
+    page: 1,
+    pageSize: 20,
+    total: programs.length,
+    catalogTotal: programs.length,
+    statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
+    ...overrides,
+  };
+}
+
+export const staffDashboardSummary: StaffDashboardSummary =
+  staffDashboardSummaryOf([
     staffDashboardProgram({ id: 'program:basic', name: '기본 프로그램' }),
     staffDashboardProgram({
       id: 'program:empty-activity',
@@ -117,5 +132,4 @@ export const staffDashboardSummary: StaffDashboardSummary = {
         rejected: 0,
       },
     }),
-  ],
-};
+  ]);

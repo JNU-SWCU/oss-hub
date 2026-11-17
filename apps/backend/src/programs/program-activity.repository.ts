@@ -1,71 +1,65 @@
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
-export interface ProgramRepositoryLink {
+export interface ProgramActivitySummaryRow {
   readonly programId: string;
-  readonly githubRepositoryId: bigint;
-}
-
-export interface ProgramActivitySummaryDataSource {
-  readonly teamRepo: {
-    findMany(args: {
-      readonly take: number;
-      readonly where: {
-        readonly validTo: null;
-        readonly team: { readonly programId: { readonly in: string[] } };
-      };
-      readonly select: {
-        readonly team: { readonly select: { readonly programId: true } };
-        readonly repoId: true;
-      };
-    }): Promise<
-      readonly {
-        team: { programId: string };
-        repoId: bigint;
-      }[]
-    >;
-  };
+  readonly repositoryCount: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly lastActivityAt: Date | null;
+  readonly dataAsOf: Date | null;
 }
 
 @Injectable()
 export class ProgramActivitySummaryRepository {
-  private readonly boundedReads = new BoundedReadRepository();
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(
-    @Inject(PrismaService)
-    private readonly prisma: ProgramActivitySummaryDataSource,
-  ) {}
-
-  async findRepositoryLinks(
+  async summarizePrograms(
     programIds: readonly string[],
-  ): Promise<readonly ProgramRepositoryLink[]> {
+  ): Promise<readonly ProgramActivitySummaryRow[]> {
     if (programIds.length === 0) return [];
-    const rows = await this.boundedReads.readCapped(
-      READ_CAP.teamsPerProgram * READ_CAP.reposPerTeam * programIds.length,
-      'TeamRepo per program',
-      (take) =>
-        this.prisma.teamRepo.findMany({
-          take,
-          where: {
-            validTo: null,
-            team: { programId: { in: [...programIds] } },
-          },
-          select: {
-            team: { select: { programId: true } },
-            repoId: true,
-          },
-        }),
-    );
-
-    return rows.map((row) => ({
-      programId: row.team.programId,
-      githubRepositoryId: row.repoId,
-    }));
+    return this.prisma.$queryRaw<ProgramActivitySummaryRow[]>`
+      WITH links AS (
+        SELECT team."programId" AS program_id, link.repo_id
+        FROM "team_repo" AS link
+        JOIN "Team" AS team ON team."id" = link.team_id
+        WHERE link.valid_to IS NULL
+          AND team."programId" IN (${Prisma.join(programIds)})
+      ),
+      activity AS (
+        SELECT
+          event.repo_id,
+          (COUNT(*) FILTER (WHERE event.kind = 'commit'))::int AS commits,
+          (COUNT(*) FILTER (WHERE event.kind = 'pull_request'))::int AS pull_requests,
+          (COUNT(*) FILTER (WHERE event.kind = 'release'))::int AS releases,
+          MAX(event.occurred_at) FILTER (
+            WHERE event.kind IN ('commit', 'pull_request', 'release')
+          ) AS last_activity_at
+        FROM "contribution" AS event
+        WHERE event.repo_id IN (SELECT repo_id FROM links)
+          AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
+        GROUP BY event.repo_id
+      )
+      SELECT
+        links.program_id AS "programId",
+        COUNT(*)::int AS "repositoryCount",
+        COALESCE(SUM(activity.commits) FILTER (WHERE repo.github_repo_id IS NOT NULL), 0)::int AS "commitCount",
+        COALESCE(SUM(activity.pull_requests) FILTER (WHERE repo.github_repo_id IS NOT NULL), 0)::int AS "pullRequestCount",
+        COALESCE(SUM(activity.releases) FILTER (WHERE repo.github_repo_id IS NOT NULL), 0)::int AS "releaseCount",
+        MAX(activity.last_activity_at) FILTER (WHERE repo.github_repo_id IS NOT NULL) AS "lastActivityAt",
+        MAX(repo.last_success_at) AS "dataAsOf"
+      FROM links
+      LEFT JOIN "repo" AS repo ON repo.github_repo_id = links.repo_id
+      LEFT JOIN activity ON activity.repo_id = links.repo_id
+      GROUP BY links.program_id
+      LIMIT ${programIds.length}
+    `;
   }
 }
 

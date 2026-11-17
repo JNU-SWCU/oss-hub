@@ -13,6 +13,7 @@ import {
   type CreatedApplication,
   type StaffApplicationDetail,
   type StaffDashboardSummary,
+  type StaffDashboardSummaryQuery,
   type TeamManagementListPage,
   type CreateApplicationInput,
   type ApplicationDecisionResult,
@@ -642,8 +643,10 @@ export class TeamApplicationService {
     };
   }
 
-  async staffSummary(): Promise<StaffDashboardSummary> {
-    return this.repository.listStaffDashboardSummary();
+  async staffSummary(
+    query: StaffDashboardSummaryQuery,
+  ): Promise<StaffDashboardSummary> {
+    return this.repository.listStaffDashboardSummary(query);
   }
 
   async decide(

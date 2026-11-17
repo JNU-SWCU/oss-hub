@@ -323,7 +323,6 @@ it('counts only the currently linked repository in program totals after a relink
 
   const [summary] = await new ProgramActivitySummaryService(
     new ProgramActivitySummaryRepository(prisma),
-    new ProgramActivityRepository(prisma, new PlatformRepository()),
   ).summarize([programId]);
 
   expect(summary).toMatchObject({
@@ -611,7 +610,6 @@ it('counts only student authors in team, program and public totals', async () =>
   await expect(
     new ProgramActivitySummaryService(
       new ProgramActivitySummaryRepository(prisma),
-      activityRepository,
     ).summarize([scopedProgramId]),
   ).resolves.toEqual([
     {

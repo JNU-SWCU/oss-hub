@@ -89,8 +89,22 @@ describe('StaffDashboardService', () => {
       new ProgramCoverUrlService(),
     );
 
-    const summary = await service.summary();
-    expect(applicationSummary).toHaveBeenCalledWith();
+    const summary = await service.summary(
+      {
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+      },
+      new Date('2026-07-15T00:00:00.000Z'),
+    );
+    expect(applicationSummary).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
+      now: new Date('2026-07-15T00:00:00.000Z'),
+    });
 
     expect(summary.programs[0]).toEqual({
       coverImageUrl: null,
@@ -199,8 +213,24 @@ describe('StaffDashboardService', () => {
       new ProgramCoverUrlService(),
     );
 
-    await expect(service.summary()).rejects.toBe(error);
-    expect(applicationSummary).toHaveBeenCalledWith();
+    await expect(
+      service.summary(
+        {
+          page: 1,
+          pageSize: 20,
+          search: '',
+          status: 'all' as const,
+        },
+        new Date('2026-07-15T00:00:00.000Z'),
+      ),
+    ).rejects.toBe(error);
+    expect(applicationSummary).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
+      now: new Date('2026-07-15T00:00:00.000Z'),
+    });
     expect(summarize).not.toHaveBeenCalled();
     expect(listByProgram).not.toHaveBeenCalled();
   });

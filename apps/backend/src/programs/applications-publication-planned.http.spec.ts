@@ -275,6 +275,11 @@ const teamManagementPage: TeamManagementListPage = {
   totalPages: 1,
 };
 const dashboardSummary: StaffDashboardSummary = {
+  page: 1,
+  pageSize: 20,
+  total: 1,
+  catalogTotal: 1,
+  statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
   programs: [
     {
       coverId: null,
@@ -395,6 +400,11 @@ const teamManagementPageBody = {
   totalPages: 1,
 };
 const summaryBody = {
+  page: 1,
+  pageSize: 20,
+  total: 1,
+  catalogTotal: 1,
+  statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
   programs: [
     {
       coverImageUrl: null,

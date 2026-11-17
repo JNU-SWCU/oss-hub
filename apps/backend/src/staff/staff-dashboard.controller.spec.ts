@@ -50,6 +50,11 @@ describe('StaffDashboardController', () => {
     'maps composed service summary with cover %s into the response DTO',
     async (imageUrl) => {
       const summary = jest.fn().mockResolvedValue({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        catalogTotal: 1,
+        statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
         programs: [
           {
             coverId: 'cover:1',
@@ -96,7 +101,19 @@ describe('StaffDashboardController', () => {
       const insights = { summarizeFromRequest: jest.fn() };
       const controller = new StaffDashboardController(service, insights);
 
-      await expect(controller.summary()).resolves.toEqual({
+      await expect(
+        controller.summary({
+          page: 1,
+          pageSize: 20,
+          search: '',
+          status: 'all',
+        }),
+      ).resolves.toEqual({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        catalogTotal: 1,
+        statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
         programs: [
           {
             coverImageUrl: imageUrl ?? '/programs/program%3A1/cover/cover%3A1',
@@ -138,7 +155,12 @@ describe('StaffDashboardController', () => {
         ],
       });
       expect(summary).toHaveBeenCalledTimes(1);
-      expect(summary).toHaveBeenCalledWith();
+      expect(summary).toHaveBeenCalledWith({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all',
+      });
     },
   );
 

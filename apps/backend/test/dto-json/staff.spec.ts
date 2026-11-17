@@ -294,6 +294,11 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'StaffDashboardSummaryResponseDto',
     () =>
       StaffDashboardSummaryResponseDto.from({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        catalogTotal: 1,
+        statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
         programs: [
           program,
           {

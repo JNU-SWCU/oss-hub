@@ -1,4 +1,5 @@
 import { Controller, Get, Header, Inject, Query } from '@nestjs/common';
+import { StaffDashboardSummaryRequestDto } from './dto/staff-dashboard-summary-request.dto';
 import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-response.dto';
 import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
@@ -34,8 +35,12 @@ export class StaffDashboardController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffListOnly)
-  async summary(): Promise<StaffDashboardSummaryResponseDto> {
-    return StaffDashboardSummaryResponseDto.from(await this.service.summary());
+  async summary(
+    @Query() query: StaffDashboardSummaryRequestDto,
+  ): Promise<StaffDashboardSummaryResponseDto> {
+    return StaffDashboardSummaryResponseDto.from(
+      await this.service.summary(query),
+    );
   }
 
   @Get('insights')

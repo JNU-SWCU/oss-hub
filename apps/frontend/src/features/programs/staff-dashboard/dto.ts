@@ -46,6 +46,17 @@ export interface StaffDashboardProgramSummary {
   readonly submissions: StaffDashboardSubmissionSummary;
 }
 
+export interface StaffDashboardStatusSummary {
+  readonly recruiting: number;
+  readonly inProgress: number;
+  readonly ended: number;
+}
+
 export interface StaffDashboardSummary {
   readonly programs: readonly StaffDashboardProgramSummary[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+  readonly catalogTotal: number;
+  readonly statusSummary: StaffDashboardStatusSummary;
 }

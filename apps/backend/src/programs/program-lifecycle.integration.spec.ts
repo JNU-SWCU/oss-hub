@@ -121,9 +121,15 @@ it.each(['delete', 'purge'] as const)(
       include: { milestones: true },
     });
     expect(
-      (await dashboard.listStaffDashboardSummary()).programs.map(
-        (item) => item.id,
-      ),
+      (
+        await dashboard.listStaffDashboardSummary({
+          page: 1,
+          pageSize: 1000,
+          search: '',
+          status: 'all',
+          now: new Date(),
+        })
+      ).programs.map((item) => item.id),
     ).toContain(program.id);
     await expect(
       deadlineDigest.findAutomaticProgramIds(deadlineWindow),
@@ -166,9 +172,15 @@ it.each(['delete', 'purge'] as const)(
     }
     await expect(programs.findProgramDetail(program.id)).resolves.toBeNull();
     expect(
-      (await dashboard.listStaffDashboardSummary()).programs.map(
-        (item) => item.id,
-      ),
+      (
+        await dashboard.listStaffDashboardSummary({
+          page: 1,
+          pageSize: 1000,
+          search: '',
+          status: 'all',
+          now: new Date(),
+        })
+      ).programs.map((item) => item.id),
     ).not.toContain(program.id);
     await expect(
       deadlineDigest.findAutomaticProgramIds(deadlineWindow),

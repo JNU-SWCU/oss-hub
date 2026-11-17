@@ -131,6 +131,10 @@ export class ProgramListStatusFilterRepository {
     return whereByStatus[status];
   }
 
+  programListStatusSql(now: Date): Prisma.Sql {
+    return programListStatusCaseSql(now);
+  }
+
   programListSqlStatusPredicate(
     status: ProgramListQueryStatus,
     now: Date,

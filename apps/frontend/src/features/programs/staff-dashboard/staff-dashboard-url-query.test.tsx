@@ -8,6 +8,7 @@ import {
 import { StaffDashboardPage } from './staff-dashboard-page';
 import type { StaffDashboardPageViewState } from './staff-dashboard-page-view';
 import { getStaffDashboardSummary } from './api';
+import { staffDashboardSummaryOf } from './staff-dashboard-test-fixtures';
 
 vi.mock('next/navigation', () => ({
   useSearchParams: useTestSearchParams,
@@ -44,7 +45,7 @@ beforeEach(() => {
   root = createListScreenRoot(container);
   vi.mocked(getStaffDashboardSummary)
     .mockReset()
-    .mockResolvedValue({ programs: [] });
+    .mockResolvedValue(staffDashboardSummaryOf([]));
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 });
 afterEach(async () => {
@@ -53,14 +54,23 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-it('restores URL filters without refetching the unfiltered summary for local paging', async () => {
+it('restores URL filters and asks the server for each page', async () => {
   listNavigation.search = 'search=x&status=ended&page=2';
   await act(async () => root.render(<StaffDashboardPage />));
   expect(ready().search).toBe('x');
   expect(ready().status).toBe('ended');
   await act(async () => ready().actions.onPageChange(3));
   expect(listNavigation.search).toBe('search=x&status=ended&page=3');
-  expect(getStaffDashboardSummary).toHaveBeenCalledTimes(1);
+  expect(getStaffDashboardSummary).toHaveBeenNthCalledWith(1, {
+    search: 'x',
+    status: 'ended',
+    page: 2,
+  });
+  expect(getStaffDashboardSummary).toHaveBeenLastCalledWith({
+    search: 'x',
+    status: 'ended',
+    page: 3,
+  });
 });
 
 it('reset cancels uncommitted debounced search instead of restoring it later', async () => {

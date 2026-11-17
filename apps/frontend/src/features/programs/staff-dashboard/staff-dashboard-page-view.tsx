@@ -142,7 +142,7 @@ function StaffDashboardReadyState({
         <>
           <StaffDashboardOverview
             programs={model.pageItems}
-            totalPrograms={model.filteredPrograms.length}
+            totalPrograms={model.total}
             now={state.now}
           />
           <ProgramListPagination

@@ -21,6 +21,10 @@ import {
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
+  ProgramListStatusFilterRepository,
+  type ProgramListQueryStatus,
+} from './programs.repository';
+import {
   RepositoryProvisionGenerationRepository,
   type RepositoryProvisionHistoryPayloadParser,
 } from '../platform/repository-provision-generation.repository';
@@ -614,8 +618,65 @@ export interface StaffDashboardProgramSummary {
   readonly teamManagementPath: string;
 }
 
+interface StaffDashboardStatusSummary {
+  readonly recruiting: number;
+  readonly inProgress: number;
+  readonly ended: number;
+}
+
 export interface StaffDashboardSummary {
   readonly programs: readonly StaffDashboardProgramSummary[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+  readonly catalogTotal: number;
+  readonly statusSummary: StaffDashboardStatusSummary;
+}
+
+export interface StaffDashboardSummaryQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: StaffDashboardStatusFilter;
+  readonly now: Date;
+}
+
+export type StaffDashboardStatusFilter = Exclude<
+  ProgramListQueryStatus,
+  'current'
+>;
+
+type StaffDashboardTotalsRow = StaffDashboardStatusSummary & {
+  readonly total: number;
+  readonly catalogTotal: number;
+};
+
+interface StaffDashboardProgramRow {
+  readonly id: string;
+  readonly name: string;
+  readonly trackType: ProgramTrackType | null;
+  readonly coverFileId: string | null;
+  readonly coverImageUrl: string | null;
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+  readonly endAt: Date;
+}
+
+const PROGRAM_TRACK_TYPE_LABELS = {
+  CURRICULAR: '교과',
+  EXTRACURRICULAR: '비교과',
+} as const satisfies Record<ProgramTrackType, string>;
+
+function staffDashboardSearchSql(search: string): Prisma.Sql {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return Prisma.empty;
+  const trackTypes = Object.entries(PROGRAM_TRACK_TYPE_LABELS)
+    .filter(([, label]) => label.includes(needle))
+    .map(([trackType]) => trackType);
+  return Prisma.sql`AND (
+    strpos(lower(p."name"), ${needle}) > 0
+    OR p."trackType"::text = ANY(${trackTypes}::text[])
+  )`;
 }
 
 type ApplicationWithProgram = PrismaTypes.TeamGetPayload<{
@@ -1024,34 +1085,54 @@ export class ApplicationsRepository {
     };
   }
 
-  async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
-    const programs = await this.boundedReads.readCapped(
-      READ_CAP.programs,
-      'Program',
-      (take) =>
-        this.prisma.program.findMany({
-          take,
-          where: { lifecycle: { not: 'DELETED' } },
-          orderBy: [
-            { applicationStartAt: 'desc' },
-            { name: 'asc' },
-            { id: 'asc' },
-          ],
-          select: {
-            coverFileId: true,
-            coverImageUrl: true,
-            id: true,
-            name: true,
-            trackType: true,
-            applicationStartAt: true,
-            applicationEndAt: true,
-            endAt: true,
-          },
-        }),
+  async listStaffDashboardSummary(
+    query: StaffDashboardSummaryQuery,
+  ): Promise<StaffDashboardSummary> {
+    const status = new ProgramListStatusFilterRepository().programListStatusSql(
+      query.now,
     );
+    const filter = Prisma.sql`
+      ${staffDashboardSearchSql(query.search)}
+      ${query.status === 'all' ? Prisma.empty : Prisma.sql`AND (${status}) = ${query.status}`}
+    `;
+    const [totals] = await this.prisma.$queryRaw<StaffDashboardTotalsRow[]>`
+      SELECT
+        (COUNT(*) FILTER (WHERE TRUE ${filter}))::int AS total,
+        COUNT(*)::int AS "catalogTotal",
+        (COUNT(*) FILTER (WHERE (${status}) = 'recruiting'))::int AS recruiting,
+        (COUNT(*) FILTER (WHERE (${status}) = 'in_progress'))::int AS "inProgress",
+        (COUNT(*) FILTER (WHERE (${status}) = 'ended'))::int AS ended
+      FROM "Program" AS p
+      WHERE p."lifecycle" <> 'DELETED'
+    `;
+    const total = totals?.total ?? 0;
+    const page = Math.min(
+      query.page,
+      Math.max(1, Math.ceil(total / query.pageSize)),
+    );
+    const programs = await this.prisma.$queryRaw<StaffDashboardProgramRow[]>`
+      SELECT p."id", p."name", p."trackType"::text AS "trackType",
+        p."coverFileId", p."coverImageUrl", p."applicationStartAt",
+        p."applicationEndAt", p."endAt"
+      FROM "Program" AS p
+      WHERE p."lifecycle" <> 'DELETED' ${filter}
+      ORDER BY p."applicationStartAt" DESC, p."name" ASC, p."id" ASC
+      LIMIT ${query.pageSize} OFFSET ${(page - 1) * query.pageSize}
+    `;
+    const pageInfo = {
+      page,
+      pageSize: query.pageSize,
+      total,
+      catalogTotal: totals?.catalogTotal ?? 0,
+      statusSummary: {
+        recruiting: totals?.recruiting ?? 0,
+        inProgress: totals?.inProgress ?? 0,
+        ended: totals?.ended ?? 0,
+      },
+    };
 
     if (programs.length === 0) {
-      return { programs: [] };
+      return { programs: [], ...pageInfo };
     }
 
     const counts = await this.prisma.team.groupBy({
@@ -1098,6 +1179,7 @@ export class ApplicationsRepository {
     }
 
     return {
+      ...pageInfo,
       programs: programs.map((program) => {
         const applications: StaffDashboardApplicationCounts =
           countsByProgram.get(program.id) ?? {

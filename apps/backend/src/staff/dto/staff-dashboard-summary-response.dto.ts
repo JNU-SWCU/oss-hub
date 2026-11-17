@@ -116,13 +116,41 @@ export class StaffDashboardProgramSummaryResponseDto {
   }
 }
 
+export class StaffDashboardStatusSummaryResponseDto {
+  declare readonly recruiting: number;
+  declare readonly inProgress: number;
+  declare readonly ended: number;
+
+  static from(
+    summary: StaffDashboardComposedSummary['statusSummary'],
+  ): StaffDashboardStatusSummaryResponseDto {
+    return {
+      recruiting: summary.recruiting,
+      inProgress: summary.inProgress,
+      ended: summary.ended,
+    };
+  }
+}
+
 export class StaffDashboardSummaryResponseDto {
   declare readonly programs: StaffDashboardProgramSummaryResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+  declare readonly total: number;
+  declare readonly catalogTotal: number;
+  declare readonly statusSummary: StaffDashboardStatusSummaryResponseDto;
 
   static from(
     summary: StaffDashboardComposedSummary,
   ): StaffDashboardSummaryResponseDto {
     return {
+      page: summary.page,
+      pageSize: summary.pageSize,
+      total: summary.total,
+      catalogTotal: summary.catalogTotal,
+      statusSummary: StaffDashboardStatusSummaryResponseDto.from(
+        summary.statusSummary,
+      ),
       programs: summary.programs.map((program) =>
         StaffDashboardProgramSummaryResponseDto.from(program),
       ),

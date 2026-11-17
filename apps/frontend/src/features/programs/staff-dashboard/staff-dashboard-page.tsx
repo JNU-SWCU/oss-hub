@@ -42,7 +42,7 @@ export function StaffDashboardPage(): ReactElement {
     search,
     replaceSearch,
   );
-  const query = useStaffDashboardQuery();
+  const query = useStaffDashboardQuery({ search, status, page });
   const loadState: LoadState = query.isPending
     ? { kind: 'loading' }
     : query.isError
@@ -65,13 +65,9 @@ export function StaffDashboardPage(): ReactElement {
     );
   }
 
-  const model: StaffDashboardPageModel = buildStaffDashboardPageModel({
-    programs: loadState.summary.programs,
-    search,
-    status,
-    page,
-    now,
-  });
+  const model: StaffDashboardPageModel = buildStaffDashboardPageModel(
+    loadState.summary,
+  );
   const state: StaffDashboardPageViewState = {
     kind: 'ready',
     model,

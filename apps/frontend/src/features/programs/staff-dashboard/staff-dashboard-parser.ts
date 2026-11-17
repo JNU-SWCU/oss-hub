@@ -127,9 +127,28 @@ export function parseStaffDashboardSummary(
   if (
     !isRecord(value) ||
     !Array.isArray(value.programs) ||
-    !value.programs.every(isProgram)
+    !value.programs.every(isProgram) ||
+    !isCount(value.page) ||
+    !isCount(value.pageSize) ||
+    !isCount(value.total) ||
+    !isCount(value.catalogTotal) ||
+    !isRecord(value.statusSummary) ||
+    !isCount(value.statusSummary.recruiting) ||
+    !isCount(value.statusSummary.inProgress) ||
+    !isCount(value.statusSummary.ended)
   ) {
     throw new StaffDashboardResponseError();
   }
-  return { programs: value.programs };
+  return {
+    programs: value.programs,
+    page: value.page,
+    pageSize: value.pageSize,
+    total: value.total,
+    catalogTotal: value.catalogTotal,
+    statusSummary: {
+      recruiting: value.statusSummary.recruiting,
+      inProgress: value.statusSummary.inProgress,
+      ended: value.statusSummary.ended,
+    },
+  };
 }

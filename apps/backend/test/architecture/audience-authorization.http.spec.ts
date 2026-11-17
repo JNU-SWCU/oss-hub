@@ -422,25 +422,26 @@ describe('Audience authorization HTTP characterization', () => {
         },
         {
           provide: ProgramActivitySummaryRepository,
-          useValue: { findRepositoryLinks: () => Promise.resolve([]) },
+          useValue: { summarizePrograms: () => Promise.resolve([]) },
         },
         {
           provide: SubmissionDashboardSummaryRepository,
           useValue: {
-            listRecords: () =>
-              Promise.resolve({
-                applications: [],
-                milestones: [],
-                submissions: [],
-                requirements: [],
-                documentSubmissions: [],
-              }),
+            summarizePrograms: () => Promise.resolve([]),
           },
         },
         {
           provide: ApplicationsRepository,
           useValue: {
-            listStaffDashboardSummary: () => Promise.resolve({ programs: [] }),
+            listStaffDashboardSummary: () =>
+              Promise.resolve({
+                programs: [],
+                page: 1,
+                pageSize: 20,
+                total: 0,
+                catalogTotal: 0,
+                statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
+              }),
             withTransaction: (
               operation: (store: {
                 readonly findApplicationById: () => Promise<null>;

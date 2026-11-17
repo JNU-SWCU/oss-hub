@@ -1,59 +1,29 @@
-import { filterStaffDashboardPrograms } from './staff-dashboard-filters';
-import {
-  summarizeStaffDashboardStatuses,
-  type StaffDashboardStatusSummary,
-} from './staff-dashboard-status';
-import type { ProgramListStatus } from '../catalog/program-list-options';
-import type { StaffDashboardProgramSummary } from './dto';
-
-const PAGE_SIZE = 20;
+import type {
+  StaffDashboardProgramSummary,
+  StaffDashboardStatusSummary,
+  StaffDashboardSummary,
+} from './dto';
 
 export interface StaffDashboardPageModel {
   readonly statusSummary: StaffDashboardStatusSummary;
-  readonly filteredPrograms: readonly StaffDashboardProgramSummary[];
   readonly pageItems: readonly StaffDashboardProgramSummary[];
+  readonly total: number;
   readonly safePage: number;
   readonly totalPages: number;
   readonly isEmptyCatalog: boolean;
   readonly isNoResults: boolean;
 }
 
-interface StaffDashboardPageModelInput {
-  readonly programs: readonly StaffDashboardProgramSummary[];
-  readonly search: string;
-  readonly status: ProgramListStatus;
-  readonly page: number;
-  readonly now: Date;
-}
-
-export function buildStaffDashboardPageModel({
-  programs,
-  search,
-  status,
-  page,
-  now,
-}: StaffDashboardPageModelInput): StaffDashboardPageModel {
-  const filteredPrograms = filterStaffDashboardPrograms(
-    programs,
-    search,
-    status,
-    now,
-  );
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredPrograms.length / PAGE_SIZE),
-  );
-  const safePage = Math.min(page, totalPages);
+export function buildStaffDashboardPageModel(
+  summary: StaffDashboardSummary,
+): StaffDashboardPageModel {
   return {
-    statusSummary: summarizeStaffDashboardStatuses(programs, now),
-    filteredPrograms,
-    pageItems: filteredPrograms.slice(
-      (safePage - 1) * PAGE_SIZE,
-      safePage * PAGE_SIZE,
-    ),
-    safePage,
-    totalPages,
-    isEmptyCatalog: programs.length === 0,
-    isNoResults: programs.length > 0 && filteredPrograms.length === 0,
+    statusSummary: summary.statusSummary,
+    pageItems: summary.programs,
+    total: summary.total,
+    safePage: summary.page,
+    totalPages: Math.max(1, Math.ceil(summary.total / summary.pageSize)),
+    isEmptyCatalog: summary.catalogTotal === 0,
+    isNoResults: summary.catalogTotal > 0 && summary.total === 0,
   };
 }

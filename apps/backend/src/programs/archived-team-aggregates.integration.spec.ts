@@ -27,7 +27,6 @@ import {
   ProgramListStatusFilterRepository,
   ProgramsRepository,
 } from './programs.repository';
-import { MilestoneCompletionService } from './submissions.service';
 import {
   SubmissionDashboardSummaryRepository,
   SubmissionsRepository,
@@ -86,7 +85,6 @@ const programCounts = new ProgramsRepository(
 );
 const submissionSummary = new SubmissionDashboardSummaryService(
   new SubmissionDashboardSummaryRepository(prisma),
-  new MilestoneCompletionService(),
 );
 const collection = new RequirementCollectionService(
   new RequirementCollectionReadRepository(prisma, files),
@@ -316,7 +314,13 @@ async function readCounts(): Promise<{
   readonly changeRequestSubmitted: number;
   readonly changeRequestVersion: string;
 }> {
-  const dashboard = await applications.listStaffDashboardSummary();
+  const dashboard = await applications.listStaffDashboardSummary({
+    page: 1,
+    pageSize: 1000,
+    search: '',
+    status: 'all',
+    now: new Date(),
+  });
   const program = dashboard.programs.find((item) => item.id === programId);
   if (program === undefined) {
     throw new Error('missing dashboard program');

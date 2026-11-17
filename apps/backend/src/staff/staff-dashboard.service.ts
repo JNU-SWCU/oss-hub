@@ -3,14 +3,14 @@ import {
   ProgramActivitySummaryService,
   type ProgramActivitySummary,
 } from '../programs/program-activity-summary.service';
-import {
-  SubmissionDashboardSummaryService,
-  type SubmissionDashboardProgramSummary,
-} from '../programs/submission-matrix.service';
+import { SubmissionDashboardSummaryService } from '../programs/submission-matrix.service';
+import type { SubmissionDashboardProgramSummary } from '../programs/submissions.repository';
 import { TeamApplicationService } from '../programs/team-application.service';
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
+  StaffDashboardSummary,
+  StaffDashboardSummaryQuery,
 } from '../programs/team.repository';
 import { ProgramCoverUrlService } from '../programs/programs.service';
 
@@ -49,9 +49,12 @@ export type StaffDashboardComposedProgramSummary = Omit<
   readonly coverImageUrl: string | null;
 };
 
-export interface StaffDashboardComposedSummary {
+export type StaffDashboardComposedSummary = Omit<
+  StaffDashboardSummary,
+  'programs'
+> & {
   readonly programs: readonly StaffDashboardComposedProgramSummary[];
-}
+};
 
 @Injectable()
 export class StaffDashboardService {
@@ -71,8 +74,11 @@ export class StaffDashboardService {
     private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
 
-  async summary(): Promise<StaffDashboardComposedSummary> {
-    const base = await this.applications.staffSummary();
+  async summary(
+    query: Omit<StaffDashboardSummaryQuery, 'now'>,
+    now: Date = new Date(),
+  ): Promise<StaffDashboardComposedSummary> {
+    const base = await this.applications.staffSummary({ ...query, now });
     const programIds = base.programs.map((program) => program.id);
     const [activities, submissions] = await Promise.all([
       this.activities.summarize(programIds),
@@ -86,6 +92,7 @@ export class StaffDashboardService {
     );
 
     return {
+      ...base,
       programs: base.programs.map((program) => ({
         ...program,
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(

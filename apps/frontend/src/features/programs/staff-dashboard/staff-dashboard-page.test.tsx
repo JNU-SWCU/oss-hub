@@ -10,6 +10,7 @@ import { parseStaffDashboardSummary } from './staff-dashboard-parser';
 import {
   staffDashboardNow as now,
   staffDashboardSummary as summary,
+  staffDashboardSummaryOf,
 } from './staff-dashboard-test-fixtures';
 
 vi.mock('next/link', () => ({
@@ -73,31 +74,23 @@ describe('staff dashboard parser and model', () => {
     const withLegacyLifecycle = { ...fixtureProgram, lifecycle: 'PUBLISHED' };
 
     expect(() =>
-      parseStaffDashboardSummary({ programs: [withoutEndAt] }),
+      parseStaffDashboardSummary(staffDashboardSummaryOf([withoutEndAt])),
     ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
-    expect(parseStaffDashboardSummary({ programs: [fixtureProgram] })).toEqual({
-      programs: [fixtureProgram],
-    });
     expect(
-      parseStaffDashboardSummary({ programs: [withLegacyLifecycle] }),
-    ).toEqual({ programs: [withLegacyLifecycle] });
+      parseStaffDashboardSummary(staffDashboardSummaryOf([fixtureProgram])),
+    ).toEqual(staffDashboardSummaryOf([fixtureProgram]));
+    expect(
+      parseStaffDashboardSummary(
+        staffDashboardSummaryOf([withLegacyLifecycle]),
+      ),
+    ).toEqual(staffDashboardSummaryOf([withLegacyLifecycle]));
   });
 
   it('빈 목록과 검색 결과 없음을 구분한다', () => {
-    const empty = buildStaffDashboardPageModel({
-      programs: [],
-      search: '',
-      status: 'all',
-      page: 1,
-      now,
-    });
-    const noResults = buildStaffDashboardPageModel({
-      programs: summary.programs,
-      search: '없는이름',
-      status: 'all',
-      page: 1,
-      now,
-    });
+    const empty = buildStaffDashboardPageModel(staffDashboardSummaryOf([]));
+    const noResults = buildStaffDashboardPageModel(
+      staffDashboardSummaryOf(summary.programs, { total: 0 }),
+    );
     expect(empty.isEmptyCatalog).toBe(true);
     expect(empty.isNoResults).toBe(false);
     expect(noResults.isEmptyCatalog).toBe(false);
@@ -193,13 +186,7 @@ describe('StaffDashboardPageView', () => {
       <StaffDashboardPageView
         state={{
           kind: 'ready',
-          model: buildStaffDashboardPageModel({
-            programs: summary.programs,
-            search: '',
-            status: 'all',
-            page: 1,
-            now,
-          }),
+          model: buildStaffDashboardPageModel(summary),
           search: '',
           status: 'all',
           now,
@@ -230,13 +217,7 @@ describe('StaffDashboardPageView', () => {
       <StaffDashboardPageView
         state={{
           kind: 'ready',
-          model: buildStaffDashboardPageModel({
-            programs: [],
-            search: '',
-            status: 'all',
-            page: 1,
-            now,
-          }),
+          model: buildStaffDashboardPageModel(staffDashboardSummaryOf([])),
           search: '',
           status: 'all',
           now,
@@ -248,13 +229,9 @@ describe('StaffDashboardPageView', () => {
       <StaffDashboardPageView
         state={{
           kind: 'ready',
-          model: buildStaffDashboardPageModel({
-            programs: summary.programs,
-            search: '없는이름',
-            status: 'all',
-            page: 1,
-            now,
-          }),
+          model: buildStaffDashboardPageModel(
+            staffDashboardSummaryOf(summary.programs, { total: 0 }),
+          ),
           search: '없는이름',
           status: 'all',
           now,
