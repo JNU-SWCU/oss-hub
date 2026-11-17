@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import {
   StudentRepositoryUrlService,
@@ -475,6 +476,7 @@ it('팀원은 위임할 수 없고 팀장은 위임한 뒤 탈퇴할 수 있다'
   ).toMatchObject({ leaderId: memberId });
   expect(
     await prisma.teamMember.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: team.id },
       select: { userId: true },
     }),

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import { FileLifecycle } from '@prisma/client';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
 import type {
@@ -43,6 +44,7 @@ export async function stateForE2eProgramGraph(
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
     prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         kind: 'TEMPLATE',
         requirement: { milestone: { programId: graph.programId } },
@@ -50,6 +52,7 @@ export async function stateForE2eProgramGraph(
       select: { storageKey: true },
     }),
     prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         kind: 'SUBMISSION',
         team: { programId: graph.programId },
@@ -73,6 +76,7 @@ export async function stateForE2eProgramGraph(
     }),
 
     prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         kind: { in: ['TEMPLATE', 'COVER'] },
         uploaderId: actorIds[0],
@@ -81,6 +85,7 @@ export async function stateForE2eProgramGraph(
       select: { storageKey: true },
     }),
     prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { kind: 'COVER', programId: graph.programId },
       select: { storageKey: true },
     }),

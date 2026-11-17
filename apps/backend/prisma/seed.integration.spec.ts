@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test/test-read-limit.config';
 import { deleteRepos } from '../test/repo-ledger.fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
@@ -158,6 +159,7 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
     async () =>
       (
         await prisma.userHistory.findMany({
+          take: TEST_READ_LIMIT,
           where: {
             userId: { startsWith: 'seed:' },
             sourceTable: 'SeedRequest',
@@ -292,11 +294,13 @@ async function deleteAllSeeded(): Promise<void> {
     historyUsers,
   ] = await Promise.all([
     prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { kind: 'SUBMISSION', teamId: { startsWith: seedPrefix } },
       select: { teamId: true },
       distinct: ['teamId'],
     }),
     prisma.milestone.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         id: { startsWith: seedPrefix },
         requirements: { some: { files: { some: { kind: 'SUBMISSION' } } } },
@@ -304,21 +308,25 @@ async function deleteAllSeeded(): Promise<void> {
       select: { id: true },
     }),
     prisma.notification.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: { startsWith: seedPrefix } },
       select: { userId: true },
       distinct: ['userId'],
     }),
     prisma.loginHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: { startsWith: seedPrefix } },
       select: { userId: true },
       distinct: ['userId'],
     }),
     prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { kind: 'SUBMISSION', uploaderId: { startsWith: seedPrefix } },
       select: { uploaderId: true },
       distinct: ['uploaderId'],
     }),
     prisma.user.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         id: { startsWith: seedPrefix },
         OR: [
@@ -359,6 +367,7 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
   const seedTeamIds = await prisma.team.findMany({
+    take: TEST_READ_LIMIT,
     where: seedIdFilter,
     select: { id: true },
   });
@@ -465,6 +474,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: AUTH_SCENARIOS['student-confirmed'] },
         }),
         prisma.user.findMany({
+          take: TEST_READ_LIMIT,
           where: { githubId: { in: OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS } },
           orderBy: { githubId: 'asc' },
           include: { admin: true },
@@ -926,6 +936,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           authorGithubId: {
             in: await prisma.user
               .findMany({
+                take: TEST_READ_LIMIT,
                 where: { id: { startsWith: seedDemoPrefix } },
                 select: { githubId: true },
               })
@@ -955,6 +966,7 @@ describe('seed profile=demo 계약 (integration)', () => {
     const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
     const demoFileStorageKeys = (
       await prisma.file.findMany({
+        take: TEST_READ_LIMIT,
         where: seedIdFilter,
         select: { storageKey: true },
       })
@@ -1029,6 +1041,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(countsAfterSecondRun.TeamRepo).toBe(0);
       expect(countsAfterSecondRun.Contribution).toBe(0);
       const demoUsers = await prisma.user.findMany({
+        take: TEST_READ_LIMIT,
         where: { id: { startsWith: seedDemoPrefix } },
         select: {
           notificationEmail: true,
@@ -1041,6 +1054,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       }
       expect(demoUsers.some((user) => user.name === '김도윤')).toBe(true);
       const demoPrograms = await prisma.program.findMany({
+        take: TEST_READ_LIMIT,
         where: { id: { startsWith: seedDemoPrefix } },
         select: { name: true, repositoryProvisioningEnabled: true },
       });
@@ -1051,6 +1065,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         expect(program.repositoryProvisioningEnabled).toBe(false);
       }
       const demoSubmissions = await prisma.submission.findMany({
+        take: TEST_READ_LIMIT,
         where: { id: { startsWith: seedDemoPrefix } },
         select: {
           id: true,
@@ -1105,6 +1120,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       });
       expect(contestTeams).toBeGreaterThanOrEqual(5);
       const contestApplications = await prisma.team.findMany({
+        take: TEST_READ_LIMIT,
         where: { programId: contestProgramId },
         select: { status: true },
       });
@@ -1113,6 +1129,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         expect(application.status).toBe(ApplicationStatus.APPROVED);
       }
       const contestSubmissionStatuses = await prisma.submission.findMany({
+        take: TEST_READ_LIMIT,
         where: {
           requirement: {
             milestone: { programId: contestProgramId },
@@ -1230,6 +1247,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       });
       await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
       const submissionsForPair = await prisma.submission.findMany({
+        take: TEST_READ_LIMIT,
         where: {
           teamId: contestApplicationId,
           requirementId: contestDocumentId,
@@ -1376,6 +1394,7 @@ describe('seed profile=demo 계약 (integration)', () => {
     async () => {
       await runProfile('demo', new SeedStats());
       const demoFiles = await prisma.file.findMany({
+        take: TEST_READ_LIMIT,
         where: { kind: 'SUBMISSION', id: { startsWith: seedDemoPrefix } },
         select: { id: true, storageKey: true, lifecycle: true },
       });
@@ -1405,12 +1424,14 @@ describe('seed profile=demo 계약 (integration)', () => {
     async () => {
       await runProfile('demo', new SeedStats());
       const firstRunFiles = await prisma.file.findMany({
+        take: TEST_READ_LIMIT,
         where: { kind: 'SUBMISSION', id: { startsWith: seedDemoPrefix } },
         select: { storageKey: true },
         orderBy: { id: 'asc' },
       });
       await runProfile('demo', new SeedStats());
       const secondRunFiles = await prisma.file.findMany({
+        take: TEST_READ_LIMIT,
         where: { kind: 'SUBMISSION', id: { startsWith: seedDemoPrefix } },
         select: { storageKey: true },
         orderBy: { id: 'asc' },
@@ -1429,6 +1450,7 @@ describe('seed profile=demo 계약 (integration)', () => {
     async () => {
       await runProfile('demo', new SeedStats());
       const demoFiles = await prisma.file.findMany({
+        take: TEST_READ_LIMIT,
         where: { kind: 'SUBMISSION', id: { startsWith: seedDemoPrefix } },
         select: { storageKey: true },
       });
@@ -1510,6 +1532,7 @@ describe('seed profile=all 멱등성 (integration)', () => {
         .listProgramTemplates()
         .map((template) => template.key);
       const programs = await prisma.program.findMany({
+        take: TEST_READ_LIMIT,
         where: { id: { startsWith: 'seed:' } },
         select: { id: true, applicationTemplateKey: true },
       });
@@ -1521,6 +1544,7 @@ describe('seed profile=all 멱등성 (integration)', () => {
       ).toEqual([]);
       const answersService = new ApplicationAnswersService();
       const teams = await prisma.team.findMany({
+        take: TEST_READ_LIMIT,
         where: { id: { startsWith: 'seed:' } },
         select: { id: true, answers: true },
       });
@@ -1538,6 +1562,7 @@ describe('seed profile=all 멱등성 (integration)', () => {
           .map((team) => team.id),
       ).toEqual([]);
       const documentSubmissions = await prisma.submission.findMany({
+        take: TEST_READ_LIMIT,
         where: { id: { startsWith: 'seed:program-overview:' } },
         select: {
           revision: true,
@@ -1631,6 +1656,7 @@ describe('issue-99 auth seed contract', () => {
       ] = await Promise.all([
         prisma.userPolicy.count({ where: { userId: consentRequiredUserId } }),
         prisma.userPolicy.findMany({
+          take: TEST_READ_LIMIT,
           where: { userId: roleUnselectedUserId },
           orderBy: { policyVersion: 'asc' },
         }),

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   deleteRepos,
   linkedTo,
@@ -269,12 +270,15 @@ describe('RepositoryProvisionWorkerService integration', () => {
         where: { id: teamId },
       });
       const repositoriesBefore = await prisma.repo.findMany({
+        take: TEST_READ_LIMIT,
         where: linkedTo(teamId),
       });
       const invitationsBefore = await prisma.repositoryInvitation.findMany({
+        take: TEST_READ_LIMIT,
         where: { repo: linkedTo(teamId) },
       });
       const historyBefore = await prisma.repositoryIssuanceHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId },
       });
       github.findRepository.mockClear();
@@ -305,11 +309,15 @@ describe('RepositoryProvisionWorkerService integration', () => {
           where: { id: teamId },
         }),
       ).toEqual(applicationBefore);
-      expect(await prisma.repo.findMany({ where: linkedTo(teamId) })).toEqual(
-        repositoriesBefore,
-      );
+      expect(
+        await prisma.repo.findMany({
+          take: TEST_READ_LIMIT,
+          where: linkedTo(teamId),
+        }),
+      ).toEqual(repositoriesBefore);
       expect(
         await prisma.repositoryInvitation.findMany({
+          take: TEST_READ_LIMIT,
           where: { repo: linkedTo(teamId) },
         }),
       ).toEqual(invitationsBefore);
@@ -323,6 +331,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         lockedBy: null,
       });
       const historyAfter = await prisma.repositoryIssuanceHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId },
       });
       if (phase === 'SUCCEEDED') expect(historyAfter).toEqual(historyBefore);
@@ -610,6 +619,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
 
     await expect(
       prisma.repositoryIssuanceHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId },
         orderBy: { requestedAt: 'asc' },
         select: { requestId: true, outcome: true },
@@ -678,6 +688,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     ]);
     await expect(
       prisma.repositoryInvitation.findMany({
+        take: TEST_READ_LIMIT,
         where: { repoId: CURRENT_MANAGED_GITHUB_REPOSITORY_ID },
         select: { githubLogin: true, status: true },
       }),
@@ -689,6 +700,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     ]);
     await expect(
       prisma.repositoryInvitation.findMany({
+        take: TEST_READ_LIMIT,
         where: { repoId: PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID },
         select: { githubLogin: true, status: true },
       }),
@@ -786,6 +798,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     ]);
     await expect(
       prisma.repositoryInvitation.findMany({
+        take: TEST_READ_LIMIT,
         where: { repoId: OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID },
         select: { githubLogin: true, status: true },
       }),
@@ -851,6 +864,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     });
     await expect(
       prisma.repositoryInvitation.findMany({
+        take: TEST_READ_LIMIT,
         where: { repoId: recorded.githubRepoId },
         select: { githubLogin: true, status: true },
       }),
@@ -1179,6 +1193,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         }),
       ).resolves.toBeNull();
       const auditEntries = await prisma.teamHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
       });
       expect(auditEntries).toHaveLength(1);
@@ -1576,6 +1591,7 @@ async function invitationRows(
   githubRepositoryId: bigint,
 ): Promise<readonly unknown[]> {
   const rows = await prisma.repositoryInvitation.findMany({
+    take: TEST_READ_LIMIT,
     where: { repoId: githubRepositoryId },
     orderBy: { githubLogin: 'asc' },
   });

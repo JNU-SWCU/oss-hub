@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import type { PrismaService } from '../../src/platform/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
@@ -79,6 +80,7 @@ export async function seedE2eRepositoryEvidence(
       'EXTERNAL_PUBLIC',
     );
     const repositories = await transaction.repo.findMany({
+      take: TEST_READ_LIMIT,
       where: E2E_REPOSITORY_WHERE,
       select: { githubRepoId: true },
     });

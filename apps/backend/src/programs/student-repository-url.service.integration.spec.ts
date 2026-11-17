@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   RepositoryConnectionMode,
@@ -122,6 +123,7 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
     },
   );
   const entries = await prisma.teamHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
   });
   expect(entries).toMatchObject([
@@ -386,6 +388,7 @@ it('links a managed organization repository without re-arming provisioning', asy
   });
   expect(
     await prisma.outboxEvent.findMany({
+      take: TEST_READ_LIMIT,
       where: { aggregateId: teamId },
       select: { id: true },
     }),
@@ -465,6 +468,7 @@ it('serializes different targets into a continuous team history chain', async ()
     }),
   ]);
   const rows = await prisma.teamHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
   });
   const history = rows.map((row) => {

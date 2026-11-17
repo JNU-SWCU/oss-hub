@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -287,6 +288,7 @@ describe('수집 성공 기록 (실 Postgres)', () => {
 
     await expect(
       prisma.repo.findMany({
+        take: TEST_READ_LIMIT,
         where: { githubRepoId: { in: GITHUB_IDS } },
         orderBy: { githubRepoId: 'asc' },
         select: { githubRepoId: true, lastSuccessAt: true },

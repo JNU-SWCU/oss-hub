@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   createDeadlineDigestIntegrationHarness,
@@ -35,6 +36,7 @@ it('필수 서류 미제출 수신자에게만 발송하고 SENT를 기록한다
     `https://oss.example/programs/${encodeURIComponent(DIGEST_FIXTURE.notifyProgram)}#milestone-${encodeURIComponent(DIGEST_FIXTURE.notifyMilestone)}-name`,
   );
   const notifications = await harness.prisma.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       userId: {
         in: [
@@ -85,6 +87,7 @@ it('한 수신자 발송 실패가 다른 수신자의 multipart 발송과 SENT 
     expect(mail.html).toContain('synthetic test:notifications:program:notify');
   }
   const ledger = await harness.prisma.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       userId: {
         in: [DIGEST_FIXTURE.studentMissing],
@@ -150,6 +153,7 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   expect(staffMail?.html).toContain('https://oss.example/dashboard');
 
   const ledger = await harness.prisma.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: { type: 'DEADLINE_DIGEST' },
     select: { userId: true, idempotencyKey: true, status: true },
   });

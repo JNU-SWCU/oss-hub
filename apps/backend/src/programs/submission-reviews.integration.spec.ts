@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { deleteRepos } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
@@ -201,6 +202,7 @@ describe('SubmissionReviewsService integration', () => {
       [],
       (
         await prisma.team.findMany({
+          take: TEST_READ_LIMIT,
           where: { programId: REPOSITORIES_PROGRAM_ID },
           select: { id: true },
         })
@@ -301,6 +303,7 @@ describe('SubmissionReviewsService integration', () => {
     expect(published.publishedAt).toBeInstanceOf(Date);
     expect(github.publishRepository).toHaveBeenCalledWith(repositoryName);
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: { path: ['targetId'], equals: repositoryId },
@@ -320,6 +323,7 @@ describe('SubmissionReviewsService integration', () => {
     });
     expect(github.publishRepository).not.toHaveBeenCalled();
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: { path: ['targetId'], equals: repositoryId },
@@ -392,6 +396,7 @@ describe('SubmissionReviewsService integration', () => {
     expect(finalRepository.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(finalRepository.publishedAt).toEqual(publishedAt);
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: {

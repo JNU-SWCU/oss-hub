@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   prisma,
   prefix,
@@ -167,18 +168,21 @@ describe('application named invitees integration', () => {
     const application = await apply([member, replacement]);
     expect(
       await prisma.teamMember.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId: application.teamId },
         select: { userId: true },
       }),
     ).toEqual([{ userId: leader }]);
     expect(
       await prisma.teamInvitation.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId: application.teamId },
         orderBy: { inviteeId: 'asc' },
         select: { inviteeId: true },
       }),
     ).toEqual([{ inviteeId: member }, { inviteeId: replacement }]);
     const pending = await prisma.teamInvitation.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: application.teamId },
       select: { id: true, inviteeId: true },
     });
@@ -268,6 +272,7 @@ describe('application named invitees integration', () => {
     ).resolves.toMatchObject({ kind: 'APPROVED' });
     expect(
       await prisma.teamMember.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId: application.teamId },
         orderBy: { userId: 'asc' },
         select: { userId: true },

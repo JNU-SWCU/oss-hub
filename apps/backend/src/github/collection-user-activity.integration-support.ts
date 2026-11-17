@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import type { GithubUserActivityObservation } from '@prisma/client';
 
 import type { PrismaService } from '../platform/prisma.service';
@@ -18,6 +19,7 @@ export const snapshotForeignActivityRows = (
   seededGithubIds: readonly bigint[],
 ): Promise<GithubUserActivityObservation[]> =>
   prisma.githubUserActivityObservation.findMany({
+    take: TEST_READ_LIMIT,
     where: { githubId: { notIn: [...seededGithubIds] } },
   });
 

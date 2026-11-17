@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   ApplicationStatus,
   Prisma,
@@ -438,6 +439,7 @@ describe('RepositoryOutboxConsumerService integration', () => {
     );
 
     const jobs = await prisma.repositoryProvisionJob.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId },
     });
     expect(jobs).toHaveLength(1);

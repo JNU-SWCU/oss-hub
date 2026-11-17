@@ -1,4 +1,5 @@
 import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
@@ -103,16 +104,19 @@ export async function createMilestone(
 }
 export async function cleanup(): Promise<void> {
   const milestones = await prisma.milestone.findMany({
+    take: TEST_READ_LIMIT,
     where: { id: { startsWith: `${TEST_PREFIX}milestone:` } },
     select: { id: true },
   });
   const milestoneIds = milestones.map((milestone) => milestone.id);
   const documents = await prisma.requirement.findMany({
+    take: TEST_READ_LIMIT,
     where: { milestoneId: { in: milestoneIds } },
     select: { id: true },
   });
   const documentIds = documents.map((document) => document.id);
   const documentSubmissions = await prisma.submission.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       OR: [
         { teamId: { startsWith: `${TEST_PREFIX}application:` } },
@@ -125,6 +129,7 @@ export async function cleanup(): Promise<void> {
     (submission) => submission.id,
   );
   const documentSubmissionHistories = await prisma.submissionHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       submissionId: { in: documentSubmissionIds },
     },

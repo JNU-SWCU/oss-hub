@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -151,6 +152,7 @@ it('collects new facts only on the replacement when an external application repo
   expect(provider.collectedNames()).toEqual(['target']);
   expect(
     await prisma.contributionEvent.findMany({
+      take: TEST_READ_LIMIT,
       where: { repoId: targetGithubId, kind: 'COMMIT' },
     }),
   ).toEqual([expect.objectContaining({ githubKey: 'new-after-relink' })]);
@@ -421,6 +423,7 @@ it('collects a repository linked into an empty slot right after the team route s
   );
   expect(
     await prisma.contributionEvent.findMany({
+      take: TEST_READ_LIMIT,
       where: { repoId: targetGithubId, kind: 'COMMIT' },
     }),
   ).toEqual([

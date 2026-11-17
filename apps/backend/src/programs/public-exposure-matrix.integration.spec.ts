@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
@@ -507,6 +508,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         [],
         (
           await prisma.team.findMany({
+            take: TEST_READ_LIMIT,
             where: { id: { startsWith: `${PREFIX}-` } },
             select: { id: true },
           })
@@ -863,6 +865,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     expect(second.publishedAt).toEqual(first.publishedAt);
     expect(github.publishRepository).toHaveBeenCalledTimes(1);
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: { path: ['targetId'], equals: outcome8.repositoryId },

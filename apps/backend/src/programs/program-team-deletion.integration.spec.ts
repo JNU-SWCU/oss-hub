@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -150,6 +151,7 @@ async function cleanupTeamScope(): Promise<void> {
     where: { teamId: { startsWith: TEST_PREFIX } },
   });
   const teams = await prisma.team.findMany({
+    take: TEST_READ_LIMIT,
     where: { leaderId: { startsWith: TEST_PREFIX } },
     select: { id: true },
   });
@@ -457,6 +459,7 @@ it('3b staff deletion records every pending cancellation and preserves archived 
   );
 
   const events = await prisma.teamHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: { teamId: fixture.teamId, sourceTable: 'TeamInvitation' },
     orderBy: { sourceId: 'asc' },
   });
@@ -536,6 +539,7 @@ it('3a history failure rolls back staff deletion and its notifications', async (
   await expect(prisma.notification.count()).resolves.toBe(notifications);
   await expect(
     prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: fixture.teamId },
       select: { sourceId: true },
     }),
@@ -702,6 +706,7 @@ it('삭제 이력에는 팀 이름과 함께 실제로 사라진 수치를 남�
     await currentScope(fixture.teamId),
   );
   const rows = await prisma.teamHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: { teamId: fixture.teamId, event: 'DELETED' },
   });
   expect(rows).toHaveLength(1);
@@ -913,6 +918,7 @@ it('비활성 교직원도 막힌다', async () => {
 
 function teamDeletedNotifications(teamId: string) {
   return prisma.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       type: 'TEAM_DELETED',
       idempotencyKey: { startsWith: `team-deleted:${teamId}:` },

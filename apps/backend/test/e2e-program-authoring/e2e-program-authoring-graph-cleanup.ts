@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { deleteRepos } from '../repo-ledger.fixture';
@@ -10,10 +11,12 @@ export async function removeAdoptedGraph(
     Promise.resolve(),
 ): Promise<void> {
   const uploads = await prisma.file.findMany({
+    take: TEST_READ_LIMIT,
     where: { kind: 'UPLOAD', programId: graph.programId },
     select: { storageKey: true },
   });
   const templateFiles = await prisma.file.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       kind: 'TEMPLATE',
       requirement: { milestone: { programId: graph.programId } },
@@ -27,15 +30,18 @@ export async function removeAdoptedGraph(
     });
     if (program === null) return [];
     const covers = await transaction.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { kind: 'COVER', programId: graph.programId },
       select: { storageKey: true },
     });
     const applications = await transaction.team.findMany({
+      take: TEST_READ_LIMIT,
       where: { programId: graph.programId },
       select: { id: true },
     });
     const teamIds = applications.map((application) => application.id);
     const documentSubmissions = await transaction.submission.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: { in: teamIds } },
       select: { id: true },
     });
@@ -44,6 +50,7 @@ export async function removeAdoptedGraph(
     );
     const documentSubmissionHistories =
       await transaction.submissionHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: {
           submissionId: { in: documentSubmissionIds },
         },

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import type { Prisma } from '@prisma/client';
 
 const DEADLINE_PREFIXES = ['deadline-digest:', 'deadline-digest-staff:'];
@@ -7,6 +8,7 @@ export async function deleteE2eProgramDeadlineClaims(
   programId: string,
 ): Promise<void> {
   const candidates = await transaction.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       type: 'DEADLINE_DIGEST',
       OR: DEADLINE_PREFIXES.map((prefix) => ({

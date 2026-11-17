@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -519,6 +520,7 @@ describe('TeamApplicationService integration', () => {
         } else {
           expect(outcome).toMatchObject({ status: 'fulfilled' });
           const applications = await prisma.team.findMany({
+            take: TEST_READ_LIMIT,
             where: { programId: CREATE_PROGRAM_ID },
           });
           expect(applications).toHaveLength(1);
@@ -1309,6 +1311,7 @@ describe('TeamApplicationService integration', () => {
     ).resolves.toBe(0);
 
     const history = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId },
       orderBy: { occurredAt: 'asc' },
     });
@@ -1449,6 +1452,7 @@ describe('TeamApplicationService integration', () => {
     });
 
     const history = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId },
       orderBy: { occurredAt: 'asc' },
       select: { event: true, data: true },

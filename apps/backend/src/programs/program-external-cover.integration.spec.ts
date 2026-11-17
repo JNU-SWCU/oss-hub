@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
@@ -173,6 +174,7 @@ it.each(['owned', 'external', 'none'] as const)(
       coverImageUrl: next.imageUrl,
     });
     const tombstones = await prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { lifecycle: 'DELETE_PENDING', storageKey: { contains: PREFIX } },
     });
     expect(tombstones.map(({ storageKey }) => storageKey)).toEqual(

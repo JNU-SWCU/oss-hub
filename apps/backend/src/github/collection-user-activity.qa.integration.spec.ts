@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { AccountStatus } from '@prisma/client';
 
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -130,6 +131,7 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
     const result = await buildService().run();
 
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: { githubId: { in: seededIds }, visibility: 'PUBLIC' },
     });
 
@@ -152,6 +154,7 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
     await buildService().run();
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: { githubId: { in: seededIds }, visibility: 'PUBLIC' },
     });
 
@@ -173,6 +176,7 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
     const result = await buildService().run();
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: { githubId: { in: seededIds }, visibility: 'PUBLIC' },
       select: { githubId: true },
     });

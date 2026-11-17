@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -149,6 +150,7 @@ async function enableRepositoryProvisioning(): Promise<void> {
 
 async function storedAccessSyncEvents() {
   return prisma.outboxEvent.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
       aggregateId: { startsWith: TEST_PREFIX },
@@ -211,6 +213,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
       ).resolves.toBeNull();
       const histories = await prisma.teamHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { sourceTable: 'TeamInvitation', sourceId: INVITATION_ID },
       });
       expect(histories).toHaveLength(1);
@@ -274,6 +277,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     ]);
     expect(outcomes.filter((outcome) => outcome.kind === 'ok')).toHaveLength(1);
     const histories = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { sourceId: INVITATION_ID },
     });
     expect(histories).toHaveLength(1);
@@ -313,6 +317,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       prisma.teamInvitation.count({ where: { programId: PROGRAM_ID } }),
     ).resolves.toBe(0);
     const histories = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { sourceId: `${INVITATION_ID}:other` },
     });
     expect(histories).toHaveLength(1);

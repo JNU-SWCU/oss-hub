@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { RequirementFileNameService } from './files.service';
 import {
@@ -212,6 +213,7 @@ export class ProgramArchiveIntegrationFixture {
   async clear(): Promise<void> {
     const programs = { in: [archiveId('a'), archiveId('b')] };
     const files = await this.prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { kind: 'SUBMISSION', uploaderId: archiveId('user') },
       select: { storageKey: true },
     });

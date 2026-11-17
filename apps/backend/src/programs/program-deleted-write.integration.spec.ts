@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -62,6 +63,7 @@ const recordAudit = jest.fn(async () => {});
 async function cleanup(): Promise<void> {
   await prisma.teamHistory.deleteMany({ where: { programId } });
   const teams = await prisma.team.findMany({
+    take: TEST_READ_LIMIT,
     where: { programId },
     select: { id: true },
   });
@@ -152,17 +154,26 @@ async function seed(lifecycle: ProgramLifecycle): Promise<void> {
 }
 function snapshot() {
   return prisma.$transaction([
-    prisma.boardPost.findMany({ where: { programId }, orderBy: { id: 'asc' } }),
+    prisma.boardPost.findMany({
+      take: TEST_READ_LIMIT,
+      where: { programId },
+      orderBy: { id: 'asc' },
+    }),
     prisma.boardComment.findMany({
+      take: TEST_READ_LIMIT,
       where: { post: { programId } },
       orderBy: { id: 'asc' },
     }),
-    prisma.team.findMany({ where: { programId } }),
+    prisma.team.findMany({ take: TEST_READ_LIMIT, where: { programId } }),
     prisma.teamMember.findMany({
+      take: TEST_READ_LIMIT,
       where: { programId },
       orderBy: { userId: 'asc' },
     }),
-    prisma.teamInvitation.findMany({ where: { programId } }),
+    prisma.teamInvitation.findMany({
+      take: TEST_READ_LIMIT,
+      where: { programId },
+    }),
   ]);
 }
 const boardWrites = [

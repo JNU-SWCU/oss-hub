@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
@@ -68,6 +69,7 @@ async function cleanup(): Promise<void> {
 
 function storedOrder(milestoneId = MILESTONE_ID) {
   return prisma.requirement.findMany({
+    take: TEST_READ_LIMIT,
     where: { milestoneId },
     orderBy: { sortOrder: 'asc' },
     select: { id: true, sortOrder: true },

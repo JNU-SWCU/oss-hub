@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { AuthRepository } from '../auth/auth.repository';
 import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { MemberOnboardingService } from './member-onboarding.service';
@@ -285,6 +286,7 @@ describe('registration reset persistence', () => {
         sessionVersion: user.sessionVersion,
       });
       const events = await prisma.userHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { userId: user.id },
       });
       expect(events.map((event) => event.event).sort()).toEqual(

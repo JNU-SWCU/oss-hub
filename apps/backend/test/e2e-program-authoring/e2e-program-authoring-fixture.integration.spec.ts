@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { prisma as seedPrisma, SeedStats } from '../../prisma/seeds/helpers';
 import { seedAuth } from '../../prisma/seeds/auth';
@@ -320,6 +321,7 @@ it('rejects adopted graphs and missing approved applications without seeding fac
     await repositoryContributionCommits(
       (
         await prisma.repo.findMany({
+          take: TEST_READ_LIMIT,
           where: {
             teamRepos: { some: { team: { programId: E2E_PROGRAM_ID } } },
           },

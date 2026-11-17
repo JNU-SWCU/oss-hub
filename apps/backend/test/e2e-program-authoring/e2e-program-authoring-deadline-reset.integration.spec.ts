@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import { DeadlineDigestMailService } from '../../src/notifications/deadline-digest-mail.service';
 import { MemberKind } from '../../src/users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
@@ -94,6 +95,7 @@ it('resets global staff daily claims so the next isolated scenario sends again',
   await sendDigest();
   expect(e2eProgramAuthoringExternalPorts.capture().mail.envelopeCount).toBe(2);
   const before = await prisma.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: { userId: staffId },
     select: { status: true, idempotencyKey: true },
   });
@@ -113,6 +115,7 @@ it('resets global staff daily claims so the next isolated scenario sends again',
   expect(e2eProgramAuthoringExternalPorts.capture().mail.envelopeCount).toBe(2);
   await expect(
     prisma.notification.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: staffId },
       select: { status: true, idempotencyKey: true },
     }),
@@ -137,6 +140,7 @@ it('preserves other programs and non-deadline claims for the same global staff',
   });
   await fixture.reset();
   const after = await prisma.notification.findMany({
+    take: TEST_READ_LIMIT,
     where: { userId: staffId },
     select: { idempotencyKey: true },
   });

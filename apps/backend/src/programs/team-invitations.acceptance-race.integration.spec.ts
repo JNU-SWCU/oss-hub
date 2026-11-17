@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
@@ -298,6 +299,7 @@ describe('Team invitation acceptance transaction races', () => {
         select: { leaderId: true },
       }),
       prisma.teamMember.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId: TEAM_ID },
         select: { userId: true },
       }),
@@ -397,6 +399,7 @@ describe('Team invitation acceptance transaction races', () => {
     expect(cancelled).toBeNull();
     await expect(
       prisma.teamHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { sourceId: INVITATION_ID },
         select: { event: true, actorId: true },
       }),
@@ -425,6 +428,7 @@ describe('Team invitation acceptance transaction races', () => {
       'team-full',
     ]);
     const members = await prisma.teamMember.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: TEAM_ID },
       select: { userId: true },
     });
@@ -438,11 +442,13 @@ describe('Team invitation acceptance transaction races', () => {
     expect(joined).toHaveLength(1);
 
     const invitations = await prisma.teamInvitation.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: TEAM_ID },
       select: { inviteeId: true },
       orderBy: { id: 'asc' },
     });
     const accepted = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: TEAM_ID, event: 'INVITATION_ACCEPTED' },
     });
     expect(invitations).toHaveLength(1);

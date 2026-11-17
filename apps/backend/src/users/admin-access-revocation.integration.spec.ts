@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   userAuditRows,
   writeApprovalFixture,
@@ -72,6 +73,7 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
     decidedAt: new Date('2026-08-01T00:00:00Z'),
   });
   const imported = await prisma.userHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: { userId: target.id, event: 'LEGACY_IMPORT' },
   });
   const result = await service.patchAccess(actor.githubId, target.id, {
@@ -93,6 +95,7 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
   });
   await expect(
     prisma.userHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: target.id, event: 'LEGACY_IMPORT' },
     }),
   ).resolves.toEqual(imported);

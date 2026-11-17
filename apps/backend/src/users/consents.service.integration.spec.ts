@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { UserPolicyRepository } from './user-policy.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { runProfile } from '../../prisma/seed';
@@ -48,6 +49,7 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
       acceptedItems: allRequiredKeys,
     });
     const rows = await prisma.userPolicy.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: consentRequiredUserId },
     });
     expect(grant.nextUrl).toBe(CURRENT_CONSENT_POLICY.nextUrl);
@@ -95,6 +97,7 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
     }
     const grants = await Promise.all(accepts);
     const rows = await prisma.userPolicy.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: consentRequiredUserId },
       orderBy: { policyVersion: 'asc' },
     });
@@ -130,6 +133,7 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
       acceptedItems: allRequiredKeys,
     });
     const versions = await prisma.userPolicy.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: consentRequiredUserId },
       select: { policyVersion: true },
       orderBy: { policyVersion: 'asc' },
@@ -156,6 +160,7 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
         service.requireCurrent(consentRequiredGithubId),
       ).resolves.toBeUndefined();
       const rows = await prisma.userPolicy.findMany({
+        take: TEST_READ_LIMIT,
         where: { userId: consentRequiredUserId },
       });
       expect(rows).toEqual([existingConsent]);

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { TeamHistoryEvent, ProgramCategory } from '@prisma/client';
@@ -190,6 +191,7 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
       select: { revision: true },
     });
     const rows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: TEAM_A_ID },
     });
     expect(application.revision).toBe(2);

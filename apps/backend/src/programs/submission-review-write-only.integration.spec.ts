@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -270,6 +271,7 @@ it.each(['prepared', 'current'])(
       expect(response.status).toBe(201);
     }
     const reviews = await fixture.prisma.submissionHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         submissionId: submitted.submissionId,
         event: 'CHANGES_REQUESTED',
@@ -356,6 +358,7 @@ it('appends repeated decisions for one revision without overwriting the previous
     }),
   ).toEqual(previous);
   const reviews = await fixture.prisma.submissionHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       submissionId: previous.submissionId,
       event: { in: ['CHANGES_REQUESTED', 'APPROVED'] },

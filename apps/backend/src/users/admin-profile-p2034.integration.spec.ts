@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { userAuditRows } from './user-history.integration-fixture';
 
 import { AdminRepository } from './admin.repository';
@@ -150,6 +151,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
     );
     expect(
       await prisma.userHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { userId, event: 'TYPE_CHANGED' },
       }),
     ).toEqual([

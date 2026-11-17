@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -373,6 +374,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     }
     const where = { requirementId: flowIds.document };
     const before = await fixture.prisma.submission.findMany({
+      take: TEST_READ_LIMIT,
       where,
       include: { histories: true },
     });
@@ -412,6 +414,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     );
     expect(
       await fixture.prisma.submission.findMany({
+        take: TEST_READ_LIMIT,
         where,
         include: { histories: true },
       }),

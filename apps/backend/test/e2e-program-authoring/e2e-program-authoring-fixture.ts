@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -58,6 +59,7 @@ export class E2eProgramAuthoringFixture {
     }
     const covers = await this.prisma.$transaction(async (transaction) => {
       const applications = await transaction.team.findMany({
+        take: TEST_READ_LIMIT,
         where: { programId: E2E_PROGRAM_ID },
         select: { id: true },
       });
@@ -73,6 +75,7 @@ export class E2eProgramAuthoringFixture {
         where: { teamId: { in: teamIds } },
       });
       const repositories = await transaction.repo.findMany({
+        take: TEST_READ_LIMIT,
         where: E2E_REPOSITORY_WHERE,
         select: { githubRepoId: true },
       });
@@ -115,6 +118,7 @@ export class E2eProgramAuthoringFixture {
         where: { kind: 'UPLOAD', uploaderId: E2E_STAFF_ID },
       });
       const covers = await transaction.file.findMany({
+        take: TEST_READ_LIMIT,
         where: { kind: 'COVER', programId: E2E_PROGRAM_ID },
         select: { storageKey: true },
       });

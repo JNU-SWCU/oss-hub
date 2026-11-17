@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -46,6 +47,7 @@ it('비활성 계정은 교직원 요약과 학생 리마인더 어느 쪽도 �
   expect(recipients).not.toContain('staff-deactivated@example.com');
   expect(recipients).not.toContain('student-deactivated@example.com');
   const deactivated = await harness.prisma.user.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       id: {
         in: [

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   FileMetadataRepository,
   FileCleanupRepository,
@@ -173,6 +174,7 @@ describeIntegration(
     });
     afterEach(async () => {
       const rows = await prisma.file.findMany({
+        take: TEST_READ_LIMIT,
         where: { kind: 'SUBMISSION', storageKey: { startsWith: PREFIX } },
         select: { storageKey: true },
       });

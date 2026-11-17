@@ -1,4 +1,5 @@
 import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   FileMetadataRepository,
   FileCleanupRepository,
@@ -1428,6 +1429,7 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
       },
     }),
     prisma.requirement.findMany({
+      take: TEST_READ_LIMIT,
       where: { milestoneId },
       orderBy: { id: 'asc' },
       select: {

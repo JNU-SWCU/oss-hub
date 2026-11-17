@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PrismaService } from '../platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { LOGIN_HISTORY_EVENTS } from '../platform/auth.config';
@@ -39,6 +40,7 @@ describe('LoginHistoryRepository integration', () => {
     await repository.create(firstUserId, LOGIN_HISTORY_EVENTS.LOGIN);
     await repository.create(firstUserId, LOGIN_HISTORY_EVENTS.LOGOUT);
     const rows = await prisma.loginHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { userId: firstUserId },
     });
     expect(rows).toHaveLength(2);

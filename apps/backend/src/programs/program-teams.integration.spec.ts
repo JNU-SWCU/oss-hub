@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -128,6 +129,7 @@ describe('program storage invariants', () => {
           await prisma.teamMember.count({ where: { programId: prefix } }),
         ).toBe(0);
         const history = await prisma.teamHistory.findMany({
+          take: TEST_READ_LIMIT,
           where: { teamId: prefix },
         });
         expect(history).toHaveLength(1);

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   deleteRepos,
   linkedTo,
@@ -410,6 +411,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ).resolves.toBe(0);
       await expect(
         prisma.repositoryIssuanceHistory.findMany({
+          take: TEST_READ_LIMIT,
           where: { teamId: NEW_LINKED_APPLICATION_ID },
         }),
       ).resolves.toEqual([
@@ -827,7 +829,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
       });
       await expect(
-        prisma.repo.findMany({ where: linkedTo(teamId) }),
+        prisma.repo.findMany({
+          take: TEST_READ_LIMIT,
+          where: linkedTo(teamId),
+        }),
       ).resolves.toEqual([
         expect.objectContaining({
           githubRepoId: 8_520_100_099n,
