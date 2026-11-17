@@ -202,6 +202,49 @@ test('CI fails closed when the base is missing or not fetched', async (t) => {
   );
 });
 
+test('CI push without a real, distinct before SHA fails closed even when origin/main is HEAD', async (t) => {
+  const repo = tempRepo(t);
+  const root = repo.commit('root', { 'README.md': 'x\n' });
+  const head = repo.commit('feat: backend with token', {
+    'apps/backend/src/config.ts': `export const token = '${['g', 'h', 'p', '_'].join('')}${'A'.repeat(36)}';\n`,
+  });
+  repo.markRemoteMain(head);
+  const env = (payload, name = 'push') => ({
+    GITHUB_EVENT_NAME: name,
+    GITHUB_EVENT_PATH: eventFile(t, payload),
+    GITHUB_SHA: head,
+  });
+  for (const payload of [{ before: ZERO, after: head }, { after: head }]) {
+    await assert.rejects(
+      resolveScope({ cwd: repo.dir, source: 'ci', env: env(payload) }),
+      /no before SHA/,
+    );
+  }
+  await assert.rejects(
+    resolveScope({
+      cwd: repo.dir,
+      source: 'ci',
+      env: env({ before: head, after: head }),
+    }),
+    /base equals HEAD/,
+  );
+  await assert.rejects(
+    resolveScope({
+      cwd: repo.dir,
+      source: 'ci',
+      env: env({ pull_request: { base: { sha: head } } }, 'pull_request'),
+    }),
+    /base equals HEAD/,
+  );
+  const scope = await resolveScope({
+    cwd: repo.dir,
+    source: 'ci',
+    env: env({ before: root, after: head }),
+  });
+  assert.deepEqual(scope.ranges[0].base, root);
+  assert.equal(scope.backend, true);
+});
+
 test('run kills a hung command at its deadline', async () => {
   await assert.rejects(
     run(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {

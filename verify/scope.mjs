@@ -77,7 +77,7 @@ async function prePushRanges(cwd, stdin, defaultBranch) {
   return ranges;
 }
 
-async function ciRanges(cwd, env, defaultBranch) {
+async function ciRanges(cwd, env) {
   const eventName = env.GITHUB_EVENT_NAME;
   if (!env.GITHUB_EVENT_PATH) {
     throw new VerifyError('GITHUB_EVENT_PATH is not set; cannot find the base');
@@ -93,11 +93,8 @@ async function ciRanges(cwd, env, defaultBranch) {
   } else if (eventName === 'push') {
     base = event.before;
     if (!base || isZeroSha(base)) {
-      base = await mergeBaseOrFail(
-        cwd,
-        head,
-        defaultBranch,
-        'push event without before',
+      throw new VerifyError(
+        'push event has no before SHA; refusing to verify without a trusted base',
       );
     }
   } else {
@@ -108,6 +105,12 @@ async function ciRanges(cwd, env, defaultBranch) {
     base,
     `${eventName} base; check out with fetch-depth: 0 or git fetch the SHA`,
   );
+  const resolvedHead = await git(cwd, ['rev-parse', `${head}^{commit}`]);
+  if ((await git(cwd, ['rev-parse', `${base}^{commit}`])) === resolvedHead) {
+    throw new VerifyError(
+      `${eventName} base equals HEAD ${resolvedHead.slice(0, 9)}; refusing to verify an empty range`,
+    );
+  }
   return [{ base, head, ref: env.GITHUB_REF ?? eventName }];
 }
 
@@ -130,7 +133,7 @@ export async function resolveRanges({
     return prePushRanges(cwd, stdin, defaultBranch);
   }
   if (source === 'ci') {
-    return ciRanges(cwd, env, defaultBranch);
+    return ciRanges(cwd, env);
   }
   return localRanges(cwd, defaultBranch);
 }
