@@ -8,12 +8,15 @@ import {
 } from './support/member-access-fixture';
 
 const INCOMPLETE_PROFILE = {
+  githubLogin: 'synthetic-login',
+  memberKind: 'STUDENT',
   name: 'GitHub 합성 이름',
   studentId: null,
   staffNumber: null,
   department: null,
   phone: null,
   isComplete: false,
+  participations: [],
 } as const;
 
 function jsonHandler(body: unknown) {

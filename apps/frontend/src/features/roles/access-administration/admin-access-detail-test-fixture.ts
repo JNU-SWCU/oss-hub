@@ -33,6 +33,7 @@ export function adminDetail(
       department: '인공지능학부',
       isComplete: true,
     },
+    participations: [],
     ...overrides,
   };
 }

@@ -29,6 +29,10 @@ vi.mock('./admin-access-detail-api', async (importOriginal) => ({
   loadAdminAccessDetail: vi.fn(),
 }));
 
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,

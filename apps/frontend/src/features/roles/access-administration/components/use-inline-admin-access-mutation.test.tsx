@@ -46,6 +46,7 @@ const detail: CanonicalAdminAccessDetail = {
     staffNumber: '123456',
     isComplete: true,
   },
+  participations: [],
 };
 const action = 'SET_STATUS_DEACTIVATED';
 let container: HTMLDivElement;

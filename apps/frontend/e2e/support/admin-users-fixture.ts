@@ -38,8 +38,16 @@ interface SyntheticAdminUserProfile {
   readonly isComplete: boolean;
 }
 
+interface SyntheticParticipation {
+  readonly programId: string;
+  readonly programName: string;
+  readonly teamName: string;
+  readonly isLeader: boolean;
+}
+
 export interface SyntheticAdminUserDetail extends SyntheticAdminUserRow {
   readonly profile: SyntheticAdminUserProfile;
+  readonly participations: readonly SyntheticParticipation[];
 }
 
 export const SYNTHETIC_SELF = {
@@ -301,12 +309,34 @@ function profileFor(item: SyntheticAdminUserRow): SyntheticAdminUserProfile {
       };
 }
 
+const SYNTHETIC_PARTICIPANT_ID = 'synthetic-id-01';
+
+const SYNTHETIC_PARTICIPATIONS: readonly SyntheticParticipation[] = [
+  {
+    programId: 'synthetic-program-1',
+    programName: '합성 프로그램 1',
+    teamName: '합성 팀 1',
+    isLeader: true,
+  },
+  {
+    programId: 'synthetic-program-2',
+    programName: '합성 프로그램 2',
+    teamName: '합성 팀 2',
+    isLeader: false,
+  },
+];
+
 export const adminUsersDetailById: Readonly<
   Record<string, SyntheticAdminUserDetail>
 > = Object.fromEntries(
   adminUsersPage1Rows.map((item) => [
     item.id,
-    { ...item, profile: profileFor(item) },
+    {
+      ...item,
+      profile: profileFor(item),
+      participations:
+        item.id === SYNTHETIC_PARTICIPANT_ID ? SYNTHETIC_PARTICIPATIONS : [],
+    },
   ]),
 );
 

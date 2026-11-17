@@ -2,17 +2,11 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Pencil } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Field,
   FieldDescription,
@@ -22,7 +16,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '@/lib/departments';
-import { cn } from '@/lib/utils';
 
 import { patchAdminUserProfile } from '../admin-access-api';
 import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
@@ -39,19 +32,14 @@ import {
 export function AdminAccessProfileSection({
   userId,
   profile,
-  headingTag: HeadingTag,
-  isOverlay,
-  allowEdit,
+  onClose,
   onSaved,
 }: {
   readonly userId: string;
   readonly profile: CanonicalAdminAccessDetail['profile'];
-  readonly headingTag: 'h2' | 'h3';
-  readonly isOverlay: boolean;
-  readonly allowEdit: boolean;
+  readonly onClose: () => void;
   readonly onSaved: () => void;
 }) {
-  const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [values, setValues] = useState<AdminProfileEditValues>(() =>
     createAdminProfileEditValues(profile),
   );
@@ -72,19 +60,6 @@ export function AdminAccessProfileSection({
     firstInvalidField?.scrollIntoView?.({ block: 'center' });
   }, [invalidSubmitCount]);
 
-  function startEdit() {
-    setValues(createAdminProfileEditValues(profile));
-    setShowValidationErrors(false);
-    setSubmitError(null);
-    setMode('edit');
-  }
-
-  function cancelEdit() {
-    setMode('view');
-    setShowValidationErrors(false);
-    setSubmitError(null);
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setShowValidationErrors(true);
@@ -96,13 +71,13 @@ export function AdminAccessProfileSection({
     }
 
     if (Object.keys(command).length === 0) {
-      setMode('view');
+      onClose();
       return;
     }
     setIsSubmitting(true);
     try {
       await patchAdminUserProfile(userId, command);
-      setMode('view');
+      onClose();
       onSaved();
     } catch (error) {
       setSubmitError(adminProfileUpdateErrorMessage(error));
@@ -117,72 +92,12 @@ export function AdminAccessProfileSection({
   const showDepartmentError =
     showValidationErrors && errors.department !== null;
 
-  if (mode === 'view') {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <HeadingTag id="admin-access-profile">프로필</HeadingTag>
-          </CardTitle>
-          {allowEdit ? (
-            <CardAction>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                onClick={startEdit}
-              >
-                <Pencil aria-hidden="true" />
-                <span className="sr-only">프로필 수정</span>
-              </Button>
-            </CardAction>
-          ) : null}
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          {!profile.isComplete ? (
-            <p className="text-muted-foreground text-sm">
-              프로필 미완성 — 교직원 승인·부여 불가
-            </p>
-          ) : null}
-
-          <dl
-            className={cn(
-              'grid gap-2 text-sm sm:grid-cols-2',
-              isOverlay && 'sm:grid-cols-1',
-            )}
-          >
-            <div>
-              <dt className="text-muted-foreground">이름</dt>
-              <dd>{profile.name ?? '미등록'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">학번</dt>
-              <dd>{profile.studentId ?? '미등록'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">교직원 번호</dt>
-              <dd>{profile.staffNumber ?? '미등록'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">학과</dt>
-              <dd>{profile.department ?? '미등록'}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <HeadingTag id="admin-access-profile">프로필 수정</HeadingTag>
-        </CardTitle>
-      </CardHeader>
+    <Card size="sm">
       <CardContent>
         <form
           ref={formRef}
+          aria-label="프로필 수정"
           className="grid gap-4"
           noValidate
           onSubmit={(event) => void handleSubmit(event)}
@@ -193,6 +108,7 @@ export function AdminAccessProfileSection({
               id="admin-profile-name"
               name="name"
               autoComplete="name"
+              autoFocus
               maxLength={ADMIN_PROFILE_NAME_MAX_LENGTH}
               value={values.name}
               aria-invalid={showNameError}
@@ -221,7 +137,6 @@ export function AdminAccessProfileSection({
               inputMode="numeric"
               value={values.studentId}
               aria-invalid={showStudentIdError}
-
               aria-describedby={
                 showStudentIdError
                   ? 'admin-profile-student-id-description admin-profile-student-id-error'
@@ -323,7 +238,7 @@ export function AdminAccessProfileSection({
               variant="outline"
               size="sm"
               disabled={isSubmitting}
-              onClick={cancelEdit}
+              onClick={onClose}
             >
               취소
             </Button>

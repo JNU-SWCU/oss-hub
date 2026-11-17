@@ -41,12 +41,15 @@ describe('프로필 온보딩 화면', () => {
 
   function profile(overrides: Record<string, unknown> = {}): unknown {
     return {
+      githubLogin: 'synthetic-student',
+      memberKind: 'STUDENT',
       name: '합성 학생',
       studentId: LEGACY_STUDENT_ID,
       staffNumber: null,
       department: '인공지능학부',
       phone: TEN_DIGIT_PHONE,
       isComplete: true,
+      participations: [],
       ...overrides,
     };
   }

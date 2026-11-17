@@ -24,10 +24,13 @@ const githubId = 4242n;
 const sessionSecret = new Uint8Array(32).fill(9);
 const allowedOrigin = 'http://frontend.test';
 const myProfile = {
+  githubLogin: 'synthetic-login',
+  memberKind: 'STUDENT',
   name: '합성 사용자',
   studentId: '123456',
   department: '인공지능학부',
   isComplete: true,
+  participations: [],
 };
 
 const usersService = {

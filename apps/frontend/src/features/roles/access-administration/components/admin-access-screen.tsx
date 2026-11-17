@@ -164,7 +164,7 @@ export function AdminAccessScreen({
         onResetFilters={resetFilters}
         onRowClick={(item) =>
           router.push(accessDetailPath(workspace, item.id, listSearch), {
-            scroll: false,
+            scroll: !isQueue,
           })
         }
       />

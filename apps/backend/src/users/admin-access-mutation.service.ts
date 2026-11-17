@@ -797,7 +797,7 @@ export class AdminAccessMutationService {
   toAdminAccessUserDetailRecord(
     row: AdminAccessUserDetailRow,
   ): AdminAccessUserDetailRecord {
-    const { staffNumber, ...user } = row;
+    const { staffNumber, participationMemberships, ...user } = row;
     const record = this.toAdminAccessUserRecord(user);
     return {
       ...record,
@@ -809,6 +809,10 @@ export class AdminAccessMutationService {
         staffNumber,
         isComplete: record.isProfileComplete,
       },
+      participations: this.userProfileService.participations(
+        row.id,
+        participationMemberships,
+      ),
     };
   }
 

@@ -41,6 +41,7 @@ function detail(
       department: '인공지능학부',
       isComplete: true,
     },
+    participations: [],
     ...overrides,
   };
 }

@@ -40,12 +40,15 @@ describe('settings form state', () => {
     expect(
       createInitialSettingsForm(
         {
+          githubLogin: 'synthetic-login',
+          memberKind: 'STAFF',
           name: '합성 사용자',
           studentId: '1'.repeat(6),
           staffNumber: 'STAFF-42',
           department: '합성 융합전공',
           phone: TEN_DIGIT_PHONE,
           isComplete: true,
+          participations: [],
         },
         {
           notificationEmail: 'staff@example.com',
@@ -69,12 +72,15 @@ describe('settings form state', () => {
     expect(
       createInitialSettingsForm(
         {
+          githubLogin: 'synthetic-login',
+          memberKind: 'STAFF',
           name: '합성 교직원',
           studentId: null,
           staffNumber: null,
           department: '인공지능학부',
           phone: null,
           isComplete: true,
+          participations: [],
         },
         null,
       ),
@@ -90,12 +96,15 @@ describe('settings form state', () => {
     expect(
       createInitialSettingsForm(
         {
+          githubLogin: 'synthetic-login',
+          memberKind: 'STAFF',
           name: '합성 교직원',
           studentId: null,
           staffNumber: 'EMP-042',
           department: '인공지능학부',
           phone: null,
           isComplete: true,
+          participations: [],
         },
         null,
       ),

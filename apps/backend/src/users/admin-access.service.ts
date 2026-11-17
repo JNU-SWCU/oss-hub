@@ -160,7 +160,10 @@ export class AdminAccessService {
     const actor =
       this.adminAccessMutationService.requireActiveStaffOrAdmin(principal);
     const target = await this.requireVisibleTarget(actor, userId);
-    return withSelfState(target, actor);
+    const detail = withSelfState(target, actor);
+    const mayReadParticipations =
+      this.adminAccessMutationService.isAdminActor(actor) || detail.isSelf;
+    return mayReadParticipations ? detail : { ...detail, participations: null };
   }
 
   async facets(

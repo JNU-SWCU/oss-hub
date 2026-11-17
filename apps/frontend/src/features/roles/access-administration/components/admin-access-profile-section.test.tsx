@@ -59,25 +59,21 @@ function button(name: string): HTMLButtonElement {
   return found;
 }
 
-async function render(
-  overrides: Partial<AdminAccessProfile> = {},
-  props: { readonly isOverlay?: boolean } = {},
-) {
+async function render(overrides: Partial<AdminAccessProfile> = {}) {
+  const onClose = vi.fn();
   const onSaved = vi.fn();
   await act(() => {
     root.render(
       <AdminAccessProfileSection
         userId="target"
         profile={profile(overrides)}
-        headingTag="h2"
-        isOverlay={props.isOverlay ?? false}
-        allowEdit={true}
+        onClose={onClose}
         onSaved={onSaved}
       />,
     );
     return Promise.resolve();
   });
-  return { onSaved };
+  return { onClose, onSaved };
 }
 
 async function type(selector: string, value: string) {
@@ -106,50 +102,29 @@ async function click(name: string) {
   });
 }
 
-describe('보기 모드', () => {
-  it('이름·학번·학과를 보여주고 연필 버튼을 그린다', async () => {
+describe('폼 열기/취소', () => {
+  it('저장된 값으로 채워진 입력란을 열고 이름 칸에 포커스를 둔다', async () => {
     await render();
-    expect(container.textContent).toContain('합성 사용자');
-    expect(container.textContent).toContain('260001');
-    expect(container.textContent).toContain('소프트웨어공학과');
-    expect(() => button('프로필 수정')).not.toThrow();
-  });
-
-  it('값이 없는 필드는 "미등록"으로 보여준다', async () => {
-    await render({ name: null, studentId: null, department: null });
-    expect(container.querySelectorAll('dd')[0]?.textContent).toBe('미등록');
-  });
-
-  it('프로필이 미완료면 경고 문구를 보여준다', async () => {
-    await render({ isComplete: false });
-    expect(container.textContent).toContain(
-      '프로필 미완성 — 교직원 승인·부여 불가',
-    );
-  });
-
-  it('완료된 프로필은 경고 문구가 없다', async () => {
-    await render({ isComplete: true });
-    expect(container.textContent).not.toContain('프로필 미완성');
-  });
-});
-
-describe('수정 모드 진입/취소', () => {
-  it('연필 클릭은 저장된 값으로 채워진 입력란을 연다', async () => {
-    await render();
-    await click('프로필 수정');
     const name = container.querySelector('#admin-profile-name');
     const studentId = container.querySelector('#admin-profile-student-id');
     expect(name).toBeInstanceOf(HTMLInputElement);
     expect((name as HTMLInputElement).value).toBe('합성 사용자');
     expect((studentId as HTMLInputElement).value).toBe('260001');
+    expect(document.activeElement).toBe(name);
   });
 
-  it('"취소"는 API를 부르지 않고 보기 모드로 되돌아간다', async () => {
-    await render();
-    await click('프로필 수정');
+  it('값이 없는 프로필은 빈 입력란으로 연다', async () => {
+    await render({ name: null, studentId: null, department: null });
+    const name = container.querySelector('#admin-profile-name');
+    expect((name as HTMLInputElement).value).toBe('');
+  });
+
+  it('"취소"는 API를 부르지 않고 닫기만 요청한다', async () => {
+    const { onClose, onSaved } = await render();
     await type('#admin-profile-name', '바뀐 이름');
     await click('취소');
-    expect(container.textContent).toContain('합성 사용자');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
     expect(patchAdminUserProfileMock).not.toHaveBeenCalled();
   });
 });
@@ -157,7 +132,6 @@ describe('수정 모드 진입/취소', () => {
 describe('검증 — 백엔드가 null로 지울 수 없는 필드를 미리 막는다', () => {
   it('이름을 비우고 저장하면 인라인 오류를 보여주고 API를 부르지 않는다', async () => {
     await render();
-    await click('프로필 수정');
     await type('#admin-profile-name', '');
     await click('저장');
     expect(container.textContent).toContain('이름을 입력해 주세요.');
@@ -166,7 +140,6 @@ describe('검증 — 백엔드가 null로 지울 수 없는 필드를 미리 막
 
   it('이미 저장된 학번을 비우고 저장하면 인라인 오류를 보여준다', async () => {
     await render();
-    await click('프로필 수정');
     await type('#admin-profile-student-id', '');
     await click('저장');
     expect(container.textContent).toContain(
@@ -177,12 +150,12 @@ describe('검증 — 백엔드가 null로 지울 수 없는 필드를 미리 막
 });
 
 describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다', () => {
-  it('바뀐 게 없으면 API를 부르지 않고 바로 보기 모드로 돌아간다', async () => {
-    await render();
-    await click('프로필 수정');
+  it('바뀐 게 없으면 API를 부르지 않고 닫기만 요청한다', async () => {
+    const { onClose, onSaved } = await render();
     await click('저장');
     expect(patchAdminUserProfileMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('합성 사용자');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it('학번만 바꾸면 studentId만 담아 호출하고, 성공하면 onSaved를 부른다(관리자는 이미 저장된 학번도 고칠 수 있다)', async () => {
@@ -192,14 +165,14 @@ describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다'
       studentId: '260099',
       department: '소프트웨어공학과',
     });
-    const { onSaved } = await render();
-    await click('프로필 수정');
+    const { onClose, onSaved } = await render();
     await type('#admin-profile-student-id', '260099');
     await click('저장');
 
     expect(patchAdminUserProfileMock).toHaveBeenCalledWith('target', {
       studentId: '260099',
     });
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
@@ -214,38 +187,23 @@ describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다'
         code: 'USR_008',
       }),
     );
-    const { onSaved } = await render();
-    await click('프로필 수정');
+    const { onClose, onSaved } = await render();
     await type('#admin-profile-student-id', '269999');
     await click('저장');
 
     expect(container.textContent).toContain(
       '이미 다른 사용자가 사용 중인 학번이라 수정할 수 없습니다.',
     );
+    expect(onClose).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
 
     expect(container.querySelector('#admin-profile-student-id')).not.toBeNull();
   });
 });
 
-describe('오버레이 레이아웃', () => {
-  it('오버레이에서는 보기 모드 dl이 sm:grid-cols-1을 쓴다', async () => {
-    await render({}, { isOverlay: true });
-    const dl = container.querySelector('dl');
-    expect(dl?.className).toContain('sm:grid-cols-1');
-  });
-
-  it('표준 레이아웃에서는 보기 모드 dl이 sm:grid-cols-2를 쓴다', async () => {
-    await render({}, { isOverlay: false });
-    const dl = container.querySelector('dl');
-    expect(dl?.className).toContain('sm:grid-cols-2');
-  });
-});
-
 describe('저장이 막히면 첫 오류 칸으로 포커스를 옮긴다(R-16)', () => {
   it('칸 오류가 둘이면 커서를 첫 오류 칸에 둔다', async () => {
     await render();
-    await click('프로필 수정');
     await type('#admin-profile-name', '');
     await type('#admin-profile-student-id', '');
     await click('저장');
@@ -258,7 +216,6 @@ describe('저장이 막히면 첫 오류 칸으로 포커스를 옮긴다(R-16)'
 
   it('첫 칸이 아니어도 틀린 칸으로 간다', async () => {
     await render();
-    await click('프로필 수정');
     await type('#admin-profile-student-id', '12');
     await click('저장');
 
@@ -267,7 +224,6 @@ describe('저장이 막히면 첫 오류 칸으로 포커스를 옮긴다(R-16)'
 
   it('이미 오류가 보이는 채로 다시 저장해도 첫 오류 칸으로 돌아간다', async () => {
     await render();
-    await click('프로필 수정');
     await type('#admin-profile-student-id', '12');
     await click('저장');
     await act(() => {

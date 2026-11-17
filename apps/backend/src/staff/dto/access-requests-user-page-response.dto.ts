@@ -182,6 +182,24 @@ export class AccessRequestsUserPageResponseDto {
   }
 }
 
+class UserParticipationResponseDto {
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly teamName: string;
+  declare readonly isLeader: boolean;
+
+  static from(
+    participation: NonNullable<AdminAccessUserDetail['participations']>[number],
+  ): UserParticipationResponseDto {
+    return {
+      programId: participation.programId,
+      programName: participation.programName,
+      teamName: participation.teamName,
+      isLeader: participation.isLeader,
+    };
+  }
+}
+
 export class AccessRequestsUserDetailResponseDto {
   declare readonly id: string;
   declare readonly githubLogin: string;
@@ -199,6 +217,8 @@ export class AccessRequestsUserDetailResponseDto {
   declare readonly pendingRequest: PendingRequestResponseDto | null;
   declare readonly lastLoginAt: string | null;
   declare readonly profile: AdminAccessUserDetail['profile'];
+  declare readonly participations:
+    readonly UserParticipationResponseDto[] | null;
   declare readonly adminGrant: {
     readonly origin: AdminOrigin;
     readonly grantedAt: string;
@@ -225,6 +245,10 @@ export class AccessRequestsUserDetailResponseDto {
       pendingRequest: toPendingRequest(user.pendingRequest),
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       profile: user.profile,
+      participations:
+        user.participations?.map((participation) =>
+          UserParticipationResponseDto.from(participation),
+        ) ?? null,
       adminGrant: user.adminGrant
         ? {
             origin: user.adminGrant.origin,

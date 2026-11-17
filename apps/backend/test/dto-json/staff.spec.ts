@@ -74,6 +74,14 @@ const detail: AdminAccessUserDetail = {
     department: 'Computer Science',
     isComplete: true,
   },
+  participations: [
+    {
+      programId: 'program-1',
+      programName: 'Program A',
+      teamName: 'Team A',
+      isLeader: true,
+    },
+  ],
 };
 
 const history: AdminAccessUserHistory = {

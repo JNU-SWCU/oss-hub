@@ -87,6 +87,7 @@ function buildService(
     .mockResolvedValue(overrides.studentIdFill ?? 'filled');
   const repository: UsersRepositoryPort = {
     findByGithubId,
+    listParticipationMemberships: jest.fn().mockResolvedValue([]),
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
@@ -140,12 +141,15 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
       department: '소프트웨어공학과',
     }),
   ).resolves.toEqual({
+    githubLogin: 'synthetic-user',
+    memberKind: MemberKind.STUDENT,
     name: '수정된 이름',
     studentId,
     staffNumber: null,
     department: '소프트웨어공학과',
     phone: null,
     isComplete: true,
+    participations: [],
   });
   expect(updateProfileFields).toHaveBeenCalledWith(
     profileRecord(existingUser.id, {

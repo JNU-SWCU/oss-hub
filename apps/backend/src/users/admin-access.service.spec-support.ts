@@ -141,6 +141,8 @@ export class InMemoryAdminAccessRepository
   actor: AdminAccessActor | null = adminActor();
   target: AdminAccessUserRow | null = accessUser();
   authoritativeTarget: AdminAccessUserRow | null = null;
+  participationMemberships: AdminAccessUserDetailRow['participationMemberships'] =
+    [];
   activeAdminCount = 2;
   actorAfterLock: AdminAccessActor | null | undefined = undefined;
   userCasSucceeds = true;
@@ -181,7 +183,14 @@ export class InMemoryAdminAccessRepository
   findById(): Promise<AdminAccessUserDetailRow | null> {
     const target = this.authoritativeTarget ?? this.target;
     return Promise.resolve(
-      target ? { ...target, staffNumber: null, adminGrant: null } : null,
+      target
+        ? {
+            ...target,
+            staffNumber: null,
+            adminGrant: null,
+            participationMemberships: this.participationMemberships,
+          }
+        : null,
     );
   }
   listStaffAccessRequestHistory(

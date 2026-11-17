@@ -68,6 +68,7 @@ function buildService(
   const userHistory = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
+    listParticipationMemberships: jest.fn().mockResolvedValue([]),
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
@@ -129,12 +130,15 @@ describe('역할별 필수 항목', () => {
       department: input.department,
     });
     expect(profile).toEqual({
+      githubLogin: '',
+      memberKind: MemberKind.STAFF,
       name: input.name,
       studentId: null,
       staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,
+      participations: [],
     });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
       expect.anything(),

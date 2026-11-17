@@ -117,12 +117,15 @@ afterAll(async () => {
 });
 it('예전 형식 학번으로 가입을 마친 학생은 완료된 프로필로 읽힌다', async () => {
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
+    githubLogin: 'synthetic-legacy-student',
+    memberKind: MemberKind.STUDENT,
     name,
     studentId: LEGACY_STUDENT_ID,
     staffNumber: null,
     department,
     phone: null,
     isComplete: true,
+    participations: [],
   });
 });
 it('학번을 싣지 않은 저장은 예전 형식 학번을 건드리지 않고 통과한다', async () => {

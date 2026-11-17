@@ -9,12 +9,15 @@ import {
 } from './api';
 
 const emptyProfile = {
+  githubLogin: 'synthetic-login',
+  memberKind: null,
   name: 'GitHub 합성 이름',
   studentId: null,
   staffNumber: null,
   department: null,
   phone: null,
   isComplete: false,
+  participations: [],
 };
 const TEN_DIGIT_PHONE = '1'.repeat(10);
 const ELEVEN_DIGIT_PHONE = '2'.repeat(11);
@@ -26,11 +29,21 @@ const completeRequest = {
   department: '인공지능학부',
 };
 const completeProfile = {
+  githubLogin: 'synthetic-login',
+  memberKind: 'STUDENT',
   name: completeRequest.name,
   studentId: completeRequest.studentId,
   staffNumber: null,
   department: completeRequest.department,
   phone: completeRequest.phone,
+  participations: [
+    {
+      programId: 'program-1',
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+      isLeader: true,
+    },
+  ],
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -157,8 +170,8 @@ test('모든 프로필 필드를 담은 서버 응답도 그대로 파싱한다'
 });
 
 test('staffNumber가 없는 프로필 응답을 거부한다', async () => {
-  const { name, studentId, department, phone, isComplete } = emptyProfile;
-  const profile = { name, studentId, department, phone, isComplete };
+  const profile: Record<string, unknown> = { ...emptyProfile };
+  delete profile.staffNumber;
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(
@@ -187,6 +200,57 @@ test.each([123, { value: 'STAFF-42' }, true] as const)(
     );
 
     await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+  },
+);
+
+test.each([
+  ['GitHub 로그인이 없는', { githubLogin: undefined }],
+  ['GitHub 로그인이 공백인', { githubLogin: '   ' }],
+  ['가입 유형이 없는', { memberKind: undefined }],
+  ['가입 유형이 알 수 없는 값인', { memberKind: 'ADMIN' }],
+  ['참여 프로그램이 없는', { participations: undefined }],
+  ['참여 프로그램이 배열이 아닌', { participations: {} }],
+  [
+    '참여 프로그램 항목에 팀 이름이 없는',
+    {
+      participations: [
+        {
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          isLeader: false,
+        },
+      ],
+    },
+  ],
+] as const)('%s 프로필 응답을 거부한다', async (_label, override) => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ...emptyProfile, ...override }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  );
+
+  await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+});
+
+test.each(['STUDENT', 'STAFF', null] as const)(
+  '가입 유형 %s와 참여 프로그램을 그대로 파싱한다',
+  async (memberKind) => {
+    const profile = { ...completeProfile, memberKind, isComplete: true };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(profile), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(getMyProfile()).resolves.toEqual(profile);
   },
 );
 
