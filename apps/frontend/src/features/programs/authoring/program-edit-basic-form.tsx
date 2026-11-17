@@ -1,18 +1,25 @@
+import { Minus, Plus } from 'lucide-react';
 import { ProgramCoverField } from './program-cover-field';
 import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramNoticeImport } from './program-notice-import';
-import { ProgramOrganizerField } from './program-organizer-field';
+import {
+  FIELD_BOX_CLASS,
+  FIELD_BOX_INPUT_CLASS,
+  ProgramOrganizerField,
+} from './program-organizer-field';
+import { Button } from '@/components/ui/button';
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
+import { cn } from '@/lib/utils';
 import type { EditableProgram } from './dto';
 import {
+  teamSizeValue,
   type ProgramEditableField,
   type ProgramEditErrors,
   type ProgramEditFieldValue,
@@ -36,6 +43,93 @@ interface ProgramEditBasicFormProps {
     field: ProgramEditableField,
     value: ProgramEditFieldValue,
   ) => void;
+}
+
+const TEAM_SIZE_FLOOR = 1;
+
+const TRACK_OPTION_CLASS = cn(
+  'relative inline-flex h-control cursor-pointer items-center border border-input bg-background px-5',
+  'text-body transition-colors not-first:-ml-px first:rounded-l-control last:rounded-r-control',
+  'hover:bg-muted has-checked:z-10 has-checked:border-primary has-checked:bg-primary',
+  'has-checked:font-semibold has-checked:text-primary-foreground has-checked:hover:bg-primary',
+  'has-focus-visible:z-20 has-focus-visible:border-ring has-focus-visible:ring-3',
+  'has-focus-visible:ring-ring/50 in-aria-invalid:border-destructive',
+);
+
+const INLINE_ERROR_CLASS = 'contain-inline-size break-keep text-pretty';
+
+const TEAM_STEPPER_CLASS = cn(
+  FIELD_BOX_CLASS,
+  'inline-flex h-control items-center',
+);
+
+const TEAM_STEPPER_INPUT_CLASS = cn(
+  FIELD_BOX_INPUT_CLASS,
+  'h-full w-10 px-0 text-center [appearance:textfield]',
+  '[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+);
+
+const TEAM_STEPPER_BUTTON_CLASS = 'h-full w-9 text-muted-foreground';
+
+function TeamSizeStepper({
+  id,
+  label,
+  value,
+  invalid,
+  onChange,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly invalid: boolean;
+  readonly onChange: (value: string) => void;
+}) {
+  const parsed = teamSizeValue(value);
+  const size = parsed !== null && Number.isFinite(parsed) ? parsed : Number.NaN;
+  return (
+    <div className={TEAM_STEPPER_CLASS}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={TEAM_STEPPER_BUTTON_CLASS}
+        aria-label={`${label} 줄이기`}
+        disabled={!(size > TEAM_SIZE_FLOOR)}
+        onClick={() =>
+          onChange(String(Math.max(TEAM_SIZE_FLOOR, Math.ceil(size) - 1)))
+        }
+      >
+        <Minus aria-hidden="true" />
+      </Button>
+      <Input
+        id={id}
+        type="number"
+        min={TEAM_SIZE_FLOOR}
+        value={value}
+        aria-label={label}
+        aria-invalid={invalid}
+        aria-describedby={invalid ? 'program-team-size-error' : undefined}
+        className={TEAM_STEPPER_INPUT_CLASS}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={TEAM_STEPPER_BUTTON_CLASS}
+        aria-label={`${label} 늘리기`}
+        onClick={() =>
+          onChange(
+            String(
+              size >= TEAM_SIZE_FLOOR ? Math.floor(size) + 1 : TEAM_SIZE_FLOOR,
+            ),
+          )
+        }
+      >
+        <Plus aria-hidden="true" />
+      </Button>
+    </div>
+  );
 }
 
 export function ProgramEditBasicForm({
@@ -75,20 +169,7 @@ export function ProgramEditBasicForm({
       }
       description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
     >
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
-          <Input
-            id="program-name"
-            value={form.name}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={errors.name ? 'program-name-error' : undefined}
-            onChange={(event) => onFieldChange('name', event.target.value)}
-          />
-          <FieldError id="program-name-error" role="alert">
-            {errors.name}
-          </FieldError>
-        </Field>
+      <div className="grid items-start gap-8 md:grid-cols-[14rem_minmax(0,1fr)]">
         <ProgramCoverField
           selection={coverSelection}
           currentImageUrl={program.coverImageUrl}
@@ -96,107 +177,116 @@ export function ProgramEditBasicForm({
           serverError={errors.coverUploadId}
           onChange={onCoverChange}
         />
-        <ProgramOrganizerField
-          id="program-organizers"
-          value={form.organizers}
-          error={errors.organizers}
-          disabled={isSaving}
-          onChange={(organizers) => onFieldChange('organizers', organizers)}
-        />
-        <Field>
-          <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
-          <select
-            id="program-track-type"
-            className="h-control rounded-control border border-input bg-background px-4 text-body"
-            value={form.trackType}
-            aria-invalid={Boolean(errors.trackType)}
-            aria-describedby={
-              errors.trackType ? 'program-track-type-error' : undefined
-            }
-            onChange={(event) => onFieldChange('trackType', event.target.value)}
-          >
-            <option value="">선택</option>
-            {PROGRAM_TRACK_TYPES.map((trackType) => (
-              <option key={trackType} value={trackType}>
-                {PROGRAM_TRACK_TYPE_LABELS[trackType]}
-              </option>
-            ))}
-          </select>
-          <FieldError id="program-track-type-error" role="alert">
-            {errors.trackType}
-          </FieldError>
-        </Field>
-        <Field>
-          <FieldLabel>팀 인원 *</FieldLabel>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="space-y-2">
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
+            <Input
+              id="program-name"
+              value={form.name}
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'program-name-error' : undefined}
+              onChange={(event) => onFieldChange('name', event.target.value)}
+            />
+            <FieldError id="program-name-error" role="alert">
+              {errors.name}
+            </FieldError>
+          </Field>
+          <ProgramOrganizerField
+            id="program-organizers"
+            value={form.organizers}
+            error={errors.organizers}
+            disabled={isSaving}
+            onChange={(organizers) => onFieldChange('organizers', organizers)}
+          />
+          <div className="flex flex-wrap gap-x-12 gap-y-5">
+            <Field className="w-auto">
+              <FieldLabel id="program-track-type-label">
+                교과/비교과 *
+              </FieldLabel>
+              <div
+                role="radiogroup"
+                aria-labelledby="program-track-type-label"
+                aria-invalid={Boolean(errors.trackType)}
+                aria-describedby={
+                  errors.trackType ? 'program-track-type-error' : undefined
+                }
+                className="flex"
+              >
+                {PROGRAM_TRACK_TYPES.map((trackType) => (
+                  <label key={trackType} className={TRACK_OPTION_CLASS}>
+                    <input
+                      type="radio"
+                      name="program-track-type"
+                      value={trackType}
+                      checked={form.trackType === trackType}
+                      className="sr-only"
+                      onChange={() => onFieldChange('trackType', trackType)}
+                    />
+                    {PROGRAM_TRACK_TYPE_LABELS[trackType]}
+                  </label>
+                ))}
+              </div>
+              <FieldError
+                id="program-track-type-error"
+                role="alert"
+                className={INLINE_ERROR_CLASS}
+              >
+                {errors.trackType}
+              </FieldError>
+            </Field>
+            <Field className="w-auto" aria-labelledby="program-team-size-label">
               <FieldLabel
-                className="text-small"
+                id="program-team-size-label"
                 htmlFor="program-team-min-size"
               >
-                최소
+                인원 *
               </FieldLabel>
-              <Input
-                id="program-team-min-size"
-                type="number"
-                min="1"
-                value={form.teamMinSize}
-                aria-invalid={Boolean(errors.team)}
-                aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
-                onChange={(event) =>
-                  onFieldChange('teamMinSize', event.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <FieldLabel
-                className="text-small"
-                htmlFor="program-team-max-size"
+              <div className="flex items-center gap-2">
+                <TeamSizeStepper
+                  id="program-team-min-size"
+                  label="최소 인원"
+                  value={form.teamMinSize}
+                  invalid={Boolean(errors.team)}
+                  onChange={(value) => onFieldChange('teamMinSize', value)}
+                />
+                <span aria-hidden="true">~</span>
+                <TeamSizeStepper
+                  id="program-team-max-size"
+                  label="최대 인원"
+                  value={form.teamMaxSize}
+                  invalid={Boolean(errors.team)}
+                  onChange={(value) => onFieldChange('teamMaxSize', value)}
+                />
+              </div>
+              <FieldError
+                id="program-team-size-error"
+                role="alert"
+                className={INLINE_ERROR_CLASS}
               >
-                최대
-              </FieldLabel>
-              <Input
-                id="program-team-max-size"
-                type="number"
-                min="1"
-                value={form.teamMaxSize}
-                aria-invalid={Boolean(errors.team)}
-                aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
-                onChange={(event) =>
-                  onFieldChange('teamMaxSize', event.target.value)
-                }
-              />
-            </div>
+                {errors.team}
+              </FieldError>
+            </Field>
           </div>
-          <FieldError id="program-team-size-error" role="alert">
-            {errors.team}
-          </FieldError>
-          <FieldDescription
-            id="program-team-size-description"
-            className="break-keep"
-          >
-            개인으로만 신청받으려면 최소·최대 인원을 모두 1명으로 설정하세요.
-          </FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
-          <textarea
-            id="program-description"
-            value={form.description}
-            aria-invalid={Boolean(errors.description)}
-            aria-describedby={
-              errors.description ? 'program-description-error' : undefined
-            }
-            onChange={(event) =>
-              onFieldChange('description', event.target.value)
-            }
-            className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
-          />
-          <FieldError id="program-description-error" role="alert">
-            {errors.description}
-          </FieldError>
-        </Field>
-      </FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
+            <textarea
+              id="program-description"
+              value={form.description}
+              aria-invalid={Boolean(errors.description)}
+              aria-describedby={
+                errors.description ? 'program-description-error' : undefined
+              }
+              onChange={(event) =>
+                onFieldChange('description', event.target.value)
+              }
+              className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
+            />
+            <FieldError id="program-description-error" role="alert">
+              {errors.description}
+            </FieldError>
+          </Field>
+        </FieldGroup>
+      </div>
     </FormSection>
   );
 }

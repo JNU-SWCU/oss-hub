@@ -13,8 +13,17 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 afterEach(() => vi.restoreAllMocks());
 
+function buttonNamed(
+  container: HTMLElement,
+  name: string,
+): HTMLButtonElement | undefined {
+  return [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === name,
+  );
+}
+
 describe('program cover selection', () => {
-  it('opens the native picker from its button, allows the same file again, and blocks controls while disabled', async () => {
+  it('opens the native picker from the empty poster button, allows the same file again, and blocks controls while disabled', async () => {
     const container = document.createElement('div');
     document.body.append(container);
     const root = createRoot(container);
@@ -26,7 +35,8 @@ describe('program cover selection', () => {
       const input = container.querySelector('input');
       if (!input) throw new Error('Cover input did not render');
       const openPicker = vi.spyOn(input, 'click');
-      await act(async () => container.querySelector('button')?.click());
+      expect(container.querySelector('img')).toBeNull();
+      await act(async () => buttonNamed(container, '이미지 올리기')?.click());
       expect(openPicker).toHaveBeenCalledOnce();
       const file = new File(['synthetic'], 'poster.png', { type: 'image/png' });
       Object.defineProperty(input, 'files', {
@@ -46,7 +56,7 @@ describe('program cover selection', () => {
         ),
       );
       expect(input.disabled).toBe(true);
-      const button = container.querySelector('button');
+      const button = buttonNamed(container, '이미지 올리기');
       expect(button?.disabled).toBe(true);
       await act(async () => button?.click());
       expect(openPicker).toHaveBeenCalledOnce();
@@ -73,7 +83,9 @@ describe('program cover selection', () => {
       const image = container.querySelector('img');
       expect(image?.getAttribute('src')).toBe(selection.imageUrl);
       expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer');
-      expect(container.textContent).toContain('공지에서 가져온 이미지');
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(
+        '공지에서 가져온 이미지',
+      );
       expect(container.textContent).not.toContain(selection.sourceUrl);
       expect(container.textContent).not.toContain(selection.imageUrl);
       expect(container.textContent).not.toContain('목록 미리보기');
@@ -134,7 +146,60 @@ describe('program cover selection', () => {
     ).toContain('5 MB');
   });
 
-  it('keeps the existing image when validation fails and exposes remove/restore as draft changes', async () => {
+  it('replaces the image through 교체 inside the poster', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const onChange = vi.fn();
+    try {
+      await act(async () =>
+        root.render(
+          <ProgramCoverField
+            selection={undefined}
+            currentImageUrl="/programs/example/cover/cover-one"
+            onChange={onChange}
+          />,
+        ),
+      );
+      const input = container.querySelector('input');
+      if (!input) throw new Error('Cover input did not render');
+      const openPicker = vi.spyOn(input, 'click');
+      await act(async () => buttonNamed(container, '교체')?.click());
+      expect(openPicker).toHaveBeenCalledOnce();
+      const file = new File(['synthetic'], 'poster.jpg', {
+        type: 'image/jpeg',
+      });
+      Object.defineProperty(input, 'files', {
+        configurable: true,
+        value: [file],
+      });
+      await act(async () =>
+        input.dispatchEvent(new Event('change', { bubbles: true })),
+      );
+      expect(onChange).toHaveBeenLastCalledWith(file);
+      await act(async () =>
+        root.render(
+          <ProgramCoverField
+            selection={file}
+            currentImageUrl="/programs/example/cover/cover-one"
+            disabled
+            onChange={onChange}
+          />,
+        ),
+      );
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(
+        'poster.jpg',
+      );
+      expect(container.textContent).not.toContain('기존 이미지로 되돌리기');
+      expect(buttonNamed(container, '교체')?.disabled).toBe(true);
+      expect(buttonNamed(container, '삭제')?.disabled).toBe(true);
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+    }
+  });
+
+  it('keeps the existing image when validation fails and removes it with 삭제 as a draft change', async () => {
     const container = document.createElement('div');
     document.body.append(container);
     const root = createRoot(container);
@@ -165,12 +230,8 @@ describe('program cover selection', () => {
       expect(container.querySelector('[role="alert"]')?.textContent).toContain(
         'JPG',
       );
-      await act(async () =>
-        [...container.querySelectorAll('button')]
-          .find((button) => button.textContent === '이미지 제거')
-          ?.click(),
-      );
-      expect(onChange).toHaveBeenLastCalledWith(null);
+      await act(async () => buttonNamed(container, '삭제')?.click());
+      expect(onChange.mock.calls).toEqual([[null]]);
       await act(async () =>
         root.render(
           <ProgramCoverField
@@ -181,12 +242,12 @@ describe('program cover selection', () => {
         ),
       );
       expect(container.querySelector('img')).toBeNull();
-      await act(async () =>
-        [...container.querySelectorAll('button')]
-          .find((button) => button.textContent === '기존 이미지로 되돌리기')
-          ?.click(),
-      );
-      expect(onChange).toHaveBeenLastCalledWith(undefined);
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(
+        [...container.querySelectorAll('button')].map(
+          (button) => button.textContent,
+        ),
+      ).toEqual(['이미지 올리기']);
     } finally {
       await act(async () => root.unmount());
       container.remove();
