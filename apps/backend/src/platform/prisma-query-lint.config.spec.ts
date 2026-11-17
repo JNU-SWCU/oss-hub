@@ -9,7 +9,8 @@ import {
   PrismaQueryLintError,
 } from './prisma-query-lint.config';
 
-const CALLER = 'apps/backend/src/platform/prisma-query-lint.config.spec.ts';
+const FILE = 'apps/backend/src/platform/prisma-query-lint.config.spec.ts';
+const CALLER = `${FILE}#<module>`;
 const directory = mkdtempSync(join(tmpdir(), 'prisma-query-lint-'));
 const clients: PrismaClient[] = [];
 
@@ -42,9 +43,39 @@ async function lintCode(query: Promise<unknown>): Promise<string | undefined> {
     await query;
   } catch (error) {
     if (error instanceof PrismaQueryLintError) return error.code;
-    return undefined;
+    if (error instanceof Error && /reach database server/.test(error.message))
+      return undefined;
+    throw error;
   }
   throw new Error('unreachable database query unexpectedly succeeded');
+}
+
+class ProbeRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  allowlisted() {
+    return this.prisma.user.findMany();
+  }
+
+  added() {
+    return this.prisma.user.findMany({ where: { name: 'x' } });
+  }
+
+  twoReads() {
+    return Promise.all([
+      this.prisma.team.findMany(),
+      this.prisma.team.findMany({ where: { programId: 'p' } }),
+      this.prisma.team.findMany({ take: 1 }),
+    ]);
+  }
+}
+
+class ProbeService {
+  constructor(private readonly repository: ProbeRepository) {}
+
+  run() {
+    return this.repository.added();
+  }
 }
 
 afterAll(async () => {
@@ -135,6 +166,27 @@ describe('loadPrismaQueryLintConfig', () => {
     );
   });
 
+  it('scopes an exemption to its enclosing method, not to the file', async () => {
+    const prisma = lintedClient({
+      [`User.findMany@${FILE}#ProbeRepository.allowlisted`]: {
+        reason: 'bounded synthetic fixture',
+      },
+    });
+    const repository = new ProbeRepository(prisma);
+
+    expect(await lintCode(repository.allowlisted())).toBeUndefined();
+    await expect(repository.added()).rejects.toMatchObject({
+      code: 'LINT.NO_LIMIT',
+      key: `User.findMany@${FILE}#ProbeRepository.added`,
+    });
+    await expect(new ProbeService(repository).run()).rejects.toMatchObject({
+      key: `User.findMany@${FILE}#ProbeRepository.added`,
+    });
+    await expect(prisma.user.findMany()).rejects.toMatchObject({
+      key: `User.findMany@${CALLER}`,
+    });
+  });
+
   it('warns once for reads without select and never throws for it', async () => {
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const prisma = lintedClient();
@@ -166,6 +218,12 @@ describe('loadPrismaQueryLintConfig', () => {
       /reason/,
     );
     expect(load({ [`User.findMany@${CALLER}`]: {} })).toThrow(/reason/);
+    expect(
+      load({ [`User.findMany@${CALLER}`]: { reason: 'x', count: 0 } }),
+    ).toThrow(/count/);
+    expect(load({ [`User.findMany@${FILE}`]: { reason: 'x' } })).toThrow(
+      /형식/,
+    );
     expect(load({ [`Nope.findMany@${CALLER}`]: { reason: 'x' } })).toThrow(
       /Nope\.findMany/,
     );
@@ -174,22 +232,27 @@ describe('loadPrismaQueryLintConfig', () => {
     );
   });
 
-  it('reports allowlist entries whose file or call no longer exists', () => {
-    const config = loadPrismaQueryLintConfig({
-      nodeEnv: 'test',
-      allowlistPath: allowlistFile({
-        'User.findMany@apps/backend/src/platform/missing.ts': { reason: 'x' },
-        [`Program.deleteMany@${CALLER}`]: { reason: 'x' },
-        [`User.findMany@${CALLER}`]: { reason: 'x' },
-      }),
-    });
+  it('reports entries whose file, call or call count no longer matches', () => {
+    const twoReads = `Team.findMany@${FILE}#ProbeRepository.twoReads`;
+    const audit = (allowlist: unknown) =>
+      loadPrismaQueryLintConfig({
+        nodeEnv: 'test',
+        allowlistPath: allowlistFile(allowlist),
+      }).auditAllowlist();
 
-    expect(config.auditAllowlist()).toEqual([
-      expect.stringContaining(
-        'User.findMany@apps/backend/src/platform/missing.ts',
-      ),
+    expect(
+      audit({
+        'User.findMany@apps/backend/src/platform/missing.ts#f': { reason: 'x' },
+        [`Program.deleteMany@${CALLER}`]: { reason: 'x' },
+        [`User.findMany@${FILE}#ProbeRepository.added`]: { reason: 'x' },
+        [twoReads]: { reason: 'x' },
+      }),
+    ).toEqual([
+      expect.stringContaining('missing.ts#f'),
       expect.stringContaining(`Program.deleteMany@${CALLER}`),
+      expect.stringContaining(twoReads),
     ]);
+    expect(audit({ [twoReads]: { reason: 'x', count: 2 } })).toEqual([]);
   });
 
   it('keeps every committed allowlist entry current', () => {

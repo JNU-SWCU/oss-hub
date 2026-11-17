@@ -1,8 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { createRequire, SourceMap } from 'node:module';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
+import type * as TS from 'typescript';
 import { PROCESS_RUNTIME_CONFIG } from './runtime-config-instance.config';
 
 export type PrismaQueryLintRule =
@@ -15,12 +18,14 @@ type AllowlistEntry = Readonly<{
   model: string;
   operation: string;
   file: string;
+  owner: string;
+  count: number;
 }>;
 
 type PrismaQueryLintPolicy = Readonly<{
   repoRoot: string;
   allowlist: ReadonlyMap<string, AllowlistEntry>;
-  uniqueKeys: ReadonlyMap<string, readonly (readonly string[])[]>;
+  uniqueKeys: UniqueKeys;
 }>;
 
 type PrismaInternalClient = {
@@ -51,7 +56,7 @@ const SELECT_STAR_OPERATIONS = new Set([
   'findUniqueOrThrow',
 ]);
 const ALLOWLIST_KEY =
-  /^([A-Z]\w*)\.(findMany|deleteMany|updateMany)@(\S+\.ts)$/;
+  /^([A-Z]\w*)\.(findMany|deleteMany|updateMany)@(\S+\.ts)#(\S+)$/;
 
 const callsites = new AsyncLocalStorage<{ _error?: Error } | undefined>();
 const attachedClients = new WeakSet<object>();
@@ -95,14 +100,20 @@ export class PrismaQueryLintConfig {
     const policy = this.policy;
     if (!policy) return [];
     return [...policy.allowlist].flatMap(
-      ([key, { model, operation, file }]) => {
+      ([key, { model, operation, file, owner, count }]) => {
         const absolute = join(policy.repoRoot, file);
         if (!existsSync(absolute)) return [`${key}: ${file} 파일이 없습니다.`];
-        const delegate = model.charAt(0).toLowerCase() + model.slice(1);
-        const call = new RegExp(`\\.${delegate}\\s*\\.${operation}\\s*\\(`);
-        return call.test(readFileSync(absolute, 'utf8'))
+        const found = unboundedCalls(absolute, policy.uniqueKeys).filter(
+          (call) =>
+            call.model === model &&
+            call.operation === operation &&
+            call.owner === owner,
+        ).length;
+        return found === count
           ? []
-          : [`${key}: ${file}에 ${delegate}.${operation}( 호출이 없습니다.`];
+          : [
+              `${key}: ${owner} 안의 제한 없는 ${model}.${operation} 호출은 ${found}개인데 count는 ${count}입니다.`,
+            ];
       },
     );
   }
@@ -116,7 +127,7 @@ export class PrismaQueryLintConfig {
     const query = isRecord(args) ? args : {};
     const rule = ERROR_RULES[operation];
     if (rule && violates(rule, query, policy.uniqueKeys.get(model) ?? [])) {
-      const key = `${model}.${operation}@${callerFile(policy.repoRoot)}`;
+      const key = `${model}.${operation}@${callerKey(policy.repoRoot)}`;
       if (!policy.allowlist.has(key)) throw new PrismaQueryLintError(rule, key);
     }
     if (!SELECT_STAR_OPERATIONS.has(operation) || query.select !== undefined)
@@ -125,7 +136,7 @@ export class PrismaQueryLintConfig {
     if (warnedSelectStar.has(warning)) return;
     warnedSelectStar.add(warning);
     this.logger.warn(
-      `[LINT.SELECT_STAR] ${warning}@${callerFile(policy.repoRoot)}: ${RULE_MESSAGES['LINT.SELECT_STAR']}`,
+      `[LINT.SELECT_STAR] ${warning}@${callerKey(policy.repoRoot)}: ${RULE_MESSAGES['LINT.SELECT_STAR']}`,
     );
   }
 }
@@ -208,50 +219,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function callerFile(repoRoot: string): string {
-  const file = stackFiles(callsites.getStore()?._error).find(
-    (candidate) =>
-      candidate !== __filename &&
-      !candidate.includes('node_modules') &&
-      candidate.startsWith(repoRoot + sep),
-  );
-  if (!file) return 'unknown';
-  return relative(repoRoot, file)
-    .split(sep)
-    .join('/')
-    .replace(/^(apps\/[^/]+)\/dist\/(.+)\.js$/, '$1/$2.ts');
-}
-
-function stackFiles(error: Error | undefined): string[] {
-  if (!error) return [];
-  let files: string[] | undefined;
-  const previous = Object.getOwnPropertyDescriptor(Error, 'prepareStackTrace');
-  Error.prepareStackTrace = (formatted: Error, frames: NodeJS.CallSite[]) => {
-    files = frames.map((frame) => frame.getFileName() ?? '');
-    return [String(formatted), ...frames.map(formatFrame)].join('\n');
-  };
-  let stack: string;
-  try {
-    stack = error.stack ?? '';
-  } finally {
-    if (previous) Object.defineProperty(Error, 'prepareStackTrace', previous);
-    else Reflect.deleteProperty(Error, 'prepareStackTrace');
+function callerKey(repoRoot: string): string {
+  const stack = callsites.getStore()?._error?.stack ?? '';
+  for (const line of stack.split('\n').slice(1)) {
+    const [, raw = '', row = '0', column = '0'] =
+      /^at (?:.* \((.+):(\d+):(\d+)\)|(?:async )?(.+):(\d+):(\d+))$/
+        .exec(line.trim())
+        ?.filter((part) => part !== undefined) ?? [];
+    const file = raw.startsWith('file://') ? fileURLToPath(raw) : raw;
+    if (
+      !file.startsWith(repoRoot + sep) ||
+      file.includes(`${sep}node_modules${sep}`) ||
+      file === __filename
+    )
+      continue;
+    const source = originalPosition(file, Number(row), Number(column));
+    const path = relative(repoRoot, source.file).split(sep).join('/');
+    return `${path}#${ownerAt(source.file, source.line, source.column)}`;
   }
-  return (
-    files ??
-    stack
-      .split('\n')
-      .map(
-        (line) =>
-          /(?:\(|at )([^()]+?):\d+:\d+\)?$/.exec(line.trim())?.[1] ?? '',
-      )
-  );
+  return 'unknown';
 }
 
-function formatFrame(frame: NodeJS.CallSite): string {
-  const location = `${frame.getFileName() ?? '<anonymous>'}:${frame.getLineNumber() ?? 0}:${frame.getColumnNumber() ?? 0}`;
-  const name = frame.getFunctionName();
-  return name ? `    at ${name} (${location})` : `    at ${location}`;
+function originalPosition(
+  file: string,
+  line: number,
+  column: number,
+): { file: string; line: number; column: number } {
+  const map = `${file}.map`;
+  if (!file.endsWith('.js') || !existsSync(map)) return { file, line, column };
+  const entry = new SourceMap(
+    JSON.parse(readFileSync(map, 'utf8')) as ConstructorParameters<
+      typeof SourceMap
+    >[0],
+  ).findEntry(line - 1, column - 1);
+  if (!('originalSource' in entry)) return { file, line, column };
+  return {
+    file: entry.originalSource.startsWith('file://')
+      ? fileURLToPath(entry.originalSource)
+      : resolve(dirname(file), entry.originalSource),
+    line: entry.originalLine + 1,
+    column: entry.originalColumn + 1,
+  };
 }
 
 function findUp(marker: string): string {
@@ -262,9 +270,7 @@ function findUp(marker: string): string {
   }
 }
 
-function readUniqueKeys(
-  schema: string,
-): ReadonlyMap<string, readonly (readonly string[])[]> {
+function readUniqueKeys(schema: string): UniqueKeys {
   const keys = new Map<string, string[][]>();
   for (const [, model = '', body = ''] of schema.matchAll(
     /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm,
@@ -295,18 +301,163 @@ function readAllowlist(
   const problems: string[] = [];
   const allowlist = new Map<string, AllowlistEntry>();
   for (const [key, entry] of Object.entries(parsed)) {
-    const [, model = '', operation = '', file = ''] =
+    const [, model = '', operation = '', file = '', owner = ''] =
       ALLOWLIST_KEY.exec(key) ?? [];
     const reason = isRecord(entry) ? entry.reason : undefined;
+    const count = isRecord(entry) ? (entry.count ?? 1) : 1;
     if (!uniqueKeys.has(model))
       problems.push(
-        `${key}: Model.findMany|deleteMany|updateMany@경로.ts 형식이 아니거나 없는 모델입니다.`,
+        `${key}: Model.findMany|deleteMany|updateMany@경로.ts#함수 형식이 아니거나 없는 모델입니다.`,
       );
     else if (typeof reason !== 'string' || reason.trim() === '')
       problems.push(`${key}: reason이 비어 있습니다.`);
-    else allowlist.set(key, { model, operation, file });
+    else if (!Number.isInteger(count) || (count as number) < 1)
+      problems.push(`${key}: count는 1 이상의 정수여야 합니다.`);
+    else
+      allowlist.set(key, {
+        model,
+        operation,
+        file,
+        owner,
+        count: count as number,
+      });
   }
   if (problems.length > 0)
     throw new Error(`${file} 검사 실패\n${problems.join('\n')}`);
   return allowlist;
+}
+
+type UnboundedCall = Readonly<{
+  model: string;
+  operation: string;
+  owner: string;
+}>;
+
+type UniqueKeys = ReadonlyMap<string, readonly (readonly string[])[]>;
+
+const OPERATIONS = new Set(['findMany', 'deleteMany', 'updateMany']);
+const sources = new Map<string, TS.SourceFile>();
+let typescript: typeof TS | undefined;
+
+function ts(): typeof TS {
+  typescript ??= createRequire(__filename)('typescript') as typeof TS;
+  return typescript;
+}
+
+function parse(file: string): TS.SourceFile {
+  const cached = sources.get(file);
+  if (cached) return cached;
+  const source = ts().createSourceFile(
+    file,
+    readFileSync(file, 'utf8'),
+    ts().ScriptTarget.Latest,
+    true,
+  );
+  sources.set(file, source);
+  return source;
+}
+
+function ownerAt(file: string, line: number, column: number): string {
+  const source = parse(file);
+  const position = source.getPositionOfLineAndCharacter(line - 1, column - 1);
+  let node: TS.Node = source;
+  for (;;) {
+    const child = node
+      .getChildren(source)
+      .find(
+        (candidate) =>
+          candidate.getStart(source) <= position && position < candidate.end,
+      );
+    if (!child) return ownerOf(node);
+    node = child;
+  }
+}
+
+function unboundedCalls(file: string, uniqueKeys: UniqueKeys): UnboundedCall[] {
+  const t = ts();
+  const models = new Map(
+    [...uniqueKeys.keys()].map((model) => [
+      model.charAt(0).toLowerCase() + model.slice(1),
+      model,
+    ]),
+  );
+  const calls: UnboundedCall[] = [];
+  const visit = (node: TS.Node): void => {
+    if (
+      t.isCallExpression(node) &&
+      t.isPropertyAccessExpression(node.expression) &&
+      t.isPropertyAccessExpression(node.expression.expression)
+    ) {
+      const operation = node.expression.name.text;
+      const model = models.get(node.expression.expression.name.text);
+      if (
+        model &&
+        OPERATIONS.has(operation) &&
+        !bounded(operation, node.arguments[0], uniqueKeys.get(model) ?? [])
+      )
+        calls.push({ model, operation, owner: ownerOf(node) });
+    }
+    t.forEachChild(node, visit);
+  };
+  visit(parse(file));
+  return calls;
+}
+
+function ownerOf(start: TS.Node): string {
+  const t = ts();
+  for (let node: TS.Node | undefined = start; node; node = node.parent) {
+    const parent = node.parent;
+    if (
+      (t.isMethodDeclaration(node) ||
+        t.isGetAccessorDeclaration(node) ||
+        t.isSetAccessorDeclaration(node) ||
+        t.isConstructorDeclaration(node)) &&
+      t.isClassLike(parent)
+    )
+      return `${className(parent)}.${t.isConstructorDeclaration(node) ? 'constructor' : node.name.getText()}`;
+    if (t.isFunctionDeclaration(node) && node.name) return node.name.text;
+    if (t.isArrowFunction(node) || t.isFunctionExpression(node)) {
+      if (t.isPropertyDeclaration(parent) && t.isClassLike(parent.parent))
+        return `${className(parent.parent)}.${parent.name.getText()}`;
+      if (t.isVariableDeclaration(parent) && t.isIdentifier(parent.name))
+        return parent.name.text;
+    }
+  }
+  return '<module>';
+}
+
+function className(node: TS.ClassLikeDeclaration): string {
+  return node.name?.text ?? '<class>';
+}
+
+function bounded(
+  operation: string,
+  argument: TS.Expression | undefined,
+  keys: readonly (readonly string[])[],
+): boolean {
+  const t = ts();
+  if (!argument || !t.isObjectLiteralExpression(argument)) return false;
+  const property = (target: TS.ObjectLiteralExpression, name: string) =>
+    target.properties.find(
+      (candidate) => candidate.name?.getText().replace(/['"]/g, '') === name,
+    );
+  if (operation !== 'findMany')
+    return property(argument, 'where') !== undefined;
+  if (property(argument, 'take')) return true;
+  const where = property(argument, 'where');
+  if (!where || !t.isPropertyAssignment(where)) return false;
+  const filter = where.initializer;
+  if (!t.isObjectLiteralExpression(filter)) return false;
+  const restricted = new Set(
+    filter.properties.flatMap((candidate) => {
+      const name = candidate.name?.getText().replace(/['"]/g, '');
+      if (!name) return [];
+      if (t.isShorthandPropertyAssignment(candidate)) return [name];
+      if (!t.isPropertyAssignment(candidate)) return [];
+      const value = candidate.initializer;
+      if (!t.isObjectLiteralExpression(value)) return [name];
+      return property(value, 'in') || property(value, 'equals') ? [name] : [];
+    }),
+  );
+  return keys.some((key) => key.every((field) => restricted.has(field)));
 }
