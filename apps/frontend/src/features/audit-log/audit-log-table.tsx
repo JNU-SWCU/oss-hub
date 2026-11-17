@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, type ReactElement } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useId, useState, type ReactElement } from 'react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { DataTable, type DataTableColumn } from '@/components';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
   actionLabel,
@@ -22,7 +23,9 @@ import {
 } from './audit-log-parts';
 import type { AuditLogRecord } from './types';
 
-type AuditLogSortKey = 'occurredAt' | 'actor' | 'role' | 'action' | 'target';
+const SORT_KEYS = ['occurredAt', 'actor', 'role', 'action', 'target'] as const;
+
+type AuditLogSortKey = (typeof SORT_KEYS)[number];
 
 interface AuditLogSort {
   readonly key: AuditLogSortKey;
@@ -113,6 +116,7 @@ export function AuditLogTable({
 }: {
   readonly records: readonly AuditLogRecord[];
 }): ReactElement {
+  const sortId = useId();
   const [sort, setSort] = useState<AuditLogSort>({
     key: 'occurredAt',
     direction: 'desc',
@@ -178,13 +182,48 @@ export function AuditLogTable({
       cell: (record) => <AuditLogChangeValue record={record} />,
     },
   ];
+  const ascending = sort.direction === 'asc';
+  const DirectionIcon = ascending ? ArrowUp : ArrowDown;
+  const directionLabel = ascending ? '오름차순' : '내림차순';
   return (
-    <DataTable
-      className="min-w-0 rounded-lg border border-border"
-      scrollRegionLabel="감사 로그 표"
-      columns={columns}
-      data={[...sortAuditLogRecords(records, sort)]}
-      rowKey={(record) => record.id}
-    />
+    <div className="flex min-w-0 flex-col gap-3">
+      <div
+        data-slot="audit-sort"
+        className="flex min-w-0 items-center gap-2 sm:hidden"
+      >
+        <label htmlFor={sortId} className="shrink-0 text-sm font-medium">
+          정렬
+        </label>
+        <Select
+          id={sortId}
+          className="flex-1"
+          value={sort.key}
+          onChange={(event) => onSort(event.target.value as AuditLogSortKey)}
+        >
+          {SORT_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {SORT_LABELS[key]}
+            </option>
+          ))}
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          className="shrink-0"
+          aria-label={`정렬 방향 ${directionLabel}`}
+          onClick={() => onSort(sort.key)}
+        >
+          <DirectionIcon aria-hidden="true" />
+          {directionLabel}
+        </Button>
+      </div>
+      <DataTable
+        className="min-w-0 rounded-lg border border-border"
+        scrollRegionLabel="감사 로그 표"
+        columns={columns}
+        data={[...sortAuditLogRecords(records, sort)]}
+        rowKey={(record) => record.id}
+      />
+    </div>
   );
 }
