@@ -34,12 +34,10 @@ const validResponse = {
       endAt: '9999-12-31T23:59:59.999Z',
       applications: {
         total: 1,
-        submitted: 1,
         pendingApproval: 1,
         approved: 0,
         rejected: 0,
       },
-      teamManagementPath: '/programs/program%3Abasic/teams',
       activity: {
         repositories: 0,
         commits: 0,
@@ -49,7 +47,6 @@ const validResponse = {
         dataAsOf: null,
       },
       submissions: {
-        approvedApplications: 0,
         milestones: 0,
         total: 0,
         notSubmitted: 0,
@@ -104,7 +101,6 @@ describe('getStaffDashboardSummary', () => {
     { endAt: 'invalid-date' },
     { name: '' },
     { applications: { total: -1 } },
-    { teamManagementPath: '/programs/other/teams' },
   ])('잘못된 필드는 거부한다: %s', async (invalid) => {
     const program = { ...validResponse.programs[0], ...invalid };
     apiClient.mockResolvedValue({ ...validResponse, programs: [program] });
@@ -116,21 +112,6 @@ describe('getStaffDashboardSummary', () => {
 
   it('페이지 정보가 없는 응답을 거부한다', async () => {
     apiClient.mockResolvedValue({ programs: validResponse.programs });
-    await expect(
-      getStaffDashboardSummary({ search: '', status: 'all' as const, page: 1 }),
-    ).rejects.toBeInstanceOf(StaffDashboardResponseError);
-  });
-
-  it('잘못된 운영 대시보드 응답을 거부한다', async () => {
-    apiClient.mockResolvedValue({
-      ...validResponse,
-      programs: [
-        {
-          ...validResponse.programs[0],
-          teamManagementPath: '/programs/program:basic/teams',
-        },
-      ],
-    });
     await expect(
       getStaffDashboardSummary({ search: '', status: 'all' as const, page: 1 }),
     ).rejects.toBeInstanceOf(StaffDashboardResponseError);

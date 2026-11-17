@@ -597,7 +597,7 @@ export interface StaffApplicationDetail {
 
 export interface StaffDashboardApplicationCounts {
   readonly total: number;
-  readonly submitted: number;
+  readonly pendingApproval: number;
   readonly approved: number;
   readonly rejected: number;
 }
@@ -615,7 +615,6 @@ export interface StaffDashboardProgramSummary {
 
   readonly endAt: Date;
   readonly applications: StaffDashboardApplicationCounts;
-  readonly teamManagementPath: string;
 }
 
 interface StaffDashboardStatusSummary {
@@ -1146,7 +1145,7 @@ export class ApplicationsRepository {
 
     type MutableCounts = {
       total: number;
-      submitted: number;
+      pendingApproval: number;
       approved: number;
       rejected: number;
     };
@@ -1154,7 +1153,7 @@ export class ApplicationsRepository {
     for (const program of programs) {
       countsByProgram.set(program.id, {
         total: 0,
-        submitted: 0,
+        pendingApproval: 0,
         approved: 0,
         rejected: 0,
       });
@@ -1167,7 +1166,7 @@ export class ApplicationsRepository {
       bucket.total += n;
       switch (row.status) {
         case ApplicationStatus.SUBMITTED:
-          bucket.submitted += n;
+          bucket.pendingApproval += n;
           break;
         case ApplicationStatus.APPROVED:
           bucket.approved += n;
@@ -1184,7 +1183,7 @@ export class ApplicationsRepository {
         const applications: StaffDashboardApplicationCounts =
           countsByProgram.get(program.id) ?? {
             total: 0,
-            submitted: 0,
+            pendingApproval: 0,
             approved: 0,
             rejected: 0,
           };
@@ -1200,7 +1199,6 @@ export class ApplicationsRepository {
           },
           endAt: program.endAt,
           applications,
-          teamManagementPath: `/programs/${encodeURIComponent(program.id)}/teams`,
         };
       }),
     };

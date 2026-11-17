@@ -21,12 +21,10 @@ export function staffDashboardProgram(
     endAt: PROGRAM_END_AT_UNDECIDED,
     applications: {
       total: 3,
-      submitted: 1,
       pendingApproval: 1,
       approved: 1,
       rejected: 1,
     },
-    teamManagementPath: `/programs/${encodeURIComponent(id)}/teams`,
     activity: {
       repositories: 1,
       commits: 2,
@@ -36,7 +34,6 @@ export function staffDashboardProgram(
       dataAsOf: '2026-07-19T10:00:00.000Z',
     },
     submissions: {
-      approvedApplications: 1,
       milestones: 2,
       total: 2,
       notSubmitted: 0,
@@ -80,13 +77,11 @@ export const staffDashboardSummary: StaffDashboardSummary =
       },
       applications: {
         total: 0,
-        submitted: 0,
         pendingApproval: 0,
         approved: 0,
         rejected: 0,
       },
       submissions: {
-        approvedApplications: 0,
         milestones: 2,
         total: 0,
         notSubmitted: 0,
@@ -108,7 +103,6 @@ export const staffDashboardSummary: StaffDashboardSummary =
         dataAsOf: null,
       },
       submissions: {
-        approvedApplications: 1,
         milestones: 2,
         total: 2,
         notSubmitted: 2,
@@ -122,7 +116,6 @@ export const staffDashboardSummary: StaffDashboardSummary =
       id: 'program:no-milestone',
       name: '마일스톤 없음 프로그램',
       submissions: {
-        approvedApplications: 1,
         milestones: 0,
         total: 0,
         notSubmitted: 0,

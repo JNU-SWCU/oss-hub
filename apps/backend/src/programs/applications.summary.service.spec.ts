@@ -28,11 +28,10 @@ describe('TeamApplicationService.staffSummary', () => {
           endAt: new Date('2026-09-30T23:59:59.000Z'),
           applications: {
             total: 5,
-            submitted: 2,
+            pendingApproval: 2,
             approved: 2,
             rejected: 1,
           },
-          teamManagementPath: '/programs/program-1/teams',
         },
       ],
     };

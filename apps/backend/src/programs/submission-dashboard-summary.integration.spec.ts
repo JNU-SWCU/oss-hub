@@ -127,7 +127,6 @@ it('folds each approved team and milestone cell to its worst required document s
     [
       {
         programId: PROGRAM,
-        approvedApplications: 2,
         milestones: 2,
         total: 4,
         notSubmitted: 1,
@@ -138,7 +137,6 @@ it('folds each approved team and milestone cell to its worst required document s
       },
       {
         programId: EMPTY_PROGRAM,
-        approvedApplications: 0,
         milestones: 0,
         total: 0,
         notSubmitted: 0,

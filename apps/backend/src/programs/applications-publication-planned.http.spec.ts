@@ -292,8 +292,7 @@ const dashboardSummary: StaffDashboardSummary = {
         endsAt: new Date('2026-07-31T23:59:59.000Z'),
       },
       endAt: new Date('2026-09-30T23:59:59.000Z'),
-      applications: { total: 2, submitted: 1, approved: 1, rejected: 0 },
-      teamManagementPath: `/programs/${PROGRAM_ID}/teams`,
+      applications: { total: 2, pendingApproval: 1, approved: 1, rejected: 0 },
     },
   ],
 };
@@ -418,12 +417,10 @@ const summaryBody = {
       endAt: '2026-09-30T23:59:59.000Z',
       applications: {
         total: 2,
-        submitted: 1,
         pendingApproval: 1,
         approved: 1,
         rejected: 0,
       },
-      teamManagementPath: `/programs/${PROGRAM_ID}/teams`,
       activity: {
         repositories: 0,
         commits: 0,
@@ -433,7 +430,6 @@ const summaryBody = {
         dataAsOf: null,
       },
       submissions: {
-        approvedApplications: 0,
         milestones: 0,
         total: 0,
         notSubmitted: 0,

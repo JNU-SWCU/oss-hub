@@ -136,10 +136,8 @@ const program: StaffDashboardComposedProgramSummary = {
     endsAt: at('2026-01-31T00:00:00.000Z'),
   },
   endAt: at('2026-06-30T00:00:00.000Z'),
-  teamManagementPath: '/programs/program-1/teams',
   applications: {
     total: 10,
-    submitted: 4,
     pendingApproval: 4,
     approved: 5,
     rejected: 1,
@@ -153,7 +151,6 @@ const program: StaffDashboardComposedProgramSummary = {
     dataAsOf: null,
   },
   submissions: {
-    approvedApplications: 5,
     milestones: 2,
     total: 10,
     notSubmitted: 3,

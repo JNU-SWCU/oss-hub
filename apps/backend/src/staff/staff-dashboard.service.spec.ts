@@ -33,11 +33,10 @@ describe('StaffDashboardService', () => {
           },
           applications: {
             total: 4,
-            submitted: 2,
+            pendingApproval: 2,
             approved: 1,
             rejected: 1,
           },
-          teamManagementPath: '/programs/program%3A1/teams',
         },
         {
           id: 'program:2',
@@ -49,11 +48,10 @@ describe('StaffDashboardService', () => {
           },
           applications: {
             total: 0,
-            submitted: 0,
+            pendingApproval: 0,
             approved: 0,
             rejected: 0,
           },
-          teamManagementPath: '/programs/program%3A2/teams',
         },
       ],
     });
@@ -72,7 +70,6 @@ describe('StaffDashboardService', () => {
     const submissionSummary = jest.fn().mockResolvedValue([
       {
         programId: 'program:1',
-        approvedApplications: 1,
         milestones: 2,
         total: 2,
         notSubmitted: 1,
@@ -117,12 +114,10 @@ describe('StaffDashboardService', () => {
       },
       applications: {
         total: 4,
-        submitted: 2,
         pendingApproval: 2,
         approved: 1,
         rejected: 1,
       },
-      teamManagementPath: '/programs/program%3A1/teams',
       activity: {
         repositories: 2,
         commits: 5,
@@ -132,7 +127,6 @@ describe('StaffDashboardService', () => {
         dataAsOf: '2026-07-21T00:00:00.000Z',
       },
       submissions: {
-        approvedApplications: 1,
         milestones: 2,
         total: 2,
         notSubmitted: 1,

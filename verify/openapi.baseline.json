@@ -4784,6 +4784,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "viewer",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Za-z0-9-]{1,39}$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6917,8 +6926,8 @@
           "visibility": {
             "type": "string",
             "enum": [
-              "PUBLIC",
-              "PRIVATE"
+              "PRIVATE",
+              "PUBLIC"
             ]
           }
         },
@@ -7361,10 +7370,10 @@
               "APPROVED",
               "REJECTED",
               "SUBMITTED",
-              "REVERTED",
-              "RESUBMITTED",
-              "REPOSITORY_URL_CHANGED",
               "DELETED",
+              "RESUBMITTED",
+              "REVERTED",
+              "REPOSITORY_URL_CHANGED",
               "MEMBER_LEFT",
               "MEMBER_REMOVED",
               "LEADER_TRANSFERRED",
@@ -9337,8 +9346,8 @@
           "visibility": {
             "type": "string",
             "enum": [
-              "PUBLIC",
-              "PRIVATE"
+              "PRIVATE",
+              "PUBLIC"
             ]
           },
           "publishEligible": {
@@ -10215,9 +10224,6 @@
           "programId": {
             "type": "string"
           },
-          "invitedById": {
-            "type": "string"
-          },
           "invitedAt": {
             "type": "string"
           },
@@ -10241,7 +10247,6 @@
           "id",
           "teamId",
           "programId",
-          "invitedById",
           "invitedAt",
           "teamName",
           "programName",
@@ -10287,9 +10292,6 @@
           "programId": {
             "type": "string"
           },
-          "invitedById": {
-            "type": "string"
-          },
           "invitedAt": {
             "type": "string"
           },
@@ -10301,7 +10303,6 @@
           "id",
           "teamId",
           "programId",
-          "invitedById",
           "invitedAt",
           "invitee"
         ]
@@ -11800,8 +11801,8 @@
               "APPROVED",
               "REJECTED",
               "SUBMITTED",
-              "RESUBMITTED",
-              "CHANGES_REQUESTED"
+              "CHANGES_REQUESTED",
+              "RESUBMITTED"
             ]
           },
           "revision": {
@@ -12405,9 +12406,6 @@
             "type": "number",
             "nullable": true
           },
-          "displayName": {
-            "type": "string"
-          },
           "githubLogin": {
             "type": "string"
           },
@@ -12441,7 +12439,6 @@
         "required": [
           "rank",
           "previousRank",
-          "displayName",
           "githubLogin",
           "department",
           "name",
@@ -13017,8 +13014,8 @@
             "type": "string",
             "nullable": true,
             "enum": [
-              "PUBLIC",
-              "PRIVATE"
+              "PRIVATE",
+              "PUBLIC"
             ]
           },
           "lastErrorCode": {
@@ -13065,9 +13062,6 @@
           "total": {
             "type": "number"
           },
-          "submitted": {
-            "type": "number"
-          },
           "pendingApproval": {
             "type": "number"
           },
@@ -13080,7 +13074,6 @@
         },
         "required": [
           "total",
-          "submitted",
           "pendingApproval",
           "approved",
           "rejected"
@@ -13122,9 +13115,6 @@
       "StaffDashboardSubmissionSummaryResponseDto": {
         "type": "object",
         "properties": {
-          "approvedApplications": {
-            "type": "number"
-          },
           "milestones": {
             "type": "number"
           },
@@ -13148,7 +13138,6 @@
           }
         },
         "required": [
-          "approvedApplications",
           "milestones",
           "total",
           "notSubmitted",
@@ -13200,9 +13189,6 @@
           "applications": {
             "$ref": "#/components/schemas/StaffDashboardApplicationCountsResponseDto"
           },
-          "teamManagementPath": {
-            "type": "string"
-          },
           "activity": {
             "$ref": "#/components/schemas/StaffDashboardActivitySummaryResponseDto"
           },
@@ -13218,9 +13204,27 @@
           "applicationPeriod",
           "endAt",
           "applications",
-          "teamManagementPath",
           "activity",
           "submissions"
+        ]
+      },
+      "StaffDashboardStatusSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "recruiting": {
+            "type": "number"
+          },
+          "inProgress": {
+            "type": "number"
+          },
+          "ended": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "recruiting",
+          "inProgress",
+          "ended"
         ]
       },
       "StaffDashboardSummaryResponseDto": {
@@ -14258,25 +14262,6 @@
         "required": [
           "staffAccessRequests",
           "loginHistory"
-        ]
-      },
-      "StaffDashboardStatusSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "recruiting": {
-            "type": "number"
-          },
-          "inProgress": {
-            "type": "number"
-          },
-          "ended": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "recruiting",
-          "inProgress",
-          "ended"
         ]
       }
     }

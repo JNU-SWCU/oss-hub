@@ -1,7 +1,7 @@
 import type { ProgramTrackType } from '@prisma/client';
+import type { StaffDashboardApplicationCounts } from '../../programs/team.repository';
 import type {
   StaffDashboardActivitySummary,
-  StaffDashboardComposedApplicationCounts,
   StaffDashboardComposedProgramSummary,
   StaffDashboardComposedSummary,
   StaffDashboardSubmissionSummary,
@@ -9,17 +9,15 @@ import type {
 
 export class StaffDashboardApplicationCountsResponseDto {
   declare readonly total: number;
-  declare readonly submitted: number;
   declare readonly pendingApproval: number;
   declare readonly approved: number;
   declare readonly rejected: number;
 
   static from(
-    counts: StaffDashboardComposedApplicationCounts,
+    counts: StaffDashboardApplicationCounts,
   ): StaffDashboardApplicationCountsResponseDto {
     return {
       total: counts.total,
-      submitted: counts.submitted,
       pendingApproval: counts.pendingApproval,
       approved: counts.approved,
       rejected: counts.rejected,
@@ -50,7 +48,6 @@ export class StaffDashboardActivitySummaryResponseDto {
 }
 
 export class StaffDashboardSubmissionSummaryResponseDto {
-  declare readonly approvedApplications: number;
   declare readonly milestones: number;
   declare readonly total: number;
   declare readonly notSubmitted: number;
@@ -63,7 +60,6 @@ export class StaffDashboardSubmissionSummaryResponseDto {
     submissions: StaffDashboardSubmissionSummary,
   ): StaffDashboardSubmissionSummaryResponseDto {
     return {
-      approvedApplications: submissions.approvedApplications,
       milestones: submissions.milestones,
       total: submissions.total,
       notSubmitted: submissions.notSubmitted,
@@ -87,7 +83,6 @@ export class StaffDashboardProgramSummaryResponseDto {
 
   declare readonly endAt: string;
   declare readonly applications: StaffDashboardApplicationCountsResponseDto;
-  declare readonly teamManagementPath: string;
   declare readonly activity: StaffDashboardActivitySummaryResponseDto;
   declare readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
 
@@ -107,7 +102,6 @@ export class StaffDashboardProgramSummaryResponseDto {
       applications: StaffDashboardApplicationCountsResponseDto.from(
         program.applications,
       ),
-      teamManagementPath: program.teamManagementPath,
       activity: StaffDashboardActivitySummaryResponseDto.from(program.activity),
       submissions: StaffDashboardSubmissionSummaryResponseDto.from(
         program.submissions,

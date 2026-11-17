@@ -291,7 +291,6 @@ const attachedFileSelect = {
 } satisfies Prisma.FileSelect;
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
-  readonly approvedApplications: number;
   readonly milestones: number;
   readonly total: number;
   readonly notSubmitted: number;
@@ -350,8 +349,6 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
       )
       SELECT
         program_ids."programId",
-        (SELECT COUNT(*) FROM teams WHERE teams."programId" = program_ids."programId")::int
-          AS "approvedApplications",
         (SELECT COUNT(DISTINCT documents."milestoneId") FROM documents
           WHERE documents."programId" = program_ids."programId")::int AS milestones,
         (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId")::int

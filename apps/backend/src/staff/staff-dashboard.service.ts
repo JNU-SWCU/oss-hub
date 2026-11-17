@@ -7,17 +7,11 @@ import { SubmissionDashboardSummaryService } from '../programs/submission-matrix
 import type { SubmissionDashboardProgramSummary } from '../programs/submissions.repository';
 import { TeamApplicationService } from '../programs/team-application.service';
 import type {
-  StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
   StaffDashboardSummary,
   StaffDashboardSummaryQuery,
 } from '../programs/team.repository';
 import { ProgramCoverUrlService } from '../programs/programs.service';
-
-export type StaffDashboardComposedApplicationCounts =
-  StaffDashboardApplicationCounts & {
-    readonly pendingApproval: number;
-  };
 
 export interface StaffDashboardActivitySummary {
   readonly repositories: number;
@@ -29,7 +23,6 @@ export interface StaffDashboardActivitySummary {
 }
 
 export interface StaffDashboardSubmissionSummary {
-  readonly approvedApplications: number;
   readonly milestones: number;
   readonly total: number;
   readonly notSubmitted: number;
@@ -39,15 +32,12 @@ export interface StaffDashboardSubmissionSummary {
   readonly rejected: number;
 }
 
-export type StaffDashboardComposedProgramSummary = Omit<
-  StaffDashboardProgramSummary,
-  'applications'
-> & {
-  readonly applications: StaffDashboardComposedApplicationCounts;
-  readonly activity: StaffDashboardActivitySummary;
-  readonly submissions: StaffDashboardSubmissionSummary;
-  readonly coverImageUrl: string | null;
-};
+export type StaffDashboardComposedProgramSummary =
+  StaffDashboardProgramSummary & {
+    readonly activity: StaffDashboardActivitySummary;
+    readonly submissions: StaffDashboardSubmissionSummary;
+    readonly coverImageUrl: string | null;
+  };
 
 export type StaffDashboardComposedSummary = Omit<
   StaffDashboardSummary,
@@ -100,10 +90,6 @@ export class StaffDashboardService {
           program.coverId,
           program.coverExternalImageUrl,
         ),
-        applications: {
-          ...program.applications,
-          pendingApproval: program.applications.submitted,
-        },
         activity: activityFrom(activityByProgram.get(program.id)),
         submissions: submissionsFrom(submissionsByProgram.get(program.id)),
       })),
@@ -139,7 +125,6 @@ function submissionsFrom(
 ): StaffDashboardSubmissionSummary {
   if (!submissions) {
     return {
-      approvedApplications: 0,
       milestones: 0,
       total: 0,
       notSubmitted: 0,
@@ -150,7 +135,6 @@ function submissionsFrom(
     };
   }
   return {
-    approvedApplications: submissions.approvedApplications,
     milestones: submissions.milestones,
     total: submissions.total,
     notSubmitted: submissions.notSubmitted,
