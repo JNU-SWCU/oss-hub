@@ -97,7 +97,7 @@ function validateBasic(
       issue(
         'teamMinSize',
         'basic',
-        '최소 팀 인원은 1명 이상 100명 이하여야 합니다.',
+        '최소 인원은 1명 이상 100명 이하여야 합니다.',
       ),
     );
   if (!Number.isInteger(maximum) || maximum > 100 || maximum < minimum)
@@ -105,7 +105,7 @@ function validateBasic(
       issue(
         'teamMaxSize',
         'basic',
-        '최대 팀 인원은 최소 이상 100명 이하여야 합니다.',
+        '최대 인원은 최소 인원 이상 100명 이하여야 합니다.',
       ),
     );
   required(issues, state.description, 'description', '소개를 입력해 주세요.');

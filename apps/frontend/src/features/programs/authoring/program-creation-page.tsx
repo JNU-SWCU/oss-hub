@@ -37,6 +37,7 @@ import {
   validateProgramAuthoringStep,
   type ProgramAuthoringIssue,
 } from './program-authoring-validation';
+import { invalidFieldFocusTarget } from './program-track-type-field';
 import { useProgramExitGuard } from './use-program-exit-guard';
 import { useAuthoringUploadPolicyQuery } from './queries';
 
@@ -109,7 +110,7 @@ export function ProgramCreationPage({
       stepRegionRef.current?.focus();
       return;
     }
-    firstInvalidField.focus({ preventScroll: true });
+    invalidFieldFocusTarget(firstInvalidField).focus({ preventScroll: true });
     firstInvalidField.scrollIntoView?.({ block: 'center' });
   }, [issues, state.currentStep]);
 
