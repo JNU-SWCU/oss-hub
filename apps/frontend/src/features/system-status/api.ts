@@ -5,11 +5,32 @@ export async function fetchSystemStatus(): Promise<SystemStatus> {
   const response = await apiClient<Partial<SystemStatus> | null>(
     'system-status',
   );
-  const { collection, provisioning, mail, anomalies } = response ?? {};
-  if (!collection || !provisioning || !mail || !anomalies) {
+  const {
+    collection,
+    provisioning,
+    mail,
+    anomalies,
+    collectionRepositories,
+    externalCollection,
+  } = response ?? {};
+  if (
+    !collection ||
+    !provisioning ||
+    !mail ||
+    !anomalies ||
+    !collectionRepositories ||
+    !externalCollection
+  ) {
     throw new Error('시스템 상태 응답 형식이 올바르지 않습니다');
   }
-  return { collection, provisioning, mail, anomalies };
+  return {
+    collection,
+    provisioning,
+    mail,
+    anomalies,
+    collectionRepositories,
+    externalCollection,
+  };
 }
 
 export interface CollectionTriggerResult {

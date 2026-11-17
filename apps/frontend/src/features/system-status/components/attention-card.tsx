@@ -10,8 +10,10 @@ import type {
   Anomaly,
   AnomalyRule,
   AnomalySeverity,
+  CollectionRepository,
   ProvisioningFailedTeam,
 } from '../types';
+import { StaleRepositoryList } from './stale-repository-list';
 
 const RULE_LABEL = {
   BULK_REMOVAL: '10분 내 대량 거절·삭제',
@@ -73,6 +75,7 @@ interface RowProps extends RetryProps {
 interface AttentionCardProps extends RetryProps {
   readonly anomalies: readonly Anomaly[];
   readonly failedTeams: readonly ProvisioningFailedTeam[];
+  readonly staleRepositories: readonly CollectionRepository[];
 }
 
 function FailedTeamRow({
@@ -135,16 +138,17 @@ function FailedTeamRow({
 function AnomalyRow({
   anomaly,
   failedTeams,
+  staleRepositories,
   retryingTeamIds,
   onRetry,
   cardRef,
 }: RowProps & {
   readonly anomaly: Anomaly;
   readonly failedTeams: readonly ProvisioningFailedTeam[];
+  readonly staleRepositories: readonly CollectionRepository[];
 }) {
   const severity = SEVERITY[anomaly.severity];
   const label = RULE_LABEL[anomaly.rule];
-  const teams = anomaly.rule === 'PROVISIONING_FAILED' ? failedTeams : [];
   const userHref =
     anomaly.target?.kind === 'USER'
       ? `/dashboard/users/${encodeURIComponent(anomaly.target.id)}`
@@ -158,8 +162,24 @@ function AnomalyRow({
       </span>
     </>
   );
+  const detail =
+    anomaly.rule === 'PROVISIONING_FAILED' && failedTeams.length > 0 ? (
+      <ul className="grid">
+        {failedTeams.map((team) => (
+          <FailedTeamRow
+            key={team.teamId}
+            team={team}
+            retryingTeamIds={retryingTeamIds}
+            onRetry={onRetry}
+            cardRef={cardRef}
+          />
+        ))}
+      </ul>
+    ) : anomaly.rule === 'COLLECTION_STALE' && staleRepositories.length > 0 ? (
+      <StaleRepositoryList repositories={staleRepositories} />
+    ) : null;
 
-  if (teams.length === 0) {
+  if (detail === null) {
     return (
       <li className={cn(ROW, ROW_LINE, 'min-h-control', severity.stripe)}>
         {head}
@@ -179,17 +199,7 @@ function AnomalyRow({
   return (
     <li className={cn(ROW, 'grid gap-3', severity.stripe)}>
       <div className={ROW_LINE}>{head}</div>
-      <ul className="grid">
-        {teams.map((team) => (
-          <FailedTeamRow
-            key={team.teamId}
-            team={team}
-            retryingTeamIds={retryingTeamIds}
-            onRetry={onRetry}
-            cardRef={cardRef}
-          />
-        ))}
-      </ul>
+      {detail}
     </li>
   );
 }
@@ -197,6 +207,7 @@ function AnomalyRow({
 export function AttentionCard({
   anomalies,
   failedTeams,
+  staleRepositories,
   retryingTeamIds,
   onRetry,
 }: AttentionCardProps) {
@@ -228,6 +239,7 @@ export function AttentionCard({
                 key={`${anomaly.rule}:${anomaly.target?.id ?? ''}`}
                 anomaly={anomaly}
                 failedTeams={failedTeams}
+                staleRepositories={staleRepositories}
                 retryingTeamIds={retryingTeamIds}
                 onRetry={onRetry}
                 cardRef={cardRef}

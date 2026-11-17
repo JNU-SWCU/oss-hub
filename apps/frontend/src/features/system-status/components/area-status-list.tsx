@@ -49,7 +49,7 @@ function AreaRow({
 
 export function AreaStatusList({ status }: { readonly status: SystemStatus }) {
   const headingId = useId();
-  const { collection, provisioning, mail } = status;
+  const { collection, provisioning, mail, externalCollection } = status;
   const health = HEALTH[collection.health];
   const now = new Date();
 
@@ -105,6 +105,16 @@ export function AreaStatusList({ status }: { readonly status: SystemStatus }) {
                   ] as const,
                 ]
               : []),
+            [
+              '외부 추적 저장소',
+              count(externalCollection.trackedRepositoryCount, '개'),
+            ],
+            [
+              '외부 마지막 수집 성공',
+              externalCollection.lastSuccessAt
+                ? formatRelativeTime(externalCollection.lastSuccessAt, now)
+                : NO_RECORD,
+            ],
           ]}
         />
         <AreaRow

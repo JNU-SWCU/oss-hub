@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ActionNotice,
+  CollectionRepository,
   ProvisioningFailedTeam,
   SystemStatus,
 } from '../types';
@@ -52,6 +53,11 @@ const base: SystemStatus = {
       target: { kind: 'USER', id: 'user/42' },
     },
   ],
+  collectionRepositories: [],
+  externalCollection: {
+    trackedRepositoryCount: 7,
+    lastSuccessAt: '2026-11-16T22:32:00.000Z',
+  },
 };
 
 const clear: SystemStatus = {
@@ -66,6 +72,61 @@ const clear: SystemStatus = {
   mail: { sent7d: 0, failed7d: 0, lastSentAt: null },
   anomalies: [],
 };
+
+function hoursAgo(hours: number): string {
+  return new Date(NOW.getTime() - hours * 3_600_000).toISOString();
+}
+
+function staleRepository(
+  name: string,
+  hours: number,
+  programName: string | null = '합성 클라우드 캠프',
+): CollectionRepository {
+  return {
+    repositoryName: `jnu-oss/${name}`,
+    programName,
+    lastSuccessAt: hoursAgo(hours),
+    stale: true,
+  };
+}
+
+function delayedWith(
+  repositories: readonly CollectionRepository[],
+): SystemStatus {
+  const staleCount = repositories.filter(
+    (repository) => repository.stale,
+  ).length;
+  return {
+    ...base,
+    collection: {
+      ...base.collection,
+      health: 'DELAYED',
+      staleRepositoryCount: staleCount,
+    },
+    anomalies: [
+      ...base.anomalies,
+      {
+        rule: 'COLLECTION_STALE',
+        severity: 'MEDIUM',
+        count: staleCount,
+        target: null,
+      },
+    ],
+    collectionRepositories: repositories,
+  };
+}
+
+function toggleTags(card: string): string[] {
+  return openingTags(card, 'button').filter((tag) =>
+    tag.includes(' aria-expanded="'),
+  );
+}
+
+function listedRepositories(card: string): string[] {
+  return [...text(card).matchAll(/jnu-oss\/([\w-]+)/g)].map(
+    (match) => match[1] ?? '',
+  );
+}
 
 interface Overrides {
   readonly freshness?: 'current' | 'refreshing' | 'stale';
@@ -276,6 +337,84 @@ describe('SystemStatusView', () => {
       expect(badgeVariants(card)).toEqual(['rejected', 'pending', 'pending']);
       expect(openingTags(card, 'button')).toEqual([]);
     });
+
+    it('활동 수집 지연 아래에 지연 저장소만 이름, 프로그램, 마지막 수집 성공과 함께 나열한다', () => {
+      const html = render(
+        delayedWith([
+          staleRepository('alpha', 5),
+          {
+            repositoryName: 'jnu-oss/healthy',
+            programName: '합성 클라우드 캠프',
+            lastSuccessAt: hoursAgo(1),
+            stale: false,
+          },
+          {
+            repositoryName: 'jnu-oss/never-collected',
+            programName: '합성 클라우드 캠프',
+            lastSuccessAt: null,
+            stale: false,
+          },
+        ]),
+      );
+      const card = attentionCard(html);
+
+      expect(text(card)).toMatch(
+        /활동 수집 지연\s*1건\s*jnu-oss\/alpha 합성 클라우드 캠프\s*마지막 수집 성공 5시간 전/,
+      );
+      expect(card).toMatch(/datetime="2026-11-16T19:32:00\.000Z"/i);
+      expect(html).not.toContain('jnu-oss/healthy');
+      expect(html).not.toContain('jnu-oss/never-collected');
+      expect(openingTags(card, 'button')).toHaveLength(2);
+    });
+
+    it('가장 오래 지연된 저장소부터 보여주고 프로그램이 없으면 이름만 적는다', () => {
+      const card = attentionCard(
+        render(
+          delayedWith([
+            staleRepository('alpha', 5),
+            staleRepository('bravo', 12, null),
+            staleRepository('charlie', 8),
+          ]),
+        ),
+      );
+
+      expect(listedRepositories(card)).toEqual(['bravo', 'charlie', 'alpha']);
+      expect(text(card)).toMatch(/jnu-oss\/bravo\s*마지막 수집 성공 12시간 전/);
+      expect(text(card)).not.toContain('null');
+    });
+
+    it('지연 저장소가 다섯 개를 넘으면 가장 오래된 다섯 개만 보이고 나머지는 접어 둔다', () => {
+      const card = attentionCard(
+        render(
+          delayedWith(
+            ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name, index) =>
+              staleRepository(name, index + 3),
+            ),
+          ),
+        ),
+      );
+      const toggles = toggleTags(card);
+
+      expect(listedRepositories(card)).toEqual(['g', 'f', 'e', 'd', 'c']);
+      expect(toggles).toHaveLength(1);
+      expect(toggles[0]).toContain('aria-expanded="false"');
+      expect(text(card)).toContain('2개 더 보기');
+    });
+
+    it('지연 저장소가 다섯 개 이하면 모두 보이고 접는 버튼을 두지 않는다', () => {
+      const card = attentionCard(
+        render(
+          delayedWith(
+            ['a', 'b', 'c', 'd', 'e'].map((name, index) =>
+              staleRepository(name, index + 3),
+            ),
+          ),
+        ),
+      );
+
+      expect(listedRepositories(card)).toHaveLength(5);
+      expect(toggleTags(card)).toEqual([]);
+    });
   });
 
   describe('구역 현황', () => {
@@ -288,6 +427,9 @@ describe('SystemStatusView', () => {
       );
       expect(rows[1]).toContain(
         '추적 저장소 42개 · 지연 저장소 0개 · 마지막 수집 성공 32분 전 · 다음 주기 예상 28분 후',
+      );
+      expect(rows[1]).toContain(
+        '외부 추적 저장소 7개 · 외부 마지막 수집 성공 2시간 전',
       );
       expect(rows[2]).toContain(
         '최근 7일 발송 1,280건 · 실패 3건 · 마지막 발송 11.17 09:00',
@@ -323,10 +465,17 @@ describe('SystemStatusView', () => {
             lastSuccessAt: null,
             nextCycleAt: null,
           },
+          externalCollection: {
+            trackedRepositoryCount: 0,
+            lastSuccessAt: null,
+          },
         }),
       ).map(text);
 
-      expect(rows[1]).toContain('마지막 수집 성공 기록 없음');
+      expect(rows[1]).toContain('지연 저장소 0개 · 마지막 수집 성공 기록 없음');
+      expect(rows[1]).toContain(
+        '외부 추적 저장소 0개 · 외부 마지막 수집 성공 기록 없음',
+      );
       expect(rows[1]).not.toContain('다음 주기 예상');
       expect(rows[2]).toContain('마지막 발송 기록 없음');
     });

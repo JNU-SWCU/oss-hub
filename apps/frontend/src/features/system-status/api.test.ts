@@ -32,6 +32,18 @@ const sections = {
   anomalies: [
     { rule: 'PROVISIONING_FAILED', severity: 'HIGH', count: 1, target: null },
   ],
+  collectionRepositories: [
+    {
+      repositoryName: 'jnu-oss/repo-a',
+      programName: null,
+      lastSuccessAt: '2026-07-25T06:00:00.000Z',
+      stale: true,
+    },
+  ],
+  externalCollection: {
+    trackedRepositoryCount: 3,
+    lastSuccessAt: '2026-07-24T10:00:00.000Z',
+  },
 };
 
 function stubResponse(body: unknown, status = 200) {
@@ -46,31 +58,30 @@ function stubResponse(body: unknown, status = 200) {
 }
 
 describe('system status api', () => {
-  it('GET system-status의 네 구역을 반환하고 화면이 쓰지 않는 구역은 버린다', async () => {
-    const request = stubResponse({
-      ...sections,
-      collectionRepositories: [
-        {
-          repositoryName: 'jnu-oss/repo-a',
-          programName: null,
-          lastSuccessAt: null,
-          stale: false,
-        },
-      ],
-      externalCollection: { trackedRepositoryCount: 3, lastSuccessAt: null },
-    });
+  it('GET system-status의 저장소 목록과 외부 수집까지 여섯 구역을 반환한다', async () => {
+    const request = stubResponse(sections);
 
     await expect(fetchSystemStatus()).resolves.toEqual(sections);
     expect(request).toHaveBeenCalledWith(apiPath('system-status'), undefined);
   });
 
-  it('이상 징후가 빈 배열이어도 정상 응답으로 받는다', async () => {
-    stubResponse({ ...sections, anomalies: [] });
+  it('이상 징후와 저장소 목록이 빈 배열이어도 정상 응답으로 받는다', async () => {
+    stubResponse({ ...sections, anomalies: [], collectionRepositories: [] });
 
-    await expect(fetchSystemStatus()).resolves.toMatchObject({ anomalies: [] });
+    await expect(fetchSystemStatus()).resolves.toMatchObject({
+      anomalies: [],
+      collectionRepositories: [],
+    });
   });
 
-  it.each(['collection', 'provisioning', 'mail', 'anomalies'] as const)(
+  it.each([
+    'collection',
+    'provisioning',
+    'mail',
+    'anomalies',
+    'collectionRepositories',
+    'externalCollection',
+  ] as const)(
     '%s 구역이 없는 응답은 이상 없음으로 위장하지 않고 거부한다',
     async (missing) => {
       stubResponse({ ...sections, [missing]: undefined });

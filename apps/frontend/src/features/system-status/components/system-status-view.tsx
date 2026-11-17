@@ -133,6 +133,9 @@ export function SystemStatusView({
       <AttentionCard
         anomalies={status.anomalies}
         failedTeams={status.provisioning.failedTeams}
+        staleRepositories={status.collectionRepositories.filter(
+          (repository) => repository.stale,
+        )}
         retryingTeamIds={retryingTeamIds}
         onRetry={onRetryProvisioning}
       />

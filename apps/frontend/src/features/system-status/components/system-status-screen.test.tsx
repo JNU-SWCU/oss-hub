@@ -98,6 +98,8 @@ function statusWith(
               target: null,
             },
           ],
+    collectionRepositories: [],
+    externalCollection: { trackedRepositoryCount: 0, lastSuccessAt: null },
   };
 }
 
@@ -440,6 +442,52 @@ describe('SystemStatusScreen', () => {
 
       expect(props().notice?.kind).toBe('error');
       expect(document.activeElement).toBe(retryButton(teamA));
+    });
+  });
+
+  describe('지연 저장소', () => {
+    it('더 보기를 누르면 접어 둔 지연 저장소를 펼치고 다시 누르면 접는다', async () => {
+      const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(
+        (name) => `jnu-oss/${name}`,
+      );
+      api.fetchSystemStatus.mockResolvedValue({
+        ...statusWith([]),
+        anomalies: [
+          {
+            rule: 'COLLECTION_STALE',
+            severity: 'MEDIUM',
+            count: names.length,
+            target: null,
+          },
+        ],
+        collectionRepositories: names.map((repositoryName, index) => ({
+          repositoryName,
+          programName: null,
+          lastSuccessAt: new Date(Date.UTC(2026, 10, 16, index)).toISOString(),
+          stale: true,
+        })),
+      } satisfies SystemStatus);
+      await renderScreen();
+      const listed = () =>
+        names.filter((name) => container.textContent?.includes(name));
+      const toggle = (): HTMLButtonElement => {
+        const button = container.querySelector<HTMLButtonElement>(
+          'button[aria-expanded]',
+        );
+        if (button === null) throw new Error('stale repository toggle missing');
+        return button;
+      };
+
+      expect(listed()).toEqual(names.slice(0, 5));
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+
+      await act(async () => toggle().click());
+      expect(listed()).toEqual(names);
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+
+      await act(async () => toggle().click());
+      expect(listed()).toEqual(names.slice(0, 5));
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
     });
   });
 

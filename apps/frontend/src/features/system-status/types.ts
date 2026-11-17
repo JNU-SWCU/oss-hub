@@ -9,6 +9,18 @@ interface CollectionStatus {
   readonly currentRunStatus: 'IDLE' | 'PROCESSING';
 }
 
+export interface CollectionRepository {
+  readonly repositoryName: string;
+  readonly programName: string | null;
+  readonly lastSuccessAt: string | null;
+  readonly stale: boolean;
+}
+
+interface ExternalCollectionStatus {
+  readonly trackedRepositoryCount: number;
+  readonly lastSuccessAt: string | null;
+}
+
 export interface ProvisioningFailedTeam {
   readonly teamId: string;
   readonly teamName: string;
@@ -53,6 +65,8 @@ export interface SystemStatus {
   readonly provisioning: ProvisioningStatus;
   readonly mail: MailStatus;
   readonly anomalies: readonly Anomaly[];
+  readonly collectionRepositories: readonly CollectionRepository[];
+  readonly externalCollection: ExternalCollectionStatus;
 }
 
 export type SystemStatusViewState =
