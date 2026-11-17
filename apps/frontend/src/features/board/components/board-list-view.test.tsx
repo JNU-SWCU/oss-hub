@@ -10,7 +10,6 @@ import type { BoardPostSummary } from '../types';
 const posts: readonly BoardPostSummary[] = [
   {
     id: 'post-1',
-    programId: 'program-1',
     authorName: '합성 운영자',
     category: 'NOTICE',
     title: '1차 중간 산출물 제출 안내',
@@ -20,7 +19,6 @@ const posts: readonly BoardPostSummary[] = [
   },
   {
     id: 'post-2',
-    programId: 'program-1',
     authorName: '합성 질문자',
     category: 'QNA',
     title: '제출 마감일 문의드립니다',
@@ -97,7 +95,7 @@ describe('BoardListContent', () => {
         {...baseProps({
           state: {
             kind: 'ready',
-            page: { items: [], total: 0, page: 1, limit: 20 },
+            page: { items: [], total: 0 },
           },
         })}
       />,
@@ -112,7 +110,7 @@ describe('BoardListContent', () => {
         {...baseProps({
           state: {
             kind: 'ready',
-            page: { items: posts, total: 2, page: 1, limit: 20 },
+            page: { items: posts, total: 2 },
           },
         })}
       />,
@@ -231,7 +229,7 @@ describe('BoardListContent', () => {
           page: 2,
           state: {
             kind: 'ready',
-            page: { items: posts, total: 45, page: 2, limit: 20 },
+            page: { items: posts, total: 45 },
           },
         })}
       />,

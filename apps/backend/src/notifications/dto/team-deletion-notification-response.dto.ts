@@ -2,7 +2,6 @@ import type { TeamDeletionNotification } from '../application-decision-notificat
 
 export class TeamDeletionNotificationResponseDto {
   declare readonly id: string;
-  declare readonly teamId: string;
   declare readonly teamName: string;
   declare readonly programId: string;
   declare readonly programName: string;
@@ -14,7 +13,6 @@ export class TeamDeletionNotificationResponseDto {
   ): TeamDeletionNotificationResponseDto {
     return {
       id: notification.id,
-      teamId: notification.teamId,
       teamName: notification.teamName,
       programId: notification.programId,
       programName: notification.programName,

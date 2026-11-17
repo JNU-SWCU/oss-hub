@@ -87,14 +87,13 @@ export class MailSystemStatusResponseDto {
 }
 
 class SystemStatusAnomalyTargetResponseDto {
-  declare readonly kind: 'USER';
   declare readonly id: string;
   declare readonly login: string | null;
 
   static from(
     target: NonNullable<SystemStatusResult['anomalies'][number]['target']>,
   ): SystemStatusAnomalyTargetResponseDto {
-    return { kind: target.kind, id: target.id, login: target.login };
+    return { id: target.id, login: target.login };
   }
 }
 

@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import type {
   StaffInsightsCohortLeaders,
-  StaffInsightsRecentLeaderRow,
+  StaffInsightsLeaderRow,
   StaffInsightsSummary,
 } from './types';
 
@@ -81,7 +81,7 @@ function LeaderboardCard({
   readonly title: string;
   readonly description: string;
   readonly emptyTitle: string;
-  readonly rows: readonly StaffInsightsRecentLeaderRow[];
+  readonly rows: readonly StaffInsightsLeaderRow[];
 }): ReactElement {
   const maxTotal = rows.reduce((max, row) => Math.max(max, row.total), 0);
 
@@ -114,7 +114,7 @@ function LeaderRow({
   row,
   maxTotal,
 }: {
-  readonly row: StaffInsightsRecentLeaderRow;
+  readonly row: StaffInsightsLeaderRow;
   readonly maxTotal: number;
 }): ReactElement {
   const department = row.department ?? '학과 미등록';

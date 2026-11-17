@@ -4,11 +4,8 @@ import {
   ApplicationDecisionCommand,
   ApplicationDecisionAction,
   ApplicationListItem,
-  ApplicationRepositoryProvisioning,
-  ApplicationListAnswers,
   ApplicationsRepository,
   type ApplicationListQuery,
-  type ApplicationListPage,
   type CreatedApplication,
   type StaffApplicationDetail,
   type StaffDashboardSummary,
@@ -20,8 +17,6 @@ import {
   type ApplicationTransition,
   type RepositoryProvisionJobSnapshot,
   type ApplicationListRow,
-  type ApplicationListOutbox,
-  type ApplicationListProvisionJob,
   type ApplyProgramRecord,
   type UpdateStudentApplicationInput,
   StudentApplicationManagementRepository,
@@ -48,7 +43,6 @@ import {
 import {
   ProgramCategory,
   ApplicationStatus,
-  OutboxEventStatus,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   TeamHistoryEvent,
@@ -564,47 +558,6 @@ export class TeamApplicationService {
       pageSize: request.pageSize,
       search: request.search.trim(),
       status: request.status,
-      view: request.view,
-    };
-  }
-
-  async listForProgramView(
-    programId: string,
-    request: ApplicationListQuery,
-  ): Promise<
-    | {
-        readonly view: 'team-management';
-        readonly page: TeamManagementListPage;
-      }
-    | { readonly view: 'default'; readonly page: ApplicationListPage }
-  > {
-    if (request.view === 'team-management') {
-      return {
-        view: 'team-management',
-        page: await this.listTeamManagementForProgram(programId, request),
-      };
-    }
-    return {
-      view: 'default',
-      page: await this.listForProgram(programId, request),
-    };
-  }
-
-  async listForProgram(
-    programId: string,
-    request: ApplicationListQuery,
-  ): Promise<ApplicationListPage> {
-    const query = this.listQueryFromRequest(request);
-    await this.requireProgram(programId);
-    const page = await this.repository.listApplicationsForProgram(
-      programId,
-      query,
-    );
-    return {
-      ...page,
-      items: page.items.map((source) =>
-        this.toApplicationListItem(source.row, source.outbox, source.job),
-      ),
     };
   }
 
@@ -633,11 +586,7 @@ export class TeamApplicationService {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
     return {
-      application: this.toApplicationListItem(
-        application.row,
-        application.outbox,
-        application.job,
-      ),
+      application: this.toApplicationListItem(application),
       reviewHistory,
     };
   }
@@ -1035,58 +984,14 @@ export class TeamApplicationService {
     return new DomainException(APPLICATIONS_ERROR_CODES[code]);
   }
 
-  private toApplicationListItem(
-    row: ApplicationListRow,
-    outbox: ApplicationListOutbox | undefined,
-    job: ApplicationListProvisionJob | undefined,
-  ): ApplicationListItem {
-    const team = {
-      id: row.id,
-      name: row.name,
-      memberCount: row._count.members,
-    };
+  private toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
     return {
-      id: row.id,
-      programId: row.programId,
       status: row.status,
-      submittedAt: row.submittedAt,
       rejectionReason: row.rejectionReason,
-      repositoryConnectionMode: row.repositoryConnectionMode,
-      repositoryProvisioning:
-        row.status === ApplicationStatus.APPROVED &&
-        row.repository != null &&
-        job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        job.repoId === row.repository.githubRepositoryId &&
-        row.repositoryConnectionMode === RepositoryConnectionMode.OWN
-          ? {
-              enabled: row.program.repositoryProvisioningEnabled,
-              jobStatus: 'SUCCEEDED',
-              updatedAt: job.updatedAt,
-            }
-          : resolveRepositoryProvisioning(
-              row.status,
-              row.program.repositoryProvisioningEnabled,
-              row.updatedAt,
-              outbox,
-              job,
-            ),
-      repository: row.repository
-        ? {
-            url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
-              row.repository.nameWithOwner,
-            ),
-            visibility: row.repository.visibility,
-          }
-        : null,
-      isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
-      participation: team ? 'TEAM' : 'INDIVIDUAL',
       applicant: {
-        id: row.applicant.id,
         nickname: row.applicant.nickname,
         name: row.applicant.name ?? null,
       },
-      team,
-      answers: parseListAnswers(row.answers),
     };
   }
 
@@ -1109,89 +1014,6 @@ export class TeamApplicationService {
       ...new Set(application.participants.map((participant) => participant.id)),
     ].sort();
   }
-}
-
-function resolveRepositoryProvisioning(
-  applicationStatus: ApplicationStatus,
-  enabled: boolean,
-  applicationUpdatedAt: Date,
-  outbox: ApplicationListOutbox | undefined,
-  job: ApplicationListProvisionJob | undefined,
-): ApplicationRepositoryProvisioning {
-  const anomalous = (): ApplicationRepositoryProvisioning => ({
-    enabled,
-    jobStatus: 'ANOMALOUS',
-    updatedAt: applicationUpdatedAt,
-  });
-  if (applicationStatus !== ApplicationStatus.APPROVED) {
-    if (outbox || job) {
-      return anomalous();
-    }
-    return {
-      enabled,
-      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-    };
-  }
-
-  if (
-    (job && !outbox) ||
-    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
-    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
-  ) {
-    return anomalous();
-  }
-
-  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
-    const jobStatus = job.status;
-    return {
-      enabled,
-      jobStatus,
-      updatedAt: job.updatedAt,
-    };
-  }
-
-  if (enabled && outbox) {
-    if (
-      outbox.status === OutboxEventStatus.PENDING ||
-      outbox.status === OutboxEventStatus.PROCESSING
-    ) {
-      return {
-        enabled,
-        jobStatus: 'PENDING',
-        updatedAt: outbox.createdAt,
-      };
-    }
-    if (outbox.status === OutboxEventStatus.FAILED) {
-      return {
-        enabled,
-        jobStatus: 'FAILED_FINAL',
-        updatedAt: outbox.createdAt,
-      };
-    }
-  }
-
-  if (!outbox && !job) {
-    return {
-      enabled,
-      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-    };
-  }
-  return anomalous();
-}
-
-function parseListAnswers(value: unknown): ApplicationListAnswers {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return { applicantName: '', title: '', summary: '' };
-  }
-  const record = value as Record<string, unknown>;
-  return {
-    applicantName:
-      typeof record.applicantName === 'string' ? record.applicantName : '',
-    title: typeof record.title === 'string' ? record.title : '',
-    summary: typeof record.summary === 'string' ? record.summary : '',
-  };
 }
 
 export interface StudentApplicationView {

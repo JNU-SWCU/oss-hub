@@ -42,35 +42,28 @@ export class RepositoryUrlHistoryResponseDto {
 }
 
 export class TeamApplicationResponseDto {
-  declare readonly id: string;
   declare readonly status: TeamApplicationView['status'];
   declare readonly repositoryConnectionMode: TeamApplicationView['repositoryConnectionMode'];
   declare readonly repository: PublishableRepositoryResponseDto | null;
   declare readonly repositoryProvisioning: {
-    readonly enabled: boolean;
     readonly jobStatus: TeamApplicationView['repositoryProvisioning']['jobStatus'];
-    readonly updatedAt: string;
   };
 
   static from(view: TeamApplicationView): TeamApplicationResponseDto {
     return {
-      id: view.id,
       status: view.status,
       repositoryConnectionMode: view.repositoryConnectionMode,
       repository: view.repository
         ? PublishableRepositoryResponseDto.from(view.repository)
         : null,
       repositoryProvisioning: {
-        enabled: view.repositoryProvisioning.enabled,
         jobStatus: view.repositoryProvisioning.jobStatus,
-        updatedAt: view.repositoryProvisioning.updatedAt.toISOString(),
       },
     };
   }
 }
 
 export class StaffTeamDetailResponseDto {
-  declare readonly teamId: string;
   declare readonly name: string;
   declare readonly memberCount: number;
   declare readonly members: TeamMemberResponseDto[];
@@ -88,7 +81,6 @@ export class StaffTeamDetailResponseDto {
 
   static from(view: StaffTeamDetailView): StaffTeamDetailResponseDto {
     return {
-      teamId: view.teamId,
       name: view.name,
       memberCount: view.memberCount,
       members: view.members.map((member) => TeamMemberResponseDto.from(member)),

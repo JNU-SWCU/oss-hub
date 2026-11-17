@@ -17,7 +17,6 @@ export function getStaffProgramRecruitmentState(
       applicationStartAt: program.applicationPeriod.startsAt,
       applicationEndAt: program.applicationPeriod.endsAt,
       endAt: program.endAt,
-      description: '',
     },
     now,
   );

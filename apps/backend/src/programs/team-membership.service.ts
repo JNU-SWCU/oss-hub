@@ -720,14 +720,11 @@ function resolveRepositoryProvisioning(
     job?.repoId === repositoryId &&
     job.status === RepositoryProvisionJobStatus.SUCCEEDED
     ? {
-        enabled: source.enabled,
         jobStatus: 'SUCCEEDED',
-        updatedAt: job.updatedAt,
       }
     : resolveTeamRepositoryProvisioning(
         source.status,
         source.enabled,
-        source.updatedAt,
         source.outbox ?? undefined,
         job ?? undefined,
       );
@@ -736,23 +733,18 @@ function resolveRepositoryProvisioning(
 function resolveTeamRepositoryProvisioning(
   applicationStatus: ApplicationStatus,
   enabled: boolean,
-  applicationUpdatedAt: Date,
   outbox: TeamProvisionOutbox | undefined,
   job: TeamProvisionJob | undefined,
 ): TeamApplicationView['repositoryProvisioning'] {
   const anomalous = (): TeamApplicationView['repositoryProvisioning'] => ({
-    enabled,
     jobStatus: 'ANOMALOUS',
-    updatedAt: applicationUpdatedAt,
   });
   if (applicationStatus !== ApplicationStatus.APPROVED) {
     if (outbox || job) {
       return anomalous();
     }
     return {
-      enabled,
       jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
     };
   }
 
@@ -767,9 +759,7 @@ function resolveTeamRepositoryProvisioning(
   if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
     const jobStatus = job.status;
     return {
-      enabled,
       jobStatus,
-      updatedAt: job.updatedAt,
     };
   }
 
@@ -779,25 +769,19 @@ function resolveTeamRepositoryProvisioning(
       outbox.status === OutboxEventStatus.PROCESSING
     ) {
       return {
-        enabled,
         jobStatus: 'PENDING',
-        updatedAt: outbox.createdAt,
       };
     }
     if (outbox.status === OutboxEventStatus.FAILED) {
       return {
-        enabled,
         jobStatus: 'FAILED_FINAL',
-        updatedAt: outbox.createdAt,
       };
     }
   }
 
   if (!outbox && !job) {
     return {
-      enabled,
       jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
     };
   }
   return anomalous();

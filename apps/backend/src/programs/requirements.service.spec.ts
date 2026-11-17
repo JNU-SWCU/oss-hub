@@ -2345,13 +2345,11 @@ describe('RequirementsService.collectForStaff', () => {
         id: syntheticDocumentId,
         name: '개인정보 수집·이용 동의서',
         isRequired: true,
-        sortOrder: 1,
       },
       {
         id: secondDocumentId,
         name: '팀 활동 보고',
         isRequired: false,
-        sortOrder: 2,
       },
     ]);
   });
@@ -2496,7 +2494,6 @@ describe('RequirementsService.collectForStaff', () => {
         file: null,
 
         content: {
-          type: 'TEXT',
           text: '3주차까지 인터뷰 8건을 마쳤습니다.',
         },
         status: SubmissionStatus.SUBMITTED,
@@ -2585,7 +2582,6 @@ describe('RequirementsService.collectForStaff', () => {
       .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.content).toEqual({
-      type: 'TEXT',
       text: longText,
     });
   });

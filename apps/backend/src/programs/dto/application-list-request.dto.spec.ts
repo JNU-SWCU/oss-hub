@@ -20,7 +20,6 @@ describe('ApplicationListRequestDto', () => {
       pageSize: 20,
       search: '',
       status: 'all',
-      view: 'default',
     });
   });
 
@@ -62,7 +61,6 @@ describe('ApplicationListRequestDto', () => {
       pageSize: 10,
       search: 'team-alpha',
       status: 'APPROVED',
-      view: 'default',
     });
   });
 
@@ -84,7 +82,6 @@ describe('ApplicationListRequestDto', () => {
       pageSize: 20,
       search: '',
       status: 'all',
-      view: 'default',
     });
     expect(applicationsService.listQueryFromRequest(query)).not.toHaveProperty(
       'mode',
@@ -92,34 +89,15 @@ describe('ApplicationListRequestDto', () => {
   });
 });
 
-describe('ApplicationListRequestDto — view projection 선택', () => {
-  it('view 를 주지 않으면 기존 응답 모양(default)을 고른다', async () => {
-    const query = plainToInstance(ApplicationListRequestDto, {});
-
-    expect(await validate(query)).toHaveLength(0);
-    expect(applicationsService.listQueryFromRequest(query).view).toBe(
-      'default',
-    );
-  });
-
-  it('team-management 를 명시하면 그대로 전달한다', async () => {
+describe('ApplicationListRequestDto — 폐기된 view', () => {
+  it('예전 view 값을 보내도 검증을 통과하고 질의에는 싣지 않는다', async () => {
     const query = plainToInstance(ApplicationListRequestDto, {
       view: 'team-management',
     });
 
     expect(await validate(query)).toHaveLength(0);
-    expect(applicationsService.listQueryFromRequest(query).view).toBe(
-      'team-management',
+    expect(applicationsService.listQueryFromRequest(query)).not.toHaveProperty(
+      'view',
     );
-  });
-
-  it('모르는 view 는 400 으로 거절한다 — 조용히 default 로 떨어뜨리지 않는다', async () => {
-    const query = plainToInstance(ApplicationListRequestDto, {
-      view: 'whatever',
-    });
-
-    const errors = await validate(query);
-
-    expect(errors.map((error) => error.property)).toContain('view');
   });
 });

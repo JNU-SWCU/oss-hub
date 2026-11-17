@@ -3,7 +3,6 @@ import type { ApplicationDecisionNotification } from '../application-decision-no
 
 export class ApplicationDecisionNotificationResponseDto {
   declare readonly id: string;
-  declare readonly teamId: string;
   declare readonly programId: string;
   declare readonly programName: string;
   declare readonly decision:
@@ -17,7 +16,6 @@ export class ApplicationDecisionNotificationResponseDto {
   ): ApplicationDecisionNotificationResponseDto {
     return {
       id: notification.id,
-      teamId: notification.teamId,
       programId: notification.programId,
       programName: notification.programName,
       decision: notification.decision,

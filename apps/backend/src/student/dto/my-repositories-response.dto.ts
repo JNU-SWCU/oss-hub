@@ -9,7 +9,6 @@ export class MyRepositoryItemResponseDto {
   declare readonly repositoryId: string | null;
   declare readonly teamId: string;
   declare readonly connectionMode: 'NEW' | 'OWN';
-  declare readonly applicationMode: 'PERSONAL' | 'TEAM';
   declare readonly programName: string;
   declare readonly displayName: string;
   declare readonly repositoryName: string | null;
@@ -23,7 +22,6 @@ export class MyRepositoryItemResponseDto {
       repositoryId: item.repositoryId,
       teamId: item.teamId,
       connectionMode: item.connectionMode,
-      applicationMode: item.applicationMode,
       programName: item.programName,
       displayName: item.displayName,
       repositoryName: item.repositoryName,

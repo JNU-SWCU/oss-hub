@@ -60,7 +60,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const post: BoardPostDetail = {
   id: 'post-1',
-  programId: 'program-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '제출 마감일 문의드립니다',
@@ -76,8 +75,6 @@ const post: BoardPostDetail = {
 const emptyPage: BoardPostsPage = {
   items: [],
   total: 0,
-  page: 1,
-  limit: 20,
 };
 
 describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {

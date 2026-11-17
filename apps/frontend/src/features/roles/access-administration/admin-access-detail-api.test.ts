@@ -90,7 +90,6 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
       detail({
         pendingRequest: {
           id: 'req-1',
-          status: 'PENDING',
           createdAt: '2026-07-30T00:00:00.000Z',
         },
       }),
@@ -146,7 +145,6 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
         isSelf: true,
         pendingRequest: {
           id: 'req-1',
-          status: 'PENDING',
           createdAt: '2026-07-30T00:00:00.000Z',
         },
         profile: {

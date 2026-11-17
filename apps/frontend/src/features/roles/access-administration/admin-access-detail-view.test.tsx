@@ -192,7 +192,6 @@ describe('프로필 카드 — 가입 유형별 항목과 미완료 경고', () 
             memberKind: 'STUDENT',
             pendingRequest: {
               id: 'request-pending',
-              status: 'PENDING',
               createdAt: '2026-10-27T04:15:00.000Z',
             },
             participations: null,

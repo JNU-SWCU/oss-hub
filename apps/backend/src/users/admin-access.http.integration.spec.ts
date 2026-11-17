@@ -68,8 +68,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
   ]);
   await expect(list.json()).resolves.toMatchObject({
     items: [expect.objectContaining({ id: actor.id })],
-    page: 1,
-    limit: 1,
     total: 2,
     facets: {
       roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
@@ -421,7 +419,7 @@ it('withholds a pending applicant participations from STAFF and returns them to 
     expect(staffBody).toMatchObject({
       id: applicant.id,
       isSelf: false,
-      pendingRequest: { status: 'PENDING' },
+      pendingRequest: { id: `${applicant.id}:pending` },
       participations: null,
     });
     expect(asAdmin.status).toBe(200);

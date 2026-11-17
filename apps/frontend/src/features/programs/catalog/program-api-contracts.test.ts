@@ -43,9 +43,6 @@ describe('listPrograms', () => {
   it('sends search, status, and pagination through the public list query', async () => {
     const response = {
       items: [],
-      page: 2,
-      pageSize: 20,
-      totalItems: 21,
       totalPages: 2,
     } satisfies ProgramListPage;
     vi.mocked(apiClient).mockResolvedValue(response);
@@ -75,7 +72,6 @@ describe('listPrograms', () => {
           applicationStartAt: '2026-12-01T00:00:00.000Z',
           applicationEndAt: '2026-12-05T00:00:00.000Z',
           endAt: null,
-          description: '설명',
           note: { text: '지원서 제출됨 · 교직원 승인을 기다립니다' },
           viewerApplicationStatus: 'SUBMITTED',
         },
@@ -87,14 +83,9 @@ describe('listPrograms', () => {
           applicationStartAt: '2026-09-01T00:00:00.000Z',
           applicationEndAt: '2026-09-08T00:00:00.000Z',
           endAt: '2026-12-19T00:00:00.000Z',
-          description: '설명',
           note: { text: '지원 3건 · 승인 대기 1건', icon: 'team' },
-          applicationCount: 3,
         },
       ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 2,
       totalPages: 1,
     } satisfies ProgramListPage;
     vi.mocked(apiClient).mockResolvedValue(response);
@@ -115,7 +106,6 @@ describe('listPrograms', () => {
       text: '지원 3건 · 승인 대기 1건',
       icon: 'team',
     });
-    expect(result.items[1]?.applicationCount).toBe(3);
   });
 });
 

@@ -132,9 +132,7 @@ export interface TeamApplicationView {
     readonly blockedReasons: readonly PublishBlockedReason[];
   } | null;
   readonly repositoryProvisioning: {
-    readonly enabled: boolean;
     readonly jobStatus: TeamRepositoryProvisioningJobStatus;
-    readonly updatedAt: Date;
   };
 }
 

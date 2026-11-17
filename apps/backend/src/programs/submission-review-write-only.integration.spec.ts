@@ -106,7 +106,6 @@ it('shows the historical approval with an unknown revision without rewriting the
   );
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
-    submissionId: submission.id,
     latestReviewId: event.id,
     currentRevision: {
       number: submission.revision,

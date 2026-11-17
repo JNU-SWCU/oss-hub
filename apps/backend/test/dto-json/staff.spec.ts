@@ -34,9 +34,7 @@ import {
 const at = (iso: string): Date => new Date(iso);
 
 const facets: AdminAccessFacets = {
-  roles: { unassigned: 1, student: 2, staff: 3, admin: 4 },
-  accountStatuses: { active: 9, deactivated: 1 },
-  pendingRequests: { none: 8, pending: 2 },
+  pendingRequests: { pending: 2 },
 };
 
 const user: AdminAccessUser = {

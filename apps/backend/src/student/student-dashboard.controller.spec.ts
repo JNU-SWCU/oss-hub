@@ -74,12 +74,10 @@ describe('StudentDashboardController', () => {
 
     expect(getStudentDashboard).toHaveBeenCalledWith(123n);
     expect(response.items[0]?.nextMilestone).toEqual({
-      id: 'milestone-1',
       name: 'Synthetic milestone',
       dueAt: DUE_AT.toISOString(),
       lateSubmissionDueAt: GRACE_DUE_AT.toISOString(),
       submissionStatus: 'NOT_SUBMITTED',
-      requiredItemCount: 2,
       remainingItemCount: 1,
     });
     expect(response.items[0]?.progress).toEqual({

@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { STAFF_INSIGHTS_FIXTURE } from './fixtures';
 import { StudentsTab } from './leaderboard-panel';
 import {
-  DEPARTMENT_COHORTS,
   type StaffInsightsLeaderRow,
   type StaffInsightsSummary,
 } from './types';
@@ -24,12 +23,6 @@ function leader(
     name: `합성 학생 ${rank}`,
     githubLogin: `synthetic-${rank}`,
     department: '소프트웨어공학과',
-    cohort: DEPARTMENT_COHORTS.SW_MAJOR,
-    commitCount: 10,
-    pullRequestCount: 1,
-    issueCount: 1,
-    repositoryCount: 1,
-    starCount: 2,
     total: 100 - rank * 5,
     ...overrides,
   };
@@ -40,7 +33,6 @@ const NON_SW_LEADER = leader(2, {
   name: '합성 비SW',
   githubLogin: 'synthetic-nonsw',
   department: '빅데이터융합학과',
-  cohort: DEPARTMENT_COHORTS.NON_SW,
 });
 
 function withLeaders(

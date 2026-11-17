@@ -43,7 +43,6 @@ export interface StaffProgramTeam {
 }
 
 export interface StaffTeamDetailApplication {
-  readonly id: string;
   readonly status: ApplicationStatus;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repository: {
@@ -75,7 +74,6 @@ export interface DeletedTeamResult {
 }
 
 export interface StaffTeamDetail {
-  readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;
   readonly members: readonly StaffProgramTeamMember[];

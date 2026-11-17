@@ -58,7 +58,6 @@ describe('access request response DTO allowlists', () => {
       createdAt: ACCOUNT_CREATED_AT.toISOString(),
       pendingRequest: {
         id: 'request-pending',
-        status: StaffAccessRequestStatus.PENDING,
         createdAt: PENDING_AT.toISOString(),
       },
       lastLoginAt: LOGIN_AT.toISOString(),
@@ -157,8 +156,6 @@ describe('access request response DTO allowlists', () => {
 
 function facets() {
   return {
-    roles: { unassigned: 0, student: 1, staff: 0, admin: 0 },
-    accountStatuses: { active: 1, deactivated: 0 },
-    pendingRequests: { none: 0, pending: 1 },
+    pendingRequests: { pending: 1 },
   };
 }

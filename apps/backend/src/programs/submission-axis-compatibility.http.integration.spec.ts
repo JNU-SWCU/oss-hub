@@ -150,7 +150,6 @@ it('keeps the existing public PK and history when the requirement API replaces a
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     requirementId: flowIds.document,
-    submissionId: publicId,
     currentRevision: { number: 2 },
     history: [{ number: 1 }],
   });

@@ -19,9 +19,7 @@ import { type AdminAccessMutationResult } from '../../src/users/admin-access-mut
 const at = (iso: string): Date => new Date(iso);
 
 const facets: AdminAccessFacets = {
-  roles: { unassigned: 1, student: 2, staff: 3, admin: 4 },
-  accountStatuses: { active: 9, deactivated: 1 },
-  pendingRequests: { none: 8, pending: 2 },
+  pendingRequests: { pending: 2 },
 };
 
 const userWithPending: AdminAccessUser = {
@@ -105,7 +103,7 @@ const systemStatus: SystemStatusResult = {
       rule: 'BULK_REMOVAL',
       severity: 'HIGH',
       count: 12,
-      target: { kind: 'USER', id: 'user-1', login: null },
+      target: { id: 'user-1', login: null },
     },
     { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 1, target: null },
   ],

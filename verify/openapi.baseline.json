@@ -1242,13 +1242,9 @@
             "name": "view",
             "required": false,
             "in": "query",
+            "deprecated": true,
             "schema": {
-              "default": "default",
-              "type": "string",
-              "enum": [
-                "default",
-                "team-management"
-              ]
+              "type": "string"
             }
           },
           {
@@ -1267,14 +1263,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ApplicationListPageResponseDto"
-                    },
-                    {
-                      "$ref": "#/components/schemas/TeamManagementListPageResponseDto"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/TeamManagementListPageResponseDto"
                 }
               }
             }
@@ -5672,16 +5661,12 @@
           "id": {
             "type": "string"
           },
-          "status": {
-            "type": "string"
-          },
           "createdAt": {
             "type": "string"
           }
         },
         "required": [
           "id",
-          "status",
           "createdAt"
         ]
       },
@@ -5786,63 +5771,19 @@
       "AdminAccessFacetsResponseDto": {
         "type": "object",
         "properties": {
-          "roles": {
-            "type": "object",
-            "properties": {
-              "unassigned": {
-                "type": "number"
-              },
-              "student": {
-                "type": "number"
-              },
-              "staff": {
-                "type": "number"
-              },
-              "admin": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "unassigned",
-              "student",
-              "staff",
-              "admin"
-            ]
-          },
-          "accountStatuses": {
-            "type": "object",
-            "properties": {
-              "active": {
-                "type": "number"
-              },
-              "deactivated": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "active",
-              "deactivated"
-            ]
-          },
           "pendingRequests": {
             "type": "object",
             "properties": {
-              "none": {
-                "type": "number"
-              },
               "pending": {
                 "type": "number"
               }
             },
             "required": [
-              "none",
               "pending"
             ]
           }
         },
         "required": [
-          "roles",
-          "accountStatuses",
           "pendingRequests"
         ]
       },
@@ -5855,12 +5796,6 @@
               "$ref": "#/components/schemas/AdminAccessUserResponseDto"
             }
           },
-          "page": {
-            "type": "number"
-          },
-          "limit": {
-            "type": "number"
-          },
           "total": {
             "type": "number"
           },
@@ -5870,8 +5805,6 @@
         },
         "required": [
           "items",
-          "page",
-          "limit",
           "total",
           "facets"
         ]
@@ -6563,9 +6496,6 @@
       "SystemStatusAnomalyTargetResponseDto": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string"
-          },
           "id": {
             "type": "string"
           },
@@ -6575,7 +6505,6 @@
           }
         },
         "required": [
-          "kind",
           "id",
           "login"
         ]
@@ -6756,9 +6685,6 @@
           "id": {
             "type": "string"
           },
-          "programId": {
-            "type": "string"
-          },
           "status": {
             "enum": [
               "APPROVED",
@@ -6789,9 +6715,6 @@
           "submittedAt": {
             "type": "string"
           },
-          "updatedAt": {
-            "type": "string"
-          },
           "isRepositoryPublicationPlanned": {
             "type": "boolean"
           },
@@ -6804,24 +6727,18 @@
           },
           "canManage": {
             "type": "boolean"
-          },
-          "canEdit": {
-            "type": "boolean"
           }
         },
         "required": [
           "id",
-          "programId",
           "status",
           "teamId",
           "answers",
           "submittedAt",
-          "updatedAt",
           "isRepositoryPublicationPlanned",
           "rejectionReason",
           "isManager",
-          "canManage",
-          "canEdit"
+          "canManage"
         ]
       },
       "MyStudentApplicationResponseDto": {
@@ -6871,224 +6788,9 @@
           "cancelled"
         ]
       },
-      "ApplicationRepositoryResponseDto": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string",
-            "enum": [
-              "PRIVATE",
-              "PUBLIC"
-            ]
-          }
-        },
-        "required": [
-          "url",
-          "visibility"
-        ]
-      },
-      "ApplicationTeamResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "memberCount": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "memberCount"
-        ]
-      },
-      "ApplicationListItemResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "programId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "APPROVED",
-              "REJECTED",
-              "SUBMITTED"
-            ]
-          },
-          "submittedAt": {
-            "type": "string"
-          },
-          "rejectionReason": {
-            "type": "string",
-            "nullable": true
-          },
-          "repositoryConnectionMode": {
-            "type": "string",
-            "enum": [
-              "NEW",
-              "OWN"
-            ]
-          },
-          "repositoryProvisioning": {
-            "type": "object",
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "jobStatus": {
-                "enum": [
-                  "PENDING",
-                  "PROCESSING",
-                  "SUCCEEDED",
-                  "FAILED_RETRYABLE",
-                  "FAILED_FINAL",
-                  "NOT_REQUESTED",
-                  "DISABLED",
-                  "ANOMALOUS"
-                ],
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "enabled",
-              "jobStatus",
-              "updatedAt"
-            ]
-          },
-          "repository": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ApplicationRepositoryResponseDto"
-              }
-            ]
-          },
-          "isRepositoryPublicationPlanned": {
-            "type": "boolean"
-          },
-          "participation": {
-            "type": "string",
-            "enum": [
-              "INDIVIDUAL",
-              "TEAM"
-            ]
-          },
-          "applicant": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string",
-                "nullable": true
-              },
-              "nickname": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name",
-              "nickname"
-            ]
-          },
-          "team": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ApplicationTeamResponseDto"
-              }
-            ]
-          },
-          "answers": {
-            "type": "object",
-            "properties": {
-              "applicantName": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "summary": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "applicantName",
-              "title",
-              "summary"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "programId",
-          "status",
-          "submittedAt",
-          "rejectionReason",
-          "repositoryConnectionMode",
-          "repositoryProvisioning",
-          "repository",
-          "isRepositoryPublicationPlanned",
-          "participation",
-          "applicant",
-          "team",
-          "answers"
-        ]
-      },
-      "ApplicationListPageResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApplicationListItemResponseDto"
-            }
-          },
-          "page": {
-            "type": "number"
-          },
-          "pageSize": {
-            "type": "number"
-          },
-          "totalItems": {
-            "type": "number"
-          },
-          "totalPages": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "items",
-          "page",
-          "pageSize",
-          "totalItems",
-          "totalPages"
-        ]
-      },
       "TeamManagementMemberResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "name": {
             "type": "string",
             "nullable": true
@@ -7098,7 +6800,6 @@
           }
         },
         "required": [
-          "id",
           "name",
           "nickname"
         ]
@@ -7135,9 +6836,6 @@
           "id": {
             "type": "string"
           },
-          "programId": {
-            "type": "string"
-          },
           "teamMinSize": {
             "type": "number"
           },
@@ -7152,16 +6850,9 @@
           "submittedAt": {
             "type": "string"
           },
-          "rejectionReason": {
-            "type": "string",
-            "nullable": true
-          },
           "applicant": {
             "type": "object",
             "properties": {
-              "id": {
-                "type": "string"
-              },
               "name": {
                 "type": "string",
                 "nullable": true
@@ -7171,7 +6862,6 @@
               }
             },
             "required": [
-              "id",
               "name",
               "nickname"
             ]
@@ -7188,11 +6878,9 @@
         },
         "required": [
           "id",
-          "programId",
           "teamMinSize",
           "status",
           "submittedAt",
-          "rejectionReason",
           "applicant",
           "team"
         ]
@@ -7206,12 +6894,6 @@
               "$ref": "#/components/schemas/TeamManagementListItemResponseDto"
             }
           },
-          "page": {
-            "type": "number"
-          },
-          "pageSize": {
-            "type": "number"
-          },
           "totalItems": {
             "type": "number"
           },
@@ -7221,8 +6903,6 @@
         },
         "required": [
           "items",
-          "page",
-          "pageSize",
           "totalItems",
           "totalPages"
         ]
@@ -7370,12 +7050,6 @@
       "ApplicationDetailResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "programId": {
-            "type": "string"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -7384,74 +7058,13 @@
               "SUBMITTED"
             ]
           },
-          "submittedAt": {
-            "type": "string"
-          },
           "rejectionReason": {
             "type": "string",
             "nullable": true
           },
-          "repositoryConnectionMode": {
-            "type": "string",
-            "enum": [
-              "NEW",
-              "OWN"
-            ]
-          },
-          "repositoryProvisioning": {
-            "type": "object",
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "jobStatus": {
-                "enum": [
-                  "PENDING",
-                  "PROCESSING",
-                  "SUCCEEDED",
-                  "FAILED_RETRYABLE",
-                  "FAILED_FINAL",
-                  "NOT_REQUESTED",
-                  "DISABLED",
-                  "ANOMALOUS"
-                ],
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "enabled",
-              "jobStatus",
-              "updatedAt"
-            ]
-          },
-          "repository": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ApplicationRepositoryResponseDto"
-              }
-            ]
-          },
-          "isRepositoryPublicationPlanned": {
-            "type": "boolean"
-          },
-          "participation": {
-            "type": "string",
-            "enum": [
-              "INDIVIDUAL",
-              "TEAM"
-            ]
-          },
           "applicant": {
             "type": "object",
             "properties": {
-              "id": {
-                "type": "string"
-              },
               "name": {
                 "type": "string",
                 "nullable": true
@@ -7461,37 +7074,8 @@
               }
             },
             "required": [
-              "id",
               "name",
               "nickname"
-            ]
-          },
-          "team": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ApplicationTeamResponseDto"
-              }
-            ]
-          },
-          "answers": {
-            "type": "object",
-            "properties": {
-              "applicantName": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "summary": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "applicantName",
-              "title",
-              "summary"
             ]
           },
           "reviewHistory": {
@@ -7502,19 +7086,9 @@
           }
         },
         "required": [
-          "id",
-          "programId",
           "status",
-          "submittedAt",
           "rejectionReason",
-          "repositoryConnectionMode",
-          "repositoryProvisioning",
-          "repository",
-          "isRepositoryPublicationPlanned",
-          "participation",
           "applicant",
-          "team",
-          "answers",
           "reviewHistory"
         ]
       },
@@ -8077,9 +7651,6 @@
           "endAt": {
             "type": "string"
           },
-          "description": {
-            "type": "string"
-          },
           "note": {
             "type": "object",
             "properties": {
@@ -8101,9 +7672,6 @@
               "REJECTED",
               "SUBMITTED"
             ]
-          },
-          "applicationCount": {
-            "type": "number"
           }
         },
         "required": [
@@ -8114,8 +7682,7 @@
           "trackType",
           "applicationStartAt",
           "applicationEndAt",
-          "endAt",
-          "description"
+          "endAt"
         ]
       },
       "ProgramListPageResponseDto": {
@@ -8127,24 +7694,12 @@
               "$ref": "#/components/schemas/ProgramListResponseDto"
             }
           },
-          "page": {
-            "type": "number"
-          },
-          "pageSize": {
-            "type": "number"
-          },
-          "totalItems": {
-            "type": "number"
-          },
           "totalPages": {
             "type": "number"
           }
         },
         "required": [
           "items",
-          "page",
-          "pageSize",
-          "totalItems",
           "totalPages"
         ]
       },
@@ -9286,9 +8841,6 @@
       "TeamApplicationResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -9316,9 +8868,6 @@
           "repositoryProvisioning": {
             "type": "object",
             "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
               "jobStatus": {
                 "enum": [
                   "PENDING",
@@ -9331,20 +8880,14 @@
                   "ANOMALOUS"
                 ],
                 "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
               }
             },
             "required": [
-              "enabled",
-              "jobStatus",
-              "updatedAt"
+              "jobStatus"
             ]
           }
         },
         "required": [
-          "id",
           "status",
           "repositoryConnectionMode",
           "repository",
@@ -9354,9 +8897,6 @@
       "StaffTeamDetailResponseDto": {
         "type": "object",
         "properties": {
-          "teamId": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
           },
@@ -9415,7 +8955,6 @@
           }
         },
         "required": [
-          "teamId",
           "name",
           "memberCount",
           "members",
@@ -9772,9 +9311,6 @@
           "id": {
             "type": "string"
           },
-          "programId": {
-            "type": "string"
-          },
           "authorName": {
             "type": "string"
           },
@@ -9796,25 +9332,16 @@
           },
           "commentCount": {
             "type": "number"
-          },
-          "canEdit": {
-            "type": "boolean"
-          },
-          "canDelete": {
-            "type": "boolean"
           }
         },
         "required": [
           "id",
-          "programId",
           "authorName",
           "category",
           "title",
           "pinned",
           "createdAt",
-          "commentCount",
-          "canEdit",
-          "canDelete"
+          "commentCount"
         ]
       },
       "BoardPostsPageResponseDto": {
@@ -9828,28 +9355,17 @@
           },
           "total": {
             "type": "number"
-          },
-          "page": {
-            "type": "number"
-          },
-          "limit": {
-            "type": "number"
           }
         },
         "required": [
           "items",
-          "total",
-          "page",
-          "limit"
+          "total"
         ]
       },
       "BoardCommentResponseDto": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "postId": {
             "type": "string"
           },
           "authorRole": {
@@ -9875,7 +9391,6 @@
         },
         "required": [
           "id",
-          "postId",
           "authorRole",
           "authorName",
           "body",
@@ -9887,9 +9402,6 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "programId": {
             "type": "string"
           },
           "authorName": {
@@ -9932,7 +9444,6 @@
         },
         "required": [
           "id",
-          "programId",
           "authorName",
           "category",
           "title",
@@ -10166,15 +9677,8 @@
       "ProgramOverviewResponseDto": {
         "type": "object",
         "properties": {
-          "programId": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
-          },
-          "trackType": {
-            "type": "string",
-            "nullable": true
           },
           "boardPostCount": {
             "type": "number"
@@ -10223,9 +9727,7 @@
           }
         },
         "required": [
-          "programId",
           "name",
-          "trackType",
           "boardPostCount",
           "participantCount",
           "teamCount",
@@ -10831,9 +10333,6 @@
           "requirementId": {
             "type": "string"
           },
-          "submissionId": {
-            "type": "string"
-          },
           "application": {
             "type": "object",
             "properties": {
@@ -10900,7 +10399,6 @@
         "required": [
           "latestReviewId",
           "requirementId",
-          "submissionId",
           "application",
           "milestone",
           "currentRevision",
@@ -11224,16 +10722,12 @@
           },
           "isRequired": {
             "type": "boolean"
-          },
-          "sortOrder": {
-            "type": "number"
           }
         },
         "required": [
           "id",
           "name",
-          "isRequired",
-          "sortOrder"
+          "isRequired"
         ]
       },
       "RequirementCollectionFileResponseDto": {
@@ -11250,15 +10744,11 @@
       "RequirementTextContentResponseDto": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string"
-          },
           "text": {
             "type": "string"
           }
         },
         "required": [
-          "type",
           "text"
         ]
       },
@@ -11779,9 +11269,6 @@
           "id": {
             "type": "string"
           },
-          "teamId": {
-            "type": "string"
-          },
           "programId": {
             "type": "string"
           },
@@ -11802,7 +11289,6 @@
         },
         "required": [
           "id",
-          "teamId",
           "programId",
           "programName",
           "decision",
@@ -11813,9 +11299,6 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "teamId": {
             "type": "string"
           },
           "teamName": {
@@ -11837,7 +11320,6 @@
         },
         "required": [
           "id",
-          "teamId",
           "teamName",
           "programId",
           "programName",
@@ -12301,9 +11783,6 @@
       "StudentDashboardMilestoneResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
           },
@@ -12324,20 +11803,15 @@
               "NOT_SUBMITTED"
             ]
           },
-          "requiredItemCount": {
-            "type": "number"
-          },
           "remainingItemCount": {
             "type": "number"
           }
         },
         "required": [
-          "id",
           "name",
           "dueAt",
           "lateSubmissionDueAt",
           "submissionStatus",
-          "requiredItemCount",
           "remainingItemCount"
         ]
       },
@@ -12613,12 +12087,6 @@
           "teamId": {
             "type": "string"
           },
-          "programId": {
-            "type": "string"
-          },
-          "milestoneId": {
-            "type": "string"
-          },
           "milestoneName": {
             "type": "string"
           },
@@ -12635,8 +12103,6 @@
           "comment",
           "reviewedAt",
           "teamId",
-          "programId",
-          "milestoneId",
           "milestoneName",
           "itemName",
           "href"
@@ -12671,13 +12137,6 @@
             "enum": [
               "NEW",
               "OWN"
-            ]
-          },
-          "applicationMode": {
-            "type": "string",
-            "enum": [
-              "TEAM",
-              "PERSONAL"
             ]
           },
           "programName": {
@@ -12731,7 +12190,6 @@
           "repositoryId",
           "teamId",
           "connectionMode",
-          "applicationMode",
           "programName",
           "displayName",
           "repositoryName",
@@ -12995,24 +12453,6 @@
           "activeStudentCount": {
             "type": "number"
           },
-          "commitCount": {
-            "type": "number"
-          },
-          "pullRequestCount": {
-            "type": "number"
-          },
-          "issueCount": {
-            "type": "number"
-          },
-          "repositoryCount": {
-            "type": "number"
-          },
-          "starCount": {
-            "type": "number"
-          },
-          "total": {
-            "type": "number"
-          },
           "participantCount": {
             "type": "number"
           }
@@ -13021,12 +12461,6 @@
           "cohort",
           "studentCount",
           "activeStudentCount",
-          "commitCount",
-          "pullRequestCount",
-          "issueCount",
-          "repositoryCount",
-          "starCount",
-          "total",
           "participantCount"
         ]
       },
@@ -13044,54 +12478,30 @@
               "unregistered"
             ]
           },
-          "activityPerStudent": {
-            "type": "number"
-          },
-          "sampleTooSmall": {
-            "type": "boolean"
-          },
           "studentCount": {
             "type": "number"
           },
           "activeStudentCount": {
             "type": "number"
           },
-          "commitCount": {
-            "type": "number"
-          },
-          "pullRequestCount": {
-            "type": "number"
-          },
-          "issueCount": {
-            "type": "number"
-          },
-          "repositoryCount": {
-            "type": "number"
-          },
-          "starCount": {
-            "type": "number"
-          },
-          "total": {
-            "type": "number"
-          },
           "participantCount": {
             "type": "number"
+          },
+          "activityPerStudent": {
+            "type": "number"
+          },
+          "sampleTooSmall": {
+            "type": "boolean"
           }
         },
         "required": [
           "department",
           "cohort",
-          "activityPerStudent",
-          "sampleTooSmall",
           "studentCount",
           "activeStudentCount",
-          "commitCount",
-          "pullRequestCount",
-          "issueCount",
-          "repositoryCount",
-          "starCount",
-          "total",
-          "participantCount"
+          "participantCount",
+          "activityPerStudent",
+          "sampleTooSmall"
         ]
       },
       "StaffInsightsProgramResponseDto": {
@@ -13229,9 +12639,6 @@
       "StaffInsightsLeaderResponseDto": {
         "type": "object",
         "properties": {
-          "starCount": {
-            "type": "number"
-          },
           "rank": {
             "type": "number"
           },
@@ -13246,41 +12653,15 @@
             "type": "string",
             "nullable": true
           },
-          "cohort": {
-            "type": "string",
-            "enum": [
-              "sw-major",
-              "non-sw",
-              "unregistered"
-            ]
-          },
-          "commitCount": {
-            "type": "number"
-          },
-          "pullRequestCount": {
-            "type": "number"
-          },
-          "issueCount": {
-            "type": "number"
-          },
-          "repositoryCount": {
-            "type": "number"
-          },
           "total": {
             "type": "number"
           }
         },
         "required": [
-          "starCount",
           "rank",
           "name",
           "githubLogin",
           "department",
-          "cohort",
-          "commitCount",
-          "pullRequestCount",
-          "issueCount",
-          "repositoryCount",
           "total"
         ]
       },
@@ -13312,88 +12693,6 @@
           "nonSw"
         ]
       },
-      "StaffInsightsRecentLeaderResponseDto": {
-        "type": "object",
-        "properties": {
-          "rank": {
-            "type": "number"
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "githubLogin": {
-            "type": "string"
-          },
-          "department": {
-            "type": "string",
-            "nullable": true
-          },
-          "cohort": {
-            "type": "string",
-            "enum": [
-              "sw-major",
-              "non-sw",
-              "unregistered"
-            ]
-          },
-          "commitCount": {
-            "type": "number"
-          },
-          "pullRequestCount": {
-            "type": "number"
-          },
-          "issueCount": {
-            "type": "number"
-          },
-          "repositoryCount": {
-            "type": "number"
-          },
-          "total": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "rank",
-          "name",
-          "githubLogin",
-          "department",
-          "cohort",
-          "commitCount",
-          "pullRequestCount",
-          "issueCount",
-          "repositoryCount",
-          "total"
-        ]
-      },
-      "StaffInsightsRecentCohortLeadersResponseDto": {
-        "type": "object",
-        "properties": {
-          "all": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StaffInsightsRecentLeaderResponseDto"
-            }
-          },
-          "swMajor": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StaffInsightsRecentLeaderResponseDto"
-            }
-          },
-          "nonSw": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StaffInsightsRecentLeaderResponseDto"
-            }
-          }
-        },
-        "required": [
-          "all",
-          "swMajor",
-          "nonSw"
-        ]
-      },
       "StaffInsightsLeadersResponseDto": {
         "type": "object",
         "properties": {
@@ -13401,7 +12700,7 @@
             "$ref": "#/components/schemas/StaffInsightsCohortLeadersResponseDto"
           },
           "recent": {
-            "$ref": "#/components/schemas/StaffInsightsRecentCohortLeadersResponseDto"
+            "$ref": "#/components/schemas/StaffInsightsCohortLeadersResponseDto"
           }
         },
         "required": [
@@ -13561,63 +12860,19 @@
       "AccessRequestsFacetsResponseDto": {
         "type": "object",
         "properties": {
-          "roles": {
-            "type": "object",
-            "properties": {
-              "unassigned": {
-                "type": "number"
-              },
-              "student": {
-                "type": "number"
-              },
-              "staff": {
-                "type": "number"
-              },
-              "admin": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "unassigned",
-              "student",
-              "staff",
-              "admin"
-            ]
-          },
-          "accountStatuses": {
-            "type": "object",
-            "properties": {
-              "active": {
-                "type": "number"
-              },
-              "deactivated": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "active",
-              "deactivated"
-            ]
-          },
           "pendingRequests": {
             "type": "object",
             "properties": {
-              "none": {
-                "type": "number"
-              },
               "pending": {
                 "type": "number"
               }
             },
             "required": [
-              "none",
               "pending"
             ]
           }
         },
         "required": [
-          "roles",
-          "accountStatuses",
           "pendingRequests"
         ]
       },
@@ -13630,12 +12885,6 @@
               "$ref": "#/components/schemas/AccessRequestsUserResponseDto"
             }
           },
-          "page": {
-            "type": "number"
-          },
-          "limit": {
-            "type": "number"
-          },
           "total": {
             "type": "number"
           },
@@ -13645,8 +12894,6 @@
         },
         "required": [
           "items",
-          "page",
-          "limit",
           "total",
           "facets"
         ]
@@ -13842,9 +13089,6 @@
               "LOGOUT"
             ]
           },
-          "provider": {
-            "type": "string"
-          },
           "success": {
             "type": "boolean"
           },
@@ -13855,7 +13099,6 @@
         "required": [
           "id",
           "event",
-          "provider",
           "success",
           "loginAt"
         ]

@@ -37,7 +37,6 @@ interface SystemStatusAnomalyResult {
   readonly severity: SystemStatusAnomalySeverity;
   readonly count: number;
   readonly target: {
-    readonly kind: 'USER';
     readonly id: string;
     readonly login: string | null;
   } | null;

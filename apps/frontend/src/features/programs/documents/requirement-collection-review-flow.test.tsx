@@ -103,13 +103,11 @@ function collection(
         id: 'd1',
         name: '기획서',
         isRequired: true,
-        sortOrder: 1,
       },
       {
         id: 'd2',
         name: '중간 보고',
         isRequired: false,
-        sortOrder: 2,
       },
     ],
     rows,

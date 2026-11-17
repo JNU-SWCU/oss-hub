@@ -617,7 +617,7 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
       programId: 'cuid-synthetic-program',
       name: '프로젝트 계획서 제출',
     },
-    documents: [{ id: 'synthetic-document', sortOrder: 1 }],
+    documents: [{ id: 'synthetic-document' }],
     rows: [
       {
         teamName: '가나다팀',

@@ -109,10 +109,16 @@ describe('GET programs/:programId/teams/me', () => {
     expect(JSON.parse(response.text)).toEqual({
       status: 'REJECTED',
       application: {
-        ...APPLICATION,
+        id: APPLICATION.id,
+        status: APPLICATION.status,
+        teamId: APPLICATION.teamId,
+        answers: APPLICATION.answers,
         submittedAt: '2026-07-10T00:00:00.000Z',
-        updatedAt: '2026-07-11T00:00:00.000Z',
-        canEdit: false,
+        isRepositoryPublicationPlanned:
+          APPLICATION.isRepositoryPublicationPlanned,
+        rejectionReason: APPLICATION.rejectionReason,
+        isManager: APPLICATION.isManager,
+        canManage: APPLICATION.canManage,
       },
     });
     expect(response.cacheControl).toBe('private, no-store');

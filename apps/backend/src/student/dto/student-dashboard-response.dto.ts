@@ -5,7 +5,6 @@ import type {
 import type { StudentDashboardItem } from '../student-dashboard.service';
 
 export class StudentDashboardMilestoneResponseDto {
-  declare readonly id: string;
   declare readonly name: string;
   declare readonly dueAt: string;
   declare readonly lateSubmissionDueAt: string | null;
@@ -15,19 +14,16 @@ export class StudentDashboardMilestoneResponseDto {
     | 'APPROVED'
     | 'CHANGES_REQUESTED'
     | 'REJECTED';
-  declare readonly requiredItemCount: number;
   declare readonly remainingItemCount: number;
 
   static from(
     milestone: NonNullable<StudentDashboardItem['nextMilestone']>,
   ): StudentDashboardMilestoneResponseDto {
     return {
-      id: milestone.id,
       name: milestone.name,
       dueAt: milestone.dueAt.toISOString(),
       lateSubmissionDueAt: milestone.lateSubmissionDueAt?.toISOString() ?? null,
       submissionStatus: milestone.submissionStatus,
-      requiredItemCount: milestone.requiredItemCount,
       remainingItemCount: milestone.remainingItemCount,
     };
   }

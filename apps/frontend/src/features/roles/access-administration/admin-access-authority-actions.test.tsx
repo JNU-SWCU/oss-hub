@@ -117,7 +117,6 @@ describe('membership correction controls', () => {
         isProfileComplete: false,
         pendingRequest: {
           id: 'request',
-          status: 'PENDING',
           createdAt: '2026-01-01',
         },
       }),

@@ -113,7 +113,6 @@ describe('getRequirementCollection', () => {
           id: 'd1',
           name: '기획서',
           isRequired: true,
-          sortOrder: 1,
         },
       ],
       rows: [],

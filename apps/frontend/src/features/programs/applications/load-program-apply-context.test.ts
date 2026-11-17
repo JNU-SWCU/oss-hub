@@ -116,17 +116,14 @@ const invitedMemberTeam: ProgramTeam = {
 
 const application = {
   id: 'application-1',
-  programId: 'program-1',
   status: 'SUBMITTED',
   teamId: 'team-1',
   answers: { applicantName: 'Applicant', title: 'Existing title' },
   submittedAt: '2026-07-15T00:00:00.000Z',
-  updatedAt: '2026-07-16T00:00:00.000Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: null,
   isManager: true,
   canManage: true,
-  canEdit: true,
 } satisfies StudentApplication;
 
 const sessionUser = {

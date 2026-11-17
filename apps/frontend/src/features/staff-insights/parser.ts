@@ -11,7 +11,6 @@ import type {
   ProgramCategory,
   StaffInsightsProgramRow,
   StaffInsightsProgramSummary,
-  StaffInsightsRecentLeaderRow,
   StaffInsightsSummary,
 } from './types';
 import { DEPARTMENT_COHORTS, PROGRAM_CATEGORIES } from './types';
@@ -75,12 +74,6 @@ function parseMetrics(
   if (
     !isNonNegativeInteger(value.studentCount) ||
     !isNonNegativeInteger(value.activeStudentCount) ||
-    !isNonNegativeInteger(value.commitCount) ||
-    !isNonNegativeInteger(value.pullRequestCount) ||
-    !isNonNegativeInteger(value.issueCount) ||
-    !isNonNegativeInteger(value.repositoryCount) ||
-    !isNonNegativeInteger(value.starCount) ||
-    !isNonNegativeInteger(value.total) ||
     !isNonNegativeInteger(value.participantCount)
   ) {
     return null;
@@ -88,12 +81,6 @@ function parseMetrics(
   return {
     studentCount: value.studentCount,
     activeStudentCount: value.activeStudentCount,
-    commitCount: value.commitCount,
-    pullRequestCount: value.pullRequestCount,
-    issueCount: value.issueCount,
-    repositoryCount: value.repositoryCount,
-    starCount: value.starCount,
-    total: value.total,
     participantCount: value.participantCount,
   };
 }
@@ -130,9 +117,7 @@ function parseDepartment(value: unknown): StaffInsightsDepartmentRow | null {
       };
 }
 
-function parseRecentLeader(
-  value: unknown,
-): StaffInsightsRecentLeaderRow | null {
+function parseLeader(value: unknown): StaffInsightsLeaderRow | null {
   if (
     !isRecord(value) ||
     !isNonNegativeInteger(value.rank) ||
@@ -141,11 +126,6 @@ function parseRecentLeader(
     typeof value.githubLogin !== 'string' ||
     value.githubLogin === '' ||
     (value.department !== null && typeof value.department !== 'string') ||
-    !isCohort(value.cohort) ||
-    !isNonNegativeInteger(value.commitCount) ||
-    !isNonNegativeInteger(value.pullRequestCount) ||
-    !isNonNegativeInteger(value.issueCount) ||
-    !isNonNegativeInteger(value.repositoryCount) ||
     !isNonNegativeInteger(value.total)
   ) {
     return null;
@@ -155,25 +135,8 @@ function parseRecentLeader(
     name: value.name,
     githubLogin: value.githubLogin,
     department: value.department,
-    cohort: value.cohort,
-    commitCount: value.commitCount,
-    pullRequestCount: value.pullRequestCount,
-    issueCount: value.issueCount,
-    repositoryCount: value.repositoryCount,
     total: value.total,
   };
-}
-
-function parsePeriodLeader(value: unknown): StaffInsightsLeaderRow | null {
-  const row = parseRecentLeader(value);
-  if (
-    row === null ||
-    !isRecord(value) ||
-    !isNonNegativeInteger(value.starCount)
-  ) {
-    return null;
-  }
-  return { ...row, starCount: value.starCount };
 }
 
 function parseLeaderList<Row>(
@@ -206,8 +169,8 @@ function parseLeaders(value: unknown): StaffInsightsLeaders | null {
   if (!isRecord(value)) {
     return null;
   }
-  const period = parseCohortLeaders(value.period, parsePeriodLeader);
-  const recent = parseCohortLeaders(value.recent, parseRecentLeader);
+  const period = parseCohortLeaders(value.period, parseLeader);
+  const recent = parseCohortLeaders(value.recent, parseLeader);
   return period === null || recent === null ? null : { period, recent };
 }
 

@@ -14,7 +14,6 @@ export class ProgramListResponseDto {
   declare readonly applicationStartAt: string;
   declare readonly applicationEndAt: string;
   declare readonly endAt: string;
-  declare readonly description: string;
 
   declare readonly note?: {
     readonly text: string;
@@ -22,8 +21,6 @@ export class ProgramListResponseDto {
   };
 
   declare readonly viewerApplicationStatus?: ApplicationStatus;
-
-  declare readonly applicationCount?: number;
 
   static from(program: ProgramListPageItem): ProgramListResponseDto {
     return {
@@ -35,19 +32,14 @@ export class ProgramListResponseDto {
       applicationStartAt: program.applicationStartAt.toISOString(),
       applicationEndAt: program.applicationEndAt.toISOString(),
       endAt: program.endAt.toISOString(),
-      description: program.description,
       note: program.note,
       viewerApplicationStatus: program.viewerApplicationStatus,
-      applicationCount: program.applicationCount,
     };
   }
 }
 
 export class ProgramListPageResponseDto {
   declare readonly items: ProgramListResponseDto[];
-  declare readonly page: number;
-  declare readonly pageSize: number;
-  declare readonly totalItems: number;
   declare readonly totalPages: number;
 
   static from(programPage: ProgramListPage): ProgramListPageResponseDto {
@@ -55,9 +47,6 @@ export class ProgramListPageResponseDto {
       items: programPage.items.map((program) =>
         ProgramListResponseDto.from(program),
       ),
-      page: programPage.page,
-      pageSize: programPage.pageSize,
-      totalItems: programPage.totalItems,
       totalPages: programPage.totalPages,
     };
   }

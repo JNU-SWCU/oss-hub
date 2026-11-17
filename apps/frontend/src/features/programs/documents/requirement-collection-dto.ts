@@ -11,7 +11,6 @@ export interface RequirementCollectionDocument {
   readonly id: string;
   readonly name: string;
   readonly isRequired: boolean;
-  readonly sortOrder: number;
 }
 interface RequirementCollectionFile {
   readonly name: string;
@@ -40,7 +39,6 @@ export interface RequirementHistoryPage {
   readonly isComplete: boolean;
 }
 export type RequirementCollectionContent = {
-  readonly type: 'TEXT';
   readonly text: string;
 };
 export interface RequirementCollectionCell {

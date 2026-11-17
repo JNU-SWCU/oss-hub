@@ -67,7 +67,6 @@ describe('교직원 대시보드 모집 상태', () => {
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,
         endAt: program.endAt,
-        description: '',
       };
       const expected = {
         upcoming: '접수대기',

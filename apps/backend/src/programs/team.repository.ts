@@ -120,7 +120,6 @@ import {
 import {
   APPLICATION_DECISION_ACTIONS,
   APPLICATION_LIST_STATUSES,
-  APPLICATION_LIST_VIEWS,
 } from './applications.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -398,14 +397,11 @@ export type ApplicationDecisionCommand = {
 
 export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
 
-export type ApplicationListView = (typeof APPLICATION_LIST_VIEWS)[number];
-
 export interface ApplicationListQuery {
   readonly page: number;
   readonly pageSize: number;
   readonly search: string;
   readonly status: ApplicationListStatus;
-  readonly view: ApplicationListView;
 }
 
 type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
@@ -434,128 +430,35 @@ export interface CreatedApplication {
   readonly repositoryConnectionMode: RepositoryConnectionMode;
 }
 
-export interface ApplicationListAnswers {
-  readonly applicantName: string;
-  readonly title: string;
-  readonly summary: string;
-}
-
-export type RepositoryProvisioningJobStatus =
-  'NOT_REQUESTED' | 'DISABLED' | RepositoryProvisionJobStatus | 'ANOMALOUS';
-
-export interface ApplicationRepositoryProvisioning {
-  readonly enabled: boolean;
-  readonly jobStatus: RepositoryProvisioningJobStatus;
-  readonly updatedAt: Date;
-}
-
-interface ApplicationListRepository {
-  readonly url: string;
-  readonly visibility: RepositoryVisibility;
-}
-
 export interface ApplicationListItem {
-  readonly id: string;
-
-  readonly programId: string;
   readonly status: ApplicationStatus;
-  readonly submittedAt: Date;
   readonly rejectionReason: string | null;
-  readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
-
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-
-  readonly repository: ApplicationListRepository | null;
-  readonly isRepositoryPublicationPlanned: boolean;
-  readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
-    readonly id: string;
     readonly name: string | null;
     readonly nickname: string;
   };
-  readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly memberCount: number;
-  } | null;
-  readonly answers: ApplicationListAnswers;
 }
 
 export type ApplicationListRow = {
-  readonly id: string;
-  readonly programId: string;
   readonly status: ApplicationStatus;
-  readonly submittedAt: Date;
-  readonly updatedAt: Date;
   readonly rejectionReason: string | null;
-  readonly answers: Prisma.JsonValue;
-  readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repository: {
-    readonly githubRepositoryId: bigint;
-    readonly nameWithOwner: string;
-    readonly visibility: RepositoryVisibility;
-  } | null;
-  readonly program: {
-    readonly repositoryProvisioningEnabled: boolean;
-  };
   readonly applicant: {
-    readonly id: string;
     readonly nickname: string;
     readonly name: string | null;
   };
-  readonly name: string;
-  readonly _count: { readonly members: number };
 };
-
-export type ApplicationListOutbox = {
-  readonly status: OutboxEventStatus;
-  readonly createdAt: Date;
-};
-
-export type ApplicationListProvisionJob = {
-  readonly repoId: bigint | null;
-  readonly status: RepositoryProvisionJobStatus;
-  readonly updatedAt: Date;
-};
-
-export interface ApplicationListSource {
-  readonly row: ApplicationListRow;
-  readonly outbox: ApplicationListOutbox | undefined;
-  readonly job: ApplicationListProvisionJob | undefined;
-}
-
-export interface ApplicationListSourcePage {
-  readonly items: readonly ApplicationListSource[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-}
-
-export interface ApplicationListPage {
-  readonly items: readonly ApplicationListItem[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-}
 
 interface TeamManagementMember {
-  readonly id: string;
   readonly name: string | null;
   readonly nickname: string;
 }
 
 export interface TeamManagementListItem {
   readonly id: string;
-  readonly programId: string;
   readonly teamMinSize: number;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
-  readonly rejectionReason: string | null;
   readonly applicant: {
-    readonly id: string;
     readonly name: string | null;
     readonly nickname: string;
   };
@@ -569,8 +472,6 @@ export interface TeamManagementListItem {
 
 export interface TeamManagementListPage {
   readonly items: readonly TeamManagementListItem[];
-  readonly page: number;
-  readonly pageSize: number;
   readonly totalItems: number;
   readonly totalPages: number;
 }
@@ -873,122 +774,14 @@ export class ApplicationsRepository {
     return event ? toRepositoryProvisionEvent(event) : null;
   }
 
-  async listApplicationsForProgram(
-    programId: string,
-    query: ApplicationListQuery,
-  ): Promise<ApplicationListSourcePage> {
-    const where = buildApplicationListWhere(
-      this.platformRepository,
-      programId,
-      query,
-    );
-    const [rows, totalItems, outboxEvents, provisionJobs] =
-      await this.prisma.$transaction(
-        async (transaction) => {
-          const [applicationRows, applicationCount] = await Promise.all([
-            transaction.team.findMany({
-              where,
-              orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
-              skip: (query.page - 1) * query.pageSize,
-              take: query.pageSize,
-              select: APPLICATION_LIST_SELECT,
-            }),
-            transaction.team.count({ where }),
-          ]);
-          const teamIds = applicationRows.map((row) => row.id);
-          if (teamIds.length === 0) {
-            return [applicationRows, applicationCount, [], []] as const;
-          }
-          const [events, jobs] = await Promise.all([
-            transaction.outboxEvent.findMany({
-              take: teamIds.length,
-              where: {
-                idempotencyKey: {
-                  in: teamIds.map((id) => `repository-provision:${id}`),
-                },
-              },
-              select: {
-                idempotencyKey: true,
-                status: true,
-                createdAt: true,
-              },
-            }),
-            transaction.repositoryProvisionJob.findMany({
-              take: teamIds.length,
-              where: { teamId: { in: teamIds } },
-              select: {
-                teamId: true,
-                status: true,
-                repoId: true,
-                updatedAt: true,
-              },
-            }),
-          ]);
-          return [applicationRows, applicationCount, events, jobs] as const;
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-      );
-    const outboxByApplicationId = new Map(
-      outboxEvents.map((event) => [
-        event.idempotencyKey.slice('repository-provision:'.length),
-        event,
-      ]),
-    );
-    const jobByApplicationId = new Map(
-      provisionJobs.map((job) => [job.teamId, job]),
-    );
-
-    return {
-      items: rows.map((row) => ({
-        row: withOpenRepository(row),
-        outbox: outboxByApplicationId.get(row.id),
-        job: jobByApplicationId.get(row.id),
-      })),
-      page: query.page,
-      pageSize: query.pageSize,
-      totalItems,
-      totalPages: Math.ceil(totalItems / query.pageSize),
-    };
-  }
-
   async findApplicationForStaff(
     teamId: string,
-  ): Promise<ApplicationListSource | null> {
-    const [row, outbox, job] = await this.prisma.$transaction(
-      async (transaction) => {
-        const applicationRow = await transaction.team.findFirst({
-          where: { id: teamId, archivedAt: null },
-          select: APPLICATION_LIST_SELECT,
-        });
-        if (applicationRow === null) {
-          return [null, null, null] as const;
-        }
-        const [event, provisionJob] = await Promise.all([
-          transaction.outboxEvent.findUnique({
-            where: {
-              idempotencyKey: `repository-provision:${teamId}`,
-            },
-            select: { status: true, createdAt: true },
-          }),
-          transaction.repositoryProvisionJob.findUnique({
-            where: { teamId: teamId },
-            select: {
-              status: true,
-              repoId: true,
-              updatedAt: true,
-            },
-          }),
-        ]);
-        return [applicationRow, event, provisionJob] as const;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-    );
-    if (row === null) return null;
-    return {
-      row: withOpenRepository(row),
-      outbox: outbox ?? undefined,
-      job: job ?? undefined,
-    };
+  ): Promise<ApplicationListRow | null> {
+    const row = await this.prisma.team.findFirst({
+      where: { id: teamId, archivedAt: null },
+      select: APPLICATION_LIST_SELECT,
+    });
+    return row;
   }
 
   async listReviewHistory(
@@ -1078,8 +871,6 @@ export class ApplicationsRepository {
 
     return {
       items: rows.map(toTeamManagementListItem),
-      page: query.page,
-      pageSize: query.pageSize,
       totalItems,
       totalPages: Math.ceil(totalItems / query.pageSize),
     };
@@ -1705,14 +1496,12 @@ const TEAM_MANAGEMENT_ORDER_BY = [
 
 const TEAM_MANAGEMENT_LIST_SELECT = {
   id: true,
-  programId: true,
   program: { select: { teamMinSize: true } },
   status: true,
   submittedAt: true,
-  rejectionReason: true,
   name: true,
   applicant: {
-    select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
+    select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
   _count: { select: { members: true } },
   members: {
@@ -1720,7 +1509,7 @@ const TEAM_MANAGEMENT_LIST_SELECT = {
     orderBy: { createdAt: 'asc' },
     select: {
       user: {
-        select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
+        select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
       },
     },
   },
@@ -1735,13 +1524,10 @@ function toTeamManagementListItem(
 ): TeamManagementListItem {
   return {
     id: row.id,
-    programId: row.programId,
     teamMinSize: row.program.teamMinSize,
     status: row.status,
     submittedAt: row.submittedAt,
-    rejectionReason: row.rejectionReason,
     applicant: {
-      id: row.applicant.id,
       name: row.applicant.name ?? null,
       nickname: row.applicant.nickname,
     },
@@ -1750,7 +1536,6 @@ function toTeamManagementListItem(
       name: row.name,
       memberCount: row._count.members,
       members: row.members.map((member) => ({
-        id: member.user.id,
         name: member.user.name,
         nickname: member.user.nickname,
       })),
@@ -1759,22 +1544,11 @@ function toTeamManagementListItem(
 }
 
 const APPLICATION_LIST_SELECT = {
-  id: true,
-  programId: true,
-  name: true,
   status: true,
-  submittedAt: true,
-  updatedAt: true,
   rejectionReason: true,
-  answers: true,
-  isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: true,
-  teamRepos: OPEN_TEAM_REPO_SELECT,
-  program: { select: { repositoryProvisioningEnabled: true } },
   applicant: {
-    select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
+    select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
-  _count: { select: { members: true } },
 } satisfies Prisma.TeamSelect;
 
 function toApplicationDecisionTarget(

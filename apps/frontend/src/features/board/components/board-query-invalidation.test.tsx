@@ -68,7 +68,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const comment: BoardComment = {
   id: 'comment-1',
-  postId: 'post-1',
   authorRole: 'STUDENT',
   authorName: '합성 댓글러',
   body: '합성 댓글 본문',
@@ -78,7 +77,6 @@ const comment: BoardComment = {
 
 const post: BoardPostDetail = {
   id: 'post-1',
-  programId: 'program-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '처음 합성 제목',
@@ -96,7 +94,6 @@ function pageOf(detail: BoardPostDetail): BoardPostsPage {
     items: [
       {
         id: detail.id,
-        programId: detail.programId,
         authorName: detail.authorName,
         category: detail.category,
         title: detail.title,
@@ -106,8 +103,6 @@ function pageOf(detail: BoardPostDetail): BoardPostsPage {
       },
     ],
     total: 1,
-    page: 1,
-    limit: 20,
   };
 }
 

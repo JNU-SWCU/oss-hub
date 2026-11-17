@@ -18,13 +18,11 @@ import {
 } from './teams.controller';
 import type {
   ApplicationsRepository,
-  ApplicationListItem,
   ApplicationReviewHistoryEntry,
   StaffDashboardSummary,
   TeamManagementListPage,
   ApplicationDecisionTarget,
-  ApplicationListSource,
-  ApplicationListSourcePage,
+  ApplicationListRow,
 } from './team.repository';
 import {
   TeamApplicationService,
@@ -54,7 +52,6 @@ const APPLICATION_ID = 'synthetic-application';
 const PROGRAM_ID = 'synthetic-program';
 const UNKNOWN_GITHUB_ID = 9199n;
 const SUBMITTED_AT = new Date('2026-08-05T05:32:00.000Z');
-const UPDATED_AT = new Date('2026-08-06T01:00:00.000Z');
 const decisionPath = `/api/v1/teams/${APPLICATION_ID}`;
 const listPath = `/api/v1/programs/${PROGRAM_ID}/teams`;
 const summaryPath = '/api/v1/dashboard/staff/summary';
@@ -175,59 +172,10 @@ function validationProblem(detail: string): ProblemExpectation {
   return { status: 400, title: 'BAD_REQUEST', code: 'SYS_003', detail };
 }
 
-const listItem: ApplicationListItem = {
-  id: APPLICATION_ID,
-  programId: PROGRAM_ID,
+const listItemSource: ApplicationListRow = {
   status: ApplicationStatus.SUBMITTED,
-  submittedAt: SUBMITTED_AT,
   rejectionReason: null,
-  repositoryProvisioning: {
-    enabled: false,
-    jobStatus: 'DISABLED',
-    updatedAt: UPDATED_AT,
-  },
-  repositoryConnectionMode: RepositoryConnectionMode.NEW,
-  repository: null,
-  isRepositoryPublicationPlanned: true,
-  participation: 'TEAM',
-  applicant: {
-    id: 'cuid-synthetic-applicant',
-    name: null,
-    nickname: 'synthetic-applicant',
-  },
-  team: { id: APPLICATION_ID, name: '합성 팀', memberCount: 3 },
-  answers: {
-    applicantName: '합성 신청자',
-    title: '합성 제목',
-    summary: '합성 요약',
-  },
-};
-const listItemSource: ApplicationListSource = {
-  row: {
-    id: APPLICATION_ID,
-    programId: PROGRAM_ID,
-    status: ApplicationStatus.SUBMITTED,
-    submittedAt: SUBMITTED_AT,
-    updatedAt: UPDATED_AT,
-    rejectionReason: null,
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
-    repository: null,
-    isRepositoryPublicationPlanned: true,
-    program: { repositoryProvisioningEnabled: false },
-    applicant: {
-      id: 'cuid-synthetic-applicant',
-      nickname: 'synthetic-applicant',
-      name: null,
-      department: null,
-      type: 'UNSELECTED',
-      profileCreatedAt: null,
-    },
-    name: '합성 팀',
-    _count: { members: 3 },
-    answers: listItem.answers,
-  } as unknown as ApplicationListSource['row'],
-  outbox: undefined,
-  job: undefined,
+  applicant: { nickname: 'synthetic-applicant', name: null },
 };
 const reviewHistoryEntry: ApplicationReviewHistoryEntry = {
   id: 'synthetic-review-history',
@@ -237,30 +185,23 @@ const reviewHistoryEntry: ApplicationReviewHistoryEntry = {
   occurredAt: SUBMITTED_AT,
   rejectionReason: null,
 };
-const listPage: ApplicationListSourcePage = {
-  items: [listItemSource],
-  page: 1,
-  pageSize: 20,
-  totalItems: 1,
-  totalPages: 1,
-};
 const teamManagementPage: TeamManagementListPage = {
   items: [
     {
       id: APPLICATION_ID,
-      programId: PROGRAM_ID,
       teamMinSize: 2,
       status: ApplicationStatus.SUBMITTED,
       submittedAt: SUBMITTED_AT,
-      rejectionReason: null,
-      applicant: listItem.applicant,
+      applicant: {
+        name: null,
+        nickname: 'synthetic-applicant',
+      },
       team: {
         id: 'synthetic-team',
         name: '합성 팀',
         memberCount: 1,
         members: [
           {
-            id: 'cuid-synthetic-applicant',
             name: null,
             nickname: 'synthetic-applicant',
           },
@@ -268,8 +209,6 @@ const teamManagementPage: TeamManagementListPage = {
       },
     },
   ],
-  page: 1,
-  pageSize: 20,
   totalItems: 1,
   totalPages: 1,
 };
@@ -317,30 +256,11 @@ const decisionTarget: ApplicationDecisionTarget = {
 };
 
 const listItemBody = {
-  id: APPLICATION_ID,
-  programId: PROGRAM_ID,
   status: ApplicationStatus.SUBMITTED,
-  submittedAt: '2026-08-05T05:32:00.000Z',
   rejectionReason: null,
-  repositoryProvisioning: {
-    enabled: false,
-    jobStatus: 'DISABLED',
-    updatedAt: '2026-08-06T01:00:00.000Z',
-  },
-  repositoryConnectionMode: RepositoryConnectionMode.NEW,
-  repository: null,
-  isRepositoryPublicationPlanned: true,
-  participation: 'TEAM',
   applicant: {
-    id: 'cuid-synthetic-applicant',
     name: null,
     nickname: 'synthetic-applicant',
-  },
-  team: { id: APPLICATION_ID, name: '합성 팀', memberCount: 3 },
-  answers: {
-    applicantName: '합성 신청자',
-    title: '합성 제목',
-    summary: '합성 요약',
   },
 };
 const detailBody = {
@@ -356,24 +276,14 @@ const detailBody = {
     },
   ],
 };
-const listPageBody = {
-  items: [listItemBody],
-  page: 1,
-  pageSize: 20,
-  totalItems: 1,
-  totalPages: 1,
-};
 const teamManagementPageBody = {
   items: [
     {
       id: APPLICATION_ID,
-      programId: PROGRAM_ID,
       teamMinSize: 2,
       status: ApplicationStatus.SUBMITTED,
       submittedAt: '2026-08-05T05:32:00.000Z',
-      rejectionReason: null,
       applicant: {
-        id: 'cuid-synthetic-applicant',
         name: null,
         nickname: 'synthetic-applicant',
       },
@@ -383,7 +293,6 @@ const teamManagementPageBody = {
         memberCount: 1,
         members: [
           {
-            id: 'cuid-synthetic-applicant',
             name: null,
             nickname: 'synthetic-applicant',
           },
@@ -391,8 +300,6 @@ const teamManagementPageBody = {
       },
     },
   ],
-  page: 1,
-  pageSize: 20,
   totalItems: 1,
   totalPages: 1,
 };
@@ -442,12 +349,6 @@ const summaryBody = {
 const zeroMetrics = {
   studentCount: 0,
   activeStudentCount: 0,
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-  starCount: 0,
-  total: 0,
   participantCount: 0,
 };
 const insightsLeader = {
@@ -455,12 +356,6 @@ const insightsLeader = {
   name: '김학생',
   githubLogin: 'insights-octocat',
   department: '소프트웨어공학과',
-  cohort: 'sw-major',
-  commitCount: 5,
-  pullRequestCount: 2,
-  issueCount: 1,
-  repositoryCount: 3,
-  starCount: 4,
   total: 15,
 };
 const insightsBody = {
@@ -472,12 +367,6 @@ const insightsBody = {
       cohort: 'sw-major',
       studentCount: 1,
       activeStudentCount: 1,
-      commitCount: 5,
-      pullRequestCount: 2,
-      issueCount: 1,
-      repositoryCount: 3,
-      starCount: 4,
-      total: 15,
       participantCount: 0,
     },
     { cohort: 'non-sw', ...zeroMetrics },
@@ -489,12 +378,6 @@ const insightsBody = {
       cohort: 'sw-major',
       studentCount: 1,
       activeStudentCount: 1,
-      commitCount: 5,
-      pullRequestCount: 2,
-      issueCount: 1,
-      repositoryCount: 3,
-      starCount: 4,
-      total: 15,
       participantCount: 0,
       activityPerStudent: 15,
       sampleTooSmall: true,
@@ -528,7 +411,6 @@ const decisionBody = {
 const findApplicationForStaff = jest.fn().mockResolvedValue(listItemSource);
 const listReviewHistory = jest.fn().mockResolvedValue([reviewHistoryEntry]);
 const findProgramById = jest.fn().mockResolvedValue(programRecord);
-const listApplicationsForProgram = jest.fn().mockResolvedValue(listPage);
 const listTeamManagementForProgram = jest
   .fn()
   .mockResolvedValue(teamManagementPage);
@@ -567,7 +449,6 @@ const applicationsRepository = {
   findApplicationForStaff,
   listReviewHistory,
   findProgramById,
-  listApplicationsForProgram,
   listTeamManagementForProgram,
   listStaffDashboardSummary,
   findRepositoryProvisionEvent,
@@ -747,7 +628,7 @@ const readRoutes: readonly ReadRoute[] = [
     label: 'program applications list',
     path: listPath,
     instance: listPath,
-    body: listPageBody,
+    body: teamManagementPageBody,
   },
   {
     label: 'program team-management list',

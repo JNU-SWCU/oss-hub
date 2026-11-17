@@ -32,7 +32,6 @@ export class RequirementCollectionDocumentResponseDto {
   declare readonly id: string;
   declare readonly name: string;
   declare readonly isRequired: boolean;
-  declare readonly sortOrder: number;
   static from(
     document: RequirementRecord,
   ): RequirementCollectionDocumentResponseDto {
@@ -40,7 +39,6 @@ export class RequirementCollectionDocumentResponseDto {
       id: document.id,
       name: document.name,
       isRequired: document.required,
-      sortOrder: document.sortOrder,
     };
   }
 }

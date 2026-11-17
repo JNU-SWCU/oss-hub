@@ -19,19 +19,9 @@ function isAdminAccessFacetCounts(
   value: unknown,
 ): value is AdminAccessFacetCounts {
   if (!isRecord(value)) return false;
-  const { roles, accountStatuses, pendingRequests } = value;
+  const { pendingRequests } = value;
   return (
-    isRecord(roles) &&
-    typeof roles.unassigned === 'number' &&
-    typeof roles.student === 'number' &&
-    typeof roles.staff === 'number' &&
-    typeof roles.admin === 'number' &&
-    isRecord(accountStatuses) &&
-    typeof accountStatuses.active === 'number' &&
-    typeof accountStatuses.deactivated === 'number' &&
-    isRecord(pendingRequests) &&
-    typeof pendingRequests.none === 'number' &&
-    typeof pendingRequests.pending === 'number'
+    isRecord(pendingRequests) && typeof pendingRequests.pending === 'number'
   );
 }
 
@@ -40,8 +30,6 @@ export function parseAdminAccessListPage(value: unknown): AdminAccessListPage {
     !isRecord(value) ||
     !Array.isArray(value.items) ||
     !value.items.every(isAdminAccessListItem) ||
-    typeof value.page !== 'number' ||
-    typeof value.limit !== 'number' ||
     typeof value.total !== 'number' ||
     !isAdminAccessFacetCounts(value.facets)
   ) {
@@ -49,8 +37,6 @@ export function parseAdminAccessListPage(value: unknown): AdminAccessListPage {
   }
   return {
     items: value.items.map((item) => ({ ...item })),
-    page: value.page,
-    limit: value.limit,
     total: value.total,
     facets: value.facets,
   };
@@ -120,7 +106,6 @@ function isAdminAccessLoginHistoryItem(
     isRecord(value) &&
     isNonEmptyString(value.id) &&
     (value.event === 'LOGIN' || value.event === 'LOGOUT') &&
-    value.provider === 'github' &&
     typeof value.success === 'boolean' &&
     isNonEmptyString(value.loginAt)
   );

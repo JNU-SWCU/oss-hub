@@ -73,8 +73,6 @@ describe('Task 8 independent authority API', () => {
           lastLoginAt: null,
         },
       ],
-      page: 1,
-      limit: 20,
       total: 1,
       facets: {
         roles: { unassigned: 0, student: 1, staff: 0, admin: 0 },
@@ -117,8 +115,6 @@ describe('Task 8 independent authority API', () => {
             ...fields,
           },
         ],
-        page: 1,
-        limit: 20,
         total: 1,
         facets: {
           roles: { unassigned: 0, student: 1, staff: 0, admin: 0 },

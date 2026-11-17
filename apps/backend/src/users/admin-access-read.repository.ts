@@ -80,44 +80,12 @@ export class AdminAccessReadRepository {
     prisma: Pick<PrismaService, 'user'>,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessFacets> {
-    const roleBase = adminAccessWhere(query, 'role');
-    const statusBase = adminAccessWhere(query, 'accountStatus');
-    const pendingBase = adminAccessWhere(query, 'pendingRequest');
-    const [
-      unassigned,
-      student,
-      staff,
-      admin,
-      active,
-      deactivated,
-      none,
-      pending,
-    ] = await Promise.all([
-      prisma.user.count({
-        where: { AND: [roleBase, roleWhere('UNASSIGNED')] },
-      }),
-      prisma.user.count({ where: { AND: [roleBase, roleWhere('STUDENT')] } }),
-      prisma.user.count({ where: { AND: [roleBase, roleWhere('STAFF')] } }),
-      prisma.user.count({ where: { AND: [roleBase, roleWhere('ADMIN')] } }),
-      prisma.user.count({ where: { ...statusBase, accountStatus: 'ACTIVE' } }),
-      prisma.user.count({
-        where: { ...statusBase, accountStatus: 'DEACTIVATED' },
-      }),
-      prisma.user.count({
-        where: { AND: [pendingBase, { NOT: PENDING_WHERE }] },
-      }),
-      prisma.user.count({ where: { AND: [pendingBase, PENDING_WHERE] } }),
-    ]);
-    return {
-      roles: {
-        unassigned: unassigned,
-        student: student,
-        staff: staff,
-        admin: admin,
+    const pending = await prisma.user.count({
+      where: {
+        AND: [adminAccessWhere(query, 'pendingRequest'), PENDING_WHERE],
       },
-      accountStatuses: { active: active, deactivated: deactivated },
-      pendingRequests: { none: none, pending: pending },
-    };
+    });
+    return { pendingRequests: { pending } };
   }
   async findAdminAccessUserById(
     prisma: Pick<PrismaService, 'user'>,

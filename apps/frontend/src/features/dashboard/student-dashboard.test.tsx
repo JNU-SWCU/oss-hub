@@ -397,7 +397,6 @@ describe('StudentDashboardView', () => {
       applicationDecisionNotices: [
         {
           id: 'notification-1',
-          teamId: 'application-1',
           programId: 'program-1',
           programName: '합성 프로그램',
           decision: 'APPROVED',
@@ -446,7 +445,6 @@ describe('StudentDashboardView 알림 상태', () => {
       applicationDecisionNotices: [
         {
           id: 'notice-revert',
-          teamId: 'application-1',
           programId: 'program-1',
           programName: '합성 프로그램',
           decision: 'SUBMITTED',
@@ -466,7 +464,6 @@ describe('StudentDashboardView 알림 상태', () => {
       teamDeletionNotices: [
         {
           id: 'notice-deleted',
-          teamId: 'deleted-team',
           teamName: '합성 팀',
           programId: 'program-1',
           programName: '합성 프로그램',
@@ -671,10 +668,9 @@ describe('StudentDashboardView 프로그램 묶음', () => {
 
 describe('StudentDashboardView 마일스톤 진행', () => {
   const progressBars = (html: string) => html.match(/<progress[^>]*>/g) ?? [];
-  const withCounts = (requiredItemCount: number, remainingItemCount: number) =>
+  const withCounts = (remainingItemCount: number) =>
     dashboardItem('counted', 'APPROVED', {
       ...dashboardMilestone('2026-07-30T23:59:59+09:00'),
-      requiredItemCount,
       remainingItemCount,
     });
 
@@ -683,7 +679,7 @@ describe('StudentDashboardView 마일스톤 진행', () => {
       data: {
         items: [
           {
-            ...withCounts(3, 2),
+            ...withCounts(2),
             progress: { approvedCount: 1, inReviewCount: 1, totalCount: 4 },
           },
         ],
@@ -712,7 +708,7 @@ describe('StudentDashboardView 마일스톤 진행', () => {
     const html = renderView({
       data: {
         items: [
-          { ...withCounts(1, 1), progress },
+          { ...withCounts(1), progress },
           { ...dashboardItem('done', 'APPROVED'), progress },
         ],
       },
@@ -726,7 +722,7 @@ describe('StudentDashboardView 마일스톤 진행', () => {
   });
 
   it('남은 서류가 없거나 그 수를 모르면 남은 서류 문구를 숨긴다', () => {
-    const settled = renderView({ data: { items: [withCounts(2, 0)] } });
+    const settled = renderView({ data: { items: [withCounts(0)] } });
     const unknown = renderView({
       data: {
         items: [
@@ -911,7 +907,6 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
       applicationDecisionNotices: [
         {
           id: 'notification-1',
-          teamId: 'application-1',
           programId: 'program-1',
           programName: '합성 알림 프로그램',
           decision: 'APPROVED',

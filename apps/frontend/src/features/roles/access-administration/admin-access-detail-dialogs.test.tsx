@@ -56,7 +56,6 @@ function rejectContent(
         detail: adminDetail({
           pendingRequest: {
             id: 'req-1',
-            status: 'PENDING',
             createdAt: '2026-07-30T00:00:00.000Z',
           },
         }),
@@ -114,7 +113,6 @@ describe('요청/계정 상태 확인 다이얼로그', () => {
           detail: adminDetail({
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           }),

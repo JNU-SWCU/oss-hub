@@ -7,12 +7,6 @@ import type {
 const EMPTY_COHORT_METRICS: StaffInsightsMetrics = {
   studentCount: 0,
   activeStudentCount: 0,
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-  starCount: 0,
-  total: 0,
   participantCount: 0,
 };
 export function cohortRow(

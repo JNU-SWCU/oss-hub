@@ -71,7 +71,6 @@ describe('ProgramSubmissionReviewPage access contract', () => {
       const context: ReviewContext = {
         requirementId: 'requirement-existing',
         latestReviewId: null,
-        submissionId,
         application: {
           id: 'application-existing',
           applicationMode: 'PERSONAL',

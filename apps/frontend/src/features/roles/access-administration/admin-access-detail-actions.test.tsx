@@ -52,7 +52,6 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
           detail: adminDetail({
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           }),
@@ -75,7 +74,6 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
           detail: adminDetail({
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           }),
@@ -102,7 +100,6 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
             detail: adminDetail({
               pendingRequest: {
                 id: 'req-1',
-                status: 'PENDING',
                 createdAt: '2026-07-30T00:00:00.000Z',
               },
             }),

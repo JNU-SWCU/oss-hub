@@ -149,11 +149,7 @@ it('builds paged user output and search-scoped facets from current approval pred
     page: 1,
     limit: 1,
     total: 1,
-    facets: {
-      roles: { unassigned: 1, student: 1, staff: 0, admin: 1 },
-      accountStatuses: { active: 2, deactivated: 1 },
-      pendingRequests: { none: 2, pending: 1 },
-    },
+    facets: { pendingRequests: { pending: 1 } },
   });
   const where = {
     AND: [
@@ -192,7 +188,7 @@ it('builds paged user output and search-scoped facets from current approval pred
     }),
   );
   expect(count).toHaveBeenNthCalledWith(1, { where });
-  expect(count).toHaveBeenCalledTimes(9);
+  expect(count).toHaveBeenCalledTimes(2);
   expect(queryRaw).toHaveBeenCalledWith(
     expect.objectContaining({
       values: ['%synthetic%', '%synthetic%', 'ACTIVE', 1, 0],

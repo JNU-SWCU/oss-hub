@@ -12,7 +12,6 @@ export function dashboardMilestone(
   submissionStatus: DashboardSubmissionStatus = 'NOT_SUBMITTED',
 ): DashboardMilestone {
   return {
-    id: `milestone-${dueAt}`,
     name: `합성 마일스톤 ${dueAt}`,
     dueAt,
     submissionStatus,
@@ -54,9 +53,8 @@ export function dashboardFeedback(
     ...feedbackItemFixture,
     id: `review-${item.teamId}-${key}`,
     teamId: item.teamId,
-    programId: item.programId,
     itemName: `합성 서류 ${key}`,
-    href: `/programs/${item.programId}/documents?milestoneId=${feedbackItemFixture.milestoneId}`,
+    href: `/programs/${item.programId}/documents?milestoneId=milestones-upcoming`,
     ...overrides,
   };
 }
@@ -71,7 +69,6 @@ export const dashboardFixture: StudentDashboard = {
       teamName: '합성 1인 팀',
       applicationStatus: 'APPROVED',
       nextMilestone: {
-        id: 'milestones-upcoming',
         name: '중간 보고',
         dueAt: '2026-07-26T23:59:59+09:00',
         submissionStatus: 'NOT_SUBMITTED',
@@ -91,7 +88,6 @@ export const dashboardFixture: StudentDashboard = {
       teamName: '합성 오픈소스 팀',
       applicationStatus: 'APPROVED',
       nextMilestone: {
-        id: 'milestones-overdue',
         name: '예선 결과물',
         dueAt: '2026-07-20T23:59:59+09:00',
         submissionStatus: 'CHANGES_REQUESTED',
@@ -183,8 +179,6 @@ export const feedbackItemFixture: DashboardFeedbackItem = {
   comment: '표지와 목차를 보완해 주세요.',
   reviewedAt: '2026-07-22T06:00:00.000Z',
   teamId: 'application-solo-team',
-  programId: 'program-capstone',
-  milestoneId: 'milestones-upcoming',
   milestoneName: '중간 보고',
   itemName: '프로젝트 계획서',
   href: '/programs/program-capstone/documents?milestoneId=milestones-upcoming',

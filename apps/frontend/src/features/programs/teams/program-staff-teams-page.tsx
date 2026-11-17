@@ -45,7 +45,6 @@ type StatusFilter = ApplicationListStatus;
 interface LoadedState {
   readonly kind: 'ready';
   readonly items: readonly TeamManagementListItem[];
-  readonly page: number;
   readonly totalItems: number;
   readonly totalPages: number;
 }

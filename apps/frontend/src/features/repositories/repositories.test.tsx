@@ -41,7 +41,6 @@ function responseItem({
   return {
     repositoryId: hasRepository ? `repository-${id}` : null,
     teamId: `application-${id}`,
-    applicationMode: mode,
     connectionMode,
     programName: mode === 'PERSONAL' ? '침스톤 프로그램' : 'OSS 경진대회',
     displayName: mode === 'PERSONAL' ? '개인 프로젝트' : '오픈소스팀',
@@ -115,7 +114,6 @@ describe('my repositories response parser', () => {
     const repositories = parseMyRepositoriesResponse(response);
 
     expect(repositories.items[0]).toMatchObject({
-      modeLabel: '개인',
       provisionLabel: '생성 완료',
       invitationLabel: '초대 수락 대기',
       canOpenGithub: true,

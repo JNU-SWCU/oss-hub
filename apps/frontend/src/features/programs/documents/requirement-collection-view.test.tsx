@@ -17,7 +17,6 @@ function document(
     id,
     name: `서류 ${id}`,
     isRequired: true,
-    sortOrder: 1,
     ...overrides,
   };
 }

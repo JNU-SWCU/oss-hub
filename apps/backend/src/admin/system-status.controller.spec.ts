@@ -50,7 +50,6 @@ describe('SystemStatusController', () => {
           severity: 'HIGH' as const,
           count: 1,
           target: {
-            kind: 'USER' as const,
             id: 'synthetic-admin',
             login: 'synthetic-admin-login',
           },

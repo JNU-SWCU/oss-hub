@@ -1,10 +1,6 @@
 import { ApiError } from '@/lib/api-client';
 import { sanitizeDisplayText } from '@/lib/display-text';
-import type {
-  ApplicationDecisionAction,
-  ApplicationListItem,
-  RepositoryProvisioning,
-} from './dto';
+import type { ApplicationDecisionAction, RepositoryProvisioning } from './dto';
 import type { ApplicationStatus } from '../program-contract';
 
 export const APPLICATION_STATUS_LABELS: Readonly<
@@ -55,21 +51,6 @@ export function formatSubmittedAt(value: string): string {
 
 export function displayAnswerText(value: string): string {
   return sanitizeDisplayText(value) ?? '';
-}
-
-export function displayApplicantName(item: ApplicationListItem): string {
-  return (
-    displayAnswerText(item.answers.applicantName) ||
-    displayAnswerText(item.applicant.name ?? '') ||
-    displayAnswerText(item.applicant.nickname)
-  );
-}
-
-export function participationLabel(item: ApplicationListItem): string {
-  if (item.team) {
-    return `${item.team.name} (${item.team.memberCount}명)`;
-  }
-  return '1명';
 }
 
 export function staleApplicationDecisionTitle(error: unknown): string | null {

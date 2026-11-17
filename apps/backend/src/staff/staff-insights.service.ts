@@ -56,7 +56,7 @@ export interface StaffInsightsRecentLeaderRow {
   readonly total: number;
 }
 
-export interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
+interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
   readonly starCount: number;
 }
 

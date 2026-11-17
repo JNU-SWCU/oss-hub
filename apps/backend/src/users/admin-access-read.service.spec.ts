@@ -58,7 +58,7 @@ describe('AdminAccessService reads', () => {
         loginHistory: { page: 3, limit: 10 },
       }),
     ]);
-    expect(facets.roles.student).toBe(1);
+    expect(facets.pendingRequests.pending).toBe(0);
     expect(history).toEqual({
       staffAccessRequests: { items: [], page: 2, limit: 5, total: 0 },
       loginHistory: { items: [], page: 3, limit: 10, total: 0 },

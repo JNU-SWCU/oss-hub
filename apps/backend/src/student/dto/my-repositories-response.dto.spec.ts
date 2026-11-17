@@ -20,7 +20,11 @@ describe('MyRepositoriesResponseDto', () => {
         visibility: 'PRIVATE',
       };
 
-      expect(MyRepositoriesResponseDto.from([item]).items).toEqual([item]);
+      const [response] = MyRepositoriesResponseDto.from([item]).items;
+      expect(response).not.toHaveProperty('applicationMode');
+      expect(response).toEqual(
+        expect.objectContaining({ connectionMode, teamId: item.teamId }),
+      );
     },
   );
 });

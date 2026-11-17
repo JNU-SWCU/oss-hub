@@ -58,7 +58,6 @@ export interface Anomaly {
   readonly severity: AnomalySeverity;
   readonly count: number;
   readonly target: {
-    readonly kind: 'USER';
     readonly id: string;
     readonly login: string | null;
   } | null;

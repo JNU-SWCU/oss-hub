@@ -70,18 +70,7 @@ export type AdminAccessUser = {
 };
 
 export type AdminAccessFacets = {
-  readonly roles: {
-    readonly unassigned: number;
-    readonly student: number;
-    readonly staff: number;
-    readonly admin: number;
-  };
-  readonly accountStatuses: {
-    readonly active: number;
-    readonly deactivated: number;
-  };
   readonly pendingRequests: {
-    readonly none: number;
     readonly pending: number;
   };
 };

@@ -194,9 +194,7 @@ describe('TeamMembershipService.getForStaff', () => {
         blockedReasons: [],
       },
       repositoryProvisioning: {
-        enabled: true,
         jobStatus: 'SUCCEEDED',
-        updatedAt: new Date('2026-08-01T00:00:00.000Z'),
       },
     });
   });
@@ -247,7 +245,6 @@ describe('TeamMembershipService.getForStaff', () => {
     );
 
     expect(payload).toEqual({
-      teamId: TEAM_ID,
       name: '오픈소스팀',
       memberCount: 1,
       members: [
@@ -259,14 +256,11 @@ describe('TeamMembershipService.getForStaff', () => {
         },
       ],
       application: {
-        id: 'application-1',
         status: 'SUBMITTED',
         repositoryConnectionMode: 'NEW',
         repository: null,
         repositoryProvisioning: {
-          enabled: true,
           jobStatus: 'NOT_REQUESTED',
-          updatedAt: '2026-08-01T00:00:00.000Z',
         },
       },
 

@@ -1113,17 +1113,14 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     );
     updateMyApplicationMock.mockResolvedValueOnce({
       id: 'app-x',
-      programId: 'program-x',
       status: 'SUBMITTED',
       teamId: 'team-x',
       answers: { applicantName: '합성 학생', title: '제목' },
       submittedAt: '2026-08-15T00:00:00Z',
-      updatedAt: '2026-08-15T00:00:00Z',
       isRepositoryPublicationPlanned: true,
       rejectionReason: null,
       isManager: true,
       canManage: true,
-      canEdit: true,
     });
 
     await renderPage('program-x');
@@ -1170,17 +1167,14 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await act(async () => {
       saveDeferred.resolve({
         id: 'app-stale',
-        programId: 'program-stale',
         status: 'SUBMITTED',
         teamId: 'team-stale',
         answers: { applicantName: '합성 학생', title: '제목' },
         submittedAt: '2026-08-15T00:00:00Z',
-        updatedAt: '2026-08-15T00:00:00Z',
         isRepositoryPublicationPlanned: true,
         rejectionReason: null,
         isManager: true,
         canManage: true,
-        canEdit: true,
       });
       await saveDeferred.promise;
       await Promise.resolve();

@@ -72,10 +72,9 @@ describe('ProgramListResponseDto', () => {
     expect(dto.note).toEqual({
       text: '지원서 제출됨 · 교직원 승인을 기다립니다',
     });
-    expect(dto.applicationCount).toBeUndefined();
   });
 
-  it('교직원 집계 필드와 팀 아이콘을 그대로 통과시킨다', () => {
+  it('교직원 집계 안내와 팀 아이콘을 싣고 집계 수 자체는 싣지 않는다', () => {
     const dto = ProgramListResponseDto.from(
       baseItem({
         applicationCount: 3,
@@ -83,7 +82,7 @@ describe('ProgramListResponseDto', () => {
       }),
     );
 
-    expect(dto.applicationCount).toBe(3);
+    expect('applicationCount' in dto).toBe(false);
     expect(dto.note).toEqual({
       text: '지원 3건 · 승인 대기 1건',
       icon: 'team',

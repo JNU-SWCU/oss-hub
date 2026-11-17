@@ -180,7 +180,6 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
           item({
             pendingRequest: {
               id: 'synthetic-request',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           }),
@@ -349,7 +348,6 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
           item({
             pendingRequest: {
               id: 'synthetic-request',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           }),
@@ -377,7 +375,6 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
             createdAt: '2026-07-01T00:00:00.000Z',
             pendingRequest: {
               id: 'synthetic-request',
-              status: 'PENDING',
               createdAt: '2026-08-02T00:00:00.000Z',
             },
           }),
@@ -483,7 +480,6 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
           directoryItem({
             pendingRequest: {
               id: 'synthetic-request',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           }),

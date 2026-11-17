@@ -102,9 +102,7 @@ describe('StudentApplicationsController', () => {
     expect(result).toMatchObject({
       id: 'application-1',
       submittedAt: '2026-07-10T00:00:00.000Z',
-      updatedAt: '2026-07-11T00:00:00.000Z',
       canManage: true,
-      canEdit: true,
     });
   });
 

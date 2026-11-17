@@ -255,21 +255,7 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
-    [
-      '남은 서류 수가 필수 서류 수보다 큼',
-      {
-        items: [
-          {
-            ...approvedItem,
-            nextMilestone: {
-              ...approvedItem.nextMilestone,
-              requiredItemCount: 1,
-              remainingItemCount: 2,
-            },
-          },
-        ],
-      },
-    ],
+
     [
       '진행 수치가 정수가 아님',
       {
@@ -500,15 +486,12 @@ describe('fetchStudentFeedback', () => {
       },
     ],
     [
-      '주소가 다른 마일스톤을 가리킴',
-      { href: '/programs/program-capstone/documents?milestoneId=other' },
+      '주소가 서류 화면이 아님',
+      { href: '/programs/program-capstone/teams?milestoneId=other' },
     ],
     [
       '상위 경로를 프로그램 ID로 사용함',
-      {
-        programId: '..',
-        href: '/programs/../documents?milestoneId=milestones-upcoming',
-      },
+      { href: '/programs/../documents?milestoneId=milestones-upcoming' },
     ],
   ] as const)(
     '잘못된 응답을 어댑터 경계에서 거부한다: %s',

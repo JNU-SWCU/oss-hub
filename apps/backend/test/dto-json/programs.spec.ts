@@ -1,12 +1,9 @@
 import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import { AcceptTeamInvitationResponseDto } from '../../src/programs/dto/accept-team-invitation-response.dto';
-import { ApplicationDecisionResponseDto } from '../../src/programs/dto/application-decision-response.dto';
 import {
   ApplicationDetailResponseDto,
-  ApplicationListItemResponseDto,
-  ApplicationListPageResponseDto,
   ReviewHistoryEntryResponseDto,
-} from '../../src/programs/dto/application-list-page-response.dto';
+} from '../../src/programs/dto/application-detail-response.dto';
 import {
   ApplicationFieldResponseDto,
   ApplicationTemplateListResponseDto,
@@ -175,23 +172,9 @@ const boardDetail: BoardPostDetailResult = {
   ],
 };
 const applicationItem: ApplicationListItem = {
-  id: 'application-1',
-  programId: 'program-1',
   status: 'SUBMITTED',
-  submittedAt: at('2026-01-05T00:00:00.000Z'),
   rejectionReason: null,
-  repositoryProvisioning: {
-    enabled: true,
-    jobStatus: 'PENDING',
-    updatedAt: at('2026-01-06T00:00:00.000Z'),
-  },
-  repositoryConnectionMode: 'NEW',
-  repository: { url: 'https://github.com/org/repo', visibility: 'PRIVATE' },
-  isRepositoryPublicationPlanned: true,
-  participation: 'TEAM',
-  applicant: { id: 'user-1', name: 'Octo', nickname: 'octo' },
-  team: { id: 'team-1', name: 'Team A', memberCount: 3 },
-  answers: { applicantName: 'Octo', title: 'Project', summary: 'Summary' },
+  applicant: { name: 'Octo', nickname: 'octo' },
 };
 const reviewEntry = {
   id: 'review-entry-1',
@@ -540,9 +523,7 @@ const staffTeamDetail: StaffTeamDetailView = {
       blockedReasons: ['PROGRAM_NOT_ENDED'],
     },
     repositoryProvisioning: {
-      enabled: true,
       jobStatus: 'SUCCEEDED',
-      updatedAt: at('2026-02-01T00:00:00.000Z'),
     },
   },
   deletionScope: {
@@ -597,18 +578,16 @@ const sentInvitation: SentTeamInvitationRecord = {
 const teamManagementItem: TeamManagementListItem = {
   teamMinSize: 2,
   id: 'application-1',
-  programId: 'program-1',
   status: 'APPROVED',
   submittedAt: at('2026-01-05T00:00:00.000Z'),
-  rejectionReason: null,
-  applicant: { id: 'user-1', name: 'Octo', nickname: 'octo' },
+  applicant: { name: 'Octo', nickname: 'octo' },
   team: {
     id: 'team-1',
     name: 'Team A',
     memberCount: 2,
     members: [
-      { id: 'user-1', name: 'Octo', nickname: 'octo' },
-      { id: 'user-2', name: null, nickname: 'cat' },
+      { name: 'Octo', nickname: 'octo' },
+      { name: null, nickname: 'cat' },
     ],
   },
 };
@@ -666,71 +645,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       AcceptTeamInvitationResponseDto.from({
         programId: 'program-1',
-      }),
-  ],
-  [
-    'ApplicationDecisionResponseDto approved',
-    () =>
-      ApplicationDecisionResponseDto.from({
-        kind: 'APPROVED',
-        teamId: 'application-1',
-        status: 'APPROVED',
-        repositoryProvisioning: {
-          enabled: true,
-          eventId: 'event-1',
-          jobStatus: 'PENDING',
-        },
-      }),
-  ],
-  [
-    'ApplicationDecisionResponseDto rejected',
-    () =>
-      ApplicationDecisionResponseDto.from({
-        kind: 'REJECTED',
-        teamId: 'application-1',
-        status: 'REJECTED',
-        rejectionReason: 'No',
-      }),
-  ],
-  [
-    'ApplicationDecisionResponseDto reverted',
-    () =>
-      ApplicationDecisionResponseDto.from({
-        kind: 'REVERTED',
-        teamId: 'application-1',
-        status: 'SUBMITTED',
-      }),
-  ],
-  [
-    'ApplicationListItemResponseDto',
-    () => ApplicationListItemResponseDto.from(applicationItem),
-  ],
-  [
-    'ApplicationListPageResponseDto',
-    () =>
-      ApplicationListPageResponseDto.from({
-        items: [
-          applicationItem,
-          {
-            ...applicationItem,
-            id: 'application-2',
-            status: 'REJECTED',
-            rejectionReason: 'No',
-            repositoryProvisioning: {
-              enabled: false,
-              jobStatus: 'FAILED_FINAL',
-              updatedAt: at('2026-01-06T00:00:00.000Z'),
-            },
-            repositoryConnectionMode: 'OWN',
-            repository: null,
-            participation: 'INDIVIDUAL',
-            team: null,
-          },
-        ],
-        page: 1,
-        pageSize: 20,
-        totalItems: 2,
-        totalPages: 1,
       }),
   ],
   [
@@ -1330,8 +1244,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       TeamManagementListPageResponseDto.from({
         items: [teamManagementItem, { ...teamManagementItem, team: null }],
-        page: 1,
-        pageSize: 20,
         totalItems: 2,
         totalPages: 1,
       }),

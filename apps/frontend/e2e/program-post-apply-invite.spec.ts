@@ -50,17 +50,14 @@ const team: ProgramTeam = {
 };
 const application: StudentApplication = {
   id: 'synthetic-post-apply-application',
-  programId,
   status: 'SUBMITTED',
   teamId,
   answers: { applicantName: '합성 학생', title: '' },
   submittedAt: '2026-08-15T00:00:00Z',
-  updatedAt: '2026-08-15T00:00:00Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: null,
   isManager: true,
   canManage: true,
-  canEdit: true,
 };
 const candidate = {
   id: 'synthetic-invitee',

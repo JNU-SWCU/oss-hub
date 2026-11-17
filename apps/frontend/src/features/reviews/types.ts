@@ -29,7 +29,6 @@ export type ReviewRepository = RepositoryPublication;
 export interface ReviewContext {
   readonly latestReviewId: string | null;
   readonly requirementId: string;
-  readonly submissionId: string;
   readonly application: {
     readonly id: string;
     readonly applicationMode: ApplicationMode;

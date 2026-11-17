@@ -90,7 +90,6 @@ export interface ApplicationListParams {
 }
 
 interface TeamManagementMember {
-  readonly id: string;
   readonly name: string | null;
   readonly nickname: string;
 }
@@ -98,12 +97,9 @@ interface TeamManagementMember {
 export interface TeamManagementListItem {
   readonly id: string;
   readonly teamMinSize?: number;
-  readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;
-  readonly rejectionReason: string | null;
   readonly applicant: {
-    readonly id: string;
     readonly name: string | null;
     readonly nickname: string;
   };
@@ -117,8 +113,6 @@ export interface TeamManagementListItem {
 
 export interface TeamManagementListPage {
   readonly items: readonly TeamManagementListItem[];
-  readonly page: number;
-  readonly pageSize: number;
   readonly totalItems: number;
   readonly totalPages: number;
 }
@@ -149,44 +143,17 @@ type RepositoryProvisioningJobStatus =
   | 'ANOMALOUS';
 
 export interface RepositoryProvisioning {
-  readonly enabled: boolean;
   readonly jobStatus: RepositoryProvisioningJobStatus;
-  readonly updatedAt: string;
 }
 
 export type RepositoryConnectionMode = 'NEW' | 'OWN';
 
 export interface ApplicationListItem {
-  readonly id: string;
-
-  readonly programId: string;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-
   readonly status: ApplicationStatus;
   readonly rejectionReason: string | null;
-  readonly repositoryProvisioning: RepositoryProvisioning;
-  readonly isRepositoryPublicationPlanned: boolean;
-  readonly submittedAt: string;
-  readonly participation: 'INDIVIDUAL' | 'TEAM';
   readonly applicant: {
-    readonly id: string;
     readonly name: string | null;
     readonly nickname: string;
-  };
-  readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly memberCount: number;
-  } | null;
-
-  readonly repository: {
-    readonly url: string;
-    readonly visibility: 'PUBLIC' | 'PRIVATE';
-  } | null;
-  readonly answers: {
-    readonly applicantName: string;
-    readonly title: string;
-    readonly summary: string;
   };
 }
 

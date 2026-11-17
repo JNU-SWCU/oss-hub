@@ -164,7 +164,6 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
 
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual({
-    teamId: TEAM_ID,
     name: '오픈소스팀',
     memberCount: 1,
     members: [

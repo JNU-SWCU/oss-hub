@@ -61,9 +61,6 @@ beforeEach(() => {
   notifyManager.setScheduler(queueMicrotask);
   vi.mocked(listPrograms).mockResolvedValue({
     items: [],
-    page: 1,
-    pageSize: 20,
-    totalItems: 60,
     totalPages: 3,
   });
 });

@@ -65,7 +65,6 @@ export class SubmissionRevisionResponseDto {
 export class SubmissionReviewContextResponseDto {
   declare readonly latestReviewId: string | null;
   declare readonly requirementId: string;
-  declare readonly submissionId: string;
   declare readonly application: {
     readonly id: string;
     readonly applicationMode: SubmissionReviewContext['application']['applicationMode'];
@@ -85,7 +84,6 @@ export class SubmissionReviewContextResponseDto {
     return {
       requirementId: context.requirementId,
       latestReviewId: context.latestReviewId,
-      submissionId: context.submissionId,
       application: context.application,
       milestone: context.milestone,
       currentRevision: SubmissionRevisionResponseDto.from(

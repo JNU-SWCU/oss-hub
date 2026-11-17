@@ -22,9 +22,7 @@ const program: ProgramDetail = {
 };
 
 const studentOverview: ProgramOverview = {
-  programId: 'program-1',
   name: 'OSS 경진대회',
-  trackType: 'EXTRACURRICULAR',
   boardPostCount: 0,
   participantCount: 12,
   teamCount: 4,

@@ -67,12 +67,8 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
           applicationStartAt: '2025-01-01T00:00:00.000Z',
           applicationEndAt: '2025-02-01T00:00:00.000Z',
           endAt: '2025-12-31T00:00:00.000Z',
-          description: '',
         },
       ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
       totalPages: 1,
     });
   });
@@ -154,9 +150,6 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
     async (change) => {
       listProgramsMock.mockResolvedValue({
         items: [],
-        page: 1,
-        pageSize: 20,
-        totalItems: 21,
         totalPages: 2,
       });
       if (change === 'search') vi.useFakeTimers();
@@ -240,9 +233,6 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
     await act(async () =>
       previous.resolve({
         items: [],
-        page: 1,
-        pageSize: 20,
-        totalItems: 0,
         totalPages: 0,
       }),
     );
@@ -280,12 +270,8 @@ describe('ProgramListPage 등록 동선', () => {
           applicationStartAt: '2026-08-01T00:00:00.000Z',
           applicationEndAt: '2026-08-31T00:00:00.000Z',
           endAt: '2026-09-30T00:00:00.000Z',
-          description: '합성 설명',
         },
       ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
       totalPages: 1,
     });
   });
@@ -328,9 +314,6 @@ describe('ProgramListPage 등록 동선', () => {
   it('교직원은 프로그램이 없어도 목록 머리말의 만들기 동선을 한 번만 본다', async () => {
     listProgramsMock.mockResolvedValueOnce({
       items: [],
-      page: 1,
-      pageSize: 20,
-      totalItems: 0,
       totalPages: 0,
     });
 
@@ -369,12 +352,8 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
           applicationStartAt: '2026-08-01T00:00:00.000Z',
           applicationEndAt: '2026-08-31T00:00:00.000Z',
           endAt: '2026-09-30T00:00:00.000Z',
-          description: '합성 설명',
         },
       ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
       totalPages: 1,
     });
   });
@@ -438,9 +417,6 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
         description: '합성 설명',
         coverImageUrl: `/programs/program-${index}/cover/cover-${index}`,
       })),
-      page: 1,
-      pageSize: 20,
-      totalItems: 3,
       totalPages: 1,
     });
     await renderPage();
@@ -601,12 +577,8 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
           applicationStartAt: '2020-01-01T00:00:00.000Z',
           applicationEndAt: '2020-01-31T00:00:00.000Z',
           endAt: '2020-02-28T00:00:00.000Z',
-          description: '종료 회귀 테스트',
         },
       ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
       totalPages: 1,
     });
 

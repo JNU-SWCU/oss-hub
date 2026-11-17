@@ -10,5 +10,3 @@ export const APPLICATION_LIST_STATUSES = [
   'APPROVED',
   'REJECTED',
 ] as const;
-
-export const APPLICATION_LIST_VIEWS = ['default', 'team-management'] as const;

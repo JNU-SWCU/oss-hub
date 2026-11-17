@@ -7,9 +7,6 @@ function isTeamDeletionNotice(value: unknown): value is TeamDeletionNotice {
     'id' in value &&
     typeof value.id === 'string' &&
     value.id.length > 0 &&
-    'teamId' in value &&
-    typeof value.teamId === 'string' &&
-    value.teamId.length > 0 &&
     'teamName' in value &&
     typeof value.teamName === 'string' &&
     value.teamName.trim().length > 0 &&

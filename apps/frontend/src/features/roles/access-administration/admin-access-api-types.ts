@@ -21,7 +21,6 @@ export interface AdminApprovalState {
 
 export interface AdminAccessPendingRequest {
   readonly id: string;
-  readonly status: 'PENDING';
   readonly createdAt: string;
 }
 
@@ -39,26 +38,13 @@ export interface AdminAccessListItem {
 }
 
 export interface AdminAccessFacetCounts {
-  readonly roles: {
-    readonly unassigned: number;
-    readonly student: number;
-    readonly staff: number;
-    readonly admin: number;
-  };
-  readonly accountStatuses: {
-    readonly active: number;
-    readonly deactivated: number;
-  };
   readonly pendingRequests: {
-    readonly none: number;
     readonly pending: number;
   };
 }
 
 export interface AdminAccessListPage {
   readonly items: readonly AdminAccessListItem[];
-  readonly page: number;
-  readonly limit: number;
   readonly total: number;
   readonly facets: AdminAccessFacetCounts;
 }
@@ -87,7 +73,6 @@ export interface AdminAccessStaffAccessRequestHistoryItem {
 export interface AdminAccessLoginHistoryItem {
   readonly id: string;
   readonly event: AdminAccessLoginEvent;
-  readonly provider: 'github';
   readonly success: boolean;
   readonly loginAt: string;
 }

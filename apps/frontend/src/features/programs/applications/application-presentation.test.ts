@@ -3,32 +3,9 @@ import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { REJECTION_REASON_MAX_LENGTH } from '@/lib/display-text';
 import {
   displayAnswerText,
-  displayApplicantName,
   formatSubmittedAt,
-  participationLabel,
   staleApplicationDecisionTitle,
 } from './application-presentation';
-import type { ApplicationListItem } from './dto';
-
-const item: ApplicationListItem = {
-  id: 'app-1',
-  programId: 'program-1',
-  repositoryConnectionMode: 'NEW',
-  status: 'SUBMITTED',
-  rejectionReason: null,
-  repositoryProvisioning: {
-    enabled: false,
-    jobStatus: 'DISABLED',
-    updatedAt: '2026-08-05T05:32:00.000Z',
-  },
-  isRepositoryPublicationPlanned: true,
-  repository: null,
-  submittedAt: '2026-08-05T05:32:00.000Z',
-  participation: 'INDIVIDUAL',
-  applicant: { id: 'student-1', name: '계정 이름', nickname: 'login-1' },
-  team: null,
-  answers: { applicantName: '', title: '제목', summary: '요약' },
-};
 
 describe('formatSubmittedAt', () => {
   const original = process.env.TZ;
@@ -53,36 +30,6 @@ describe('formatSubmittedAt', () => {
 
   it('자정을 넘기는 제출은 날짜까지 서울 기준으로 넘어간다', () => {
     expect(formatSubmittedAt('2026-08-20T15:30:00.000Z')).toContain('8월 21일');
-  });
-});
-
-describe('displayApplicantName', () => {
-  it('신청서에 적은 이름이 비면 계정 이름으로 내려간다', () => {
-    expect(displayApplicantName(item)).toBe('계정 이름');
-  });
-
-  it('둘 다 비면 GitHub 핸들을 쓴다', () => {
-    expect(
-      displayApplicantName({
-        ...item,
-        applicant: { ...item.applicant, name: null },
-      }),
-    ).toBe('login-1');
-  });
-});
-
-describe('participationLabel', () => {
-  it('팀이 없으면 인원만 적는다', () => {
-    expect(participationLabel(item)).toBe('1명');
-  });
-
-  it('팀이 있으면 팀명과 인원을 함께 적는다', () => {
-    expect(
-      participationLabel({
-        ...item,
-        team: { id: 'team-1', name: '합성 팀', memberCount: 3 },
-      }),
-    ).toBe('합성 팀 (3명)');
   });
 });
 
@@ -184,45 +131,5 @@ describe('displayAnswerText', () => {
   it('빈 값은 빈 문자열이다', () => {
     expect(displayAnswerText('')).toBe('');
     expect(displayAnswerText('   ')).toBe('');
-  });
-});
-
-describe('displayApplicantName', () => {
-  it('신청서에 적은 이름도 위생 처리를 지난다', () => {
-    expect(
-      displayApplicantName({
-        ...item,
-        answers: { ...item.answers, applicantName: '학생\u202E이름' },
-      }),
-    ).toBe('학생이름');
-  });
-
-  it('계정 이름 fallback 도 위생 처리를 지난다', () => {
-    expect(
-      displayApplicantName({
-        ...item,
-        answers: { ...item.answers, applicantName: '' },
-        applicant: { ...item.applicant, name: '계정\u202E이름' },
-      }),
-    ).toBe('계정이름');
-  });
-
-  it('GitHub 핸들 fallback 도 위생 처리를 지난다', () => {
-    expect(
-      displayApplicantName({
-        ...item,
-        answers: { ...item.answers, applicantName: '' },
-        applicant: { ...item.applicant, name: null, nickname: 'login\u202E1' },
-      }),
-    ).toBe('login1');
-  });
-
-  it('위생 처리 후 비면 계정 이름으로 내려간다', () => {
-    expect(
-      displayApplicantName({
-        ...item,
-        answers: { ...item.answers, applicantName: '\u202E\u0007' },
-      }),
-    ).toBe('계정 이름');
   });
 });

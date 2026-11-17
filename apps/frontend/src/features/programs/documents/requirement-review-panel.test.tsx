@@ -241,7 +241,7 @@ describe('판정 패널의 제출 내용', () => {
 
   it('글 제출은 원문을 줄바꿈까지 그대로 보여 준다', () => {
     const html = render({
-      cell: cell({ content: { type: 'TEXT', text: longText } }),
+      cell: cell({ content: { text: longText } }),
     });
 
     expect(html).toContain('제출한 글');
@@ -255,7 +255,7 @@ describe('판정 패널의 제출 내용', () => {
 
   it('긴 글은 초점이 닿는 스크롤 영역에 담는다', () => {
     const tag = tagWithTestId(
-      render({ cell: cell({ content: { type: 'TEXT', text: longText } }) }),
+      render({ cell: cell({ content: { text: longText } }) }),
       'milestone-document-submitted-text',
     );
 
@@ -305,7 +305,7 @@ describe('보여 줄 내용이 없는 제출', () => {
 
   it('보여 줄 글이 있으면 그 문구를 띄우지 않는다', () => {
     const html = render({
-      cell: cell({ content: { type: 'TEXT', text: '냈습니다.' } }),
+      cell: cell({ content: { text: '냈습니다.' } }),
     });
 
     expect(html).not.toContain(noContentNotice);

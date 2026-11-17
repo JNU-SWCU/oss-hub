@@ -138,8 +138,7 @@ describe('board authorization HTTP characterization', () => {
       );
       expect(response.status).toBe(status);
       const body: unknown = await response.json();
-      if (status === 200)
-        expect(body).toEqual({ items: [], total: 0, page: 1, limit: 20 });
+      if (status === 200) expect(body).toEqual({ items: [], total: 0 });
       else
         expect(body).toEqual({
           type: 'about:blank',

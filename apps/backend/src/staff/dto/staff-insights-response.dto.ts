@@ -3,9 +3,7 @@ import type {
   StaffInsightsCohortRow,
   StaffInsightsCohortLeaders,
   StaffInsightsDepartmentRow,
-  StaffInsightsLeaderRow,
   StaffInsightsLeaders,
-  StaffInsightsMetrics,
   StaffInsightsProgramRow,
   StaffInsightsProgramSummary,
   StaffInsightsRecentLeaderRow,
@@ -28,129 +26,61 @@ export class StaffInsightsScopeResponseDto {
   }
 }
 
-class StaffInsightsMetricsResponseDto {
+export class StaffInsightsCohortResponseDto {
+  declare readonly cohort: DepartmentCohort;
   declare readonly studentCount: number;
   declare readonly activeStudentCount: number;
-  declare readonly commitCount: number;
-  declare readonly pullRequestCount: number;
-  declare readonly issueCount: number;
-  declare readonly repositoryCount: number;
-  declare readonly starCount: number;
-  declare readonly total: number;
   declare readonly participantCount: number;
 
-  static from(metrics: StaffInsightsMetrics): StaffInsightsMetricsResponseDto {
+  static from(row: StaffInsightsCohortRow): StaffInsightsCohortResponseDto {
     return {
-      studentCount: metrics.studentCount,
-      activeStudentCount: metrics.activeStudentCount,
-      commitCount: metrics.commitCount,
-      pullRequestCount: metrics.pullRequestCount,
-      issueCount: metrics.issueCount,
-      repositoryCount: metrics.repositoryCount,
-      starCount: metrics.starCount,
-      total: metrics.total,
-      participantCount: metrics.participantCount,
-    };
-  }
-}
-
-export class StaffInsightsCohortResponseDto extends StaffInsightsMetricsResponseDto {
-  declare readonly cohort: DepartmentCohort;
-
-  static override from(
-    row: StaffInsightsCohortRow,
-  ): StaffInsightsCohortResponseDto {
-    const metrics = StaffInsightsMetricsResponseDto.from(row);
-    return {
-      studentCount: metrics.studentCount,
-      activeStudentCount: metrics.activeStudentCount,
-      commitCount: metrics.commitCount,
-      pullRequestCount: metrics.pullRequestCount,
-      issueCount: metrics.issueCount,
-      repositoryCount: metrics.repositoryCount,
-      starCount: metrics.starCount,
-      total: metrics.total,
-      participantCount: metrics.participantCount,
       cohort: row.cohort,
+      studentCount: row.studentCount,
+      activeStudentCount: row.activeStudentCount,
+      participantCount: row.participantCount,
     };
   }
 }
 
-export class StaffInsightsDepartmentResponseDto extends StaffInsightsMetricsResponseDto {
+export class StaffInsightsDepartmentResponseDto {
   declare readonly department: string;
   declare readonly cohort: DepartmentCohort;
+  declare readonly studentCount: number;
+  declare readonly activeStudentCount: number;
+  declare readonly participantCount: number;
   declare readonly activityPerStudent: number;
   declare readonly sampleTooSmall: boolean;
 
-  static override from(
+  static from(
     row: StaffInsightsDepartmentRow,
   ): StaffInsightsDepartmentResponseDto {
-    const metrics = StaffInsightsMetricsResponseDto.from(row);
     return {
-      studentCount: metrics.studentCount,
-      activeStudentCount: metrics.activeStudentCount,
-      commitCount: metrics.commitCount,
-      pullRequestCount: metrics.pullRequestCount,
-      issueCount: metrics.issueCount,
-      repositoryCount: metrics.repositoryCount,
-      starCount: metrics.starCount,
-      total: metrics.total,
-      participantCount: metrics.participantCount,
       department: row.department,
       cohort: row.cohort,
+      studentCount: row.studentCount,
+      activeStudentCount: row.activeStudentCount,
+      participantCount: row.participantCount,
       activityPerStudent: row.activityPerStudent,
       sampleTooSmall: row.sampleTooSmall,
     };
   }
 }
 
-export class StaffInsightsRecentLeaderResponseDto {
+export class StaffInsightsLeaderResponseDto {
   declare readonly rank: number;
   declare readonly name: string | null;
   declare readonly githubLogin: string;
   declare readonly department: string | null;
-  declare readonly cohort: DepartmentCohort;
-  declare readonly commitCount: number;
-  declare readonly pullRequestCount: number;
-  declare readonly issueCount: number;
-  declare readonly repositoryCount: number;
   declare readonly total: number;
 
   static from(
     row: StaffInsightsRecentLeaderRow,
-  ): StaffInsightsRecentLeaderResponseDto {
-    return {
-      rank: row.rank,
-      name: row.name,
-      githubLogin: row.githubLogin,
-      department: row.department,
-      cohort: row.cohort,
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      issueCount: row.issueCount,
-      repositoryCount: row.repositoryCount,
-      total: row.total,
-    };
-  }
-}
-
-export class StaffInsightsLeaderResponseDto extends StaffInsightsRecentLeaderResponseDto {
-  declare readonly starCount: number;
-
-  static override from(
-    row: StaffInsightsLeaderRow,
   ): StaffInsightsLeaderResponseDto {
     return {
       rank: row.rank,
       name: row.name,
       githubLogin: row.githubLogin,
       department: row.department,
-      cohort: row.cohort,
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      issueCount: row.issueCount,
-      repositoryCount: row.repositoryCount,
-      starCount: row.starCount,
       total: row.total,
     };
   }
@@ -162,7 +92,7 @@ export class StaffInsightsCohortLeadersResponseDto {
   declare readonly nonSw: StaffInsightsLeaderResponseDto[];
 
   static from(
-    leaders: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>,
+    leaders: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>,
   ): StaffInsightsCohortLeadersResponseDto {
     return {
       all: leaders.all.map((row) => StaffInsightsLeaderResponseDto.from(row)),
@@ -176,36 +106,14 @@ export class StaffInsightsCohortLeadersResponseDto {
   }
 }
 
-export class StaffInsightsRecentCohortLeadersResponseDto {
-  declare readonly all: StaffInsightsRecentLeaderResponseDto[];
-  declare readonly swMajor: StaffInsightsRecentLeaderResponseDto[];
-  declare readonly nonSw: StaffInsightsRecentLeaderResponseDto[];
-
-  static from(
-    leaders: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>,
-  ): StaffInsightsRecentCohortLeadersResponseDto {
-    return {
-      all: leaders.all.map((row) =>
-        StaffInsightsRecentLeaderResponseDto.from(row),
-      ),
-      swMajor: leaders.swMajor.map((row) =>
-        StaffInsightsRecentLeaderResponseDto.from(row),
-      ),
-      nonSw: leaders.nonSw.map((row) =>
-        StaffInsightsRecentLeaderResponseDto.from(row),
-      ),
-    };
-  }
-}
-
 export class StaffInsightsLeadersResponseDto {
   declare readonly period: StaffInsightsCohortLeadersResponseDto;
-  declare readonly recent: StaffInsightsRecentCohortLeadersResponseDto;
+  declare readonly recent: StaffInsightsCohortLeadersResponseDto;
 
   static from(leaders: StaffInsightsLeaders): StaffInsightsLeadersResponseDto {
     return {
       period: StaffInsightsCohortLeadersResponseDto.from(leaders.period),
-      recent: StaffInsightsRecentCohortLeadersResponseDto.from(leaders.recent),
+      recent: StaffInsightsCohortLeadersResponseDto.from(leaders.recent),
     };
   }
 }

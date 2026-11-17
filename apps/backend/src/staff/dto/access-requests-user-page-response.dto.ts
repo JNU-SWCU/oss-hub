@@ -42,7 +42,6 @@ class StaffAccessRequestHistoryItemResponseDto {
 class LoginHistoryItemResponseDto {
   declare readonly id: string;
   declare readonly event: LoginHistoryEvent;
-  declare readonly provider: 'github';
   declare readonly success: boolean;
   declare readonly loginAt: string;
 
@@ -52,7 +51,6 @@ class LoginHistoryItemResponseDto {
     return {
       id: item.id,
       event: item.event,
-      provider: item.provider,
       success: item.success,
       loginAt: item.loginAt.toISOString(),
     };
@@ -99,13 +97,11 @@ export class AccessRequestsUserHistoryResponseDto {
 
 class PendingRequestResponseDto {
   declare readonly id: string;
-  declare readonly status: AdminAccessPendingRequest['status'];
   declare readonly createdAt: string;
 
   static from(request: AdminAccessPendingRequest): PendingRequestResponseDto {
     return {
       id: request.id,
-      status: request.status,
       createdAt: request.createdAt.toISOString(),
     };
   }
@@ -144,42 +140,25 @@ export class AccessRequestsUserResponseDto {
 }
 
 export class AccessRequestsFacetsResponseDto {
-  declare readonly roles: {
-    readonly unassigned: number;
-    readonly student: number;
-    readonly staff: number;
-    readonly admin: number;
-  };
-  declare readonly accountStatuses: {
-    readonly active: number;
-    readonly deactivated: number;
-  };
   declare readonly pendingRequests: {
-    readonly none: number;
     readonly pending: number;
   };
 
   static from(facets: AdminAccessFacets): AccessRequestsFacetsResponseDto {
     return {
-      roles: facets.roles,
-      accountStatuses: facets.accountStatuses,
-      pendingRequests: facets.pendingRequests,
+      pendingRequests: { pending: facets.pendingRequests.pending },
     };
   }
 }
 
 export class AccessRequestsUserPageResponseDto {
   declare readonly items: AccessRequestsUserResponseDto[];
-  declare readonly page: number;
-  declare readonly limit: number;
   declare readonly total: number;
   declare readonly facets: AccessRequestsFacetsResponseDto;
 
   static from(page: AdminAccessUserPage): AccessRequestsUserPageResponseDto {
     return {
       items: page.items.map((user) => AccessRequestsUserResponseDto.from(user)),
-      page: page.page,
-      limit: page.limit,
       total: page.total,
       facets: AccessRequestsFacetsResponseDto.from(page.facets),
     };

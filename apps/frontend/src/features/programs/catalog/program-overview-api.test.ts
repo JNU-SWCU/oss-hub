@@ -4,9 +4,7 @@ import { getProgramOverview } from './program-overview-api';
 import type { ProgramOverview } from './program-overview-dto';
 
 const overview: ProgramOverview = {
-  programId: 'program-1',
   name: 'OSS 경진대회',
-  trackType: 'EXTRACURRICULAR',
   boardPostCount: 5,
   participantCount: 12,
   teamCount: 4,

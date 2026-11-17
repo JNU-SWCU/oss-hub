@@ -13,7 +13,6 @@ import { REPOSITORY_PROVISION_EVENT_TYPE } from '../github/repository-provision-
 import {
   prisma,
   service,
-  applications,
   resolver,
   githubId,
   programId,
@@ -32,9 +31,7 @@ import {
   relinkRepo,
   repoWithTeam,
 } from '../../test/repo-ledger.fixture';
-import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { TeamMembershipService } from './team-membership.service';
 import {
@@ -52,12 +49,6 @@ const parseProvisionPayload = (payload: unknown) =>
   new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
 
 const historyMetadataService = new HistoryMetadataService();
-const applicationsService = new TeamApplicationService(
-  applications,
-  new RepositoryUrlService(),
-  new ApplicationAnswersService(),
-  new RepositoryProvisionEventService(),
-);
 const teamsService = new TeamMembershipService(
   new TeamRepository(
     prisma,
@@ -274,7 +265,7 @@ it('projects a successful relink without an original provision outbox', async ()
     status: RepositoryProvisionJobStatus.SUCCEEDED,
   });
   expect(
-    (await applicationsService.getForStaff(teamId)).application,
+    (await teamsService.getForStaff(programId, teamId)).application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repository: { url: input.repositoryUrl },
@@ -300,16 +291,10 @@ it('keeps a relinked repository SUCCEEDED after GitHub renames it', async () => 
     }),
   ).toBe(0);
   expect(
-    (await applicationsService.getForStaff(teamId)).application,
-  ).toMatchObject({
-    repositoryConnectionMode: RepositoryConnectionMode.OWN,
-    repository: { url: 'https://github.com/synthetic/target-renamed' },
-    repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
-  });
-  expect(
     (await teamsService.getForStaff(programId, teamId)).application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
+    repository: { url: 'https://github.com/synthetic/target-renamed' },
     repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
   });
 });
