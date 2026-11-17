@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   loadPrismaQueryLintConfig,
   PrismaQueryLintError,
@@ -43,7 +43,10 @@ async function lintCode(query: Promise<unknown>): Promise<string | undefined> {
     await query;
   } catch (error) {
     if (error instanceof PrismaQueryLintError) return error.code;
-    if (error instanceof Error && /reach database server/.test(error.message))
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P1001'
+    )
       return undefined;
     throw error;
   }
@@ -229,7 +232,7 @@ describe('loadPrismaQueryLintConfig', () => {
       load({ [`User.findMany@${CALLER}`]: { reason: 'x', count: 0 } }),
     ).toThrow(/count/);
     expect(load({ [`User.findMany@${FILE}`]: { reason: 'x' } })).toThrow(
-      /형식/,
+      `User.findMany@${FILE}:`,
     );
     expect(load({ [`Nope.findMany@${CALLER}`]: { reason: 'x' } })).toThrow(
       /Nope\.findMany/,
