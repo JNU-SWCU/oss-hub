@@ -11,8 +11,6 @@ import {
 const APP_DIR = 'apps/frontend/src/app/';
 const SOURCE_ROOTS = ['apps/frontend/src', 'apps/backend/src'];
 const SOURCE_FILE = /\.(tsx?|mjs|js)$/;
-const TEST_FILE =
-  /(\.(test|spec)\.[cm]?[jt]sx?$)|(^|\/)(e2e|test-support|__tests__)\//;
 const PAGE_FILE = /(^|\/)page\.(tsx|ts|jsx|js)$/;
 const ALLOWLIST_PATH = 'verify/url-ia-allowlist.json';
 const RULES = {
@@ -153,8 +151,7 @@ export function analyzeTree(files) {
     )
     .map((file) => routeOfPage(file.path))
     .filter(Boolean);
-  const linkSources = files.filter((file) => !TEST_FILE.test(file.path));
-  const candidates = navigationTargets(linkSources);
+  const candidates = navigationTargets(files);
   const violations = new Map();
 
   for (const page of pages) {

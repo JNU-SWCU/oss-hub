@@ -142,6 +142,8 @@ test('dynamic links built by path helpers, constant prefixes, forwarded href par
       '}',
       '',
     ].join('\n'),
+    [`${APP}/layout.tsx`]:
+      'import { MENU } from \'./_shell/menu\';\nimport { ReportLinks } from \'@/features/reports/report-links\';\n\nexport default function Layout({ router }) {\n  return (\n    <nav>\n      <a href="/">home</a>\n      {MENU.map((item) => (\n        <a key={item.href} href={item.href}>\n          {item.label}\n        </a>\n      ))}\n      <ReportLinks id="r1" router={router} />\n    </nav>\n  );\n}\n',
     [`${APP}/reports/[id]/page.tsx`]: page(
       'ReportDetail',
       'reports/report-detail',
@@ -186,6 +188,112 @@ test('a route named only in a comment or an unused string is still unreachable',
       findings.map((item) => item.rule),
       ['url-ia-unreachable-page'],
       unrelated,
+    );
+  }
+});
+
+function orphanCase(t, extra) {
+  const { repo, base } = fixture(t);
+  const head = repo.commit('orphan with decoy', {
+    [`${APP}/orphan/page.tsx`]: page('StatsScreen', 'stats/stats-screen'),
+    ...extra,
+  });
+  return verifyHead(repo, base, head);
+}
+
+const renderFrom = (specifier, name) =>
+  `import { ${name} } from '${specifier}';\n\nexport default function Layout() {\n  return <${name} />;\n}\n`;
+
+test('navigation-looking text inside strings does not make a page reachable', async (t) => {
+  for (const source of [
+    'export const example = `<a href="/orphan">Example only</a>`;\n',
+    'export const example = "navigate(\'/orphan\')";\n',
+    'export const example = \'router.push("/orphan")\';\n',
+    'export const example = { text: \'href: "/orphan"\' };\n',
+  ]) {
+    const findings = await orphanCase(t, {
+      [`${FEATURES}/stats/example.ts`]: source,
+    });
+    assert.deepEqual(
+      findings.map((item) => item.rule),
+      ['url-ia-unreachable-page'],
+      source,
+    );
+  }
+});
+
+test('links only in stories, tests, mocks, fixtures or e2e files do not count', async (t) => {
+  const link =
+    'export const Example = () => <a href="/orphan">only here</a>;\n';
+  for (const path of [
+    `${FEATURES}/stats/stats.stories.tsx`,
+    `${FEATURES}/stats/stats.story.tsx`,
+    `${FEATURES}/stats/stats.test.tsx`,
+    `${FEATURES}/stats/stats.spec.tsx`,
+    `${FEATURES}/stats/__tests__/stats.tsx`,
+    `${FEATURES}/stats/__mocks__/stats.tsx`,
+    `${FEATURES}/stats/fixtures/stats.tsx`,
+    `${FEATURES}/stats/stats.fixture.tsx`,
+    'apps/frontend/src/e2e/stats.tsx',
+  ]) {
+    const specifier = path
+      .replace('apps/frontend/src/', '@/')
+      .replace(/\.tsx$/, '');
+    const findings = await orphanCase(t, {
+      [path]: link,
+      [`${APP}/layout.tsx`]: renderFrom(specifier, 'Example'),
+    });
+    assert.ok(
+      findings.some(
+        (item) =>
+          item.rule === 'url-ia-unreachable-page' &&
+          /\(\/orphan\)/.test(item.message),
+      ),
+      path,
+    );
+  }
+});
+
+test('bindings resolve through imports, not through same-name declarations elsewhere', async (t) => {
+  const nav = `${FEATURES}/nav/home-link.tsx`;
+  const layout = renderFrom('@/features/nav/home-link', 'HomeLink');
+  const unrelated = await orphanCase(t, {
+    [nav]:
+      "const target = '/';\n\nexport const HomeLink = () => <a href={target}>Home</a>;\n",
+    [`${FEATURES}/nav/unrelated.ts`]: "export const target = '/orphan';\n",
+    [`${APP}/layout.tsx`]: layout,
+  });
+  assert.ok(
+    unrelated.some(
+      (item) =>
+        item.rule === 'url-ia-unreachable-page' &&
+        /\(\/orphan\)/.test(item.message),
+    ),
+  );
+
+  const imported = await orphanCase(t, {
+    [nav]:
+      "import { target } from './routes';\n\nexport const HomeLink = () => <a href={target}>Orphan</a>;\n",
+    [`${FEATURES}/nav/routes.ts`]: "export const target = '/orphan';\n",
+    [`${FEATURES}/nav/unrelated.ts`]: "export const target = '/';\n",
+    [`${APP}/layout.tsx`]: layout,
+  });
+  assert.ok(!imported.some((item) => /\(\/orphan\)/.test(item.message)));
+});
+
+test('links in components or menus that nothing renders do not count', async (t) => {
+  for (const source of [
+    'export const OrphanLink = () => <a href="/orphan">orphan</a>;\n',
+    "export const UNUSED_MENU = [{ label: 'orphan', href: '/orphan' }];\n",
+    "function hidden(router) {\n  router.push('/orphan');\n}\n\nexport const value = 1;\n",
+  ]) {
+    const findings = await orphanCase(t, {
+      [`${FEATURES}/stats/dead.tsx`]: source,
+    });
+    assert.deepEqual(
+      findings.map((item) => item.rule),
+      ['url-ia-unreachable-page'],
+      source,
     );
   }
 });
