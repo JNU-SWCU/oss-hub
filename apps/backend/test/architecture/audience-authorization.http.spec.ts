@@ -221,6 +221,11 @@ const routes: readonly RouteCase[] = [
     path: 'system-status',
     statuses: [200, 200, 403, 403, 403, 403, 403, 401],
   },
+  {
+    method: 'POST',
+    path: 'system-status/provisioning/missing-team/retry',
+    statuses: [404, 404, 403, 403, 403, 403, 403, 401],
+  },
 ];
 
 describe('Audience authorization HTTP characterization', () => {
@@ -436,6 +441,14 @@ describe('Audience authorization HTTP characterization', () => {
           provide: ApplicationsRepository,
           useValue: {
             listStaffDashboardSummary: () => Promise.resolve({ programs: [] }),
+            withTransaction: (
+              operation: (store: {
+                readonly findApplicationById: () => Promise<null>;
+              }) => unknown,
+            ) =>
+              Promise.resolve(
+                operation({ findApplicationById: () => Promise.resolve(null) }),
+              ),
           },
         },
         {
@@ -488,7 +501,18 @@ describe('Audience authorization HTTP characterization', () => {
             findActor,
             getCollectionRepositories: () => Promise.resolve([]),
             hasActiveCollectionRun: () => Promise.resolve(false),
-            countFinalProvisionFailures: () => Promise.resolve(0),
+            getProvisioningStatus: () =>
+              Promise.resolve({
+                pending: 0,
+                processing: 0,
+                retryable: 0,
+                failedFinal: 0,
+                failedTeams: [],
+              }),
+            getMailStatus: () =>
+              Promise.resolve({ sent7d: 0, failed7d: 0, lastSentAt: null }),
+            findBulkRemovalEvents: () => Promise.resolve([]),
+            findAdminChangeEvents: () => Promise.resolve([]),
             getExternalCollectionStatus: () =>
               Promise.resolve({
                 trackedRepositoryCount: 0,
@@ -512,8 +536,8 @@ describe('Audience authorization HTTP characterization', () => {
     await app.close();
   });
 
-  it('covers 17 routes for 8 roles', () => {
-    expect(routes).toHaveLength(17);
+  it('covers 18 routes for 8 roles', () => {
+    expect(routes).toHaveLength(18);
     expect(roles).toHaveLength(8);
   });
 

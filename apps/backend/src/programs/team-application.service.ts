@@ -886,6 +886,42 @@ export class TeamApplicationService {
     }
   }
 
+  async retryFailedRepositoryProvision(
+    teamId: string,
+  ): Promise<{ readonly eventId: string }> {
+    return this.repository.withTransaction(async (store) => {
+      const application = await store.findApplicationById(teamId);
+      if (!application) {
+        throw this.error(ApplicationsErrorCode.TEAM_NOT_FOUND);
+      }
+      const job = await store.findRepositoryProvisionJob(teamId);
+      if (job?.status !== RepositoryProvisionJobStatus.FAILED_FINAL) {
+        throw this.error(
+          ApplicationsErrorCode.REPOSITORY_PROVISION_NOT_RETRYABLE,
+        );
+      }
+      const requestedAt = new Date();
+      await store.discardRepositoryProvisionRequest(
+        teamId,
+        requestedAt,
+        this.parseProvisionHistoryPayload,
+      );
+      const event = await store.createRepositoryProvisionEvent(
+        {
+          teamId,
+          programId: application.programId,
+          collaboratorGithubLogins: this.collaboratorGithubLogins(application),
+          repositoryConnectionMode: application.repositoryConnectionMode,
+          repositoryUrl: application.repositoryUrl,
+          idempotencyKey: `repository-provision:${teamId}`,
+          requestedAt,
+        },
+        this.parseProvisionHistoryPayload,
+      );
+      return { eventId: event.id };
+    });
+  }
+
   private async resolveDecisionPlan(input: {
     readonly application: ApplicationDecisionTarget;
     readonly action: ApplicationDecisionAction;

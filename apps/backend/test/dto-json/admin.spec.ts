@@ -7,6 +7,7 @@ import {
   IndependentAuthorityMutationResponseDto,
 } from '../../src/admin/dto/admin-access-user-page-response.dto';
 import { CollectionTriggerResponseDto } from '../../src/admin/dto/collection-trigger-response.dto';
+import { ProvisioningRetryResponseDto } from '../../src/admin/dto/provisioning-retry-response.dto';
 import { SystemStatusResponseDto } from '../../src/admin/dto/system-status-response.dto';
 import { AuditLogPageResponseDto } from '../../src/admin/dto/audit-log-page-response.dto';
 import { type SystemStatusResult } from '../../src/admin/system-status.service';
@@ -81,7 +82,35 @@ const systemStatus: SystemStatusResult = {
     currentRunStatus: 'PROCESSING',
     safeReason: 'STALE_DATA',
   },
-  repositoryProvisioning: { finalFailureCount: 3 },
+  provisioning: {
+    pending: 2,
+    processing: 1,
+    retryable: 1,
+    failedFinal: 1,
+    failedTeams: [
+      {
+        teamId: 'team-1',
+        teamName: 'Team A',
+        programName: 'Program A',
+        lastErrorCode: 'REPOSITORY_PROVISION_INTERNAL',
+        updatedAt: at('2026-04-30T23:00:00.000Z'),
+      },
+    ],
+  },
+  mail: {
+    sent7d: 5,
+    failed7d: 1,
+    lastSentAt: at('2026-04-30T22:00:00.000Z'),
+  },
+  anomalies: [
+    {
+      rule: 'BULK_REMOVAL',
+      severity: 'HIGH',
+      count: 12,
+      target: { kind: 'USER', id: 'user-1' },
+    },
+    { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 1, target: null },
+  ],
   collectionRepositories: [
     {
       repositoryName: 'org/repo',
@@ -166,6 +195,10 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'CollectionTriggerResponseDto',
     () => CollectionTriggerResponseDto.from('run-1'),
+  ],
+  [
+    'ProvisioningRetryResponseDto',
+    () => ProvisioningRetryResponseDto.from('team-1', { eventId: 'event-2' }),
   ],
   ['SystemStatusResponseDto', () => SystemStatusResponseDto.from(systemStatus)],
   [
