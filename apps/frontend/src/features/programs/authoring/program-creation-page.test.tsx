@@ -20,11 +20,13 @@ const mocks = vi.hoisted(() => ({
   completeAndNavigate: vi.fn(),
   useProgramExitGuard: vi.fn(),
   previewProgramNotice: vi.fn(),
+  listProgramNotices: vi.fn(),
   discardUnsaved: undefined as (() => void) | undefined,
 }));
 
 vi.mock('./program-notice-api', () => ({
   previewProgramNotice: mocks.previewProgramNotice,
+  listProgramNotices: mocks.listProgramNotices,
 }));
 
 vi.mock('./program-authoring-api', () => ({
@@ -261,6 +263,17 @@ describe('ProgramCreationPage guided authoring', () => {
       description,
       coverImages: [imageUrl],
       warnings: [],
+      candidates: {},
+    });
+    mocks.listProgramNotices.mockResolvedValueOnce({
+      items: [
+        {
+          url: sourceUrl,
+          title: '합성 공고',
+          postedAt: '2026-11-17',
+          thumbnailUrl: null,
+        },
+      ],
     });
     mocks.createAuthoringProgram.mockResolvedValueOnce({
       id: 'notice-created',
@@ -272,22 +285,19 @@ describe('ProgramCreationPage guided authoring', () => {
     await act(async () =>
       root.render(<ProgramCreationPage initialState={initial} />),
     );
-    await act(async () => buttonNamed('공지에서 가져오기').click());
-    const url = document.querySelector<HTMLInputElement>('input[type="url"]');
+    await act(async () => buttonNamed('공고 불러오기').click());
     await act(async () => {
-      Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        'value',
-      )?.set?.call(url, sourceUrl);
-      url?.dispatchEvent(new Event('input', { bubbles: true }));
+      await vi.waitFor(() =>
+        expect(mocks.listProgramNotices).toHaveBeenCalled(),
+      );
     });
-    await act(async () => buttonNamed('불러오기').click());
+    await act(async () => buttonNamed('합성 공고').click());
     await act(async () =>
       document
-        .querySelector<HTMLInputElement>('input[name="notice-description"]')
+        .querySelector<HTMLInputElement>('input[name="notice-name"]')
         ?.click(),
     );
-    await act(async () => buttonNamed('선택한 내용 적용').click());
+    await act(async () => buttonNamed('적용').click());
     expect(container.querySelector('textarea')?.value).toBe(description);
     expect(
       container

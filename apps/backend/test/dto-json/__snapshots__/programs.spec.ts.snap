@@ -90,7 +90,7 @@ exports[`programs response DTO JSON ProgramMilestoneOperationResponseDto 1`] = `
 
 exports[`programs response DTO JSON ProgramMilestoneResponseDto 1`] = `"{"id":"milestone-1","name":"Kickoff","startAt":"2026-02-01T00:00:00.000Z","dueAt":"2026-02-10T00:00:00.000Z","instructions":null}"`;
 
-exports[`programs response DTO JSON ProgramNoticePreviewResponseDto 1`] = `"{"sourceUrl":"https://notice.example/1","name":"Notice","description":"Body","coverImages":["https://images.example/1.png"],"warnings":["MULTIPLE_IMAGES"]}"`;
+exports[`programs response DTO JSON ProgramNoticePreviewResponseDto 1`] = `"{"sourceUrl":"https://notice.example/1","name":"Notice","description":"Body","coverImages":["https://images.example/1.png"],"warnings":["MULTIPLE_IMAGES"],"candidates":{}}"`;
 
 exports[`programs response DTO JSON ProgramOverviewResponseDto 1`] = `"{"programId":"program-1","name":"Program A","trackType":null,"milestoneCount":2,"boardPostCount":3,"participantCount":10,"teamCount":4,"connectedRepositoryCount":3,"scheduleMilestones":[{"label":"Kickoff","dueAt":"2026-02-10T00:00:00.000Z"}],"viewerRole":"STAFF","viewerDocumentsCompleted":null,"viewerDocumentsTotal":null,"fullySubmittedParticipantCount":4,"requirements":[{"milestoneId":"milestone-1","title":"Kickoff","completed":1,"total":2}]}"`;
 

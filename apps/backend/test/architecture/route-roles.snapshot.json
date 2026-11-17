@@ -84,6 +84,13 @@
     "error": "Program authoring is unavailable."
   },
   {
+    "method": "GET",
+    "path": "/api/v1/program-authoring/notices",
+    "roles": ["STAFF"],
+    "status": 403,
+    "error": "Forbidden"
+  },
+  {
     "method": "POST",
     "path": "/api/v1/program-authoring/programs",
     "roles": ["STAFF"],

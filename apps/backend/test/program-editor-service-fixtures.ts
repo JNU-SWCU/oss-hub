@@ -1,10 +1,10 @@
+import { createProgramNoticeFetchClient } from './program-notice-client.fixture';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { ProgramScheduleService } from '../src/programs/program-schedule.service';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from '../src/programs/files.service';
-import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import { AccountStatus, ProgramTrackType } from '@prisma/client';
 import {
   ProgramEditorService,
@@ -121,7 +121,7 @@ export function createProgramEditorServiceHarness(): {
         {} as never,
         {} as never,
         new SubmissionFileAdmissionService(),
-        new ProgramNoticeFetchClient(),
+        createProgramNoticeFetchClient(),
       ),
       new UserProfileService(),
       new ProgramOrganizersService(),

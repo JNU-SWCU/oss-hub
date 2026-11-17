@@ -1,8 +1,8 @@
+import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from './files.service';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { type ProgramAuthoringUploadRepository } from './files.repository';
 import {
@@ -54,7 +54,7 @@ function setup() {
       repository,
       storage,
       new SubmissionFileAdmissionService(),
-      new ProgramNoticeFetchClient(),
+      createProgramNoticeFetchClient(),
       () => NOW,
     ),
   };

@@ -54,12 +54,7 @@ import {
   ProgramTemplatesService,
   PROGRAM_PARTICIPATION,
 } from './team-application.service';
-import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import { ProgramOrganizersService } from './program-organizers.service';
-import {
-  ProgramNoticeFetchClient,
-  type ProgramNoticePreview,
-} from './program-notice-fetch.client';
 import {
   ProgramAuthoringUploadTransactionRepository,
   ProgramCoverRepository,
@@ -527,36 +522,6 @@ function isoDate(
     return null;
   }
   return parsed;
-}
-@Injectable()
-export class ProgramNoticePreviewService {
-  private active = 0;
-  private attempts: {
-    readonly actorId: string;
-    readonly at: number;
-  }[] = [];
-  constructor(private readonly client: ProgramNoticeFetchClient) {}
-  async preview(actorId: string, input: string): Promise<ProgramNoticePreview> {
-    const source = this.client.parseProgramNoticeUrl(input);
-    const now = Date.now();
-    this.attempts = this.attempts.filter((attempt) => attempt.at > now - 60000);
-    if (
-      this.active >= 4 ||
-      this.attempts.length >= 60 ||
-      this.attempts.filter((attempt) => attempt.actorId === actorId).length >= 6
-    )
-      throw new DomainException(PROGRAM_NOTICE_ERRORS.RATE_LIMITED);
-    this.attempts.push({ actorId, at: now });
-    this.active++;
-    try {
-      return this.client.extractProgramNotice(
-        await this.client.read(source),
-        source,
-      );
-    } finally {
-      this.active--;
-    }
-  }
 }
 type ProgramAuthoringStore = Pick<
   ProgramAuthoringRepository,

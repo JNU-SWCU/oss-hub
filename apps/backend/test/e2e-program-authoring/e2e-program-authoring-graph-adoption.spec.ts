@@ -1,3 +1,4 @@
+import { createProgramNoticeFetchClient } from '../program-notice-client.fixture';
 import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
 import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import {
@@ -5,7 +6,6 @@ import {
   ProgramAuthoringUploadService,
 } from '../../src/programs/files.service';
 import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/files.repository';
-import { ProgramNoticeFetchClient } from '../../src/programs/program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
@@ -27,7 +27,7 @@ const programAuthoringService = new ProgramAuthoringService(
     {} as never,
     {} as never,
     new SubmissionFileAdmissionService(),
-    new ProgramNoticeFetchClient(),
+    createProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
   new ProgramOrganizersService(),

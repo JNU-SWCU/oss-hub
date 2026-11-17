@@ -150,6 +150,11 @@
     "access": "PROTECTED"
   },
   {
+    "method": "GET",
+    "path": "/api/v1/program-authoring/notices",
+    "access": "PROTECTED"
+  },
+  {
     "method": "POST",
     "path": "/api/v1/program-authoring/programs",
     "access": "PROTECTED"
