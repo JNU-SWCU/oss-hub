@@ -1,6 +1,6 @@
 import type { SubmissionHistoryEvent } from '@prisma/client';
 import type { RequirementHistoryResult } from '../requirements.service';
-import type { RequirementSubmittedContent } from '../requirements.repository';
+import { RequirementTextContentResponseDto } from './requirement-text-content-response.dto';
 
 export class RequirementHistoryItemResponseDto {
   declare readonly event: SubmissionHistoryEvent;
@@ -11,7 +11,7 @@ export class RequirementHistoryItemResponseDto {
   declare readonly fileName: string | null;
 
   declare readonly downloadUrl: string | null;
-  declare readonly content: RequirementSubmittedContent | null;
+  declare readonly content: RequirementTextContentResponseDto | null;
 
   static from(
     item: RequirementHistoryResult['items'][number],
@@ -27,13 +27,15 @@ export class RequirementHistoryItemResponseDto {
         item.downloadableFileId === null
           ? null
           : `/api/v1/submission-files/${item.downloadableFileId}`,
-      content: item.content,
+      content: item.content
+        ? RequirementTextContentResponseDto.from(item.content)
+        : null,
     };
   }
 }
 
 export class RequirementHistoryPageResponseDto {
-  declare readonly items: readonly RequirementHistoryItemResponseDto[];
+  declare readonly items: RequirementHistoryItemResponseDto[];
   declare readonly nextCursor: string | null;
   declare readonly isComplete: boolean;
 

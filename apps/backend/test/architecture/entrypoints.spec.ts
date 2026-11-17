@@ -1,5 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import * as path from 'node:path';
+import prismaConfig from '../../prisma.config';
 
 const backendRoot = path.resolve(__dirname, '../..');
 const repositoryRoot = path.resolve(backendRoot, '../..');
@@ -14,7 +15,7 @@ for (const [name, command] of Object.entries(
   scripts[name] = requiredString(command, `backend script ${name}`);
 }
 const seed = requiredString(
-  requiredRecord(manifest.prisma, 'backend Prisma configuration').seed,
+  prismaConfig.migrations?.seed,
   'Prisma seed command',
 );
 

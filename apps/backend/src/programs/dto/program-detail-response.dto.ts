@@ -67,7 +67,7 @@ export class ProgramDetailResponseDto {
   declare readonly id: string;
   declare readonly coverImageUrl: string | null;
   declare readonly name: string;
-  declare readonly organizers: readonly string[];
+  declare readonly organizers: string[];
   declare readonly trackType: ProgramTrackType | null;
   declare readonly applicationTemplateKey: string;
   declare readonly description: string;
@@ -84,13 +84,13 @@ export class ProgramDetailResponseDto {
     readonly startsAt: string;
     readonly endsAt: string;
   };
-  declare readonly milestones: readonly ProgramDetailMilestoneResponseDto[];
+  declare readonly milestones: ProgramDetailMilestoneResponseDto[];
   static from(result: ProgramDetailResult): ProgramDetailResponseDto {
     return {
       id: result.id,
       coverImageUrl: result.coverImageUrl,
       name: result.name,
-      organizers: result.organizers,
+      organizers: [...result.organizers],
       trackType: result.trackType,
       applicationTemplateKey: result.applicationTemplateKey,
       teamMinSize: result.teamMinSize,
@@ -123,7 +123,7 @@ export class ProgramActivityResponseDto {
   declare readonly releaseCount: number;
   declare readonly collectionStatus:
     'NOT_CONNECTED' | 'EMPTY' | 'FAILED' | 'READY';
-  declare readonly members: readonly {
+  declare readonly members: {
     readonly githubLogin: string;
     readonly commitCount: number;
     readonly pullRequestCount: number;

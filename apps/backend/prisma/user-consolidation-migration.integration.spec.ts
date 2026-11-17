@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import {
   artifact,
   cleanupMigrationFixture,
@@ -96,7 +98,9 @@ it('starts a fresh generation after rollback and acknowledged old application wr
         `SELECT count(*) FROM user_consolidation_backup.ledger_attempts`,
       ),
     ).toBe('1');
-    const prisma = new PrismaClient({ datasources: { db: { url } } });
+    const prisma = new PrismaClient({
+      adapter: new PrismaPg(loadPrismaPoolConfig(url)),
+    });
     try {
       expect(
         await prisma.$transaction([

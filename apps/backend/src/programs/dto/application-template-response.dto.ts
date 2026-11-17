@@ -25,8 +25,12 @@ export class ApplicationTemplateResponseDto {
   declare readonly version: number;
   declare readonly name: string;
   declare readonly participation: ProgramParticipation;
-  declare readonly teamSize: ProgramTemplate['teamSize'];
-  declare readonly fields: readonly ApplicationFieldResponseDto[];
+  declare readonly teamSize: {
+    readonly defaultMin: number;
+    readonly defaultMax: number;
+    readonly editable: boolean;
+  };
+  declare readonly fields: ApplicationFieldResponseDto[];
 
   static from(template: ProgramTemplate): ApplicationTemplateResponseDto {
     return {
@@ -43,7 +47,7 @@ export class ApplicationTemplateResponseDto {
 }
 
 export class ApplicationTemplateListResponseDto {
-  declare readonly items: readonly ApplicationTemplateResponseDto[];
+  declare readonly items: ApplicationTemplateResponseDto[];
 
   static from(
     templates: readonly ProgramTemplate[],

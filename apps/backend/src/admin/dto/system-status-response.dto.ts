@@ -60,7 +60,7 @@ export class ProvisioningSystemStatusResponseDto {
   declare readonly processing: number;
   declare readonly retryable: number;
   declare readonly failedFinal: number;
-  declare readonly failedTeams: readonly ProvisioningFailedTeamResponseDto[];
+  declare readonly failedTeams: ProvisioningFailedTeamResponseDto[];
 
   static from(
     provisioning: SystemStatusResult['provisioning'],
@@ -91,14 +91,22 @@ export class MailSystemStatusResponseDto {
   }
 }
 
+class SystemStatusAnomalyTargetResponseDto {
+  declare readonly kind: 'USER';
+  declare readonly id: string;
+
+  static from(
+    target: NonNullable<SystemStatusResult['anomalies'][number]['target']>,
+  ): SystemStatusAnomalyTargetResponseDto {
+    return { kind: target.kind, id: target.id };
+  }
+}
+
 export class SystemStatusAnomalyResponseDto {
   declare readonly rule: SystemStatusAnomalyRule;
   declare readonly severity: SystemStatusAnomalySeverity;
   declare readonly count: number;
-  declare readonly target: {
-    readonly kind: 'USER';
-    readonly id: string;
-  } | null;
+  declare readonly target: SystemStatusAnomalyTargetResponseDto | null;
 
   static from(
     anomaly: SystemStatusResult['anomalies'][number],
@@ -110,7 +118,7 @@ export class SystemStatusAnomalyResponseDto {
       target:
         anomaly.target === null
           ? null
-          : { kind: anomaly.target.kind, id: anomaly.target.id },
+          : SystemStatusAnomalyTargetResponseDto.from(anomaly.target),
     };
   }
 }
@@ -151,8 +159,8 @@ export class SystemStatusResponseDto {
   declare readonly collection: CollectionSystemStatusResponseDto;
   declare readonly provisioning: ProvisioningSystemStatusResponseDto;
   declare readonly mail: MailSystemStatusResponseDto;
-  declare readonly anomalies: readonly SystemStatusAnomalyResponseDto[];
-  declare readonly collectionRepositories: readonly SystemStatusCollectionRepositoryResponseDto[];
+  declare readonly anomalies: SystemStatusAnomalyResponseDto[];
+  declare readonly collectionRepositories: SystemStatusCollectionRepositoryResponseDto[];
   declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
   static from(result: SystemStatusResult): SystemStatusResponseDto {

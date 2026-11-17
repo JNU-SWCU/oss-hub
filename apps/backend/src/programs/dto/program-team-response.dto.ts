@@ -6,6 +6,22 @@ import type {
   TeamMemberView,
 } from '../program-team-repository-evidence.repository';
 
+export class TeamMemberResponseDto {
+  declare readonly userId: string;
+  declare readonly nickname: string;
+  declare readonly name: string | null;
+  declare readonly isLeader: boolean;
+
+  static from(member: TeamMemberView): TeamMemberResponseDto {
+    return {
+      userId: member.userId,
+      nickname: member.nickname,
+      name: member.name,
+      isLeader: member.isLeader,
+    };
+  }
+}
+
 export class RenameTeamResponseDto {
   declare readonly teamId: string;
   declare readonly name: string;
@@ -18,7 +34,14 @@ export class RenameTeamResponseDto {
 export class DeleteTeamResponseDto {
   declare readonly teamId: string;
   declare readonly deleted: true;
-  declare readonly deletedCounts: DeletedTeamView['deletedCounts'];
+  declare readonly deletedCounts: {
+    readonly members: number;
+    readonly teams: number;
+    readonly invitations: number;
+    readonly submissions: number;
+    readonly submissionEvents: number;
+    readonly detachedRepositories: number;
+  };
 
   static from(view: DeletedTeamView): DeleteTeamResponseDto {
     return {
@@ -33,14 +56,14 @@ export class StaffProgramTeamResponseDto {
   declare readonly teamId: string;
   declare readonly name: string;
   declare readonly memberCount: number;
-  declare readonly members: readonly TeamMemberView[];
+  declare readonly members: TeamMemberResponseDto[];
 
   static from(view: StaffTeamView): StaffProgramTeamResponseDto {
     return {
       teamId: view.teamId,
       name: view.name,
       memberCount: view.memberCount,
-      members: view.members,
+      members: view.members.map((member) => TeamMemberResponseDto.from(member)),
     };
   }
 }
@@ -57,7 +80,7 @@ export class ProgramTeamResponseDto {
   declare readonly canRemoveMembers: boolean;
   declare readonly canLeave: boolean;
   declare readonly isLeader: boolean;
-  declare readonly members: readonly TeamMemberView[];
+  declare readonly members: TeamMemberResponseDto[];
 
   static from(view: ProgramTeamView): ProgramTeamResponseDto {
     return {
@@ -72,7 +95,7 @@ export class ProgramTeamResponseDto {
       canRemoveMembers: view.canRemoveMembers,
       canLeave: view.canLeave,
       isLeader: view.isLeader,
-      members: view.members,
+      members: view.members.map((member) => TeamMemberResponseDto.from(member)),
     };
   }
 }

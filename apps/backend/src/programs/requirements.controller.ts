@@ -27,6 +27,7 @@ import {
 import { RequirementDeliveryCollectionResponseDto } from './dto/requirement-collection-response.dto';
 import { RequirementHistoryPageResponseDto } from './dto/requirement-history-page-response.dto';
 import { OriginGuard } from '../platform/origin.guard';
+import { ApiFileResponse } from '../platform/api-contract.decorator';
 import { CreateRequirementReviewRequestDto } from './dto/create-requirement-review-request.dto';
 import { RequirementArchiveRequestDto } from './dto/requirement-archive-request.dto';
 import { CreateRequirementSubmissionRequestDto } from './dto/create-requirement-submission-request.dto';
@@ -108,6 +109,7 @@ export class RequirementsController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
+  @ApiFileResponse('application/zip')
   async archive(
     @Param('milestoneId')
     milestoneId: string,
@@ -144,6 +146,7 @@ export class RequirementsController {
   @Get(':documentId/template')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @ApiFileResponse('application/octet-stream')
   async downloadTemplate(
     @Req()
     request: ViewerRequest,
@@ -166,6 +169,7 @@ export class RequirementsController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
+  @ApiFileResponse('application/octet-stream')
   async downloadSubmissionFile(
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
@@ -270,6 +274,7 @@ export class RequirementsController {
   @Get(':documentId/submissions/current/file')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @ApiFileResponse('application/octet-stream')
   async downloadCurrentSubmissionFile(
     @Req()
     request: ViewerRequest,
@@ -296,6 +301,7 @@ export class ProgramDocumentArchivesController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
+  @ApiFileResponse('application/zip')
   async archive(
     @Param('programId') programId: string,
     @Query() query: ProgramDocumentArchiveRequestDto,

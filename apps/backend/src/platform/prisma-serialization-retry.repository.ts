@@ -26,8 +26,17 @@ export class PrismaSerializationRetryRepository {
     if (error.code !== RAW_QUERY_FAILED_CODE) {
       return false;
     }
-    const meta = error.meta as { readonly code?: unknown } | undefined;
-    return meta?.code === POSTGRES_SERIALIZATION_FAILURE;
+    const meta = error.meta as
+      | {
+          readonly driverAdapterError?: {
+            readonly cause?: { readonly originalCode?: unknown };
+          };
+        }
+      | undefined;
+    return (
+      meta?.driverAdapterError?.cause?.originalCode ===
+      POSTGRES_SERIALIZATION_FAILURE
+    );
   }
 
   async withSerializationRetry<T>(

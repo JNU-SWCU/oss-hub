@@ -1,4 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inLegacyUserSchema } from './legacy-user-migration.fixture';
@@ -20,7 +22,9 @@ const USER_C_ID = `${TEST_PREFIX}user:c`;
 const TEAM_A_ID = `${TEST_PREFIX}team:a`;
 const TEAM_B_ID = `${TEST_PREFIX}team:b`;
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(loadPrismaPoolConfig()),
+});
 
 async function createUsers(): Promise<void> {
   await prisma.user.createMany({
@@ -188,7 +192,7 @@ describe('core schema invariants integration', () => {
     });
     await expect(duplicateInsert).rejects.toMatchObject({
       code: 'P2010',
-      meta: { code: '23505' },
+      meta: { driverAdapterError: { cause: { originalCode: '23505' } } },
     });
   });
 
@@ -212,7 +216,10 @@ describe('core schema invariants integration', () => {
     const invalidInsert = createProgram(PROGRAM_ID, overrides);
 
     await expect(invalidInsert).rejects.toBeInstanceOf(
-      Prisma.PrismaClientUnknownRequestError,
+      Prisma.PrismaClientKnownRequestError,
     );
+    await expect(invalidInsert).rejects.toMatchObject({
+      meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+    });
   });
 });

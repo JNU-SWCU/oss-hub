@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { PrismaClient, type ProgramCategory } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../../src/platform/prisma-pool.config';
 import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import { UserProfileService } from '../../src/users/user-profile.service';
 
@@ -10,7 +12,9 @@ export function applicationTemplateKey(category: ProgramCategory): string {
   return programTemplatesService.getProgramTemplate(category).key;
 }
 
-export const prisma = new PrismaClient();
+export const prisma = new PrismaClient({
+  adapter: new PrismaPg(loadPrismaPoolConfig()),
+});
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

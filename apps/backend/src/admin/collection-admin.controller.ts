@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { ApiBody } from '@nestjs/swagger';
 import { OriginGuard } from '../platform/origin.guard';
 import { CollectionTriggerRequestDto } from './dto/collection-trigger-request.dto';
 import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
@@ -26,6 +27,7 @@ export class CollectionAdminController {
   @Protected()
   @Roles(ADMIN_AUDIENCE, adminRequired)
   @UseGuards(OriginGuard)
+  @ApiBody({ type: CollectionTriggerRequestDto, required: false })
   async trigger(
     @Body() body: CollectionTriggerRequestDto | undefined,
   ): Promise<CollectionTriggerResponseDto> {

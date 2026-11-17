@@ -1,9 +1,11 @@
 import { PrismaClient, type UserType } from '@prisma/client';
+import { PrismaService } from '../src/platform/prisma.service';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { CollectionIncrementalRepository } from '../src/github/collection-incremental.repository';
 import { CollectionScheduleService } from '../src/github/collection-schedule.service';
 import { PlatformRepository } from '../src/platform/platform.repository';
 import { RepoLedgerRepository } from '../src/platform/repo-ledger.repository';
-import type { PrismaService } from '../src/platform/prisma.service';
 import { ProgramActivityRepository } from '../src/programs/program-activity.repository';
 import { RankingRepository } from '../src/ranking/ranking.repository';
 import { RankingService } from '../src/ranking/ranking.service';
@@ -27,7 +29,9 @@ const COLLECTION_REPO_ID = 9_812_100_002n;
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(loadPrismaPoolConfig()),
+});
 const database = prisma as unknown as PrismaService;
 const rankingYear = new RankingYearService();
 const ranking = new RankingRepository(database);

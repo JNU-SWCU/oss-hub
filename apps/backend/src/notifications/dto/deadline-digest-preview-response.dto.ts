@@ -1,8 +1,16 @@
-import type { BuiltDeadlineMail } from '../deadline-digest-mail.service';
-import type {
-  PersonalizedDeadlinePreview,
-  DeadlineDigestPreview,
-} from '../deadline-digest.service';
+import type { DeadlineDigestPreview } from '../deadline-digest.service';
+
+class DeadlineMailPreviewResponseDto {
+  declare readonly subject: string;
+  declare readonly text: string;
+  declare readonly html: string;
+
+  static from(
+    mail: NonNullable<DeadlineDigestPreview['staffPreview']>,
+  ): DeadlineMailPreviewResponseDto {
+    return { subject: mail.subject, text: mail.text, html: mail.html };
+  }
+}
 
 export class DeadlineDigestPreviewResponseDto {
   declare readonly applicationCount: number;
@@ -15,8 +23,13 @@ export class DeadlineDigestPreviewResponseDto {
   declare readonly previewedAt: string;
   declare readonly expiresAt: string;
   declare readonly previewVersion: string;
-  declare readonly studentPreviews: readonly PersonalizedDeadlinePreview[];
-  declare readonly staffPreview: BuiltDeadlineMail | null;
+  declare readonly studentPreviews: {
+    readonly displayName: string;
+    readonly subject: string;
+    readonly text: string;
+    readonly html: string;
+  }[];
+  declare readonly staffPreview: DeadlineMailPreviewResponseDto | null;
 
   static from(
     preview: DeadlineDigestPreview,
@@ -32,8 +45,10 @@ export class DeadlineDigestPreviewResponseDto {
       previewedAt: preview.previewedAt,
       expiresAt: preview.expiresAt,
       previewVersion: preview.previewVersion,
-      studentPreviews: preview.studentPreviews,
-      staffPreview: preview.staffPreview,
+      studentPreviews: [...preview.studentPreviews],
+      staffPreview: preview.staffPreview
+        ? DeadlineMailPreviewResponseDto.from(preview.staffPreview)
+        : null,
     };
   }
 }

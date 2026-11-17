@@ -13,10 +13,7 @@ import type {
   ProgramNoticePreview,
   ProgramNoticeList,
 } from './program-notice.types';
-export type {
-  ProgramNoticePreview,
-  ProgramNoticeWarning,
-} from './program-notice.types';
+export type { ProgramNoticePreview } from './program-notice.types';
 const MAX_BYTES = 2 * 1024 * 1024;
 const blocked = new BlockList();
 for (const [network, prefix] of [

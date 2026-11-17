@@ -1,7 +1,7 @@
 export class ProgramEndedYearsResponseDto {
-  declare readonly years: readonly number[];
+  declare readonly years: number[];
 
   static from(years: readonly number[]): ProgramEndedYearsResponseDto {
-    return { years };
+    return { years: [...years] };
   }
 }

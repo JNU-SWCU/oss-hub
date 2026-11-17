@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
   legacyRead,
@@ -32,7 +34,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaClient({
-  datasources: { db: { url: legacyDatabaseUrl } },
+  adapter: new PrismaPg(loadPrismaPoolConfig(legacyDatabaseUrl)),
   log: [{ emit: 'event', level: 'query' }],
 });
 const queries: string[] = [];
@@ -249,6 +251,9 @@ it.each([
           WHERE "userId" = ${consolidationId('student-admin-staff')}
         `;
       }),
-    ).rejects.toMatchObject({ code: 'P2010', meta: { code } });
+    ).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { driverAdapterError: { cause: { originalCode: code } } },
+    });
   },
 );

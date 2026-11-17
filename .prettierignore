@@ -7,6 +7,7 @@ out
 .vercel
 
 pnpm-lock.yaml
+verify/openapi.baseline.json
 
 docs/design-tokens/tokens.json
 

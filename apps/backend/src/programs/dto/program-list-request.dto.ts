@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsIn,
@@ -20,21 +21,25 @@ import {
 } from '../program-list.config';
 
 export class ProgramListRequestDto {
+  @ApiPropertyOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   readonly page: number = 1;
 
+  @ApiPropertyOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
   readonly pageSize: number = 20;
 
+  @ApiPropertyOptional()
   @IsString()
   @MaxLength(100)
   readonly search: string = '';
 
+  @ApiPropertyOptional()
   @IsIn(PROGRAM_LIST_QUERY_STATUSES)
   readonly status: ProgramListQueryStatus = 'all';
 

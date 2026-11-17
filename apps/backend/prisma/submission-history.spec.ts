@@ -25,7 +25,10 @@ describe('MilestoneDocumentSubmissionHistory append-only contract', () => {
     );
     expect(
       requirement?.fields.find((field) => field.name === 'submissionType'),
-    ).toMatchObject({ type: 'RequirementSubmissionType', isRequired: true });
+    ).toMatchObject({ type: 'RequirementSubmissionType' });
+    expect(schema).toMatch(
+      /^\s+submissionType\s+RequirementSubmissionType\s+@default\(FILE_OR_TEXT\)$/m,
+    );
   });
 
   it('stores every submission and decision event with actor, revision, time, and immutable file relation', () => {

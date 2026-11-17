@@ -1,5 +1,3 @@
-import type { RepositoryVisibility } from '@prisma/client';
-import type { PublishBlockedReason } from '../../github/repository-publish.config';
 import type {
   RepositoryPublishResult,
   SubmissionReviewContext,
@@ -10,6 +8,7 @@ import type {
   SubmissionRevisionContent,
   SubmissionReviewDecision,
 } from '../submissions.repository';
+import { PublishableRepositoryResponseDto } from './publishable-repository-response.dto';
 export class SubmissionReviewResponseDto {
   declare readonly id: string;
   declare readonly decision: SubmissionReviewDecision;
@@ -49,7 +48,7 @@ export class SubmissionRevisionResponseDto {
   declare readonly content: SubmissionRevisionContent;
   declare readonly comment: string | null;
   declare readonly submittedAt: string;
-  declare readonly files: readonly SubmissionReviewFileResponseDto[];
+  declare readonly files: SubmissionReviewFileResponseDto[];
   declare readonly review: SubmissionReviewResponseDto | null;
   static from(
     revision: SubmissionRevisionRecord,
@@ -72,18 +71,19 @@ export class SubmissionReviewContextResponseDto {
   declare readonly latestReviewId: string | null;
   declare readonly requirementId: string;
   declare readonly submissionId: string;
-  declare readonly application: SubmissionReviewContext['application'];
-  declare readonly milestone: SubmissionReviewContext['milestone'];
-  declare readonly currentRevision: SubmissionRevisionResponseDto;
-  declare readonly history: readonly SubmissionRevisionResponseDto[];
-  declare readonly unversionedReviews?: readonly SubmissionReviewResponseDto[];
-  declare readonly repository: {
+  declare readonly application: {
     readonly id: string;
-    readonly url: string;
-    readonly visibility: RepositoryVisibility;
-    readonly publishEligible: boolean;
-    readonly blockedReasons: readonly PublishBlockedReason[];
-  } | null;
+    readonly applicationMode: SubmissionReviewContext['application']['applicationMode'];
+    readonly displayName: string;
+  };
+  declare readonly milestone: {
+    readonly id: string;
+    readonly name: string;
+  };
+  declare readonly currentRevision: SubmissionRevisionResponseDto;
+  declare readonly history: SubmissionRevisionResponseDto[];
+  declare readonly unversionedReviews?: SubmissionReviewResponseDto[];
+  declare readonly repository: PublishableRepositoryResponseDto | null;
   static from(
     context: SubmissionReviewContext,
   ): SubmissionReviewContextResponseDto {
@@ -104,7 +104,9 @@ export class SubmissionReviewContextResponseDto {
             SubmissionReviewResponseDto.from(review),
           )
         : undefined,
-      repository: context.repository,
+      repository: context.repository
+        ? PublishableRepositoryResponseDto.from(context.repository)
+        : null,
     };
   }
 }

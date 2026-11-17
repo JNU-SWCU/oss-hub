@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import prismaPool from '../dist/src/platform/prisma-pool.config.js';
 
 const command = process.argv[2];
 
@@ -41,7 +43,11 @@ function classify(text) {
 }
 
 async function withPrisma(operation) {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg(
+      prismaPool.loadPrismaPoolConfig(process.env.DATABASE_URL),
+    ),
+  });
   try {
     return await operation(prisma);
   } finally {

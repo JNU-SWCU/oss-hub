@@ -203,7 +203,12 @@ describe('program storage invariants', () => {
       }),
     ).rejects.toMatchObject({
       code: 'P2002',
-      meta: { target: ['storageKey'] },
+      meta: {
+        modelName: 'File',
+        driverAdapterError: {
+          cause: { constraint: { index: 'File_storageKey_key' } },
+        },
+      },
     });
   });
 
@@ -221,10 +226,16 @@ describe('program storage invariants', () => {
 
     await expect(prisma.$executeRaw`
       UPDATE "Milestone" SET "startAt" = TIMESTAMP '2026-07-31' WHERE id = ${prefix}
-    `).rejects.toMatchObject({ code: 'P2010', meta: { code: '23514' } });
+    `).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+    });
     await expect(prisma.$executeRaw`
       UPDATE "Milestone" SET "dueAt" = TIMESTAMP '2027-01-01' WHERE id = ${prefix}
-    `).rejects.toMatchObject({ code: 'P2010', meta: { code: '23514' } });
+    `).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+    });
   });
 
   it('rejects a Program sentinel startAt instead of rewriting it', async () => {
@@ -240,7 +251,10 @@ describe('program storage invariants', () => {
           TIMESTAMP '0001-01-01', ${program.endAt}, 'Synthetic fixture', ${now}
         )
       `,
-    ).rejects.toMatchObject({ code: 'P2010', meta: { code: '23514' } });
+    ).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+    });
   });
 
   it('rejects a Milestone sentinel startAt instead of rewriting it', async () => {
@@ -252,6 +266,9 @@ describe('program storage invariants', () => {
         VALUES (${prefix}, ${prefix}, 'Synthetic milestone',
           TIMESTAMP '0001-01-01', TIMESTAMP '2026-09-01', ${now})
       `,
-    ).rejects.toMatchObject({ code: 'P2010', meta: { code: '23514' } });
+    ).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+    });
   });
 });

@@ -117,7 +117,7 @@ export class StaffDashboardProgramSummaryResponseDto {
 }
 
 export class StaffDashboardSummaryResponseDto {
-  declare readonly programs: readonly StaffDashboardProgramSummaryResponseDto[];
+  declare readonly programs: StaffDashboardProgramSummaryResponseDto[];
 
   static from(
     summary: StaffDashboardComposedSummary,
