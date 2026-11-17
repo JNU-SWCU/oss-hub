@@ -307,7 +307,7 @@ function readAllowlist(
     const count = isRecord(entry) ? (entry.count ?? 1) : 1;
     if (!uniqueKeys.has(model))
       problems.push(
-        `${key}: Model.findMany|deleteMany|updateMany@경로.ts#함수 형식이 아니거나 없는 모델입니다.`,
+        `${key}: <모델>.<findMany|deleteMany|updateMany>@<경로.ts>#<함수> 형식이 아니거나 없는 모델입니다.`,
       );
     else if (typeof reason !== 'string' || reason.trim() === '')
       problems.push(`${key}: reason이 비어 있습니다.`);
