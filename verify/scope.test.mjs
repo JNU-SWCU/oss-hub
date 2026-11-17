@@ -339,7 +339,8 @@ function fileAppears(dir, name) {
   });
 }
 
-const TRAPPED = 'trap \'touch "$1"\' EXIT; touch "$2"; sleep 30';
+const TRAPPED =
+  'trap \'touch "$1"\' EXIT; "$3" -e "require(\'node:fs\').writeFileSync(process.argv[1], \'\'); setInterval(() => {}, 1000)" "$2"';
 const BOUNDED = { timeout: 15_000 };
 
 test(
@@ -351,7 +352,7 @@ test(
     const deadline = new AbortController();
     const running = run(
       'bash',
-      ['-c', TRAPPED, 'bash', marker, join(dir, 'ready')],
+      ['-c', TRAPPED, 'bash', marker, join(dir, 'ready'), process.execPath],
       { timeoutMs: 60_000, signal: deadline.signal },
     );
     await fileAppears(dir, 'ready');
@@ -397,7 +398,7 @@ test(
       `import { run } from ${tools};`,
       "const reached = (name, file) => async () => { writeFileSync(file, ''); return []; };",
       `process.exitCode = await main(['full'], { cwd: ${JSON.stringify(repo.dir)}, env: {}, reportDir: ${at('reports')}, checks: {`,
-      `  secrets: async () => { try { await run('bash', ['-c', ${JSON.stringify(TRAPPED)}, 'bash', ${at('cleaned')}, ${at('ready')}], { timeoutMs: 60000 }); } finally { writeFileSync(${at('caller-cleaned')}, ''); } return []; },`,
+      `  secrets: async () => { try { await run('bash', ['-c', ${JSON.stringify(TRAPPED)}, 'bash', ${at('cleaned')}, ${at('ready')}, ${JSON.stringify(process.execPath)}], { timeoutMs: 60000 }); } finally { writeFileSync(${at('caller-cleaned')}, ''); } return []; },`,
       `  'url-ia': reached('url-ia', ${at('later-check')}), api: reached('api', ${at('later-check')}), 'query-gates': reached('query-gates', ${at('later-check')}), cwv: reached('cwv', ${at('later-check')}),`,
       '} });',
     ].join('\n');
