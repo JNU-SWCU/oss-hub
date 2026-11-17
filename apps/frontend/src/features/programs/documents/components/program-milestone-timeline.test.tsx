@@ -417,37 +417,28 @@ describe('마일스톤 진행 타임라인', () => {
     expect(occurrences(section, '승인된 참여 팀이 없습니다.')).toBe(1);
   });
 
-  it('학생의 한 줄은 번호, 이름, 마감, 내 제출 상태, 제출 입구 순서로 한 번씩만 읽힌다', () => {
+  it('학생의 한 줄은 번호, 이름, 마감, 내 제출 상태 순서로 한 번씩만 읽힌다', () => {
     const section = renderSection(
       programWith(STUDENT_MILESTONES, APPROVED_STUDENT),
     );
 
     expect(rowsOf(section).map((row) => row.textContent)).toEqual([
       '1팀 구성·주제 확정11.06 18:00 · 마감승인',
-      '2설계 문서11.13 18:00 · 마감보완 필요다시 제출',
+      '2설계 문서11.13 18:00 · 마감보완 필요',
       '3중간 발표 자료11.27 18:00 · D-10미제출',
-      '4최종 보고서12.11 18:00 · D-24미제출제출하기',
+      '4최종 보고서12.11 18:00 · D-24미제출',
       '5최종 발표회12.18 14:00 · D-31제출 없음',
     ]);
   });
 
-  it('학생의 제출 입구는 접힌 단계의 줄에만 두고, 펼친 지금 단계는 제출 항목의 입구에 맡긴다', () => {
-    const rows = rowsOf(
-      renderSection(programWith(STUDENT_MILESTONES, APPROVED_STUDENT)),
+  it('학생의 마일스톤 목록에는 제출하기·다시 제출 입구를 두지 않는다', () => {
+    const section = renderSection(
+      programWith(STUDENT_MILESTONES, APPROVED_STUDENT),
     );
 
-    expect(rows.map((row) => linksOf(row))).toEqual([
-      [],
-      [['다시 제출', '/programs/program-1/documents?milestoneId=m2']],
-      [],
-      [['제출하기', '/programs/program-1/documents?milestoneId=m4']],
-      [],
-    ]);
-    expect(
-      rows.map(
-        (row) => row.querySelector('a')?.getAttribute('data-variant') ?? null,
-      ),
-    ).toEqual([null, 'outline', null, 'outline', null]);
+    expect(linksOf(section)).toEqual([]);
+    expect(section.textContent).not.toContain('제출하기');
+    expect(section.textContent).not.toContain('다시 제출');
   });
 
   it('학생의 줄에는 팀 전체 제출 수와 진행 막대를 보여주지 않는다', () => {

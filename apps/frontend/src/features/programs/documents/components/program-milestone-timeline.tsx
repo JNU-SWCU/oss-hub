@@ -9,10 +9,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
-import {
-  programDocumentsHref,
-  programRequirementsHref,
-} from '@/lib/program-route';
+import { programRequirementsHref } from '@/lib/program-route';
 import {
   SUBMISSION_STATUS_BADGE,
   submissionStatusLabel,
@@ -28,7 +25,6 @@ import {
 import type { ViewerRole } from '../../program-contract';
 import type { MilestoneSubmissionAccess } from '../milestone-submission-access';
 import { milestoneRowSubmitGate } from '../milestone-submit-gate';
-import { useRequirementsQuery } from '../queries';
 import { RequirementSection } from '../requirement-list';
 import { MilestoneNotice } from './milestone-notice';
 
@@ -59,14 +55,19 @@ const GROUP_CLASS = 'col-span-full grid grid-cols-subgrid items-start px-6';
 const DIVIDER_CLASS =
   'col-span-full col-start-2 row-start-1 h-px self-start bg-border';
 const MARK_CLASS =
-  'col-start-1 row-span-3 row-start-1 flex flex-col items-center self-stretch';
+  'col-start-1 row-span-2 row-start-1 flex flex-col items-center self-stretch';
+const ROW_BAND_CLASS = cn(
+  'relative isolate col-span-full row-start-1 grid grid-cols-subgrid',
+  'items-start',
+);
 const NAME_CELL_CLASS = 'col-start-2 row-start-1 min-w-0';
 const NAME_BAND_CLASS = cn(
   'flex min-h-12 items-center gap-2 py-0.5 text-left text-body',
   '@3xl:min-h-14 @3xl:py-1.5',
 );
 const TRIGGER_CLASS = cn(
-  'group w-full rounded-sm outline-none',
+  'group w-full cursor-pointer rounded-sm outline-none',
+  'after:absolute after:-inset-x-6 after:inset-y-0',
   'focus-visible:ring-3 focus-visible:ring-ring/50',
 );
 const CHEVRON_CLASS = cn(
@@ -96,12 +97,12 @@ const STAFF_COUNT_CLASS =
 const STAFF_BAR_CLASS =
   'max-w-16 min-w-0 flex-1 bg-background @3xl:w-16 @3xl:flex-none';
 const ACTION_CLASS = cn(
-  'col-start-3 row-start-1 flex min-h-12 items-center justify-self-end',
-  '@3xl:col-start-5 @3xl:min-h-14',
+  'relative z-10 col-start-3 row-start-1 flex min-h-12 items-center',
+  'justify-self-end @3xl:col-start-5 @3xl:min-h-14',
 );
 const DETAIL_CLASS = cn(
-  'col-span-full col-start-2 row-start-3 grid min-w-0 gap-4 pb-4',
-  'empty:hidden data-[state=closed]:hidden @3xl:row-start-2',
+  'col-span-full col-start-2 row-start-2 grid min-w-0 gap-4 pb-4',
+  'empty:hidden data-[state=closed]:hidden',
 );
 
 export function milestoneSubmissionNotice(
@@ -193,7 +194,7 @@ function staffCells({
 }
 
 function studentCells(
-  { programId, milestone, phase, nameId }: StepContext,
+  milestone: ProgramMilestone,
   submissionAccess: MilestoneSubmissionAccess,
 ): StepCells {
   if (milestone.submissionItemCount === 0) {
@@ -217,21 +218,7 @@ function studentCells(
         {submissionStatusLabel(gate.status, 'student')}
       </StatusBadge>
     ),
-    action:
-      gate.kind === 'open' ? (
-        <Button
-          asChild
-          size="sm"
-          variant={phase === 'current' ? 'default' : 'outline'}
-        >
-          <Link
-            href={programDocumentsHref(programId, milestone.id)}
-            aria-describedby={nameId}
-          >
-            {gate.resubmission ? '다시 제출' : '제출하기'}
-          </Link>
-        </Button>
-      ) : null,
+    action: null,
   };
 }
 
@@ -299,28 +286,21 @@ function MilestoneGroup({
 }) {
   const contentId = useId();
   const nameId = `milestone-${milestone.id}-name`;
-  const context = { programId, milestone, phase, nameId };
   const cells =
     viewerRole === 'STAFF'
-      ? staffCells(context)
+      ? staffCells({ programId, milestone, phase, nameId })
       : viewerRole === 'STUDENT'
-        ? studentCells(context, submissionAccess)
+        ? studentCells(milestone, submissionAccess)
         : NO_CELLS;
   const current = phase === 'current';
   const [open, setOpen] = useState(current);
+  const [itemActionSlot, setItemActionSlot] = useState<HTMLElement | null>(
+    null,
+  );
   const first = position === 1;
   const hasChecklist = hasSubmissionDetail(milestone, viewerRole);
   const foldable = hasChecklist || Boolean(milestone.description);
-  const requirements = useRequirementsQuery(
-    programId,
-    milestone.id,
-    viewerRole === 'STUDENT' && hasChecklist,
-    'all',
-  );
-  const itemsCarryEntry =
-    requirements.isPending || (requirements.data?.documents.length ?? 0) > 0;
-  const action =
-    viewerRole === 'STUDENT' && open && itemsCarryEntry ? null : cells.action;
+  const studentChecklist = viewerRole === 'STUDENT' && hasChecklist;
   const countdown = milestoneCountdown(milestone.dDay, phase === 'done');
   const name = (
     <span
@@ -356,36 +336,42 @@ function MilestoneGroup({
           first={first}
           last={last}
         />
-        <div className={NAME_CELL_CLASS}>
-          {foldable ? (
-            <CollapsibleTrigger
-              aria-controls={contentId}
-              className={cn(NAME_BAND_CLASS, TRIGGER_CLASS)}
-            >
-              {name}
-              <ChevronDown aria-hidden className={CHEVRON_CLASS} />
-            </CollapsibleTrigger>
-          ) : (
-            <p className={NAME_BAND_CLASS}>{name}</p>
-          )}
-        </div>
-        <div className={META_CLASS}>
-          <p className={DEADLINE_CLASS}>
-            <span>
-              <time dateTime={milestone.dueAt}>
-                {formatSeoulShortDateTime(milestone.dueAt)}
-              </time>
-              <span className="text-muted-foreground"> · </span>
-              <span className={COUNTDOWN_CLASS[countdown.tone]}>
-                {countdown.label}
+        <div className={ROW_BAND_CLASS}>
+          <div className={NAME_CELL_CLASS}>
+            {foldable ? (
+              <CollapsibleTrigger
+                aria-controls={contentId}
+                className={cn(NAME_BAND_CLASS, TRIGGER_CLASS)}
+              >
+                {name}
+                <ChevronDown aria-hidden className={CHEVRON_CLASS} />
+              </CollapsibleTrigger>
+            ) : (
+              <p className={NAME_BAND_CLASS}>{name}</p>
+            )}
+          </div>
+          <div className={META_CLASS}>
+            <p className={DEADLINE_CLASS}>
+              <span>
+                <time dateTime={milestone.dueAt}>
+                  {formatSeoulShortDateTime(milestone.dueAt)}
+                </time>
+                <span className="text-muted-foreground"> · </span>
+                <span className={COUNTDOWN_CLASS[countdown.tone]}>
+                  {countdown.label}
+                </span>
               </span>
-            </span>
-          </p>
-          {cells.state === null ? null : (
-            <div className={STATE_CLASS}>{cells.state}</div>
+            </p>
+            {cells.state === null ? null : (
+              <div className={STATE_CLASS}>{cells.state}</div>
+            )}
+          </div>
+          {studentChecklist ? (
+            <div ref={setItemActionSlot} className={ACTION_CLASS} />
+          ) : cells.action === null ? null : (
+            <div className={ACTION_CLASS}>{cells.action}</div>
           )}
         </div>
-        {action === null ? null : <div className={ACTION_CLASS}>{action}</div>}
       </div>
       {foldable ? (
         <CollapsibleContent
@@ -409,6 +395,16 @@ function MilestoneGroup({
               dueAt={milestone.dueAt}
               submissionAccess={submissionAccess}
               summary={cells.breakdown}
+              soleItemAction={
+                studentChecklist
+                  ? {
+                      slot: itemActionSlot,
+                      quiet: !current,
+                      expanded: open,
+                      onExpand: () => setOpen(true),
+                    }
+                  : undefined
+              }
               className="p-0"
             />
           ) : null}

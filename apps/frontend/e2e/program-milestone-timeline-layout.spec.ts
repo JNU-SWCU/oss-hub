@@ -1,11 +1,15 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { CONSENTED_RESPONSE } from './support/member-access-fixture';
-import { authenticatedSessionBody } from './support/session-mock';
+import {
+  authenticatedSessionBody,
+  type SessionActor,
+} from './support/session-mock';
 import type {
   ProgramDetail,
   ProgramMilestone,
 } from '../src/features/programs/catalog/dto';
+import type { StudentApplication } from '../src/features/programs/applications/student-application-dto';
 import type { ProgramOverview } from '../src/features/programs/catalog/program-overview-dto';
 import type { RequirementList } from '../src/features/programs/documents/requirement-dto';
 
@@ -81,7 +85,43 @@ function milestonesFor(teams: number): readonly ProgramMilestone[] {
   });
 }
 
-function requirementsFor(milestone: ProgramMilestone): RequirementList {
+const APPROVED_APPLICATION: StudentApplication = {
+  id: 'application-1',
+  programId,
+  status: 'APPROVED',
+  teamId: 'team-1',
+  answers: { applicantName: '합성 학생', title: '합성 주제' },
+  submittedAt: '2026-07-10T09:00:00.000Z',
+  updatedAt: '2026-07-10T09:00:00.000Z',
+  isRepositoryPublicationPlanned: false,
+  rejectionReason: null,
+  isManager: true,
+  canManage: true,
+  canEdit: false,
+  canCancel: false,
+};
+
+function studentMilestones(): readonly ProgramMilestone[] {
+  return [
+    { id: 's1', name: '지금 단계', days: 10, items: 1 },
+    { id: 's2', name: '다음 단계', days: 24, items: 1 },
+    { id: 's3', name: '여러 항목 단계', days: 31, items: 2 },
+  ].map((step) => ({
+    id: step.id,
+    name: step.name,
+    dueAt: new Date(Date.now() + step.days * DAY_MS).toISOString(),
+    dDay: step.days,
+    description: null,
+    submissionItemCount: step.items,
+    viewerSubmissionStatus: 'NOT_SUBMITTED',
+    applicationSubmissionSummary: null,
+  }));
+}
+
+function requirementsFor(
+  milestone: ProgramMilestone,
+  viewer: SessionActor,
+): RequirementList {
   const summary = milestone.applicationSubmissionSummary;
   return {
     documents: Array.from(
@@ -96,11 +136,15 @@ function requirementsFor(milestone: ProgramMilestone): RequirementList {
         graceDueAt: null,
         hasTemplateFile: false,
         templateFileName: null,
-        teamSubmissionCount: {
-          submitted:
-            summary === null ? 0 : summary.total - summary.notSubmitted,
-          total: summary?.total ?? 0,
-        },
+        ...(viewer === 'student'
+          ? {}
+          : {
+              teamSubmissionCount: {
+                submitted:
+                  summary === null ? 0 : summary.total - summary.notSubmitted,
+                total: summary?.total ?? 0,
+              },
+            }),
       }),
     ),
     fileUpload: {
@@ -116,7 +160,9 @@ async function installProgramRoutes(
   page: Page,
   milestones: readonly ProgramMilestone[],
   teams: number,
+  viewer: SessionActor = 'staff',
 ): Promise<void> {
+  const student = viewer === 'student';
   const program: ProgramDetail = {
     id: programId,
     name: '마일스톤 줄 확인 프로그램',
@@ -129,7 +175,9 @@ async function installProgramRoutes(
       startsAt: '2026-07-01T00:00:00.000Z',
       endsAt: '2026-07-31T23:59:59.000Z',
     },
-    viewer: { role: 'STAFF', applicationStatus: null },
+    viewer: student
+      ? { role: 'STUDENT', applicationStatus: 'APPROVED' }
+      : { role: 'STAFF', applicationStatus: null },
     milestones: [...milestones],
   };
   await page.route('**/api/v1/**', async (route) => {
@@ -143,7 +191,7 @@ async function installProgramRoutes(
       return;
     }
     if (path === '/api/v1/auth/session') {
-      await route.fulfill({ json: authenticatedSessionBody('staff') });
+      await route.fulfill({ json: authenticatedSessionBody(viewer) });
       return;
     }
     if (path === `/api/v1/programs/${programId}/overview`) {
@@ -157,10 +205,10 @@ async function installProgramRoutes(
           participantCount: teams,
           teamCount: teams,
           connectedRepositoryCount: 0,
-          viewerRole: 'STAFF',
-          viewerDocumentsCompleted: null,
-          viewerDocumentsTotal: null,
-          fullySubmittedParticipantCount: 0,
+          viewerRole: student ? 'STUDENT' : 'STAFF',
+          viewerDocumentsCompleted: student ? 0 : null,
+          viewerDocumentsTotal: student ? 4 : null,
+          fullySubmittedParticipantCount: student ? null : 0,
           scheduleMilestones: [],
           requirements: [],
         } satisfies ProgramOverview,
@@ -184,6 +232,16 @@ async function installProgramRoutes(
       });
       return;
     }
+    if (student && path === '/api/v1/team-invitations/received') {
+      await route.fulfill({ json: [] });
+      return;
+    }
+    if (student && path === `/api/v1/programs/${programId}/teams/me`) {
+      await route.fulfill({
+        json: { status: 'APPROVED', application: APPROVED_APPLICATION },
+      });
+      return;
+    }
     if (path === `/api/v1/programs/${programId}/activity`) {
       await route.fulfill({ json: [] });
       return;
@@ -191,7 +249,7 @@ async function installProgramRoutes(
     const documents = /^\/api\/v1\/milestones\/([^/]+)\/documents$/.exec(path);
     const milestone = milestones.find(({ id }) => id === documents?.[1]);
     if (milestone !== undefined) {
-      await route.fulfill({ json: requirementsFor(milestone) });
+      await route.fulfill({ json: requirementsFor(milestone, viewer) });
       return;
     }
     throw new Error(`Unexpected timeline fixture request: ${method} ${path}`);
@@ -248,7 +306,12 @@ function readRows(page: Page) {
         };
         return {
           lines,
-          actionOnTitleLine: shareLine(row.querySelector('a'), nameBox),
+          actionOnTitleLine: shareLine(
+            row.querySelector(
+              'a, button:not([data-slot="collapsible-trigger"])',
+            ),
+            nameBox,
+          ),
           deadlineBelowTitle: timeBox.top >= nameBox.bottom - 1,
           stateOnDeadlineLine: shareLine(
             time.closest('p')?.nextElementSibling?.firstElementChild,
@@ -347,5 +410,116 @@ test('390 폭에서 참여 팀이 없으면 0/0 대신 참여 팀이 없다고 �
   expect((await readRows(page)).map((row) => row.lines)).toEqual([
     2, 2, 2, 2, 2,
   ]);
+  await context.close();
+});
+
+function clickAtCenterOf(target: Locator): Promise<void> {
+  return target.evaluate((element) => {
+    element.scrollIntoView({ block: 'center', behavior: 'instant' });
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      box.left + box.width / 2,
+      box.top + box.height / 2,
+    );
+    if (!(hit instanceof HTMLElement)) {
+      throw new Error('누른 자리에 요소가 없습니다.');
+    }
+    hit.click();
+  });
+}
+
+test('교직원 마일스톤 줄은 어디를 눌러도 여닫히고 서류 수합 입구는 그대로 눌린다', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+  });
+  const page = await context.newPage();
+  await installProgramRoutes(page, milestonesFor(6), 6);
+  await page.goto(`/programs/${programId}`);
+  const first = page
+    .locator('#milestones [data-testid="milestone-group"]')
+    .first();
+  const trigger = first.locator('[data-slot="collapsible-trigger"]');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+  await clickAtCenterOf(
+    first
+      .locator('[data-testid="milestone-row"]')
+      .getByText('1', { exact: true }),
+  );
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    first.locator('[data-testid="milestone-document-row"]'),
+  ).toBeVisible();
+
+  await clickAtCenterOf(first.locator('time'));
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+  const collect = first.getByRole('link', { name: '서류 수합', exact: true });
+  await expect(collect).toHaveAttribute(
+    'href',
+    `/programs/${programId}/milestones/m1/documents`,
+  );
+  await collect.click({ trial: true });
+  await context.close();
+});
+
+test('학생의 마일스톤 목록에는 제출하기 없이 항목의 올리기만 있고, 항목이 하나면 줄에서 바로 올린다', async ({
+  browser,
+}, testInfo) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+  });
+  const page = await context.newPage();
+  await installProgramRoutes(page, studentMilestones(), 6, 'student');
+  await page.goto(`/programs/${programId}`);
+  const section = page.locator('#milestones');
+  const groups = section.locator('[data-testid="milestone-group"]');
+  await expect(groups).toHaveCount(3);
+  const [current, next, many] = [groups.nth(0), groups.nth(1), groups.nth(2)];
+  const rowUpload = (group: typeof current) =>
+    group
+      .locator('[data-testid="milestone-row"]')
+      .getByRole('button', { name: /올리기$/ });
+  const itemUpload = (group: typeof current) =>
+    group
+      .locator('[data-testid="milestone-detail"]')
+      .getByRole('button', { name: /올리기$/ });
+
+  await expect(rowUpload(current)).toBeVisible();
+  await expect(rowUpload(next)).toBeVisible();
+  await expect(section).not.toContainText('제출하기');
+  await expect(section).not.toContainText('다시 제출');
+  await expect(section.locator('a[href*="/documents"]')).toHaveCount(0);
+  await expect(itemUpload(current)).toHaveCount(0);
+  await expect(
+    current.locator('[data-testid="milestone-document-status"]'),
+  ).toBeVisible();
+  const rows = await readRows(page);
+  expect(rows.map((row) => row.lines)).toEqual([2, 2, 2]);
+  expect(rows.map((row) => row.actionOnTitleLine)).toEqual([true, true, null]);
+  await section.screenshot({
+    path: testInfo.outputPath('student-390-single-action.png'),
+  });
+
+  const nextTrigger = next.locator('[data-slot="collapsible-trigger"]');
+  await expect(nextTrigger).toHaveAttribute('aria-expanded', 'false');
+  await rowUpload(next).click();
+  await expect(nextTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    next.getByPlaceholder('제출할 내용이나 설명을 적어 주세요.'),
+  ).toBeVisible();
+
+  const manyTrigger = many.locator('[data-slot="collapsible-trigger"]');
+  await expect(rowUpload(many)).toHaveCount(0);
+  await expect(manyTrigger).toHaveAttribute('aria-expanded', 'false');
+  await clickAtCenterOf(many.locator('time'));
+  await expect(manyTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(itemUpload(many)).toHaveCount(2);
   await context.close();
 });

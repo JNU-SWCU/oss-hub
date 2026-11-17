@@ -28,6 +28,7 @@ import {
   useState,
   type ReactElement,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
@@ -89,6 +90,13 @@ export type RequirementSectionState =
 
 function isStaffRole(role: ViewerRole): role is 'STAFF' {
   return role === 'STAFF';
+}
+
+interface MilestoneRowAction {
+  readonly slot: HTMLElement | null;
+  readonly quiet: boolean;
+  readonly expanded: boolean;
+  readonly onExpand: () => void;
 }
 
 const REQUIREMENT_BLOCK_CLASS = '@container grid px-6 pt-1 pb-5';
@@ -162,11 +170,13 @@ export function RequirementSectionBody({
   onSubmitConflict,
   onSubmitted,
   summary,
+  soleItemAction,
   className,
 }: {
   readonly programId: string;
   readonly state: RequirementSectionState;
   readonly summary?: string;
+  readonly soleItemAction?: MilestoneRowAction;
   readonly className?: string;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
@@ -263,6 +273,7 @@ export function RequirementSectionBody({
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
               onSubmitted={onSubmitted}
+              rowAction={total === 1 ? soleItemAction : undefined}
             />
           ),
         )}
@@ -280,11 +291,13 @@ export function RequirementSection({
   submissionAccess,
   onBusyChange,
   summary,
+  soleItemAction,
   className,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
   readonly summary?: string;
+  readonly soleItemAction?: MilestoneRowAction;
   readonly className?: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
@@ -355,6 +368,7 @@ export function RequirementSection({
       submissionAccess={submissionAccess}
       onBusyChange={onBusyChange}
       summary={summary}
+      soleItemAction={soleItemAction}
       className={className}
       conflictNotice={conflictNotice}
       onRetry={() => {
@@ -596,10 +610,12 @@ function StudentDocumentRow({
   onRefresh,
   onSubmitConflict,
   onSubmitted,
+  rowAction,
 }: {
   readonly programId: string;
   readonly document: Requirement;
   readonly fileUpload: RequirementUploadPolicy;
+  readonly rowAction?: MilestoneRowAction;
   readonly closed: boolean;
   readonly dueAt?: string;
   readonly submissionAccess: MilestoneSubmissionAccess;
@@ -838,6 +854,39 @@ function StudentDocumentRow({
     ) : null,
   ].filter((part) => part !== null);
 
+  const actionLabel = submitted ? '교체' : '올리기';
+  const action =
+    syncNotice !== null || gate.kind !== 'open' ? null : (
+      <Button
+        type="button"
+        size="sm"
+        variant={submitted ? 'ghost' : rowAction?.quiet ? 'outline' : 'default'}
+        className={rowAction === undefined ? ITEM_ACTION_CLASS : undefined}
+        aria-label={
+          rowAction === undefined
+            ? undefined
+            : `${document.name} ${actionLabel}`
+        }
+        onClick={() => {
+          if (!editing) setExpectedRevision(viewerSubmission?.revision ?? 0);
+          if (rowAction === undefined || rowAction.expanded) {
+            setEditing((value) => !value);
+            return;
+          }
+          setEditing(true);
+          rowAction.onExpand();
+        }}
+      >
+        {submitted ? (
+          actionLabel
+        ) : (
+          <>
+            <Upload aria-hidden /> {actionLabel}
+          </>
+        )}
+      </Button>
+    );
+
   return (
     <li className={ITEM_CLASS} data-testid="milestone-document-row">
       <RequirementIcon document={document} />
@@ -861,26 +910,11 @@ function StudentDocumentRow({
           </span>
         )}
       </div>
-      {syncNotice !== null || gate.kind !== 'open' ? null : (
-        <Button
-          type="button"
-          size="sm"
-          variant={submitted ? 'ghost' : 'default'}
-          className={ITEM_ACTION_CLASS}
-          onClick={() => {
-            if (!editing) setExpectedRevision(viewerSubmission?.revision ?? 0);
-            setEditing((value) => !value);
-          }}
-        >
-          {submitted ? (
-            '교체'
-          ) : (
-            <>
-              <Upload aria-hidden /> 올리기
-            </>
-          )}
-        </Button>
-      )}
+      {rowAction === undefined
+        ? action
+        : action !== null && rowAction.slot !== null
+          ? createPortal(action, rowAction.slot)
+          : null}
       <div className={ITEM_DETAIL_CLASS}>
         <TemplateDownload document={document} />
         {document.graceDueAt != null && review === null ? (

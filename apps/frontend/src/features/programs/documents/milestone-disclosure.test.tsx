@@ -167,6 +167,39 @@ describe('마일스톤 접기', () => {
     return panel;
   }
 
+  function stubDocuments(documents: readonly Requirement[]): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              documents,
+              fileUpload: requirementUploadPolicy(),
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+  }
+
+  function rowButtons(group: HTMLElement): readonly HTMLButtonElement[] {
+    return [
+      ...group.querySelectorAll<HTMLButtonElement>(
+        '[data-testid="milestone-row"] button:not([data-slot="collapsible-trigger"])',
+      ),
+    ];
+  }
+
+  function buttonLabels(scope: HTMLElement): readonly string[] {
+    return [...scope.querySelectorAll('button')].map(
+      (button) => button.textContent?.trim() ?? '',
+    );
+  }
+
+  const rowButtonLabels = (group: HTMLElement) =>
+    rowButtons(group).map((button) => button.textContent?.trim() ?? '');
+
   const openStates = (groups: readonly HTMLElement[]) =>
     groups.map((group) => triggerOf(group)?.getAttribute('aria-expanded'));
 
@@ -299,59 +332,94 @@ describe('마일스톤 접기', () => {
     expect(panelOf(trigger).getAttribute('data-state')).toBe('closed');
   });
 
-  it('펼친 마일스톤의 줄에는 제출 입구를 두지 않고, 접으면 그 줄에 다시 둔다', async () => {
+  it('제출 항목이 하나뿐인 마일스톤은 그 항목의 올리기를 줄에 두고 펼친 항목에는 되풀이하지 않는다', async () => {
     const groups = await renderMilestones();
-    const trigger = triggerOf(groups[2]) as HTMLButtonElement;
-    const rowLink = () =>
-      groups[2].querySelector<HTMLAnchorElement>(
-        '[data-testid="milestone-row"] a',
-      );
+    const panel = panelOf(triggerOf(groups[2]) as HTMLButtonElement);
 
-    expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    expect(rowLink()).toBeNull();
-
-    await act(async () => trigger.click());
-
-    expect(rowLink()?.textContent).toBe('다시 제출');
-    expect(rowLink()?.getAttribute('href')).toBe(
-      '/programs/program-1/documents?milestoneId=milestone-3',
-    );
-    expect(rowLink()?.getAttribute('data-variant')).toBe('default');
-
-    await act(async () => trigger.click());
-
-    expect(rowLink()).toBeNull();
+    expect(rowButtonLabels(groups[2])).toEqual(['올리기']);
+    expect(buttonLabels(panel)).not.toContain('올리기');
+    expect(
+      panel.querySelector('[data-testid="milestone-document-status"]'),
+    ).not.toBeNull();
+    expect(
+      groups[2].querySelector('[data-testid="milestone-row"] a'),
+    ).toBeNull();
   });
 
-  it('제출 항목을 불러오지 못하면 펼친 줄에도 제출 입구를 남긴다', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              type: 'about:blank',
-              title: 'Request failed',
-              status: 503,
-              detail: '합성 조회 실패',
-              instance: '/x',
-              code: 'COM_002',
-            }),
-            {
-              status: 503,
-              headers: { 'Content-Type': 'application/problem+json' },
-            },
-          ),
-      ),
+  it('이미 낸 하나뿐인 항목은 줄에 교체를 두고 펼친 항목에는 되풀이하지 않는다', async () => {
+    stubDocuments([
+      {
+        ...documentOf('milestone-3'),
+        viewerSubmission: {
+          submitted: true,
+          submittedAt: '2026-08-04T10:00:00+09:00',
+          revision: 1,
+          status: 'SUBMITTED',
+          hasCurrentFile: false,
+          currentFileName: null,
+          review: null,
+          history: { hasHistory: false, isComplete: true },
+        },
+      },
+    ]);
+    const groups = await renderMilestones(
+      programWith([{ ...MILESTONES[2], viewerSubmissionStatus: 'SUBMITTED' }]),
     );
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+
+    expect(rowButtonLabels(groups[0])).toEqual(['교체']);
+    expect(buttonLabels(panel)).not.toContain('교체');
+  });
+
+  it('낼 수 없는 하나뿐인 항목은 줄에 버튼을 올리지 않는다', async () => {
     const groups = await renderMilestones();
 
-    expect(triggerOf(groups[2])?.getAttribute('aria-expanded')).toBe('true');
-    await vi.waitFor(() => {
-      expect(
-        groups[2].querySelector('[data-testid="milestone-row"] a')?.textContent,
-      ).toBe('다시 제출');
-    });
+    expect(rowButtonLabels(groups[0])).toEqual([]);
+    expect(rowButtonLabels(groups[1])).toEqual([]);
+  });
+
+  it('접힌 마일스톤의 줄에서 올리기를 누르면 그 마일스톤을 펼치고 제출 입력을 연다', async () => {
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-2', '지금 단계'),
+        milestoneOf('milestone-3', '다음 단계', {
+          dueAt: '2026-08-15T23:59:59+09:00',
+          dDay: 10,
+        }),
+      ]),
+    );
+    const trigger = triggerOf(groups[1]) as HTMLButtonElement;
+    const upload = rowButtons(groups[1]).at(0);
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(upload?.textContent?.trim()).toBe('올리기');
+
+    await act(async () => upload?.click());
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      panelOf(trigger).querySelector('input[type="file"], textarea'),
+    ).not.toBeNull();
+  });
+
+  it('제출 항목이 여럿이면 줄에는 버튼을 두지 않고 펼친 항목마다 올리기를 둔다', async () => {
+    stubDocuments([
+      documentOf('milestone-3'),
+      {
+        ...documentOf('milestone-3'),
+        id: 'milestone-3-document-2',
+        name: 'milestone-3 서류 2',
+      },
+    ]);
+    const groups = await renderMilestones(
+      programWith([{ ...MILESTONES[2], submissionItemCount: 2 }]),
+    );
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+
+    expect(rowButtonLabels(groups[0])).toEqual([]);
+    expect(
+      buttonLabels(panel).filter((label) => label === '올리기'),
+    ).toHaveLength(2);
   });
 
   it('여러 마일스톤을 동시에 펼쳐 둘 수 있다', async () => {
