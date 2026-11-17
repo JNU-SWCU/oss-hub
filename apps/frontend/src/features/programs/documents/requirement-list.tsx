@@ -214,6 +214,12 @@ export function RequirementSectionBody({
   const completed = state.documents.filter(
     (document) => document.viewerSubmission?.submitted,
   ).length;
+  const noTeams =
+    staff &&
+    state.documents.every(
+      (document) => document.teamSubmissionCount?.total === 0,
+    );
+  const staffNote = noTeams ? '승인된 참여 팀이 없습니다.' : summary;
 
   return (
     <div className={cn(REQUIREMENT_BLOCK_CLASS, 'gap-2', className)}>
@@ -222,9 +228,9 @@ export function RequirementSectionBody({
           제출 항목
         </h3>
         {staff ? (
-          summary === undefined ? null : (
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {summary}
+          staffNote === undefined ? null : (
+            <span className="text-xs break-keep text-muted-foreground tabular-nums">
+              {staffNote}
             </span>
           )
         ) : (
@@ -241,7 +247,7 @@ export function RequirementSectionBody({
             <StaffDocumentRow
               key={document.id}
               document={document}
-              countShown={total > 1}
+              countShown={total > 1 && !noTeams}
               onRefresh={onRefresh}
             />
           ) : (

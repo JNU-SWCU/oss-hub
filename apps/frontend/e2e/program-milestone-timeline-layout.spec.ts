@@ -314,3 +314,38 @@ for (const teams of [6, 128]) {
     await context.close();
   });
 }
+
+test('390 폭에서 참여 팀이 없으면 0/0 대신 참여 팀이 없다고 한 번만 알린다', async ({
+  browser,
+}, testInfo) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+  });
+  const page = await context.newPage();
+  await installProgramRoutes(page, milestonesFor(0), 0);
+  await page.goto(`/programs/${programId}`);
+  const section = page.locator('#milestones');
+  const current = section.locator(
+    '[data-testid="milestone-group"][aria-current="step"]',
+  );
+  const emptyNote = current.getByText('승인된 참여 팀이 없습니다.', {
+    exact: true,
+  });
+  await expect(
+    current.locator('[data-testid="milestone-document-row"]'),
+  ).toHaveCount(2);
+  await section.screenshot({
+    path: testInfo.outputPath('staff-390-no-teams.png'),
+  });
+
+  await expect(section).not.toContainText('0/0');
+  await expect(current.getByText('제출 없음', { exact: true })).toBeVisible();
+  await expect(emptyNote).toHaveCount(1);
+  await expect(emptyNote).toBeVisible();
+  expect((await readRows(page)).map((row) => row.lines)).toEqual([
+    2, 2, 2, 2, 2,
+  ]);
+  await context.close();
+});

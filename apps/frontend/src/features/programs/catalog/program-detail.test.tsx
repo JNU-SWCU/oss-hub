@@ -682,6 +682,40 @@ describe('RequirementSectionBody', () => {
     expect(html.replace(/<[^>]+>/g, '')).not.toContain('2/4');
   });
 
+  it('낼 팀이 없으면 항목마다 0/0을 적지 않고 참여 팀이 없다고 한 번만 적는다', () => {
+    const html = renderToStaticMarkup(
+      <RequirementSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
+        state={{
+          kind: 'ready',
+          documents: [
+            buildDocument({ teamSubmissionCount: { submitted: 0, total: 0 } }),
+            buildDocument({
+              id: 'document-2',
+              name: '결과보고서',
+              teamSubmissionCount: { submitted: 0, total: 0 },
+            }),
+          ],
+          fileUpload: requirementUploadPolicy(),
+        }}
+        viewerRole="STAFF"
+        closed={false}
+        submissionAccess={access('STAFF')}
+        summary="미제출 0 · 승인 0 · 보완 0 · 반려 0"
+        conflictNotice={null}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
+      />,
+    );
+
+    const text = html.replace(/<[^>]+>/g, '');
+    expect(text).not.toContain('0/0');
+    expect(text).not.toContain('미제출 0');
+    expect(text.split('승인된 참여 팀이 없습니다.')).toHaveLength(2);
+  });
+
   it('학생에게는 기존 양식 다운로드를 유지한다', () => {
     const html = renderToStaticMarkup(
       <RequirementSectionBody

@@ -389,6 +389,33 @@ describe('마일스톤 진행 타임라인', () => {
     ).toEqual([true, true, true, true, true]);
   });
 
+  it('낼 팀이 없는 단계는 펼친 제출 항목에도 0/0 대신 참여 팀이 없다고 한 번만 적는다', () => {
+    const section = renderSection(
+      programWith(
+        [
+          {
+            ...STAFF_MILESTONES[2],
+            submissionItemCount: 2,
+            applicationSubmissionSummary: submitted(0, 0),
+          },
+        ],
+        STAFF,
+      ),
+      { m3: [staffDocument('m3', 1, 0, 0), staffDocument('m3', 2, 0, 0)] },
+    );
+    const [step] = stepsOf(section);
+
+    expect(detailOf(step)?.getAttribute('data-state')).toBe('open');
+    expect(
+      step.querySelectorAll('[data-testid="milestone-document-row"]'),
+    ).toHaveLength(2);
+    expect(step.textContent).not.toContain('0/0');
+    expect(rowsOf(section)[0].textContent).toBe(
+      '1중간 발표 자료11.27 18:00 · D-10제출 없음서류 수합',
+    );
+    expect(occurrences(section, '승인된 참여 팀이 없습니다.')).toBe(1);
+  });
+
   it('학생의 한 줄은 번호, 이름, 마감, 내 제출 상태, 제출 입구 순서로 한 번씩만 읽힌다', () => {
     const section = renderSection(
       programWith(STUDENT_MILESTONES, APPROVED_STUDENT),
