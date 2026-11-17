@@ -203,19 +203,13 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
       '승인 후 제출할 수 있습니다',
     ],
   ])(
-    '%s 상태에서는 위쪽 안내와 아래쪽 버튼이 같은 말을 한다',
+    '%s 상태에서는 위쪽 안내와 아래쪽 사유가 같은 말을 하고 올리기 버튼은 두지 않는다',
     async (applicationStatus, notice, buttonNote) => {
       await render(applicationStatus);
 
       expect(container.textContent).toContain(notice);
-
-      const button = actionButton('올리기');
-      expect(button.disabled).toBe(true);
-      const note = blockedNote();
-      expect(note?.textContent).toBe(buttonNote);
-      expect(button.getAttribute('aria-describedby')).toBe(note?.id);
-
-      await act(async () => button.click());
+      expect(actionLabels()).not.toContain('올리기');
+      expect(blockedNote()?.textContent).toBe(buttonNote);
       expect(submissionInput()).toBeNull();
     },
   );
@@ -284,14 +278,9 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
   it('마감이 지난 첫 제출은 승인이 아니라 마감을 이유로 든다', async () => {
     await render('SUBMITTED', { due: PAST_DUE });
 
-    const button = actionButton('올리기');
-    expect(button.disabled).toBe(true);
-    const note = blockedNote();
-    expect(note?.textContent).toBe('마감이 지나 제출할 수 없습니다');
-    expect(button.getAttribute('aria-describedby')).toBe(note?.id);
+    expect(actionLabels()).not.toContain('올리기');
+    expect(blockedNote()?.textContent).toBe('마감이 지나 제출할 수 없습니다');
     expect(container.textContent).not.toContain('승인 후 제출할 수 있습니다');
-
-    await act(async () => button.click());
     expect(submissionInput()).toBeNull();
   });
 

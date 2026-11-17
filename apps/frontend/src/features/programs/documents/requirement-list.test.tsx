@@ -1423,18 +1423,20 @@ describe('학생 행이 판정을 읽는 방식', () => {
     ).not.toBeNull();
   });
 
-  it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
+  it('마감 뒤 미제출·검토 대기에는 버튼 없이 마감 사유만 적는다', async () => {
     await renderRow(
       viewer({ submitted: false, submittedAt: null, status: null }),
       true,
     );
-    expect(actionButton('올리기').disabled).toBe(true);
+    expect(buttonTexts()).not.toContain('올리기');
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
 
     await renderRow(viewer({ status: 'SUBMITTED' }), true);
-    expect(actionButton('교체').disabled).toBe(true);
+    expect(buttonTexts()).not.toContain('교체');
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
   });
 
-  it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', async () => {
+  it('마감 뒤, 보완 요청에 이미 응한 제출에는 교체 없이 마감 사유만 적는다', async () => {
     await renderRow(
       viewer({
         status: 'SUBMITTED',
@@ -1448,7 +1450,8 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
 
     expect(container.textContent).toContain('검토 대기');
-    expect(actionButton('교체').disabled).toBe(true);
+    expect(buttonTexts()).not.toContain('교체');
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
   });
 
   it('마감 전에는 검토 대기도 잠기지 않는다', async () => {
@@ -1740,6 +1743,11 @@ describe('문서 유예 설정과 학생 표시', () => {
     if (found === undefined) throw new Error(`Missing button: ${label}`);
     return found;
   }
+  function hasButton(label: string): boolean {
+    return [...container.querySelectorAll('button')].some(
+      (candidate) => candidate.textContent?.trim() === label,
+    );
+  }
 
   it('운영자가 한국 시간 날짜만 저장하고 문서를 다시 읽는다', async () => {
     const fetchMock = vi
@@ -1820,7 +1828,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     expect(container.textContent).toContain('지각으로 표시됩니다');
   });
 
-  it('화면을 열어 둔 채 유예 기한을 넘으면 제출 버튼을 닫는다', async () => {
+  it('화면을 열어 둔 채 유예 기한을 넘으면 올리기 버튼을 치우고 사유를 적는다', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
     await render(
@@ -1829,7 +1837,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     );
     expect(button('올리기').disabled).toBe(false);
     await act(async () => vi.advanceTimersByTime(1001));
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
     expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
   });
   it('화면 새로고침으로 줄어든 유예 기한은 실제 현재 시각에 맞춰 닫는다', async () => {
@@ -1845,7 +1853,7 @@ describe('문서 유예 설정과 학생 표시', () => {
       'STUDENT',
     );
     await act(async () => vi.advanceTimersByTime(0));
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
   });
 
   it('원래 마감 뒤에 낸 서류를 지각 제출로 표시한다', async () => {
@@ -1877,7 +1885,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     await act(async () => vi.advanceTimersByTime(1000));
     expect(button('올리기').disabled).toBe(false);
     await act(async () => vi.advanceTimersByTime(1));
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
   });
 
   it('원래 마감 전부터 연 화면에서 유예를 해제하면 다시 닫는다', async () => {
@@ -1895,6 +1903,6 @@ describe('문서 유예 설정과 학생 표시', () => {
       'STUDENT',
       '2026-10-20T00:00:01Z',
     );
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
   });
 });

@@ -795,7 +795,6 @@ function StudentDocumentRow({
     return send(input);
   }
 
-  const noteId = `${document.id}-submission-blocked`;
   const meta = [
     submitted && submittedAt ? (
       <span key="submitted-at">
@@ -817,11 +816,7 @@ function StudentDocumentRow({
     ) : gate.kind === 'settled' ? (
       <span key="note">{gate.note}</span>
     ) : gate.kind === 'held' ? (
-      <span
-        key="note"
-        id={noteId}
-        data-testid="milestone-document-blocked-note"
-      >
+      <span key="note" data-testid="milestone-document-blocked-note">
         {gate.note}
       </span>
     ) : null,
@@ -861,14 +856,12 @@ function StudentDocumentRow({
           </Button>
         ) : null}
       </div>
-      {syncNotice !== null || gate.kind === 'settled' ? null : (
+      {syncNotice !== null || gate.kind !== 'open' ? null : (
         <Button
           type="button"
           size="sm"
           variant={submitted ? 'ghost' : 'default'}
           className={ITEM_ACTION_CLASS}
-          disabled={gate.kind === 'held'}
-          aria-describedby={gate.kind === 'held' ? noteId : undefined}
           onClick={() => {
             if (!editing) setExpectedRevision(viewerSubmission?.revision ?? 0);
             setEditing((value) => !value);
