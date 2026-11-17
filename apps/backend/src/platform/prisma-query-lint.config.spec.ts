@@ -61,6 +61,13 @@ class ProbeRepository {
     return this.prisma.user.findMany({ where: { name: 'x' } });
   }
 
+  optionalLimit(optionalLimit?: number) {
+    return Promise.all([
+      this.prisma.user.findMany({ take: 10 }),
+      this.prisma.user.findMany({ take: optionalLimit }),
+    ]);
+  }
+
   twoReads() {
     return Promise.all([
       this.prisma.team.findMany(),
@@ -253,6 +260,36 @@ describe('loadPrismaQueryLintConfig', () => {
       expect.stringContaining(twoReads),
     ]);
     expect(audit({ [twoReads]: { reason: 'x', count: 2 } })).toEqual([]);
+    expect(
+      audit({
+        [`User.findMany@${FILE}#ProbeRepository.optionalLimit`]: {
+          reason: 'x',
+          count: 1,
+        },
+      }),
+    ).toEqual([]);
+    expect(
+      audit({
+        [`User.findMany@${FILE}#ProbeRepository.optionalLimit`]: {
+          reason: 'x',
+          count: 2,
+        },
+      }),
+    ).toEqual([expect.stringContaining('optionalLimit')]);
+  });
+
+  it('treats an undefined or null take like a missing take', async () => {
+    const prisma = lintedClient();
+    const repository = new ProbeRepository(prisma);
+
+    await expect(repository.optionalLimit()).rejects.toMatchObject({
+      code: 'LINT.NO_LIMIT',
+      key: `User.findMany@${FILE}#ProbeRepository.optionalLimit`,
+    });
+    expect(await lintCode(repository.optionalLimit(5))).toBeUndefined();
+    expect(
+      await lintCode(prisma.user.findMany({ take: null as unknown as number })),
+    ).toBe('LINT.NO_LIMIT');
   });
 
   it('keeps every committed allowlist entry current', () => {

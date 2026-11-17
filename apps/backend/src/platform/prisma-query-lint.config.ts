@@ -184,7 +184,7 @@ function violates(
 ): boolean {
   if (rule !== 'LINT.NO_LIMIT')
     return !isRecord(query.where) || Object.keys(query.where).length === 0;
-  if (query.take !== undefined) return false;
+  if (query.take !== undefined && query.take !== null) return false;
   const restricted = restrictedFields(query.where);
   return !uniqueKeys.some((key) => key.every((field) => restricted.has(field)));
 }
@@ -443,7 +443,7 @@ function bounded(
     );
   if (operation !== 'findMany')
     return property(argument, 'where') !== undefined;
-  if (property(argument, 'take')) return true;
+  if (numericTake(property(argument, 'take'))) return true;
   const where = property(argument, 'where');
   if (!where || !t.isPropertyAssignment(where)) return false;
   const filter = where.initializer;
@@ -460,4 +460,42 @@ function bounded(
     }),
   );
   return keys.some((key) => key.every((field) => restricted.has(field)));
+}
+
+function numericTake(take: TS.ObjectLiteralElementLike | undefined): boolean {
+  const t = ts();
+  if (!take) return false;
+  if (t.isShorthandPropertyAssignment(take)) return numericConst(take.name);
+  if (!t.isPropertyAssignment(take)) return false;
+  return numericExpression(take.initializer);
+}
+
+function numericExpression(expression: TS.Expression): boolean {
+  const t = ts();
+  if (t.isNumericLiteral(expression)) return true;
+  if (
+    t.isPrefixUnaryExpression(expression) &&
+    expression.operator === t.SyntaxKind.MinusToken
+  )
+    return t.isNumericLiteral(expression.operand);
+  return t.isIdentifier(expression) && numericConst(expression);
+}
+
+function numericConst(name: TS.Identifier): boolean {
+  const t = ts();
+  const source = name.getSourceFile();
+  return source.statements.some(
+    (statement) =>
+      t.isVariableStatement(statement) &&
+      (statement.declarationList.flags & t.NodeFlags.Const) !== 0 &&
+      statement.declarationList.declarations.some(
+        (declaration) =>
+          t.isIdentifier(declaration.name) &&
+          declaration.name.text === name.text &&
+          declaration.initializer !== undefined &&
+          (t.isNumericLiteral(declaration.initializer) ||
+            (t.isPrefixUnaryExpression(declaration.initializer) &&
+              t.isNumericLiteral(declaration.initializer.operand))),
+      ),
+  );
 }
