@@ -57,7 +57,11 @@ export interface Anomaly {
   readonly rule: AnomalyRule;
   readonly severity: AnomalySeverity;
   readonly count: number;
-  readonly target: { readonly kind: 'USER'; readonly id: string } | null;
+  readonly target: {
+    readonly kind: 'USER';
+    readonly id: string;
+    readonly login: string | null;
+  } | null;
 }
 
 export interface SystemStatus {

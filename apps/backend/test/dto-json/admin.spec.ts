@@ -107,7 +107,7 @@ const systemStatus: SystemStatusResult = {
       rule: 'BULK_REMOVAL',
       severity: 'HIGH',
       count: 12,
-      target: { kind: 'USER', id: 'user-1' },
+      target: { kind: 'USER', id: 'user-1', login: null },
     },
     { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 1, target: null },
   ],
