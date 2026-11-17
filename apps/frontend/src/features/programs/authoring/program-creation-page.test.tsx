@@ -3,6 +3,7 @@ import type { Root } from 'react-dom/client';
 import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
+import type { ProgramAuthoringState } from './program-authoring-model';
 import { completedAuthoringState } from './program-creation-test-fixtures';
 import {
   PROGRAM_AUTHORING_RECOVERY_KEY,
@@ -62,6 +63,67 @@ function buttonNamed(name: string): HTMLButtonElement {
 describe('ProgramCreationPage guided authoring', () => {
   let container: HTMLDivElement;
   let root: Root;
+
+  function trackOption(name: string): HTMLInputElement {
+    const option = [
+      ...container.querySelectorAll<HTMLInputElement>(
+        '[role="radiogroup"] input[type="radio"]',
+      ),
+    ].find((candidate) => candidate.closest('label')?.textContent === name);
+    if (option === undefined)
+      throw new TypeError(`track option not found: ${name}`);
+    return option;
+  }
+
+  function labelledButton(name: string): HTMLButtonElement {
+    const button = container.querySelector<HTMLButtonElement>(
+      `button[aria-label="${name}"]`,
+    );
+    if (button === null) throw new TypeError(`button not found: ${name}`);
+    return button;
+  }
+
+  function teamSizeInput(bound: 'min' | 'max'): HTMLInputElement {
+    const input = container.querySelector<HTMLInputElement>(
+      `#program-team-${bound}-size`,
+    );
+    if (input === null) throw new TypeError(`missing team ${bound} size`);
+    return input;
+  }
+
+  async function typeTeamSize(bound: 'min' | 'max', text: string) {
+    const input = teamSizeInput(bound);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(input, text);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  async function renderBasicStep(
+    overrides: Partial<ProgramAuthoringState> = {},
+  ) {
+    await act(async () =>
+      root.render(
+        <ProgramCreationPage
+          initialState={{
+            ...completedAuthoringState(),
+            currentStep: 'basic',
+            ...overrides,
+          }}
+        />,
+      ),
+    );
+  }
+
+  async function createFromReview() {
+    await act(async () => buttonNamed('최종 검토').click());
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+    return mocks.createAuthoringProgram.mock.calls[0]?.[0];
+  }
 
   beforeEach(() => {
     sessionStorage.clear();
@@ -569,5 +631,103 @@ describe('ProgramCreationPage guided authoring', () => {
 
     expect(container.textContent).toContain('마일스톤 일정');
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('교과/비교과를 선택 목록 없이 두 선택지로 고르고 그 값으로 프로그램을 만든다', async () => {
+    mocks.createAuthoringProgram.mockResolvedValue({ id: 'program-created' });
+    await renderBasicStep();
+
+    expect(container.querySelector('select')).toBeNull();
+    expect(trackOption('비교과').checked).toBe(true);
+
+    await act(async () => trackOption('교과').click());
+    expect(trackOption('교과').checked).toBe(true);
+    expect(trackOption('비교과').checked).toBe(false);
+
+    expect(await createFromReview()).toMatchObject({
+      trackType: 'CURRICULAR',
+    });
+  });
+
+  it('교과/비교과를 고르지 않고 계속하면 첫 선택지로 초점을 옮겨 그 자리에서 고칠 수 있다', async () => {
+    await renderBasicStep({ trackType: '' });
+    buttonNamed('계속').focus();
+    await act(async () => buttonNamed('계속').click());
+
+    const group = container.querySelector('[role="radiogroup"]');
+    expect(group?.getAttribute('aria-invalid')).toBe('true');
+    expect(group?.getAttribute('aria-describedby')).toBe(
+      'program-track-type-error',
+    );
+    expect(container.querySelector('#program-track-type-error')).not.toBeNull();
+    expect(document.activeElement).toBe(trackOption('교과'));
+
+    await act(async () => trackOption('교과').click());
+    expect(trackOption('교과').checked).toBe(true);
+    expect(container.querySelector('#program-track-type-error')).toBeNull();
+  });
+
+  it('늘리기·줄이기 버튼으로 인원을 정하고 최소 인원은 1 아래로 내려가지 않는다', async () => {
+    mocks.createAuthoringProgram.mockResolvedValue({ id: 'program-created' });
+    await renderBasicStep();
+    expect(teamSizeInput('min').value).toBe('1');
+    expect(labelledButton('최소 인원 줄이기').disabled).toBe(true);
+
+    await act(async () => labelledButton('최소 인원 늘리기').click());
+    await act(async () => labelledButton('최대 인원 늘리기').click());
+    expect(teamSizeInput('min').value).toBe('2');
+    expect(teamSizeInput('max').value).toBe('5');
+
+    await act(async () => labelledButton('최소 인원 줄이기').click());
+    expect(teamSizeInput('min').value).toBe('1');
+    expect(labelledButton('최소 인원 줄이기').disabled).toBe(true);
+
+    expect(await createFromReview()).toMatchObject({
+      teamMinSize: 1,
+      teamMaxSize: 5,
+    });
+  });
+
+  it('지수 표기로 적은 인원도 만들 때 보내는 숫자와 같게 읽어 한 명씩 줄인다', async () => {
+    mocks.createAuthoringProgram.mockResolvedValue({ id: 'program-created' });
+    await renderBasicStep();
+
+    await typeTeamSize('max', '1e1');
+    await act(async () => labelledButton('최대 인원 줄이기').click());
+    expect(teamSizeInput('max').value).toBe('9');
+
+    expect(await createFromReview()).toMatchObject({ teamMaxSize: 9 });
+  });
+
+  it('인원이 모두 범위를 벗어나면 두 칸을 표시하고 첫 칸으로 초점을 옮긴다', async () => {
+    await renderBasicStep();
+    await typeTeamSize('min', '0');
+    await typeTeamSize('max', '101');
+    await act(async () => buttonNamed('계속').click());
+
+    expect(teamSizeInput('min').getAttribute('aria-invalid')).toBe('true');
+    expect(teamSizeInput('max').getAttribute('aria-invalid')).toBe('true');
+    expect(teamSizeInput('min').getAttribute('aria-describedby')).toBe(
+      'program-team-size-error',
+    );
+    expect(
+      container.querySelectorAll('#program-team-size-error li'),
+    ).toHaveLength(2);
+    expect(document.activeElement).toBe(teamSizeInput('min'));
+  });
+
+  it('최대 인원만 틀리면 그 칸만 표시하고 그 칸으로 초점을 옮긴다', async () => {
+    await renderBasicStep();
+    await typeTeamSize('min', '3');
+    await typeTeamSize('max', '2');
+    await act(async () => buttonNamed('계속').click());
+
+    expect(teamSizeInput('min').getAttribute('aria-invalid')).toBe('false');
+    expect(teamSizeInput('max').getAttribute('aria-invalid')).toBe('true');
+    expect(container.querySelector('#program-team-size-error')).not.toBeNull();
+    expect(
+      container.querySelectorAll('#program-team-size-error li'),
+    ).toHaveLength(0);
+    expect(document.activeElement).toBe(teamSizeInput('max'));
   });
 });

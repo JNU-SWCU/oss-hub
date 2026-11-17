@@ -1,13 +1,9 @@
-import { Minus, Plus } from 'lucide-react';
 import { ProgramCoverField } from './program-cover-field';
 import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramNoticeImport } from './program-notice-import';
-import {
-  FIELD_BOX_CLASS,
-  FIELD_BOX_INPUT_CLASS,
-  ProgramOrganizerField,
-} from './program-organizer-field';
-import { Button } from '@/components/ui/button';
+import { ProgramOrganizerField } from './program-organizer-field';
+import { ProgramTeamSizeField } from './program-team-size-field';
+import { ProgramTrackTypeField } from './program-track-type-field';
 import {
   Field,
   FieldError,
@@ -16,19 +12,13 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { FormSection } from '@/components/form-section';
-import { cn } from '@/lib/utils';
 import type { EditableProgram } from './dto';
-import {
-  teamSizeValue,
-  type ProgramEditableField,
-  type ProgramEditErrors,
-  type ProgramEditFieldValue,
-  type ProgramEditForm,
+import type {
+  ProgramEditableField,
+  ProgramEditErrors,
+  ProgramEditFieldValue,
+  ProgramEditForm,
 } from './program-edit-flow';
-import {
-  PROGRAM_TRACK_TYPE_LABELS,
-  PROGRAM_TRACK_TYPES,
-} from '../program-contract';
 import { programHref } from '../program-paths';
 import { ProgramDeadlineControl } from './program-deadline-control';
 
@@ -43,93 +33,6 @@ interface ProgramEditBasicFormProps {
     field: ProgramEditableField,
     value: ProgramEditFieldValue,
   ) => void;
-}
-
-const TEAM_SIZE_FLOOR = 1;
-
-const TRACK_OPTION_CLASS = cn(
-  'relative inline-flex h-control cursor-pointer items-center border border-input bg-background px-5',
-  'text-body transition-colors not-first:-ml-px first:rounded-l-control last:rounded-r-control',
-  'hover:bg-muted has-checked:z-10 has-checked:border-primary has-checked:bg-primary',
-  'has-checked:font-semibold has-checked:text-primary-foreground has-checked:hover:bg-primary',
-  'has-focus-visible:z-20 has-focus-visible:border-ring has-focus-visible:ring-3',
-  'has-focus-visible:ring-ring/50 in-aria-invalid:border-destructive',
-);
-
-const INLINE_ERROR_CLASS = 'contain-inline-size break-keep text-pretty';
-
-const TEAM_STEPPER_CLASS = cn(
-  FIELD_BOX_CLASS,
-  'inline-flex h-control items-center',
-);
-
-const TEAM_STEPPER_INPUT_CLASS = cn(
-  FIELD_BOX_INPUT_CLASS,
-  'h-full w-10 px-0 text-center [appearance:textfield]',
-  '[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-);
-
-const TEAM_STEPPER_BUTTON_CLASS = 'h-full w-9 text-muted-foreground';
-
-function TeamSizeStepper({
-  id,
-  label,
-  value,
-  invalid,
-  onChange,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly invalid: boolean;
-  readonly onChange: (value: string) => void;
-}) {
-  const parsed = teamSizeValue(value);
-  const size = parsed !== null && Number.isFinite(parsed) ? parsed : Number.NaN;
-  return (
-    <div className={TEAM_STEPPER_CLASS}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={TEAM_STEPPER_BUTTON_CLASS}
-        aria-label={`${label} 줄이기`}
-        disabled={!(size > TEAM_SIZE_FLOOR)}
-        onClick={() =>
-          onChange(String(Math.max(TEAM_SIZE_FLOOR, Math.ceil(size) - 1)))
-        }
-      >
-        <Minus aria-hidden="true" />
-      </Button>
-      <Input
-        id={id}
-        type="number"
-        min={TEAM_SIZE_FLOOR}
-        value={value}
-        aria-label={label}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? 'program-team-size-error' : undefined}
-        className={TEAM_STEPPER_INPUT_CLASS}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={TEAM_STEPPER_BUTTON_CLASS}
-        aria-label={`${label} 늘리기`}
-        onClick={() =>
-          onChange(
-            String(
-              size >= TEAM_SIZE_FLOOR ? Math.floor(size) + 1 : TEAM_SIZE_FLOOR,
-            ),
-          )
-        }
-      >
-        <Plus aria-hidden="true" />
-      </Button>
-    </div>
-  );
 }
 
 export function ProgramEditBasicForm({
@@ -199,73 +102,19 @@ export function ProgramEditBasicForm({
             onChange={(organizers) => onFieldChange('organizers', organizers)}
           />
           <div className="flex flex-wrap gap-x-12 gap-y-5">
-            <Field className="w-auto">
-              <FieldLabel id="program-track-type-label">
-                교과/비교과 *
-              </FieldLabel>
-              <div
-                role="radiogroup"
-                aria-labelledby="program-track-type-label"
-                aria-invalid={Boolean(errors.trackType)}
-                aria-describedby={
-                  errors.trackType ? 'program-track-type-error' : undefined
-                }
-                className="flex"
-              >
-                {PROGRAM_TRACK_TYPES.map((trackType) => (
-                  <label key={trackType} className={TRACK_OPTION_CLASS}>
-                    <input
-                      type="radio"
-                      name="program-track-type"
-                      value={trackType}
-                      checked={form.trackType === trackType}
-                      className="sr-only"
-                      onChange={() => onFieldChange('trackType', trackType)}
-                    />
-                    {PROGRAM_TRACK_TYPE_LABELS[trackType]}
-                  </label>
-                ))}
-              </div>
-              <FieldError
-                id="program-track-type-error"
-                role="alert"
-                className={INLINE_ERROR_CLASS}
-              >
-                {errors.trackType}
-              </FieldError>
-            </Field>
-            <Field className="w-auto" aria-labelledby="program-team-size-label">
-              <FieldLabel
-                id="program-team-size-label"
-                htmlFor="program-team-min-size"
-              >
-                인원 *
-              </FieldLabel>
-              <div className="flex items-center gap-2">
-                <TeamSizeStepper
-                  id="program-team-min-size"
-                  label="최소 인원"
-                  value={form.teamMinSize}
-                  invalid={Boolean(errors.team)}
-                  onChange={(value) => onFieldChange('teamMinSize', value)}
-                />
-                <span aria-hidden="true">~</span>
-                <TeamSizeStepper
-                  id="program-team-max-size"
-                  label="최대 인원"
-                  value={form.teamMaxSize}
-                  invalid={Boolean(errors.team)}
-                  onChange={(value) => onFieldChange('teamMaxSize', value)}
-                />
-              </div>
-              <FieldError
-                id="program-team-size-error"
-                role="alert"
-                className={INLINE_ERROR_CLASS}
-              >
-                {errors.team}
-              </FieldError>
-            </Field>
+            <ProgramTrackTypeField
+              value={form.trackType}
+              error={errors.trackType}
+              onChange={(trackType) => onFieldChange('trackType', trackType)}
+            />
+            <ProgramTeamSizeField
+              minSize={form.teamMinSize}
+              maxSize={form.teamMaxSize}
+              minError={errors.team}
+              maxError={errors.team}
+              onMinSizeChange={(value) => onFieldChange('teamMinSize', value)}
+              onMaxSizeChange={(value) => onFieldChange('teamMaxSize', value)}
+            />
           </div>
           <Field>
             <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>

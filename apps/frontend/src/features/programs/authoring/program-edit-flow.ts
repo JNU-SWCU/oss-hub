@@ -12,6 +12,7 @@ import type {
   UpsertMilestoneInput,
 } from './dto';
 import { isProgramEndAtUndecided } from './program-end-at';
+import { teamSizeValue } from './program-team-size';
 import {
   programOrganizersError,
   type ProgramTrackType,
@@ -202,10 +203,6 @@ export function changedMilestoneFields(
   return PROGRAM_MILESTONE_FIELDS.filter(
     (field) => initial[field] !== current[field],
   );
-}
-
-export function teamSizeValue(value: string): number | null {
-  return value.trim() === '' ? null : Number(value);
 }
 
 export function buildProgramEditInput(

@@ -66,18 +66,10 @@ import {
   ProgramEditSkeleton,
   ProgramEditView,
 } from './program-edit-view';
+import { invalidFieldFocusTarget } from './program-track-type-field';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
 const OPERATIONS_SECTION_HASH = '#operations';
-
-function invalidFieldFocusTarget(field: HTMLElement): HTMLElement {
-  if (field.getAttribute('role') !== 'radiogroup') return field;
-  return (
-    field.querySelector<HTMLElement>('input:checked') ??
-    field.querySelector<HTMLElement>('input') ??
-    field
-  );
-}
 
 export function ProgramEditPage({
   programId,
