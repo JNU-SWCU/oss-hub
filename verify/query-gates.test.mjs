@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { main } from './index.mjs';
-import { QUERY_GATE_PATTERN, checkQueryGates } from './query-gates.mjs';
+import {
+  PSQL_MISSING,
+  QUERY_GATE_PATTERN,
+  checkQueryGates,
+  resolvePsql,
+} from './query-gates.mjs';
 import { classifyFiles } from './scope.mjs';
 import { join } from 'node:path';
 import { tempRepo } from './test-support.mjs';
@@ -157,6 +162,7 @@ test('verify backend skips the query gates for a docs-only change', async (t) =>
 test('a lint violation inside the integration run is reported as query-lint', async () => {
   const findings = await checkQueryGates({
     cwd: '/repo',
+    findPsql: () => '',
     runCommand: async (command) =>
       command === 'pnpm'
         ? { code: 0, stdout: '', stderr: '' }
@@ -179,6 +185,7 @@ test('query gate failures block with rule ids and https sources', async () => {
   const calls = [];
   const findings = await checkQueryGates({
     cwd: '/repo',
+    findPsql: () => '',
     runCommand: async (command, args, options) => {
       calls.push({ command, args, env: options.env });
       return { code: 1, stdout: 'boom', stderr: '' };
@@ -213,4 +220,52 @@ test('the gate pattern selects exactly the three committed gate specs', () => {
     'apps/backend/prisma/user-consolidation-read-baseline.integration.spec.ts',
     'apps/backend/test/query-growth.integration.spec.ts',
   ]);
+});
+
+test('a missing psql fails the query gates with one actionable line', async () => {
+  const calls = [];
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    findPsql: () => null,
+    runCommand: async (command) => {
+      calls.push(command);
+      return { code: 0, stdout: '', stderr: '' };
+    },
+  });
+  assert.deepEqual(calls, ['pnpm']);
+  assert.deepEqual(
+    findings.map((item) => [item.rule, item.message]),
+    [['query-growth', PSQL_MISSING]],
+  );
+  assert.match(PSQL_MISSING, /install libpq/);
+  assert.doesNotMatch(PSQL_MISSING, /\n/);
+});
+
+test('psql from a libpq directory is put on the integration PATH', async () => {
+  const calls = [];
+  await checkQueryGates({
+    cwd: '/repo',
+    findPsql: () => '/opt/homebrew/opt/libpq/bin',
+    runCommand: async (command, args, options) => {
+      calls.push(options.env);
+      return { code: 0, stdout: '', stderr: '' };
+    },
+  });
+  assert.match(calls[1].PATH, /^\/opt\/homebrew\/opt\/libpq\/bin/);
+});
+
+test('resolvePsql prefers PATH, then the libpq directories', () => {
+  const at = (paths) => (file) => paths.includes(file);
+  assert.equal(
+    resolvePsql({ path: '/usr/bin', exists: at(['/usr/bin/psql']) }),
+    '',
+  );
+  assert.equal(
+    resolvePsql({
+      path: '/usr/bin',
+      exists: at(['/usr/local/opt/libpq/bin/psql']),
+    }),
+    '/usr/local/opt/libpq/bin',
+  );
+  assert.equal(resolvePsql({ path: '/usr/bin', exists: at([]) }), null);
 });
