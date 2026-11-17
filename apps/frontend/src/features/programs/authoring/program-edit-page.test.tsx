@@ -908,6 +908,69 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
   });
 
+  it('교과 구분이 비어 있으면 저장 실패 뒤 첫 선택지로 초점을 옮겨 그 자리에서 고칠 수 있다', async () => {
+    const untracked = { ...editableProgram, trackType: null };
+    getEditableProgramMock.mockResolvedValue(untracked);
+    updateProgramMock.mockResolvedValue({
+      ...untracked,
+      trackType: 'CURRICULAR',
+    });
+
+    await renderLoadedPage();
+    getButton('프로그램 정보 저장').focus();
+    await saveProgram();
+
+    expect(updateProgramMock).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('#program-track-type-error')?.textContent,
+    ).toBe('교과/비교과를 선택해 주세요.');
+    const focused = document.activeElement;
+    expect(focused).toBe(trackOption('교과'));
+    if (!(focused instanceof HTMLInputElement)) {
+      throw new TypeError('Focus did not reach a track option.');
+    }
+
+    await act(async () => focused.click());
+    expect(trackOption('교과').checked).toBe(true);
+    expect(container.querySelector('#program-track-type-error')).toBeNull();
+
+    await saveProgram();
+    expect(updateProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      expect.objectContaining({ trackType: 'CURRICULAR' }),
+    );
+  });
+
+  it('서버가 교과 구분을 거절하면 선택돼 있던 선택지로 초점을 옮긴다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Unprocessable Entity',
+        status: 422,
+        detail: '',
+        code: 'VALIDATION_ERROR',
+        instance: '/programs/program-1',
+        fieldErrors: [
+          {
+            field: 'trackType',
+            code: 'INVALID',
+            message: '교과 구분을 다시 확인해 주세요.',
+          },
+        ],
+      }),
+    );
+
+    await renderLoadedPage();
+    getButton('프로그램 정보 저장').focus();
+    await saveProgram();
+
+    expect(
+      container.querySelector('#program-track-type-error')?.textContent,
+    ).toBe('교과 구분을 다시 확인해 주세요.');
+    expect(document.activeElement).toBe(trackOption('비교과'));
+  });
+
   it('늘리기·줄이기 버튼으로 인원을 바꾸고 최소 인원은 1 아래로 내려가지 않는다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
     updateProgramMock.mockResolvedValue(editableProgram);
