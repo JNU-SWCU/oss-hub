@@ -8,12 +8,9 @@ import {
   isExternalProgramCover,
   type ProgramCoverSelection,
 } from './program-cover-selection';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { programCoverCardFrame } from '@/components/program/program-cover';
+import { cn } from '@/lib/utils';
 
 export const PROGRAM_COVER_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -35,8 +32,16 @@ export interface ProgramCoverFieldProps {
   readonly currentImageUrl?: string | null;
   readonly disabled?: boolean;
   readonly serverError?: string;
-  readonly onChange: (file: File | null | undefined) => void;
+  readonly onChange: (file: File | null) => void;
 }
+
+const COVER_ACTION_CLASS =
+  'bg-foreground/80 text-background hover:bg-foreground/90';
+
+const COVER_DROPZONE_CLASS = cn(
+  programCoverCardFrame,
+  'h-auto flex-col rounded-card border-dashed bg-muted/20 text-muted-foreground hover:bg-muted/40',
+);
 
 export function ProgramCoverField({
   selection,
@@ -53,18 +58,11 @@ export function ProgramCoverField({
     selection || (selection === undefined && currentImageUrl),
   );
   const describedBy = `${id}-hint${shownError ? ` ${id}-error` : ''}`;
-  const hint = (
-    <FieldDescription id={`${id}-hint`} className="grid gap-1 text-center">
-      <span>JPG · PNG · 최대 5 MB</span>
-    </FieldDescription>
-  );
+  const openPicker = () => fileInputRef.current?.click();
   return (
     <Field data-slot="program-cover-field">
-      <FieldLabel htmlFor={id}>
-        대표 이미지{' '}
-        <span className="font-normal text-muted-foreground">(선택)</span>
-      </FieldLabel>
-      <div className="grid w-full justify-items-center gap-4 rounded-card border border-dashed border-border bg-muted/20 p-6 text-center">
+      <FieldLabel htmlFor={id}>대표 이미지</FieldLabel>
+      <div className="relative max-w-56">
         {hasImage ? (
           <>
             <ProgramCoverPreview
@@ -73,23 +71,50 @@ export function ProgramCoverField({
               name="대표 이미지"
               showCaption={false}
             />
-            <p
-              className="max-w-full break-all text-body text-muted-foreground"
-              role={selection ? 'status' : undefined}
-            >
+            <p className="sr-only" role={selection ? 'status' : undefined}>
               {isExternalProgramCover(selection)
                 ? '공지에서 가져온 이미지'
                 : (selection?.name ?? '현재 대표 이미지')}
             </p>
+            <div className="absolute top-2 right-2 flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                disabled={disabled}
+                aria-label="대표 이미지 교체"
+                aria-describedby={describedBy}
+                className={COVER_ACTION_CLASS}
+                onClick={openPicker}
+              >
+                교체
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={disabled}
+                aria-label="대표 이미지 삭제"
+                className={COVER_ACTION_CLASS}
+                onClick={() => {
+                  setError(null);
+                  onChange(null);
+                }}
+              >
+                삭제
+              </Button>
+            </div>
           </>
         ) : (
-          <>
-            <div className="grid size-14 place-items-center rounded-full bg-muted text-muted-foreground">
-              <ImageIcon className="size-7" aria-hidden="true" />
-            </div>
-            <p className="text-body font-semibold">대표 이미지 업로드</p>
-            {hint}
-          </>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            aria-describedby={describedBy}
+            className={COVER_DROPZONE_CLASS}
+            onClick={openPicker}
+          >
+            <ImageIcon className="size-7" aria-hidden="true" />
+            이미지 올리기
+          </Button>
         )}
         <input
           ref={fileInputRef}
@@ -110,46 +135,9 @@ export function ProgramCoverField({
             if (message === null) onChange(file);
           }}
         />
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled}
-            aria-describedby={describedBy}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {hasImage ? '이미지 바꾸기' : '이미지 선택'}
-          </Button>
-          {hasImage ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={disabled}
-              onClick={() => {
-                setError(null);
-                onChange(null);
-              }}
-            >
-              이미지 제거
-            </Button>
-          ) : null}
-          {currentImageUrl && selection !== undefined ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={disabled}
-              onClick={() => {
-                setError(null);
-                onChange(undefined);
-              }}
-            >
-              기존 이미지로 되돌리기
-            </Button>
-          ) : null}
-        </div>
-        {hasImage ? hint : null}
+        <p id={`${id}-hint`} className="sr-only">
+          JPG · PNG · 최대 5 MB
+        </p>
       </div>
       {shownError ? (
         <FieldError id={`${id}-error`} role="alert">

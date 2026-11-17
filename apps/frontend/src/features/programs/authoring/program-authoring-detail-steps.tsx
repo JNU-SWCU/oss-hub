@@ -57,9 +57,7 @@ export function ProgramAuthoringBasicStep({
       />
       <ProgramCoverField
         selection={state.externalCover ?? state.coverFile ?? null}
-        onChange={(file) =>
-          dispatch({ type: 'set_cover_file', file: file ?? null })
-        }
+        onChange={(file) => dispatch({ type: 'set_cover_file', file })}
       />
       <ProgramOrganizerField
         id="authoring-organizers"
