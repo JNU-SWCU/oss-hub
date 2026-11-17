@@ -1,26 +1,24 @@
-import { execFileSync } from 'node:child_process';
+import * as Ajv from 'ajv';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuditLogPageResponseDto } from '../../src/admin/dto/audit-log-page-response.dto';
 import { auditRow } from '../../src/platform/audit-log-mapping.fixture';
 import { SubmissionAuditSourceService } from '../../src/platform/submission-audit-source.service';
 
-const validator = `
-const { createRequire } = require('node:module');
-const Ajv = createRequire(require.resolve('eslint'))('ajv');
-const document = require('../../verify/openapi.baseline.json');
-const validate = new Ajv({ nullable: true, allErrors: true })
-  .compile(document.components.schemas.AuditChangeResponseDto);
-const valid = validate(JSON.parse(process.argv[1]));
-process.stdout.write(JSON.stringify({ valid, errors: validate.errors }));
-`;
+const document: unknown = JSON.parse(
+  readFileSync(
+    resolve(__dirname, '../../../../verify/openapi.baseline.json'),
+    'utf8',
+  ),
+);
+if (typeof document !== 'object' || document === null)
+  throw new TypeError('OpenAPI baseline must be an object');
+const validateChange = new Ajv({ nullable: true, allErrors: true })
+  .addSchema(document, 'openapi')
+  .compile({ $ref: 'openapi#/components/schemas/AuditChangeResponseDto' });
 
-function validate(value: unknown): unknown {
-  return JSON.parse(
-    execFileSync(process.execPath, ['-e', validator, JSON.stringify(value)], {
-      cwd: resolve(__dirname, '../..'),
-      encoding: 'utf8',
-    }),
-  );
+function validate(value: unknown) {
+  return { valid: validateChange(value), errors: validateChange.errors };
 }
 
 it('validates the serialized submission revision change against the generated contract', () => {
