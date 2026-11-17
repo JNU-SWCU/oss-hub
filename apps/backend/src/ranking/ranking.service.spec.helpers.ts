@@ -1,5 +1,10 @@
 import type { CollectionScheduleService } from '../github/collection-schedule.service';
-import type { RankingMetricRow, RankingRepository } from './ranking.repository';
+import type {
+  RankedPage,
+  RankingMetricRow,
+  RankingMetricsQuery,
+  RankingRepository,
+} from './ranking.repository';
 import { RankingService, type RankingViewerClass } from './ranking.service';
 import { RankingYearService } from './ranking-year.service';
 
@@ -41,13 +46,10 @@ export function activity(
 
 export function setupRankingService(): {
   readonly service: RankingService;
-  readonly findMetrics: jest.Mock<
-    Promise<readonly RankingMetricRow[]>,
-    [{ currentYear?: number }]
-  >;
-  readonly findPreviousCycleMetrics: jest.Mock<
-    Promise<readonly RankingMetricRow[]>,
-    [{ currentYear?: number }]
+  readonly useRows: (rows: readonly RankingMetricRow[]) => void;
+  readonly findRankedPage: jest.Mock<
+    Promise<RankedPage>,
+    [RankingMetricsQuery, { offset: number; limit: number }, Date]
   >;
   readonly listYears: jest.Mock<Promise<readonly number[]>, []>;
   readonly findDataAsOf: jest.Mock<Promise<Date | null>, []>;
@@ -63,16 +65,21 @@ export function setupRankingService(): {
     CollectionScheduleService['nextScheduledCollectionAt']
   >;
 } {
-  const findMetrics = jest.fn<
-    Promise<readonly RankingMetricRow[]>,
-    [{ currentYear?: number }]
-  >();
-  findMetrics.mockResolvedValue([]);
-  const findPreviousCycleMetrics = jest.fn<
-    Promise<readonly RankingMetricRow[]>,
-    [{ currentYear?: number }]
-  >();
-  findPreviousCycleMetrics.mockResolvedValue([]);
+  const rankingYear = new RankingYearService();
+  let rows: readonly RankingMetricRow[] = [];
+  const findRankedPage = jest.fn<
+    Promise<RankedPage>,
+    [RankingMetricsQuery, { offset: number; limit: number }, Date]
+  >((_query, window) => {
+    const ranked = rows
+      .map((row) => ({ ...row, total: rankingYear.activityTotal(row) }))
+      .sort((left, right) => rankingYear.compareRanked(left, right))
+      .map((row, index) => ({ ...row, rank: index + 1, previousRank: null }));
+    return Promise.resolve({
+      rows: ranked.slice(window.offset, window.offset + window.limit),
+      total: ranked.length,
+    });
+  });
   const listYears = jest.fn<Promise<readonly number[]>, []>();
   listYears.mockResolvedValue([]);
   const findDataAsOf = jest.fn<Promise<Date | null>, []>();
@@ -90,8 +97,7 @@ export function setupRankingService(): {
   nextScheduledAt.mockReset().mockReturnValue(null);
 
   const ranking = {
-    findMetrics,
-    findPreviousCycleMetrics,
+    findRankedPage,
     listYears,
     findDataAsOf,
     findViewerClass,
@@ -99,13 +105,11 @@ export function setupRankingService(): {
   } as unknown as RankingRepository;
 
   return {
-    service: new RankingService(
-      ranking,
-      new RankingYearService(),
-      collectionSchedule,
-    ),
-    findMetrics,
-    findPreviousCycleMetrics,
+    service: new RankingService(ranking, rankingYear, collectionSchedule),
+    useRows: (next) => {
+      rows = next;
+    },
+    findRankedPage,
     listYears,
     findDataAsOf,
     findViewerClass,

@@ -3,7 +3,7 @@ import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import { RankingRepository, type RankingMetricRow } from './ranking.repository';
+import { RankingRepository, type RankedPageRow } from './ranking.repository';
 import {
   RankingYearService,
   RankingYear,
@@ -50,17 +50,8 @@ export interface RankingPage {
   readonly nextCycleAt: Date | null;
 }
 
-interface RankedPublicEntry extends RankingEntry {
-  readonly githubId: bigint;
-}
-
 @Injectable()
 export class RankingService {
-  private readonly inFlightBuilds = new Map<
-    string,
-    Promise<readonly RankedPublicEntry[]>
-  >();
-
   constructor(
     private readonly ranking: RankingRepository,
     private readonly rankingYearService: RankingYearService,
@@ -96,13 +87,16 @@ export class RankingService {
     pageSize: number,
     githubId: bigint | null,
   ): Promise<RankingPage> {
-    const [entries, dataAsOf, viewerClass] = await Promise.all([
-      this.findPublicEntries(year),
+    const [ranked, dataAsOf, viewerClass] = await Promise.all([
+      this.ranking.findRankedPage(
+        year === RANKING_YEAR_ALL ? {} : { currentYear: year },
+        { offset: (page - 1) * pageSize, limit: pageSize },
+        new Date(),
+      ),
       this.ranking.findDataAsOf(),
       this.ranking.findViewerClass(githubId),
     ]);
-    const start = (page - 1) * pageSize;
-    const slice = entries.slice(start, start + pageSize);
+    const slice = ranked.rows;
     const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
       new Date(),
     );
@@ -113,7 +107,7 @@ export class RankingService {
         items: slice.map(toPublicEntry),
         page,
         pageSize,
-        total: entries.length,
+        total: ranked.total,
         dataAsOf,
         viewerClass,
         nextCycleAt,
@@ -126,7 +120,7 @@ export class RankingService {
         items: await this.attachStaffNames(slice),
         page,
         pageSize,
-        total: entries.length,
+        total: ranked.total,
         dataAsOf,
         viewerClass: RANKING_VIEWER_CLASSES.STAFF,
         nextCycleAt,
@@ -137,7 +131,7 @@ export class RankingService {
         items: slice.map(toPublicEntry),
         page,
         pageSize,
-        total: entries.length,
+        total: ranked.total,
         dataAsOf,
         viewerClass: RANKING_VIEWER_CLASSES.PUBLIC,
         nextCycleAt,
@@ -149,62 +143,8 @@ export class RankingService {
     return this.ranking.listYears();
   }
 
-  private async findPublicEntries(
-    year: RankingYear,
-  ): Promise<readonly RankedPublicEntry[]> {
-    const cacheKey =
-      year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : `year:${year}`;
-    const existingBuild = this.inFlightBuilds.get(cacheKey);
-    if (existingBuild) return existingBuild;
-
-    const build = this.buildPublicEntries(year).finally(() =>
-      this.inFlightBuilds.delete(cacheKey),
-    );
-    this.inFlightBuilds.set(cacheKey, build);
-    return build;
-  }
-
-  private async buildPublicEntries(
-    year: RankingYear,
-  ): Promise<readonly RankedPublicEntry[]> {
-    const query = year === RANKING_YEAR_ALL ? {} : { currentYear: year };
-    const [activity, previousActivity] = await Promise.all([
-      this.ranking.findMetrics(query),
-      this.ranking.findPreviousCycleMetrics(query, new Date()),
-    ]);
-    const previousRanks = new Map(
-      this.rankRows(previousActivity).map((row, index) => [
-        row.githubId,
-        index + 1,
-      ]),
-    );
-    return this.rankRows(activity).map((entry, index) => ({
-      ...entry,
-      rank: index + 1,
-      previousRank: previousRanks.get(entry.githubId) ?? null,
-    }));
-  }
-
-  private rankRows(activity: readonly RankingMetricRow[]) {
-    const candidates = activity.map((row) => ({
-      githubId: row.githubId,
-      githubLogin: row.githubLogin,
-      department: row.department,
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      issueCount: row.issueCount,
-      repositoryCount: row.repositoryCount,
-      starCount: row.starCount,
-      total: this.rankingYearService.activityTotal(row),
-    }));
-
-    return candidates.sort((left, right) =>
-      this.rankingYearService.compareRanked(left, right),
-    );
-  }
-
   private async attachStaffNames(
-    slice: readonly RankedPublicEntry[],
+    slice: readonly RankedPageRow[],
   ): Promise<readonly RankingEntry[]> {
     const names = await this.ranking.findNamesByGithubIds(
       slice.map((entry) => entry.githubId),
@@ -216,7 +156,7 @@ export class RankingService {
   }
 }
 
-function toPublicEntry(entry: RankedPublicEntry): RankingEntry {
+function toPublicEntry(entry: RankedPageRow): RankingEntry {
   return {
     rank: entry.rank,
     previousRank: entry.previousRank,

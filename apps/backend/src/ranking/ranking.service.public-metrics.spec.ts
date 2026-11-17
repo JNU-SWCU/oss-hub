@@ -9,7 +9,7 @@ describe('RankingService public metrics', () => {
   });
 
   it('5종 지표와 그 단순 합을 total 로 돌려준다', async () => {
-    harness.findMetrics.mockResolvedValue([
+    harness.useRows([
       activity(1n, 'mina', {
         commitCount: 2,
         pullRequestCount: 1,
@@ -46,22 +46,28 @@ describe('RankingService public metrics', () => {
       nextCycleAt: null,
     });
     expect(page.items[0]).not.toHaveProperty('name');
-    expect(harness.findMetrics).toHaveBeenCalledWith({});
+    expect(harness.findRankedPage).toHaveBeenCalledWith(
+      {},
+      expect.anything(),
+      expect.any(Date),
+    );
   });
 
   it('passes the requested calendar year to the canonical repository', async () => {
     await harness.service.findPage(2026, 1, 20, null);
 
-    expect(harness.findMetrics).toHaveBeenCalledWith({
-      currentYear: 2026,
-    });
+    expect(harness.findRankedPage).toHaveBeenCalledWith(
+      { currentYear: 2026 },
+      expect.anything(),
+      expect.any(Date),
+    );
   });
 });
 
 describe('RankingService — 수치와 갱신 시각은 모두 현재 상태에서 온다', () => {
   it('같은 연도를 두 번 조회해도 목록과 갱신 시각을 모두 다시 묻는다', async () => {
     const harness = setupRankingService();
-    harness.findMetrics.mockResolvedValue([
+    harness.useRows([
       activity(1n, 'mina', {
         commitCount: 2,
         pullRequestCount: 1,
@@ -75,13 +81,13 @@ describe('RankingService — 수치와 갱신 시각은 모두 현재 상태에�
     await harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null);
     await harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null);
 
-    expect(harness.findMetrics).toHaveBeenCalledTimes(2);
+    expect(harness.findRankedPage).toHaveBeenCalledTimes(2);
     expect(harness.findDataAsOf).toHaveBeenCalledTimes(2);
   });
 
   it('관측이 하나도 없으면 갱신 시각은 null 이다', async () => {
     const harness = setupRankingService();
-    harness.findMetrics.mockResolvedValue([]);
+    harness.useRows([]);
     harness.findDataAsOf.mockResolvedValue(null);
 
     const page = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null);
