@@ -15,6 +15,11 @@ const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
+export function milestoneDeadlineLabel(dDay: number): string {
+  if (dDay < 0) return '마감 지남';
+  return dDay === 0 ? '오늘 마감' : `D-${dDay}`;
+}
+
 function trackTypeLabel(trackType: ProgramTrackType): string {
   return PROGRAM_TRACK_TYPE_LABELS[trackType];
 }

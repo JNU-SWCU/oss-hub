@@ -82,7 +82,6 @@ const FILE_FORM: SubmissionFormData = {
     name: '본선 발표 자료',
     dueAt: '2026-08-26T14:59:59.000Z',
     dDay: 14,
-    deadlineLabel: 'D-14',
     submissionType: 'FILE',
     instructions: null,
   },

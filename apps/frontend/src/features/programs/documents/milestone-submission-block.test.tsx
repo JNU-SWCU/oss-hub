@@ -72,12 +72,10 @@ function documentOf(
 const OPEN_DUE = {
   dueAt: '2099-08-20T23:59:59+09:00',
   dDay: 19,
-  deadlineLabel: 'D-19',
 } as const;
 const PAST_DUE = {
   dueAt: '2020-08-20T23:59:59+09:00',
   dDay: -12,
-  deadlineLabel: '마감 지남',
 } as const;
 
 function program(

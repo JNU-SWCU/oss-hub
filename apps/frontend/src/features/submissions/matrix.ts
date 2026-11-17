@@ -53,7 +53,6 @@ export function cellForMilestone(
       status: 'NOT_SUBMITTED',
       deliveryStatus: 'MISSING',
       submittedAt: null,
-      reviewUrl: null,
       changesRequestedCount: 0,
     }
   );

@@ -68,7 +68,7 @@ export class ProgramSubmissionsController {
     query: SubmissionMatrixRequestDto,
   ): Promise<SubmissionMatrixResponseDto> {
     const result = await this.matrixService.matrix(programId, query);
-    return SubmissionMatrixResponseDto.from(result, programId);
+    return SubmissionMatrixResponseDto.from(result);
   }
 }
 type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;

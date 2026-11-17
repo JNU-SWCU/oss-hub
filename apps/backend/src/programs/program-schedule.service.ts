@@ -2,17 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ProgramScheduleService {
-  programDeadline(
-    dueAt: Date,
-    now: Date,
-  ): {
-    readonly dDay: number;
-    readonly label: string;
-  } {
-    const dDay = calendarDayNumber(dueAt) - calendarDayNumber(now);
-    const label =
-      dDay < 0 ? '마감 지남' : dDay === 0 ? '오늘 마감' : `D-${dDay}`;
-    return { dDay, label };
+  programDeadline(dueAt: Date, now: Date): { readonly dDay: number } {
+    return { dDay: calendarDayNumber(dueAt) - calendarDayNumber(now) };
   }
 
   hasProgramDeadlinePassed(dueAt: Date, now: Date): boolean {

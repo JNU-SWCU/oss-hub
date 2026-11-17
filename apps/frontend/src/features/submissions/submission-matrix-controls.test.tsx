@@ -24,7 +24,6 @@ function rowWith(
         submissionId: null,
         revision: null,
         submittedAt: null,
-        reviewUrl: null,
         changesRequestedCount: 0,
         ...cell,
       },

@@ -6,6 +6,7 @@ import {
   SUBMISSION_DISPLAY_BADGE,
   submissionStatusLabel,
 } from '@/lib/status-vocabulary';
+import { programSubmissionReviewHref } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import {
   formatSubmittedAt,
@@ -15,11 +16,13 @@ import {
 import type { MatrixCell, MatrixMilestone } from '../types';
 
 export function MatrixCellContent({
+  programId,
   cell,
   milestone,
   now,
   focused,
 }: {
+  readonly programId: string;
   readonly cell: MatrixCell;
   readonly milestone: MatrixMilestone;
   readonly now: Date;
@@ -85,10 +88,11 @@ export function MatrixCellContent({
     </span>
   );
 
-  if (cell.status === 'NOT_SUBMITTED' || cell.reviewUrl === null) return meta;
+  if (cell.status === 'NOT_SUBMITTED' || cell.submissionId === null)
+    return meta;
   return (
     <Link
-      href={cell.reviewUrl}
+      href={programSubmissionReviewHref(programId, cell.submissionId)}
       aria-label={`${milestone.name} 제출물 검토`}
       className={cn(
         'group inline-flex flex-col items-start gap-2 rounded-control',

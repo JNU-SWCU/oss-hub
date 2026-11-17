@@ -36,7 +36,6 @@ function milestoneOf(
 
     dueAt: '2026-08-10T23:59:59+09:00',
     dDay: 5,
-    deadlineLabel: 'D-5',
     description: `${name} 안내`,
 
     submissionItemCount: 1,
@@ -84,18 +83,15 @@ const MILESTONES = [
   milestoneOf('milestone-1', '기획서 제출', {
     dueAt: '2026-07-20T23:59:59+09:00',
     dDay: -16,
-    deadlineLabel: '마감 지남',
     viewerSubmissionStatus: 'APPROVED',
   }),
   milestoneOf('milestone-2', '중간 보고', {
     dueAt: '2026-07-31T23:59:59+09:00',
     dDay: -5,
-    deadlineLabel: '마감 지남',
   }),
   milestoneOf('milestone-3', '최종 결과 요약', {
     dueAt: '2026-08-15T23:59:59+09:00',
     dDay: 10,
-    deadlineLabel: 'D-10',
     viewerSubmissionStatus: 'CHANGES_REQUESTED',
   }),
 ] as const;
@@ -187,7 +183,6 @@ describe('마일스톤 접기', () => {
           ...milestone,
           dueAt: '2026-08-04T23:59:59+09:00',
           dDay: -1,
-          deadlineLabel: '마감 지남',
         })),
       ),
     );
@@ -201,12 +196,10 @@ describe('마일스톤 접기', () => {
         milestoneOf('milestone-1', '오늘 09시 마감', {
           dueAt: '2026-08-05T09:00:00+09:00',
           dDay: 0,
-          deadlineLabel: '오늘 마감',
         }),
         milestoneOf('milestone-2', '다음 단계', {
           dueAt: '2026-08-10T23:59:59+09:00',
           dDay: 5,
-          deadlineLabel: 'D-5',
         }),
       ]),
     );
@@ -220,12 +213,10 @@ describe('마일스톤 접기', () => {
         milestoneOf('milestone-1', '오늘 자정 마감', {
           dueAt: '2026-08-05T23:59:59+09:00',
           dDay: 0,
-          deadlineLabel: '오늘 마감',
         }),
         milestoneOf('milestone-2', '다음 단계', {
           dueAt: '2026-08-10T23:59:59+09:00',
           dDay: 5,
-          deadlineLabel: 'D-5',
         }),
       ]),
     );
@@ -239,12 +230,10 @@ describe('마일스톤 접기', () => {
         milestoneOf('milestone-1', '오전 마감', {
           dueAt: '2026-08-05T09:00:00+09:00',
           dDay: 0,
-          deadlineLabel: '오늘 마감',
         }),
         milestoneOf('milestone-2', '점심 마감', {
           dueAt: '2026-08-05T13:00:00+09:00',
           dDay: 0,
-          deadlineLabel: '오늘 마감',
         }),
       ]),
     );

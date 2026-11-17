@@ -92,8 +92,8 @@ describe('ProgramsService detail', () => {
     expect(detail.viewer).toEqual({ role: null, applicationStatus: null });
     expect(detail.repositoryProvisioningEnabled).toBe(true);
     expect(detail.milestones[0]?.viewerSubmissionStatus).toBeNull();
-    expect(detail.milestones[0]?.deadlineLabel).toBe('오늘 마감');
-    expect(detail.milestones[1]?.deadlineLabel).toBe('마감 지남');
+    expect(detail.milestones[0]?.dDay).toBe(0);
+    expect(detail.milestones[1]?.dDay).toBeLessThan(0);
   });
   it('종료 판정은 운영 종료일만 싣고 게시 상태는 싣지 않는다', async () => {
     const { service } = createService();
@@ -395,7 +395,7 @@ describe('programDeadline', () => {
         new Date('2026-07-22T00:01:00+09:00'),
         new Date('2026-07-21T23:59:00+09:00'),
       ),
-    ).toEqual({ dDay: 1, label: 'D-1' });
+    ).toEqual({ dDay: 1 });
   });
   it('마감 시각과 정확히 같을 때는 아직 마감 후가 아니다', () => {
     const dueAt = new Date('2026-07-21T14:59:59.000Z');

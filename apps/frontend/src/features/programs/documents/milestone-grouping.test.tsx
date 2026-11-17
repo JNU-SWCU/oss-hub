@@ -41,7 +41,6 @@ function milestoneOf(
     name,
     dueAt: '2026-08-10T23:59:59+09:00',
     dDay: 5,
-    deadlineLabel: 'D-5',
     description: `${name} 안내`,
     submissionItemCount: 1,
     viewerSubmissionStatus: 'NOT_SUBMITTED',
