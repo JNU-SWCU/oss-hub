@@ -16,6 +16,10 @@ export function isProgramOperationsPath(pathname: string): boolean {
   );
 }
 
+export function isProgramOverviewPath(pathname: string): boolean {
+  return /^\/programs\/[^/]+\/?$/.test(pathname);
+}
+
 export function isProgramScopedWorkspacePath(pathname: string): boolean {
   return programDetailIdFromPathname(pathname) !== null;
 }

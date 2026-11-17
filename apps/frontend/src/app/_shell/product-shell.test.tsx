@@ -23,6 +23,9 @@ const mocks = vi.hoisted(() => ({
   getProgramNavigationMilestones: vi.fn(),
   getMyApplication: vi.fn(),
 }));
+const view = vi.hoisted((): { operations: boolean | null } => ({
+  operations: false,
+}));
 
 vi.mock('next/navigation', () => ({
   usePathname: mocks.usePathname,
@@ -44,7 +47,7 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 vi.mock('./program-operations-view', () => ({
-  useProgramOperationsView: () => false,
+  useProgramOperationsView: () => view.operations,
 }));
 
 vi.mock('@/features/programs/catalog/program-overview-api', () => ({
@@ -120,6 +123,27 @@ describe('shouldLoadProgramOverview — 개요 fetch 발화 조건', () => {
   it('프로그램 상세가 아니면 회원이어도 부르지 않는다', () => {
     expect(shouldLoadProgramOverview(null, true)).toBe(false);
     expect(shouldLoadProgramOverview(null, false)).toBe(false);
+  });
+});
+
+describe('ProductShell — 탭 상태를 아직 모르는 프로그램 상세', () => {
+  beforeEach(() => {
+    view.operations = null;
+  });
+  afterEach(() => {
+    view.operations = false;
+  });
+
+  it('개요 경로는 페이지를 숨긴 채 그려 서버 렌더가 페이지의 404 판정에 닿게 한다', () => {
+    mockSession();
+
+    expect(render('/programs/prog-1')).toBe('<div hidden=""><p>본문</p></div>');
+  });
+
+  it('하위 경로는 탭 상태가 결정될 때까지 아무것도 그리지 않는다', () => {
+    mockSession();
+
+    expect(render('/programs/prog-1/teams')).toBe('');
   });
 });
 

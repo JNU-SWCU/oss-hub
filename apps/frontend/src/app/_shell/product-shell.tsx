@@ -54,6 +54,7 @@ import {
 import {
   ProgramViewContext,
   isProgramOperationsPath,
+  isProgramOverviewPath,
   withoutLoadingCounts,
 } from './program-shell-policy';
 
@@ -183,7 +184,11 @@ export function ProductShell({
     closeSheet?.();
   }, [pathname, search, closeSheet]);
 
-  if (programDetailId !== null && operationsView === null) return null;
+  if (programDetailId !== null && operationsView === null) {
+    return isProgramOverviewPath(pathname) ? (
+      <div hidden>{children}</div>
+    ) : null;
+  }
 
   if (!hasShellSidebar(pathname, session)) {
     return (
