@@ -100,25 +100,35 @@ describe('loadPrismaQueryLintConfig', () => {
     ).toBe('LINT.NO_LIMIT');
   });
 
-  it('passes findMany bounded by take or by a primary or unique key', async () => {
+  it('passes findMany only when take is given', async () => {
     const prisma = lintedClient();
 
     expect(await lintCode(prisma.user.findMany({ take: 10 }))).toBeUndefined();
     expect(
       await lintCode(
-        prisma.user.findMany({ where: { id: { in: ['a', 'b'] } } }),
+        prisma.user.findMany({ take: 2, where: { id: { in: ['a', 'b'] } } }),
       ),
     ).toBeUndefined();
+  });
+
+  it('rejects findMany without take even when a unique key restricts it', async () => {
+    const prisma = lintedClient();
+
+    expect(
+      await lintCode(
+        prisma.user.findMany({ where: { id: { in: ['a', 'b'] } } }),
+      ),
+    ).toBe('LINT.NO_LIMIT');
     expect(
       await lintCode(prisma.user.findMany({ where: { githubId: 7n } })),
-    ).toBeUndefined();
+    ).toBe('LINT.NO_LIMIT');
     expect(
       await lintCode(
         prisma.teamMember.findMany({
           where: { AND: [{ teamId: 'team' }, { userId: { in: ['a'] } }] },
         }),
       ),
-    ).toBeUndefined();
+    ).toBe('LINT.NO_LIMIT');
   });
 
   it('rejects deleteMany and updateMany without a where filter', async () => {

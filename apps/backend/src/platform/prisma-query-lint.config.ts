@@ -18,7 +18,6 @@ export type PrismaQueryLintRule =
 
 type PrismaQueryLintPolicy = Readonly<{
   repoRoot: string;
-  uniqueKeys: UniqueKeys;
 }>;
 
 type PrismaInternalClient = {
@@ -35,7 +34,7 @@ const ERROR_RULES: Readonly<Record<string, PrismaQueryLintRule>> = {
 };
 const RULE_MESSAGES: Readonly<Record<PrismaQueryLintRule, string>> = {
   'LINT.NO_LIMIT':
-    'take 없이 여러 행을 읽습니다. take를 지정하거나 기본/고유 키를 in·equals로 제한하세요.',
+    'take 없이 여러 행을 읽습니다. 상한, 페이지 크기, 배치 크기 중 하나로 take를 지정하세요.',
   'LINT.DELETE_WITHOUT_WHERE': 'where 없이 여러 행을 삭제합니다.',
   'LINT.UPDATE_WITHOUT_WHERE': 'where 없이 여러 행을 수정합니다.',
   'LINT.SELECT_STAR': 'select 없이 모든 열을 읽습니다.',
@@ -99,7 +98,7 @@ export class PrismaQueryLintConfig {
   ): void {
     const query = isRecord(args) ? args : {};
     const rule = ERROR_RULES[operation];
-    if (rule && violates(rule, query, policy.uniqueKeys.get(model) ?? [])) {
+    if (rule && violates(rule, query)) {
       const key = `${model}.${operation}@${callerKey(policy.repoRoot)}`;
       throw new PrismaQueryLintError(rule, key);
     }
@@ -118,15 +117,7 @@ export function loadPrismaQueryLintConfig({
   nodeEnv = PROCESS_RUNTIME_CONFIG.NODE_ENV,
 }: { nodeEnv?: string } = {}): PrismaQueryLintConfig {
   if (nodeEnv === 'production') return new PrismaQueryLintConfig();
-  const repoRoot = findUp('pnpm-workspace.yaml');
-  const schema = readFileSync(
-    join(findUp('prisma/schema.prisma'), 'prisma/schema.prisma'),
-    'utf8',
-  );
-  return new PrismaQueryLintConfig({
-    repoRoot,
-    uniqueKeys: readUniqueKeys(schema),
-  });
+  return new PrismaQueryLintConfig({ repoRoot: findUp('pnpm-workspace.yaml') });
 }
 
 function recordCallsites(client: PrismaClient): void {
@@ -147,34 +138,10 @@ function recordCallsites(client: PrismaClient): void {
 function violates(
   rule: PrismaQueryLintRule,
   query: Record<string, unknown>,
-  uniqueKeys: readonly (readonly string[])[],
 ): boolean {
   if (rule !== 'LINT.NO_LIMIT')
     return !isRecord(query.where) || Object.keys(query.where).length === 0;
-  if (query.take !== undefined && query.take !== null) return false;
-  const restricted = restrictedFields(query.where);
-  return !uniqueKeys.some((key) => key.every((field) => restricted.has(field)));
-}
-
-function restrictedFields(where: unknown): Set<string> {
-  const fields = new Set<string>();
-  if (!isRecord(where)) return fields;
-  for (const [field, condition] of Object.entries(where)) {
-    if (field === 'AND') {
-      for (const part of [condition].flat())
-        for (const nested of restrictedFields(part)) fields.add(nested);
-    } else if (isEqualityOrIn(condition)) fields.add(field);
-  }
-  return fields;
-}
-
-function isEqualityOrIn(condition: unknown): boolean {
-  if (condition === null || condition === undefined) return false;
-  if (!isRecord(condition)) return true;
-  return (
-    Array.isArray(condition.in) ||
-    (condition.equals !== undefined && condition.equals !== null)
-  );
+  return query.take === undefined || query.take === null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -236,29 +203,6 @@ function findUp(marker: string): string {
       throw new Error(`쿼리 린트가 ${marker}를 찾지 못했습니다.`);
   }
 }
-
-function readUniqueKeys(schema: string): UniqueKeys {
-  const keys = new Map<string, string[][]>();
-  for (const [, model = '', body = ''] of schema.matchAll(
-    /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm,
-  )) {
-    const modelKeys: string[][] = [];
-    for (const line of body.split('\n').map((text) => text.trim())) {
-      const [, compound = ''] =
-        /^@@(?:id|unique)\(\s*(?:fields:\s*)?\[([^\]]*)\]/.exec(line) ?? [];
-      if (compound)
-        modelKeys.push(
-          compound.split(',').map((field) => field.replace(/\(.*$/, '').trim()),
-        );
-      const [, single = ''] = /^(\w+)\s.*\s@(?:id|unique)\b/.exec(line) ?? [];
-      if (single) modelKeys.push([single]);
-    }
-    keys.set(model, modelKeys);
-  }
-  return keys;
-}
-
-type UniqueKeys = ReadonlyMap<string, readonly (readonly string[])[]>;
 
 const sources = new Map<string, TS.SourceFile>();
 let typescript: typeof TS | undefined;
