@@ -1,7 +1,11 @@
+import { READ_CAP } from './bounded-read.config';
+import { BoundedReadRepository } from './bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { ActivityVisibility, Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { STANDING_SQL } from './contributor-read.config';
+
+const boundedReads = new BoundedReadRepository();
 
 export interface StandingFilter {
   readonly year: number | null;
@@ -84,11 +88,17 @@ export class ContributorReadRepository {
   async readStandingRows(
     filter: StandingFilter,
   ): Promise<readonly StandingRow[]> {
-    const rows = await this.prisma.$queryRaw<StandingSqlRow[]>`
+    const rows = await boundedReads.readCapped(
+      READ_CAP.standingRows,
+      'Standing rows',
+      (take) =>
+        this.prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
       FROM ${STANDING}
       ${standingWhere(filter)}
-    `;
+      LIMIT ${take}
+    `,
+    );
     return rows.map(standingRow);
   }
 
@@ -96,7 +106,11 @@ export class ContributorReadRepository {
     filter: StandingFilter,
     before: Date,
   ): Promise<readonly StandingRow[]> {
-    const rows = await this.prisma.$queryRaw<StandingSqlRow[]>`
+    const rows = await boundedReads.readCapped(
+      READ_CAP.standingRows,
+      'Standing rows before',
+      (take) =>
+        this.prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
       FROM (
         SELECT DISTINCT ON (observation.github_id, observation.year, observation.visibility)
@@ -117,16 +131,24 @@ export class ContributorReadRepository {
           observation.observed_at DESC
       ) AS previous
       ${standingWhere(filter)}
-    `;
+      LIMIT ${take}
+    `,
+    );
     return rows.map(standingRow);
   }
 
   async readStandingYears(filter: StandingFilter): Promise<readonly number[]> {
-    const rows = await this.prisma.$queryRaw<{ year: number }[]>`
+    const rows = await boundedReads.readCapped(
+      READ_CAP.activityYears,
+      'Standing years',
+      (take) =>
+        this.prisma.$queryRaw<{ year: number }[]>`
       SELECT DISTINCT year
       FROM ${STANDING}
       ${standingWhere(filter)}
-    `;
+      LIMIT ${take}
+    `,
+    );
     return rows.map((row) => row.year).sort((left, right) => right - left);
   }
 
@@ -135,6 +157,7 @@ export class ContributorReadRepository {
       SELECT MAX(observed_at) AS "observedAt"
       FROM ${STANDING}
       ${standingWhere(filter)}
+      LIMIT 1
     `;
     if (row === undefined) {
       throw new Error('Standing freshness query did not return a row');

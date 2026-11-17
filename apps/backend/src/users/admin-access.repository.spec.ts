@@ -98,7 +98,9 @@ describe('administrator actor projection and locks', () => {
     });
     expect(await repository(prisma).lockActiveAdminRows(prisma)).toBe(1);
     expect(queries[0]?.sql).toContain('JOIN "Admin" a');
-    expect(queries[0]?.sql).toContain('ORDER BY u."id" FOR UPDATE OF u, a');
+    expect(queries[0]?.sql).toContain(
+      'ORDER BY u."id" LIMIT ? FOR UPDATE OF u, a',
+    );
     expect(count).toHaveBeenCalledWith({
       where: { user: { accountStatus: AccountStatus.ACTIVE } },
     });

@@ -1,3 +1,4 @@
+import { READ_CAP } from '../platform/bounded-read.config';
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { StaffInsightsRepository } from './staff-insights.repository';
@@ -70,7 +71,7 @@ describe('StaffInsightsRepository program scorecard reads', () => {
     await repository.listProgramCompletion(now);
 
     const query = recordedSql(queryRaw);
-    expect(query.values).toEqual([now.toISOString()]);
+    expect(query.values).toEqual([now.toISOString(), READ_CAP.programs + 1]);
     expect(query.sql).toContain('requirement.required = true');
     expect(query.sql).toContain('milestone."dueAt" <=');
     expect(query.sql).toContain("submission.status <> 'REJECTED'");
@@ -87,7 +88,7 @@ describe('StaffInsightsRepository program scorecard reads', () => {
     await repository.listProgramOutcomes(now);
 
     const query = recordedSql(queryRaw);
-    expect(query.values).toEqual([now.toISOString()]);
+    expect(query.values).toEqual([now.toISOString(), READ_CAP.programs + 1]);
     expect(query.sql).toContain('event.occurred_at < linked.window_end');
     expect(query.sql).toContain('event.occurred_at >= linked.valid_from');
     expect(query.sql).not.toContain("'release'");

@@ -160,7 +160,7 @@ function lockTeamRow(
       WHERE t."id" = ${teamId}
         AND t."archivedAt" IS NULL
         AND p."lifecycle" <> 'DELETED'
-      FOR UPDATE OF t
+      LIMIT 1 FOR UPDATE OF t
     `,
   );
 }
@@ -547,7 +547,7 @@ export class TeamInvitationsRepository {
         if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
 
         const programs = await tx.$queryRaw<LockedTeamRow[]>(
-          Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${invitation.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
+          Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${invitation.programId} AND "lifecycle" <> 'DELETED' LIMIT 1 FOR UPDATE`,
         );
         if (programs.length === 0) return { kind: 'not-found' };
         if ((await lockTeamRow(tx, invitation.teamId)).length === 0)
@@ -564,7 +564,7 @@ export class TeamInvitationsRepository {
         const programId = invitation.programId;
 
         await tx.$queryRaw<readonly LockedUserRow[]>(
-          Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${inviteeId} FOR UPDATE`,
+          Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${inviteeId} LIMIT 1 FOR UPDATE`,
         );
         const invitee = await tx.user.findUnique({
           where: { id: inviteeId },

@@ -48,7 +48,7 @@ export class UserTransitionRepository {
     userId: string,
   ): Promise<void> {
     await transaction.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`,
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${userId} LIMIT 1 FOR UPDATE`,
     );
   }
 

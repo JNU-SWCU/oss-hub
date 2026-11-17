@@ -61,6 +61,31 @@ const cases: { code: string; file: string; ruleIds: string[] }[] = [
     ruleIds: [],
   },
   {
+    code: 'class A { read(id) { return this.prisma.$queryRaw`SELECT "id" FROM "Requirement" WHERE "milestoneId" = ${id} FOR UPDATE`; } }',
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/raw-select-limit'],
+  },
+  {
+    code: 'class A { read(id) { return this.prisma.$queryRaw(Prisma.sql`SELECT count(*) FROM "Team" WHERE "programId" = ${id}`); } }',
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/raw-select-limit'],
+  },
+  {
+    code: 'function rows() { return Prisma.sql`SELECT "id" FROM "Team"`; } class A { read() { return this.prisma.$queryRaw(rows()); } }',
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/raw-select-limit'],
+  },
+  {
+    code: 'class A { read(sql) { return this.prisma.$queryRaw(sql); } }',
+    file: 'src/sample.repository.ts',
+    ruleIds: ['prisma/raw-select-limit'],
+  },
+  {
+    code: 'class A { read(id, take) { return Promise.all([this.prisma.$queryRaw`SELECT "id" FROM "Requirement" WHERE "milestoneId" = ${id} ORDER BY "id" LIMIT ${take} FOR UPDATE`, this.prisma.$queryRaw`SELECT count(*) FROM (SELECT 1 FROM "Team" LIMIT 5) t LIMIT 1`, this.prisma.$queryRaw`UPDATE "Team" SET "name" = ${id} RETURNING "id"`]); } }',
+    file: 'src/sample.repository.ts',
+    ruleIds: [],
+  },
+  {
     code: 'async function load(ids) { for (const id of ids) { await read(id); } }',
     file: 'src/sample.service.ts',
     ruleIds: ['no-await-in-loop'],

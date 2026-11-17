@@ -206,7 +206,11 @@ export class StaffInsightsRepository {
   async listDepartmentMetrics(
     query: StaffInsightsActivityQuery,
   ): Promise<readonly StaffInsightsDepartmentMetricsRecord[]> {
-    return this.prisma.$queryRaw<StaffInsightsDepartmentMetricsRecord[]>`
+    return this.boundedReads.readCapped(
+      READ_CAP.departments,
+      'Department metrics',
+      (take) =>
+        this.prisma.$queryRaw<StaffInsightsDepartmentMetricsRecord[]>`
       WITH activity AS (${foldedActivitySql(query)}),
       participants AS (
         SELECT DISTINCT user_id FROM (${APPROVED_PARTICIPANTS}) AS approved
@@ -244,7 +248,9 @@ export class StaffInsightsRepository {
         COUNT(*) FILTER (WHERE participant)::int AS "participantCount"
       FROM students
       GROUP BY department
-    `;
+      LIMIT ${take}
+    `,
+    );
   }
 
   async listPeriodLeaderCandidates(
@@ -328,7 +334,11 @@ export class StaffInsightsRepository {
   async listProgramParticipantDepartments(): Promise<
     readonly StaffInsightsProgramDepartmentRecord[]
   > {
-    return this.prisma.$queryRaw<StaffInsightsProgramDepartmentRecord[]>`
+    return this.boundedReads.readCapped(
+      READ_CAP.insightGroups,
+      'Program department participants',
+      (take) =>
+        this.prisma.$queryRaw<StaffInsightsProgramDepartmentRecord[]>`
       SELECT
         approved.program_id AS "programId",
         CASE
@@ -341,7 +351,9 @@ export class StaffInsightsRepository {
       JOIN "User" AS student ON student.id = approved.user_id
       WHERE program.lifecycle = 'PUBLISHED'
       GROUP BY 1, 2
-    `;
+      LIMIT ${take}
+    `,
+    );
   }
 
   async countPublishedParticipants(): Promise<StaffInsightsParticipantCountRecord> {
@@ -358,6 +370,7 @@ export class StaffInsightsRepository {
         WHERE program.lifecycle = 'PUBLISHED'
         GROUP BY approved.user_id
       ) AS per_user
+      LIMIT 1
     `;
     if (row === undefined)
       throw new Error('Participant count query did not return a row');
@@ -417,7 +430,11 @@ export class StaffInsightsRepository {
   async listProgramCompletion(
     now: Date,
   ): Promise<readonly StaffInsightsCompletionRecord[]> {
-    return this.prisma.$queryRaw<StaffInsightsCompletionRecord[]>`
+    return this.boundedReads.readCapped(
+      READ_CAP.programs,
+      'Program completion',
+      (take) =>
+        this.prisma.$queryRaw<StaffInsightsCompletionRecord[]>`
       SELECT
         team."programId" AS "programId",
         COUNT(*)::int AS "dueRequirementCount",
@@ -438,13 +455,19 @@ export class StaffInsightsRepository {
         AND requirement.required = true
         AND milestone."dueAt" <= (${now.toISOString()}::timestamptz AT TIME ZONE 'UTC')
       GROUP BY team."programId"
-    `;
+      LIMIT ${take}
+    `,
+    );
   }
 
   async listProgramOutcomes(
     now: Date,
   ): Promise<readonly StaffInsightsOutcomeRecord[]> {
-    return this.prisma.$queryRaw<StaffInsightsOutcomeRecord[]>`
+    return this.boundedReads.readCapped(
+      READ_CAP.programs,
+      'Program outcomes',
+      (take) =>
+        this.prisma.$queryRaw<StaffInsightsOutcomeRecord[]>`
       WITH linked AS (
         SELECT
           team."programId" AS program_id,
@@ -505,7 +528,9 @@ export class StaffInsightsRepository {
         ) AS distinct_events
         GROUP BY program_id
       ) AS events USING (program_id)
-    `;
+      LIMIT ${take}
+    `,
+    );
   }
 
   async listActivityYears(): Promise<readonly number[]> {

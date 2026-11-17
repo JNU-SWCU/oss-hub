@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { COLLECTION_STALE_AFTER_MS } from '../github/collection-app.config';
 import { Injectable } from '@nestjs/common';
 import {
@@ -8,6 +10,8 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
+
+const boundedReads = new BoundedReadRepository();
 
 interface ActivityWindow {
   readonly from: string;
@@ -225,7 +229,11 @@ export class ProgramTeamRepositoryEvidenceRepository {
     const bounds = windowDates(window);
     const rows =
       repository && lastSuccessAt && memberGithubIds.length > 0
-        ? await this.prisma.$queryRaw<ActivityPointRow[]>`
+        ? await boundedReads.readCapped(
+            READ_CAP.activityPointsPerTeam,
+            'Team activity points',
+            (take) =>
+              this.prisma.$queryRaw<ActivityPointRow[]>`
             SELECT
               daily.github_id AS "githubId",
               daily.activity_date AS date,
@@ -250,7 +258,9 @@ export class ProgramTeamRepositoryEvidenceRepository {
               AND daily.activity_date <= ${queryDate(bounds.lte)}::date
             GROUP BY daily.github_id, daily.activity_date
             ORDER BY daily.activity_date ASC, daily.github_id ASC
-          `
+            LIMIT ${take}
+          `,
+          )
         : [];
     return {
       teamId: team.application?.id ?? null,

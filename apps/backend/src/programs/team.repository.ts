@@ -143,6 +143,8 @@ import { RepositoryDeletionRepository } from '../platform/repository-deletion.re
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import type { RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
 
+const boundedReads = new BoundedReadRepository();
+
 type DeletionScopeCountsRow = Readonly<{
   teams: bigint;
   members: bigint;
@@ -281,6 +283,7 @@ export class TeamDeletionScopeRepository {
             SELECT CONCAT('Notification:', id) FROM team_notification
           ) AS scope
         ) AS "scopeFingerprint"
+        LIMIT 1
     `,
     );
     if (!row)
@@ -991,7 +994,11 @@ export class ApplicationsRepository {
   async listReviewHistory(
     teamId: string,
   ): Promise<readonly ApplicationReviewHistoryEntry[]> {
-    const rows = await this.prisma.$queryRaw<ApplicationReviewHistoryEntry[]>`
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.reviewHistoryPerTeam,
+      'Team review history',
+      (take) =>
+        this.prisma.$queryRaw<ApplicationReviewHistoryEntry[]>`
       SELECT h.id, h.event::text AS "eventKind", (h.data->>'revision')::integer AS revision,
         h."occurredAt", COALESCE(h.data->>'rejectionReason', h.data->'metadata'->>'rejectionReason') AS "rejectionReason",
         jsonb_build_object('name', u.name, 'nickname', COALESCE(u.login, 'System')) AS actor
@@ -999,7 +1006,9 @@ export class ApplicationsRepository {
       WHERE h."teamId" = ${teamId}
         AND h.event::text IN ('SUBMITTED','APPROVED','REJECTED','REVERTED','RESUBMITTED')
       ORDER BY h."occurredAt" DESC, h.id DESC
-    `;
+      LIMIT ${take}
+    `,
+    );
     return rows;
   }
 
@@ -1095,6 +1104,7 @@ export class ApplicationsRepository {
         (COUNT(*) FILTER (WHERE (${status}) = 'ended'))::int AS ended
       FROM "Program" AS p
       WHERE p."lifecycle" <> 'DELETED'
+      LIMIT 1
     `;
     const total = totals?.total ?? 0;
     const page = Math.min(
@@ -1238,7 +1248,7 @@ export class ApplicationsRepository {
     teamId: string,
   ): Promise<ApplicationDecisionTarget | null> {
     await transaction.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} LIMIT 1 FOR UPDATE`,
     );
     const application = await transaction.team
       .findUnique({
@@ -1325,7 +1335,7 @@ export class ApplicationsRepository {
         FROM "RepositoryProvisionJob" AS job
         LEFT JOIN "repo" AS repo ON repo."github_repo_id" = job."repo_id"
         WHERE job."teamId" = ${teamId}
-        FOR UPDATE OF job
+        LIMIT 1 FOR UPDATE OF job
       `)
     )[0];
     const event = await transaction.outboxEvent.findUnique({
@@ -1492,7 +1502,7 @@ export class ApplicationsRepository {
     programId: string,
   ): Promise<LockedProgramPolicy | null> {
     const rows = await database.$queryRaw<readonly LockedProgramPolicy[]>(
-      Prisma.sql`SELECT "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
+      Prisma.sql`SELECT "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} AND "lifecycle" <> 'DELETED' LIMIT 1 FOR UPDATE`,
     );
     return rows[0] ?? null;
   }
@@ -1528,7 +1538,7 @@ export class ApplicationsRepository {
   ): ReturnType<ApplicationCreateStore['validateApplicationParticipants']> {
     const ids = [...new Set([input.actorId, ...input.inviteeIds])].sort();
     await database.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`,
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" LIMIT ${ids.length} FOR UPDATE`,
     );
     const activeStudents = await database.user.findMany({
       take: ids.length,
@@ -2036,7 +2046,7 @@ export class StudentApplicationManagementRepository {
     programId: string,
   ): Promise<StudentApplicationPolicy | null> {
     const locked = await transaction.$queryRaw<readonly { id: string }[]>`
-      SELECT "id" FROM "Program" WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE
+      SELECT "id" FROM "Program" WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED' LIMIT 1 FOR UPDATE
     `;
     if (locked.length === 0) return null;
     return transaction.program.findUnique({
@@ -2060,7 +2070,7 @@ export class StudentApplicationManagementRepository {
     });
     if (!membership) return null;
     const lockedTeam = await transaction.$queryRaw<readonly { id: string }[]>`
-      SELECT "id" FROM "Team" WHERE "id" = ${membership.teamId} FOR UPDATE
+      SELECT "id" FROM "Team" WHERE "id" = ${membership.teamId} LIMIT 1 FOR UPDATE
     `;
     if (lockedTeam.length === 0) return null;
 
@@ -2082,7 +2092,7 @@ export class StudentApplicationManagementRepository {
     const locked = await transaction.$queryRaw<readonly { id: string }[]>`
       SELECT "id" FROM "Team"
       WHERE "id" = ${candidate.id} AND "archivedAt" IS NULL
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `;
     if (locked.length === 0) return null;
     const row = await transaction.team.findFirst({
@@ -3159,7 +3169,7 @@ function lockTeamRow(
       WHERE t."id" = ${teamId}
         AND t."archivedAt" IS NULL
         AND p."lifecycle" <> 'DELETED'
-      FOR UPDATE OF t
+      LIMIT 1 FOR UPDATE OF t
     `,
   );
 }
@@ -3244,7 +3254,7 @@ export class ProgramTeamDeletionRepository {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
-          await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
+          await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} LIMIT 1 FOR UPDATE`;
 
           const team = await tx.team.findUnique({
             where: {
@@ -3410,7 +3420,11 @@ async function deleteTeamTree(
     });
   }
 
-  const detached = await tx.$queryRaw<readonly { readonly repoId: bigint }[]>`
+  const detached = await boundedReads.readCapped(
+    READ_CAP.reposPerTeam,
+    'Current team repositories',
+    (take) =>
+      tx.$queryRaw<readonly { readonly repoId: bigint }[]>`
     SELECT link.repo_id AS "repoId"
     FROM team_repo AS link
     WHERE link.team_id = ${teamId}
@@ -3420,7 +3434,9 @@ async function deleteTeamTree(
         WHERE later.repo_id = link.repo_id
           AND later.valid_from > link.valid_from
       )
-  `;
+      LIMIT ${take}
+  `,
+  );
   const detachedRepoIds = detached.map((repository) => repository.repoId);
   await tx.repositoryProvisionJob.deleteMany({
     where: { teamId },
@@ -3607,10 +3623,10 @@ export class StudentRepositoryUrlTransactionRepository {
     actorGithubId: bigint,
   ): Promise<TeamRepositoryUrlContext | null> {
     await this.transaction
-      .$queryRaw`SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE`;
+      .$queryRaw`SELECT "id" FROM "Program" WHERE "id" = ${programId} LIMIT 1 FOR UPDATE`;
 
     await this.transaction
-      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
+      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} LIMIT 1 FOR UPDATE`;
     return this.studentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
       this.transaction,
       programId,
@@ -3628,7 +3644,7 @@ export class StudentRepositoryUrlTransactionRepository {
     readonly deletedCounts: RepositoryDeletionCounts | null;
   }> {
     const tx = this.transaction;
-    await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "teamId" = ${context.id} FOR UPDATE`;
+    await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "teamId" = ${context.id} LIMIT 1 FOR UPDATE`;
     const job = await tx.repositoryProvisionJob.findUnique({
       where: { teamId: context.id },
       select: { status: true },
@@ -3654,7 +3670,7 @@ export class StudentRepositoryUrlTransactionRepository {
       ) AS "teamId"
       FROM repo
       WHERE repo.github_repo_id = ${metadata.githubRepositoryId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `;
     const owner = owners[0]?.teamId ?? null;
     if (owner !== null && owner !== context.teamId)

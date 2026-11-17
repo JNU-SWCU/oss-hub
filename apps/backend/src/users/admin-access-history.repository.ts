@@ -29,6 +29,7 @@ export class AdminAccessHistoryRepository {
       prisma.$queryRaw<{ readonly total: number }[]>`
         WITH latest AS (${latest})
         SELECT COUNT(*)::int AS total FROM latest
+        LIMIT 1
       `,
     ]);
     const selected = rows.flatMap((row) => {

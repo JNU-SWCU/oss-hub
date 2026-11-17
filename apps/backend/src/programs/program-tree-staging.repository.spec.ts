@@ -1,3 +1,4 @@
+import { READ_CAP } from '../platform/bounded-read.config';
 import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
@@ -92,8 +93,8 @@ it.each([
     method === 'findMilestoneForUpdate'
       ? [['p'], ['m']]
       : method === 'lockMilestoneEdit'
-        ? [['p'], ['m'], ['m']]
-        : [['p'], ['m'], ['m']],
+        ? [['p'], ['m'], ['m', READ_CAP.requirementsPerMilestone + 1]]
+        : [['p'], ['m'], ['m', READ_CAP.requirementsPerMilestone + 1]],
   );
 });
 

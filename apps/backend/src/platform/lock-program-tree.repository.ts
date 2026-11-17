@@ -1,6 +1,10 @@
+import { READ_CAP } from './bounded-read.config';
+import { BoundedReadRepository } from './bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { LockOrderError } from './lock-program-tree.error';
+
+const boundedReads = new BoundedReadRepository();
 const programBrand: unique symbol = Symbol('ProgramLock');
 const milestoneBrand: unique symbol = Symbol('MilestoneLock');
 export type ProgramLock = Readonly<{
@@ -87,7 +91,7 @@ export class LockProgramTreeRepository {
           id: string;
         }[]
       >(
-        Prisma.sql`SELECT id FROM "Program" WHERE id = ${step.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
+        Prisma.sql`SELECT id FROM "Program" WHERE id = ${step.programId} AND "lifecycle" <> 'DELETED' LIMIT 1 FOR UPDATE`,
       );
       if (rows.length !== 1) return null;
       const witness: ProgramLock = Object.freeze({
@@ -114,7 +118,7 @@ export class LockProgramTreeRepository {
           SELECT m."id", m."programId" FROM "Milestone" m
           JOIN "Program" p ON p."id" = m."programId"
           WHERE m."id" = ${step.milestoneId} AND p."lifecycle" <> 'DELETED'
-          FOR UPDATE OF m
+          LIMIT 1 FOR UPDATE OF m
         `);
       const row = rows[0];
       if (!row) return null;
@@ -130,16 +134,21 @@ export class LockProgramTreeRepository {
       throw new LockOrderError();
     state.rank = 3;
     state.documents = true;
-    const rows = await tx.$queryRaw<
-      readonly {
-        id: string;
-      }[]
-    >(
-      Prisma.sql`
+    const rows = await boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement lock per milestone',
+      (take) =>
+        tx.$queryRaw<
+          readonly {
+            id: string;
+          }[]
+        >(
+          Prisma.sql`
     SELECT "id" FROM "Requirement"
     WHERE "milestoneId" = ${step.after.id}
-    ORDER BY "id" FOR UPDATE
+    ORDER BY "id" LIMIT ${take} FOR UPDATE
   `,
+        ),
     );
     return { documentIds: rows.map((row) => row.id) };
   }

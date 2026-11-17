@@ -351,7 +351,7 @@ export class RepositoriesRepository {
         SELECT "id", "status", "nextAttemptAt", "currentEventId"
         FROM "RepositoryProvisionJob"
         WHERE "teamId" = ${teamId}
-        FOR UPDATE
+        LIMIT 1 FOR UPDATE
       `,
     );
     const existing = locked[0];

@@ -79,7 +79,7 @@ export class SubmissionsRepository {
           SELECT "dueAt"
           FROM "Milestone"
           WHERE "id" = ${input.deadline.milestoneId}
-          FOR SHARE
+          LIMIT 1 FOR SHARE
         `);
         const dueAt = milestone[0]?.dueAt;
         afterDeadline =
@@ -94,7 +94,7 @@ export class SubmissionsRepository {
       SELECT "id", "graceDueAt"
       FROM "Requirement"
       WHERE "id" = ${input.requirementId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
       const document = documents[0];
       if (document === undefined) throw new RequirementMissingError();
@@ -115,7 +115,7 @@ export class SubmissionsRepository {
         FROM "Submission"
         WHERE "requirementId" = ${input.requirementId}
           AND "teamId" = ${input.teamId}
-        FOR UPDATE
+        LIMIT 1 FOR UPDATE
       `);
       const latestHistory = await transaction.submissionHistory.findFirst({
         where: {
@@ -1078,7 +1078,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         FROM "Program"
         WHERE "id" = ${resolved.team.programId}
           AND "lifecycle" <> 'DELETED'
-        FOR SHARE
+        LIMIT 1 FOR SHARE
       `);
     if (programs.length === 0) return null;
     await transaction.$queryRaw<
@@ -1089,7 +1089,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       SELECT "id"
       FROM "Submission"
       WHERE "id" = ${targetId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
     const submission = await transaction.submission.findUnique({
       where: {

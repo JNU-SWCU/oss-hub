@@ -301,6 +301,10 @@ export interface ProgramApplicationCounts {
   readonly total: number;
   readonly pending: number;
 }
+const PROGRAM_YEAR_MIN = 2000;
+const PROGRAM_YEAR_MAX = 2100;
+const PROGRAM_YEAR_SPAN = PROGRAM_YEAR_MAX - PROGRAM_YEAR_MIN + 1;
+
 @Injectable()
 export class ProgramsRepository {
   private readonly boundedReads = new BoundedReadRepository();
@@ -380,8 +384,9 @@ export class ProgramsRepository {
       SELECT DISTINCT ${programEndYearSql} AS year
       FROM "Program" AS p
       ${this.programListStatusFilterRepository.programListSqlWhere('ended', '', now)}
-      AND ${programEndYearSql} BETWEEN 2000 AND 2100
+      AND ${programEndYearSql} BETWEEN ${PROGRAM_YEAR_MIN} AND ${PROGRAM_YEAR_MAX}
       ORDER BY year DESC
+      LIMIT ${PROGRAM_YEAR_SPAN}
     `);
     return rows.map((row) => row.year);
   }
@@ -394,7 +399,9 @@ export class ProgramsRepository {
         readonly upcoming: number;
         readonly ended: number;
       }[]
-    >(this.programListStatusFilterRepository.programStatusCountsSql(now));
+    >(
+      Prisma.sql`${this.programListStatusFilterRepository.programStatusCountsSql(now)} LIMIT 1`,
+    );
     const row = rows[0];
     if (!row) return emptyProgramStatusCounts();
     return {
@@ -789,6 +796,7 @@ export class ProgramDeletionScopeRepository {
             )
           ) AS scope
         ) AS "scopeFingerprint"
+        LIMIT 1
     `);
     if (!row) throw new Error('Deletion scope count query returned no result.');
     return {
@@ -1192,6 +1200,7 @@ export class ProgramOverviewRepository {
         SELECT COUNT(DISTINCT member."userId")::int AS count
         FROM "TeamMember" AS member
         WHERE member."programId" = ${programId}
+        LIMIT 1
       `.then((rows) => rows[0]?.count ?? 0),
       this.prisma.$queryRaw<readonly { readonly count: number }[]>`
         SELECT COUNT(*)::int AS count
@@ -1204,6 +1213,7 @@ export class ProgramOverviewRepository {
             WHERE later.repo_id = link.repo_id
               AND later.valid_from > link.valid_from
           )
+          LIMIT 1
       `.then((rows) => rows[0]?.count ?? 0),
     ]);
     return {

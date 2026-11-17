@@ -236,6 +236,7 @@ export class CollectionIncrementalStoreRepository {
           )) AS missing_repo,
         (SELECT count(*)::int FROM inserted WHERE fresh) AS inserted,
         (SELECT count(*)::int FROM inserted WHERE NOT fresh) AS author_filled
+        LIMIT 1
     `;
     const summary: unknown = rows[0];
     if (!isContributionInsertSummary(summary)) {
@@ -401,7 +402,7 @@ export class CollectionIncrementalStoreRepository {
   async assertSyncLeaseValid(token: SyncLeaseToken, now: Date): Promise<void> {
     const rows = await this.db.$queryRawUnsafe<Array<{ owned: boolean }>>(
       `SELECT true AS "owned" FROM "CollectionSyncLease" WHERE "appId" = $1 AND "scope" = $2
-       AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5 AND "expiresAt" > $6 FOR UPDATE`,
+       AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5 AND "expiresAt" > $6 LIMIT 1 FOR UPDATE`,
       token.appId,
       token.scope,
       token.ownerId,

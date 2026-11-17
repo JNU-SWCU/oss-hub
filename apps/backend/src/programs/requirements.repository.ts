@@ -1542,7 +1542,7 @@ export class RequirementsRepository {
     >(Prisma.sql`
       SELECT "id" FROM "Program"
       WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED'
-      FOR SHARE
+      LIMIT 1 FOR SHARE
     `);
     return rows.length === 1;
   }
@@ -1614,7 +1614,7 @@ export class RequirementsRepository {
       SELECT "id", "milestoneId"
       FROM "Requirement"
       WHERE "id" = ${documentId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
     return rows[0] ?? null;
   }
@@ -1802,7 +1802,7 @@ export class RequirementsRepository {
       FROM "Submission"
       WHERE "requirementId" = ${requirementId}
         AND "teamId" = ${teamId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
     const submission = await scope.transaction.submission.findUnique({
       where: {
@@ -1894,18 +1894,23 @@ export class RequirementsRepository {
     scope: RequirementWriteScope,
     programId: string,
   ): Promise<readonly string[]> {
-    const rows = await scope.transaction.$queryRaw<
-      readonly {
-        id: string;
-      }[]
-    >(Prisma.sql`
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerProgram,
+      'Requirement lock per program',
+      (take) =>
+        scope.transaction.$queryRaw<
+          readonly {
+            id: string;
+          }[]
+        >(Prisma.sql`
         SELECT requirement."id"
         FROM "Requirement" requirement
         JOIN "Milestone" milestone ON milestone."id" = requirement."milestoneId"
         WHERE milestone."programId" = ${programId}
         ORDER BY requirement."id"
-        FOR UPDATE OF requirement
-      `);
+        LIMIT ${take} FOR UPDATE OF requirement
+      `),
+    );
     return rows.map((row) => row.id);
   }
   private async lockApprovedApplicationIdsIn(
@@ -1913,19 +1918,24 @@ export class RequirementsRepository {
     programId: string,
     teamId: string | undefined,
   ): Promise<readonly string[]> {
-    const rows = await scope.transaction.$queryRaw<
-      readonly {
-        id: string;
-        status: ApplicationStatus;
-      }[]
-    >(Prisma.sql`
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team lock per program',
+      (take) =>
+        scope.transaction.$queryRaw<
+          readonly {
+            id: string;
+            status: ApplicationStatus;
+          }[]
+        >(Prisma.sql`
         SELECT "id", "status"
         FROM "Team"
         WHERE "programId" = ${programId}
           AND "archivedAt" IS NULL
         ORDER BY "id"
-        FOR SHARE
-      `);
+        LIMIT ${take} FOR SHARE
+      `),
+    );
     return rows
       .filter(
         (row) =>

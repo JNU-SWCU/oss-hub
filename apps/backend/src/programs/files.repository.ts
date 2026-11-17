@@ -245,7 +245,7 @@ export class ProgramAuthoringUploadTransactionRepository {
              ("pendingExpiresAt" > NOW()) AS unexpired,
              "storageKey", "originalFileName", "mimeType", "sizeBytes"
       FROM "File" WHERE id IN (${Prisma.join(tokenIds)}) AND kind IN ('UPLOAD','TEMPLATE','COVER')
-      ORDER BY id FOR UPDATE
+      ORDER BY id LIMIT ${tokenIds.length} FOR UPDATE
     `);
   }
 
@@ -625,7 +625,7 @@ export class FilesRepository {
         INNER JOIN "Team" AS team
           ON team."programId" = program."id"
         WHERE team."id" = ${input.teamId}
-        FOR UPDATE OF program
+        LIMIT 1 FOR UPDATE OF program
       `);
       const program = programs[0];
       if (!program) {
@@ -639,7 +639,7 @@ export class FilesRepository {
         SELECT "id"
         FROM "User"
         WHERE "id" = ${input.uploaderId}
-        FOR UPDATE
+        LIMIT 1 FOR UPDATE
       `);
       const retained = await transaction.file.aggregate({
         where: {

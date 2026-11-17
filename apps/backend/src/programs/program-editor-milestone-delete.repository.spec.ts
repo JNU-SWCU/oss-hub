@@ -1,3 +1,4 @@
+import { READ_CAP } from '../platform/bounded-read.config';
 import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
@@ -164,6 +165,9 @@ describe('ProgramEditorRepository milestone deletion', () => {
     const documentLock = queries[2];
     expect(String(documentLock?.strings)).toContain('FROM "Requirement"');
     expect(String(documentLock?.strings)).toContain('FOR UPDATE');
-    expect(documentLock?.values).toEqual([syntheticMilestoneId]);
+    expect(documentLock?.values).toEqual([
+      syntheticMilestoneId,
+      READ_CAP.requirementsPerMilestone + 1,
+    ]);
   });
 });

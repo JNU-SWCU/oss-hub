@@ -84,7 +84,7 @@ export class AccountDeactivationRepository implements AccountDeactivationReposit
     githubId: bigint,
   ): Promise<AccountDeactivationTarget | null> {
     const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`SELECT id FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+      Prisma.sql`SELECT id FROM "User" WHERE "githubId" = ${githubId} LIMIT 1 FOR UPDATE`,
     );
     const row = rows[0];
     if (!row) return null;

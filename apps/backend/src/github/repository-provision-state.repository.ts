@@ -251,7 +251,7 @@ export class RepositoryProvisionStateRepository {
       SELECT "id"
       FROM "Team"
       WHERE "id" = ${teamId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `,
     );
     if (rows.length !== 1) {
@@ -283,7 +283,7 @@ export class RepositoryProvisionStateRepository {
           ) AS "teamId"
           FROM "repo" AS repo
           WHERE repo."github_repo_id" = ${githubRepositoryId}
-          FOR UPDATE
+          LIMIT 1 FOR UPDATE
         `,
         )
       )[0] ?? null;

@@ -9,6 +9,7 @@ import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
 import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
 import { findManyTake } from './eslint-rules/find-many-take.mjs';
 import { nestedRelationTake } from './eslint-rules/nested-relation-take.mjs';
+import { rawSelectLimit } from './eslint-rules/raw-select-limit.mjs';
 import { noPassthroughFactory } from './eslint-rules/no-passthrough-factory.mjs';
 import {
   bootstrapFiles,
@@ -137,6 +138,7 @@ export default tseslint.config(
         rules: {
           'find-many-take': findManyTake,
           'nested-relation-take': nestedRelationTake,
+          'raw-select-limit': rawSelectLimit,
         },
       },
     },
@@ -144,6 +146,7 @@ export default tseslint.config(
       'no-await-in-loop': 'error',
       'prisma/find-many-take': 'error',
       'prisma/nested-relation-take': 'error',
+      'prisma/raw-select-limit': 'error',
     },
   },
   {

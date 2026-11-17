@@ -6,6 +6,8 @@ import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
+const boundedReads = new BoundedReadRepository();
+
 export interface ProgramActivitySummaryRow {
   readonly programId: string;
   readonly repositoryCount: number;
@@ -277,7 +279,11 @@ const readRepositorySummaries = async (
   repositoryIds: readonly bigint[],
 ): Promise<ReadonlyMap<bigint, RepositorySummary>> => {
   if (repositoryIds.length === 0) return new Map();
-  const rows = await prisma.$queryRaw<readonly AuthorContributionRow[]>`
+  const rows = await boundedReads.readCapped(
+    READ_CAP.contributionRows,
+    'Contribution per repository author',
+    (take) =>
+      prisma.$queryRaw<readonly AuthorContributionRow[]>`
     SELECT
       event.repo_id AS "repositoryId",
       event.author_github_id AS "githubId",
@@ -288,7 +294,9 @@ const readRepositorySummaries = async (
     WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     GROUP BY event.repo_id, event.author_github_id
-  `;
+    LIMIT ${take}
+  `,
+  );
   const latest = await prisma.$queryRaw<
     readonly {
       readonly repositoryId: bigint;
@@ -307,6 +315,7 @@ const readRepositorySummaries = async (
       )
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     GROUP BY event.repo_id
+    LIMIT ${repositoryIds.length}
   `;
   const lastByRepository = new Map(
     latest.map((row) => [row.repositoryId, row.occurredAt]),
@@ -367,7 +376,11 @@ const readContributionEvents = async (
     authorGithubId === undefined
       ? Prisma.empty
       : Prisma.sql`AND event.author_github_id = ${authorGithubId}`;
-  const rows = await prisma.$queryRaw<readonly ContributionEventRow[]>`
+  const rows = await boundedReads.readCapped(
+    READ_CAP.contributionRows,
+    'Contribution events',
+    (take) =>
+      prisma.$queryRaw<readonly ContributionEventRow[]>`
     SELECT
       event.repo_id AS "repositoryId",
       event.kind::text AS kind,
@@ -376,7 +389,9 @@ const readContributionEvents = async (
     WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
       ${authorSql}
-  `;
+      LIMIT ${take}
+  `,
+  );
   return rows.map((row) => {
     if (
       typeof row.repositoryId !== 'bigint' ||

@@ -157,6 +157,7 @@ export class CollectionUserActivityRepository {
           AND "year" = ${year}
           AND "visibility" = 'PUBLIC'::"ActivityVisibility"
       ) AS present
+      LIMIT 1
     `;
     const row = rows[0];
     if (row === undefined) {

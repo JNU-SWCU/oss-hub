@@ -98,7 +98,7 @@ export class MemberOnboardingRepository {
       operation({
         findUserByGithubId: async (githubId) => {
           await transaction.$queryRaw(
-            Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+            Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} LIMIT 1 FOR UPDATE`,
           );
           const user = await transaction.user.findUnique({
             where: { githubId },

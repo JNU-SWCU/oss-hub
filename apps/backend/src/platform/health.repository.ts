@@ -6,6 +6,6 @@ export class HealthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async checkDatabaseConnection(): Promise<void> {
-    await this.prisma.$queryRaw`SELECT 1`;
+    await this.prisma.$queryRaw`SELECT 1 LIMIT 1`;
   }
 }

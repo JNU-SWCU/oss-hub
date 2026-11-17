@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, UserType } from '@prisma/client';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
@@ -7,6 +9,8 @@ import {
   USER_AUTHORITY_SELECT,
   USER_PROFILE_NAME_SELECT,
 } from '../platform/user-profile-read.config';
+
+const boundedReads = new BoundedReadRepository();
 
 export type RankingRepositoryViewerClass = 'public' | 'member' | 'staff';
 
@@ -262,7 +266,11 @@ export class RankingRepository {
   async findMetrics(
     query: RankingMetricsQuery,
   ): Promise<readonly RankingMetricRow[]> {
-    return this.prisma.$queryRaw<RankingMetricRow[]>`
+    return boundedReads.readCapped(
+      READ_CAP.standingRows,
+      'Ranking metrics',
+      (take) =>
+        this.prisma.$queryRaw<RankingMetricRow[]>`
       WITH folded AS (${foldedActivity(currentRows(query))})
       SELECT
         member."githubId" AS "githubId",
@@ -276,7 +284,9 @@ export class RankingRepository {
       FROM "User" AS member
       LEFT JOIN folded ON folded.github_id = member."githubId"
       WHERE ${RANKING_MEMBER}
-    `;
+      LIMIT ${take}
+    `,
+    );
   }
 
   async findRankedPage(
@@ -311,6 +321,7 @@ export class RankingRepository {
         WHERE current_ranked.rank > ${window.offset}
           AND current_ranked.rank <= ${window.offset + window.limit}
         ORDER BY current_ranked.rank
+        LIMIT ${window.limit}
       `,
       this.prisma.user.count({ where: RANKING_ELIGIBLE_MEMBER }),
     ]);

@@ -24,6 +24,14 @@ export const READ_CAP = {
   reposPerTeam: 5,
   programs: 200,
   repositories: 500,
+  reviewHistoryPerTeam: 100,
+  admins: 100,
+  activityYears: 100,
+  standingRows: 10_000,
+  contributionRows: 50_000,
+  activityPointsPerTeam: MEMBERS_PER_TEAM * 366,
+  departments: 200,
+  insightGroups: 10_000,
 } as const;
 
 export type NestedReadCaps = {

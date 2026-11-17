@@ -1,3 +1,4 @@
+import { READ_CAP } from '../platform/bounded-read.config';
 import { FileMetadataRepository } from './files.repository';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
@@ -3826,7 +3827,10 @@ describe('RequirementsRepository store.applyDocumentOrder', () => {
     expect(lockSql).toContain('FROM "Requirement"');
     expect(lockSql).toContain('ORDER BY "id"');
     expect(lockSql).toContain('FOR UPDATE');
-    expect(lockQueries[1]?.values).toEqual([syntheticMilestoneId]);
+    expect(lockQueries[1]?.values).toEqual([
+      syntheticMilestoneId,
+      READ_CAP.requirementsPerMilestone + 1,
+    ]);
   });
 
   it('rejects document locks before the milestone stage without issuing SQL', async () => {

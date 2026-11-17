@@ -100,7 +100,9 @@ it('locks User rows before returning raw current state and the same history writ
     },
   });
   expect(result.writer).toBe(h.prisma);
-  expect(h.queries[0]?.sql).toContain('ORDER BY u."id" FOR UPDATE OF u, a');
+  expect(h.queries[0]?.sql).toContain(
+    'ORDER BY u."id" LIMIT ? FOR UPDATE OF u, a',
+  );
   expect(h.queries[1]?.sql).toContain('FOR UPDATE');
 });
 it('decides exactly one matching PENDING request using the User approval tuple', async () => {
