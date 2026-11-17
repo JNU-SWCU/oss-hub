@@ -14,27 +14,27 @@ import Recover from '~/components/Recover.astro';
 
 At the top right, ② `보완 요청 보내기` (send revision requests) sits beside ① `내려받기` (download).
 
-<Shot src="staff/documents-full.webp" alt="Document status screen with submission stage summaries and filter chips above the team-by-milestone table. Marker ① points to download and ② to send revision requests." caption="① `내려받기` (download) ② `보완 요청 보내기` (send revision requests)" />
+<Shot src="staff/documents-full.webp" alt="Document status screen with stage status summaries and filter chips above the team-by-milestone table. Marker ① points to download and ② to send revision requests." caption="① `내려받기` (download) ② `보완 요청 보내기` (send revision requests)" />
 
 ## Read submission status
 
 <Steps>
-1. In `팀별 제출 단계` (submission stages by team), check counts for `제출 완료 단계` (completed stages), `미제출 단계` (missing submissions), `필수 서류 없는 단계` (stages without required documents), and `지각 제출 단계` (late submissions).
-2. Read each cell where a team row meets a milestone column. It shows `제출 완료` (submitted), `미제출 있음` (documents missing), `지각 제출` (late submission), or `필수 서류 없음` (no required documents).
-3. Upcoming deadlines show remaining days, such as `D-3`. Overdue cells show elapsed days, such as `마감 초과 D+2` (two days overdue). A deadline today shows `오늘 마감` (due today).
+1. When viewing all stages, read `단계별 상태` (stage status): `기한 지남` (overdue), `검토 대기` (awaiting review), `보완 요청 중` (revision requested), and `승인` (approved). These count team-by-milestone cells on the current page, not teams. This summary is hidden when you select a single milestone.
+2. Read the status in each cell. Missing required documents show `미제출` (not submitted) before the deadline or `기한 지남` afterward. Other submissions show one review status: `검토 대기`, `보완 요청 중`, `승인`, or `반려` (rejected). Late submissions add `· 지각` (late) after that status. A cell with neither required documents nor a submission shows `—`.
+3. In the all-stages view, missing-submission cells show remaining days, such as `D-3`. Overdue cells show elapsed days, such as `2일 지남` (two days overdue). The single-milestone view does not repeat the remaining days.
 4. Cells submitted as a single submission include `열어 보기` (open), which opens `최종 제출 검토` (final submission review). Review milestones that collect individual documents in `서류 수합` (document collection) under `프로그램 개요` (program overview). Both screens are explained in [Review submitted documents](/oss-hub/en/staff/review-submission/).
 </Steps>
-<Shot src="staff/documents-matrix.webp" alt="Required document status table by team. Marker ① points to the missing-documents filter chip above the table." caption="① `미제출 있음` (documents missing) chip" />
+<Shot src="staff/documents-matrix.webp" alt="Team-by-milestone table with approved, awaiting-review, revision-requested, and missing statuses. Marker ① points to the awaiting-review chip." caption="① `검토 대기` (awaiting review). Filters use each team’s representative status." />
 
 ## Filter teams with missing documents
 
 <Steps>
-1. Click ① `미제출 있음`. The other chips work the same way: `전체` (all), `지각 제출`, `제출 완료`, and `필수 서류 없음`.
+1. Select a milestone in the left menu, then click ① `미제출` (not submitted). After the deadline, choose `기한 지남` (overdue). Other chips work the same way: `전체` (all), `검토 대기`, `보완 요청 중`, `승인`, and `반려`. Zero-count chips are hidden unless selected.
 2. To find a team, enter a name in `신청자·팀명·GitHub ID` (applicant, team name, or GitHub ID) and click `조회` (search). Click `초기화` (reset) to clear it.
 </Steps>
-<Shot src="staff/documents-filter-missing.webp" alt="Document status table filtered to teams with missing documents. Marker ① points to the selected missing-documents chip." caption="① Selected `미제출 있음` (documents missing) chip" />
+<Shot src="staff/documents-filter-missing.webp" alt="Document status for one milestone, filtered to teams that have not submitted. Marker ① points to the selected not-submitted chip." caption="① Selected `미제출` (not submitted) chip" />
 
-Status chips apply only to the currently displayed page. Scroll sideways if the table is too wide.
+Status chips apply only to the current page. When viewing all stages, a team with several statuses is assigned to the first matching status in this order: `기한 지남` → `검토 대기` → `보완 요청 중` → `미제출` → `반려` → `승인`. A team awaiting review in another stage may therefore not appear under `미제출` even if a document is missing. Select a milestone first when checking missing documents. Scroll sideways if the table is too wide.
 
 ## Download submissions as a ZIP
 

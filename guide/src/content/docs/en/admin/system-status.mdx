@@ -31,9 +31,9 @@ This card appears only when something needs work. Each item has a `심각` (Seve
 <Shot src="admin/status-attention.webp" alt="The needs attention card. Under final repository provisioning failure, each team has a Retry button. Under delayed activity collection, five delayed repositories and a show more button are listed. Notification mail failure is at the bottom." caption="Needs attention" />
 
 - `저장소 발급 최종 실패` (Repository provisioning failed): Teams whose repository could not be created. Each row shows the team, program, error code, and last attempt time. Click `다시 시도` (Retry) to request provisioning again.
-- `활동 수집 지연` (Activity collection delayed): Repositories whose last successful collection is more than 2 hours old. The five most delayed repositories are shown, and `지연 저장소 N개 더 보기` (Show N more delayed repositories) expands the rest. If they're still delayed after the next hourly collection, go to Settings, then GitHub Apps, in the program office's GitHub organization and check that the collection app is installed and has permission.
+- `활동 수집 지연` (Activity collection delayed): Repositories whose last successful collection is more than 2 hours old. The five most delayed repositories are shown, and `지연 저장소 N개 더 보기` (Show N more delayed repositories) expands the rest. If they're still delayed after the next hourly collection, ask the operator to check the GitHub collection app's installation and repository permissions.
 - `알림 메일 발송 실패` (Notification mail failed): The number of notification emails that couldn't be sent in the last 7 days.
-- Items that point to a person, such as administrator permission changes or bulk rejections and deletions, have a `사용자 보기` (View user) link that opens that user's page.
+- Items that point to a person, such as administrator permission changes or bulk rejections and deletions, have a `감사 로그 보기` (View audit log) link that searches the audit log for that person. If searchable account information is unavailable, `사용자 보기` (View user) opens the user details instead.
 
 A repository that fails is tried again in the next hourly collection. When that collection succeeds, it leaves `활동 수집 지연` (Activity collection delayed).
 

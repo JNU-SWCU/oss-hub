@@ -1,6 +1,6 @@
 ---
 title: View the audit log
-description: Review administrative history to see who changed what and when.
+description: Search account, operation, document, and sign-in records and compare changes.
 sidebar:
   order: 6
 ---
@@ -9,50 +9,62 @@ import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 
-`감사 로그` (Audit log) records administrative actions. Use it to look back at events such as who changed permissions or deleted a program. Only administrators can open it, and records are read-only here.
+`감사 로그` (Audit log) shows who changed what and when. It covers access changes, program operations, document decisions, and sign-ins. Only Administrators can open it. Records cannot be edited or deleted here.
 
-## Find records
+## Choose a category and view
 
 <Steps>
 1. Open ① `감사 로그` (Audit log) in the left-hand `관리자` (Administrator) section.
-2. In the filter image, enter a GitHub ID in ① `행위자` (Actor) to see only that person's actions.
-3. Choose a type from ② `작업 종류` (Action type). The default is `전체` (All).
-4. To narrow the period, choose `시작일` (Start date) and `종료일` (End date).
-5. Click ③ `조회` (Search).
+2. In ② the category row, choose `전체` (All), `권한·계정` (Access and accounts), `운영` (Operations), `서류` (Documents), `로그인` (Sign-ins), or `시스템` (System). The category applies immediately.
+3. In ③ the view selector, choose `피드` (Feed) or `표` (Table). The default is Feed.
 </Steps>
-<Shot src="admin/audit-full.webp" alt="Audit log with filters and a records table. ① marks Audit log in the left menu." caption="① Audit log menu" />
-<Shot src="admin/audit-filter-bar.webp" alt="Audit log filters. ① marks Actor, ② Action type, and ③ Search." caption="① Actor ② Action type ③ Search. The order of date fields depends on the browser language" />
+<Shot src="admin/audit-full.webp" alt="Audit log in Feed view. ① marks the Audit log menu, ② the categories, and ③ the Feed and Table selector." caption="① Audit log ② categories ③ view. This example has document approvals selected" />
 
-Click `초기화` (Reset) to clear all conditions.
+Category counts reflect the search term, action type, and dates. Switching categories does not change the counts displayed beside the other categories.
 
-<Shot src="admin/audit-filtered.webp" alt="Audit log filtered to Approval. ① marks Action type and ② Reset. There are three results." caption="① Action type `승인` (Approval) ② Reset" />
+## Narrow the search and dates
 
-## Read the table
+<Steps>
+1. In the filter image, enter a name or GitHub ID in ① `검색` (Search). `이름 또는 GitHub 아이디` (Name or GitHub ID) is placeholder text.
+2. Choose ② `작업 종류` (Action type). Set `시작일` (Start date) and `종료일` (End date) if needed.
+3. Click ③ `조회` (Search). Editing fields or selecting an action type alone does not apply the conditions.
+</Steps>
+<Shot src="admin/audit-filter-bar.webp" alt="Audit log filters. ① marks Search, ② Action type, and ③ the Search button." caption="① Search ② action type ③ Search button. Date field order depends on the browser language" />
 
-The columns are `발생 일시` (Occurred at), `행위자` (Actor), `대상` (Target), and `내용` (Details). `발생 일시` (Occurred at) shows both a relative time such as `3일 전` (3 days ago) and an exact time. `내용` (Details) contains a sentence such as “… approved …'s staff access request,” followed by an action-type badge. `총 N건` (N records in total) appears below; use `이전` (Previous) and `다음` (Next) to change pages.
+On narrow screens, click `필터` (Filters) to expand the fields. The number beside it counts the applied search term, action type, start date, and end date conditions.
 
-<Shot src="admin/audit-content-closeup.webp" alt="Close-up of the audit table showing occurrence time, actor, target, details, and action-type badges." caption="The description and action-type badge in the Details column" />
+The next image shows results for ① `서류 승인` (Document approved) in `작업 종류` (Action type). Click ② `초기화` (Reset) to clear the conditions and category. The view mode stays unchanged.
 
-The `작업 종류` (Action type) selector is a flat list. The groups below are a reference to help you find entries, not groups in the selector.
+<Shot src="admin/audit-filtered.webp" alt="Feed showing three document approval records. ① marks Action type and ② Reset." caption="① Document approved ② Reset" />
 
-| Reference group | Types |
-| --- | --- |
-| Permissions and accounts | `회원 가입` (Registration), `교직원 승인 신청` (Staff approval request), `이전 신청 종료` (Previous request closed), `교직원 승인` (Staff approval), `교직원 승인 회수` (Staff approval revoked), `교직원 접근 허용` (Staff access granted), `교직원 접근 회수` (Staff access revoked), `관리자 권한 부여` (Administrator permissions granted), `관리자 권한 회수` (Administrator permissions revoked), `승인` (Approval), `반려` (Rejection), `회수` (Revocation), `복구` (Restoration), `역할 변경` (Role change), `계정 상태 변경` (Account status change), `프로필 수정` (Profile edit), `전화번호 수정` (Phone number edit) |
-| Repositories | `저장소 공개` (Repository made public), `저장소 주소 변경` (Repository URL change) |
-| Programs | `생성` (Creation), `삭제` (Deletion) |
-| Teams | `생성` (Creation), `합류` (Joining), `이름 변경` (Rename), `삭제` (Deletion), `구성 변경` (Membership change) |
-| Applications | `신청 제출` (Application submitted), `신청 승인` (Application approved), `신청 반려` (Application rejected), `검토 대기로` (Returned to pending review) |
+## Read the feed and table
 
-`교직원 승인` (Staff approval) and `승인` (Approval) differ from `신청 승인` (Application approved). The first two record approval of [staff access requests](/oss-hub/en/admin/applicants/); `신청 승인` (Application approved) records approval of a program applicant. Selecting or changing membership type falls under `역할 변경` (Role change), but the table displays `신분 선택` (Membership selected) for the initial choice and `신분 변경` (Membership changed) for a change. Unlisted types appear as `기타 작업` (Other action).
+`피드` (Feed) groups records by date, newest first. Each row shows the actor, role, target, action, and time. When a record includes a change, an arrow connects the old and new values. Adjacent records from the same request are indented together. Sign-in records have no separate target.
+
+<Steps>
+1. Click ① `표` (Table) in the view selector.
+2. Read ② the columns: `시각` (Time), `행위자` (Actor), `역할` (Role), `동작` (Action), `대상` (Target), and `변경` (Change). Click any column title except Change to sort. Click the same title again to reverse the direction.
+</Steps>
+<Shot src="admin/audit-content-closeup.webp" alt="Audit log in Table view. ① marks the Table button and ② the table with Time, Actor, Role, Action, Target, and Change columns." caption="① Table view ② records and change values" />
+
+Sorting applies only to records on the current page. On narrow screens, other details appear beneath Time and Actor; use `정렬` (Sort) and the `오름차순` (Ascending) or `내림차순` (Descending) button. Use `이전` (Previous) and `다음` (Next) below to change pages. Each page contains up to 20 records.
+
+Distinguish these action types:
+
+- Staff access decisions use `권한 요청 승인` (Access request approved), `권한 요청 반려` (Access request rejected), `권한 회수` (Access revoked), and `권한 복구` (Access restored). There are also `교직원 승인` (Staff approved) and `교직원 승인 회수` (Staff approval revoked) records.
+- Program applications use `신청 제출` (Application submitted), `신청 재제출` (Application resubmitted), `신청 승인` (Application approved), `신청 반려` (Application rejected), and `검토 대기로` (Returned to pending review). These differ from staff access requests.
+- Documents use `서류 제출` (Document submitted), `서류 재제출` (Document resubmitted), `서류 수정 요청` (Document changes requested), `서류 승인` (Document approved), and `서류 반려` (Document rejected).
+- Find membership type records under `회원 유형 변경` (Membership type changed). An initial selection appears as `회원 유형 선택` (Membership type selected) in the record.
+- Account sessions use `로그인` (Sign-in), `로그인 실패` (Sign-in failed), and `로그아웃` (Sign-out). An unlisted action may display its original code.
 
 <Success>
-Matching records appear newest first, and `총 N건` (N records in total) below the table updates.
+The records and `총 N건` (N records in total) update to match the applied conditions. Switching between Feed and Table preserves the conditions and page.
 </Success>
 
 <Recover title="If records are missing or cannot be loaded">
-`기록이 없습니다` (No records) and `조회 조건을 바꿔 보세요.` (Try changing your search conditions) mean no records match. Check the spelling in `행위자` (Actor) and the date range, or click `초기화` (Reset) to start again.
+`기록이 없습니다` (No records) and `조회 조건을 바꿔 보세요.` (Try changing the search conditions) mean no records match. Check the search spelling, category, and dates, or click `초기화` (Reset) to start again.
 
-<Shot src="admin/audit-empty.webp" alt="Audit log with no records. ① marks an actor value with no matching records." caption="① Actor with no matching records. The order of date fields depends on the browser language" />
+<Shot src="admin/audit-empty.webp" alt="Audit log with no search results. ① marks the search term; the no-records message and total of zero appear below." caption="① A search with no matching records" />
 
-If you see `감사 로그를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.` (The audit log could not be loaded. Try again shortly), click `다시 시도` (Retry). If it keeps happening, check [System status](/oss-hub/en/admin/system-status/).
+If you see `감사 로그를 불러오지 못했습니다. 잠시 후 다시 시도하세요.` (The audit log could not be loaded. Try again shortly), click `다시 시도` (Retry). If it keeps happening, check [System status](/oss-hub/en/admin/system-status/).
 </Recover>
