@@ -257,8 +257,8 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
     expect(
       container.querySelector(
         'a[href="/programs/program-1/documents?milestoneId=milestone-1"]',
-      )?.textContent,
-    ).toBe('제출하기');
+      ),
+    ).toBeNull();
 
     await act(async () => button.click());
     expect(submissionInput()).not.toBeNull();

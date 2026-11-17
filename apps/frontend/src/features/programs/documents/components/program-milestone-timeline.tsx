@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
-import { useId, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { ListPanel, StatusBadge } from '@/components';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +28,7 @@ import {
 import type { ViewerRole } from '../../program-contract';
 import type { MilestoneSubmissionAccess } from '../milestone-submission-access';
 import { milestoneRowSubmitGate } from '../milestone-submit-gate';
+import { useRequirementsQuery } from '../queries';
 import { RequirementSection } from '../requirement-list';
 import { MilestoneNotice } from './milestone-notice';
 
@@ -306,9 +307,20 @@ function MilestoneGroup({
         ? studentCells(context, submissionAccess)
         : NO_CELLS;
   const current = phase === 'current';
+  const [open, setOpen] = useState(current);
   const first = position === 1;
   const hasChecklist = hasSubmissionDetail(milestone, viewerRole);
   const foldable = hasChecklist || Boolean(milestone.description);
+  const requirements = useRequirementsQuery(
+    programId,
+    milestone.id,
+    viewerRole === 'STUDENT' && hasChecklist,
+    'all',
+  );
+  const itemsCarryEntry =
+    requirements.isPending || (requirements.data?.documents.length ?? 0) > 0;
+  const action =
+    viewerRole === 'STUDENT' && open && itemsCarryEntry ? null : cells.action;
   const countdown = milestoneCountdown(milestone.dDay, phase === 'done');
   const name = (
     <span
@@ -373,9 +385,7 @@ function MilestoneGroup({
             <div className={STATE_CLASS}>{cells.state}</div>
           )}
         </div>
-        {cells.action === null ? null : (
-          <div className={ACTION_CLASS}>{cells.action}</div>
-        )}
+        {action === null ? null : <div className={ACTION_CLASS}>{action}</div>}
       </div>
       {foldable ? (
         <CollapsibleContent
@@ -407,7 +417,7 @@ function MilestoneGroup({
     </article>
   );
   return foldable ? (
-    <Collapsible defaultOpen={current} asChild>
+    <Collapsible open={open} onOpenChange={setOpen} asChild>
       {group}
     </Collapsible>
   ) : (

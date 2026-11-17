@@ -299,6 +299,61 @@ describe('마일스톤 접기', () => {
     expect(panelOf(trigger).getAttribute('data-state')).toBe('closed');
   });
 
+  it('펼친 마일스톤의 줄에는 제출 입구를 두지 않고, 접으면 그 줄에 다시 둔다', async () => {
+    const groups = await renderMilestones();
+    const trigger = triggerOf(groups[2]) as HTMLButtonElement;
+    const rowLink = () =>
+      groups[2].querySelector<HTMLAnchorElement>(
+        '[data-testid="milestone-row"] a',
+      );
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(rowLink()).toBeNull();
+
+    await act(async () => trigger.click());
+
+    expect(rowLink()?.textContent).toBe('다시 제출');
+    expect(rowLink()?.getAttribute('href')).toBe(
+      '/programs/program-1/documents?milestoneId=milestone-3',
+    );
+    expect(rowLink()?.getAttribute('data-variant')).toBe('default');
+
+    await act(async () => trigger.click());
+
+    expect(rowLink()).toBeNull();
+  });
+
+  it('제출 항목을 불러오지 못하면 펼친 줄에도 제출 입구를 남긴다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              type: 'about:blank',
+              title: 'Request failed',
+              status: 503,
+              detail: '합성 조회 실패',
+              instance: '/x',
+              code: 'COM_002',
+            }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/problem+json' },
+            },
+          ),
+      ),
+    );
+    const groups = await renderMilestones();
+
+    expect(triggerOf(groups[2])?.getAttribute('aria-expanded')).toBe('true');
+    await vi.waitFor(() => {
+      expect(
+        groups[2].querySelector('[data-testid="milestone-row"] a')?.textContent,
+      ).toBe('다시 제출');
+    });
+  });
+
   it('여러 마일스톤을 동시에 펼쳐 둘 수 있다', async () => {
     const groups = await renderMilestones();
     const first = triggerOf(groups[0]) as HTMLButtonElement;
