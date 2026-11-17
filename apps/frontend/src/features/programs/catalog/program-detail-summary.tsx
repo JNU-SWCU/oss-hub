@@ -1,115 +1,186 @@
-import { ChevronDown } from 'lucide-react';
-import { useId } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { formatProgramEndAt } from '../authoring/program-end-at';
+import { formatSeoulDateRange } from './program-detail-format';
 import type { ProgramOverview } from './program-overview-dto';
 import type { ProgramDetail } from './dto';
 
-export function ProgramSummary({
-  program,
-}: {
-  readonly program: ProgramDetail;
-}) {
+interface ProgramFact {
+  readonly key: string;
+  readonly label: string;
+  readonly value: string;
+  readonly detail?: string;
+}
+
+function participationFacts(overview: ProgramOverview): ProgramFact[] {
+  const facts: ProgramFact[] = [
+    {
+      key: 'participants',
+      label: '참여 학생',
+      value: `${overview.participantCount}명`,
+    },
+    { key: 'teams', label: '참여 팀', value: String(overview.teamCount) },
+    {
+      key: 'repositories',
+      label: '연결 저장소',
+      value: `${overview.connectedRepositoryCount}개`,
+    },
+  ];
+  const documentsTotal = overview.viewerDocumentsTotal ?? 0;
+  if (overview.viewerRole === 'STUDENT' && documentsTotal > 0) {
+    facts.push({
+      key: 'my-submission',
+      label: '내 제출',
+      value: `${overview.viewerDocumentsCompleted ?? 0} / ${documentsTotal} 서류`,
+    });
+  }
+  if (overview.viewerRole === 'STAFF' && overview.participantCount > 0) {
+    const completed = overview.fullySubmittedParticipantCount ?? 0;
+    facts.push({
+      key: 'submission-rate',
+      label: '이번 마일스톤 완주율',
+      value: `${Math.round((completed / overview.participantCount) * 100)}%`,
+      detail: `(${completed}/${overview.participantCount})`,
+    });
+  }
+  return facts;
+}
+
+function programFacts(
+  program: ProgramDetail,
+  overview: ProgramOverview | null,
+): readonly ProgramFact[] {
+  const facts: ProgramFact[] = [
+    {
+      key: 'application-period',
+      label: '신청 기간',
+      value: formatSeoulDateRange(
+        program.applicationPeriod.startsAt,
+        program.applicationPeriod.endsAt,
+      ),
+    },
+  ];
+  if (program.operatingPeriod) {
+    facts.push({
+      key: 'operating-period',
+      label: '운영 기간',
+      value: formatSeoulDateRange(
+        program.operatingPeriod.startsAt,
+        program.operatingPeriod.endsAt,
+        formatProgramEndAt,
+      ),
+    });
+  }
+  return overview === null
+    ? facts
+    : [...facts, ...participationFacts(overview)];
+}
+
+function ProgramGuide({ description }: { readonly description: string }) {
   const contentId = useId();
-  if (!program.description) return null;
+  const contentRef = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (content === null || expanded) return;
+    const measure = (): void => {
+      setOverflowing(content.scrollHeight > content.clientHeight);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [description, expanded]);
+
   return (
-    <Collapsible key={program.id} defaultOpen={false}>
-      <Card className="gap-0 py-0">
-        <CardHeader className="gap-0 px-0">
-          <CollapsibleTrigger
-            aria-controls={contentId}
-            className={cn(
-              'group flex h-control w-full items-center justify-between gap-3',
-              'px-(--card-spacing) text-left outline-none',
-              'focus-visible:ring-3 focus-visible:ring-ring/50',
-            )}
-          >
-            <CardTitle>프로그램 안내</CardTitle>
-            <ChevronDown
-              aria-hidden
-              className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"
-            />
-          </CollapsibleTrigger>
-        </CardHeader>
-        <CollapsibleContent
-          id={contentId}
-          className="data-[state=closed]:hidden"
-          forceMount
+    <div
+      data-slot="program-guide"
+      className="grid min-w-0 content-start justify-items-start gap-2"
+    >
+      <CardTitle>프로그램 안내</CardTitle>
+      <p
+        id={contentId}
+        ref={contentRef}
+        className={cn(
+          'text-sm leading-6 break-keep whitespace-pre-wrap',
+          !expanded && 'line-clamp-5',
+        )}
+      >
+        {description}
+      </p>
+      {overflowing || expanded ? (
+        <Button
+          type="button"
+          variant="link"
+          size="xs"
+          className="h-auto px-0 text-foreground underline underline-offset-2"
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          aria-label={
+            expanded ? '프로그램 안내 접기' : '프로그램 안내 전체 보기'
+          }
+          onClick={() => setExpanded((current) => !current)}
         >
-          <CardContent className="py-(--card-spacing)">
-            <p className="text-sm leading-6 break-keep whitespace-pre-wrap">
-              {program.description}
-            </p>
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+          {expanded ? '접기' : '전체 보기'}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
-export function ProgramFactBar({
+export function ProgramSummary({
+  program,
   overview,
 }: {
   readonly program: ProgramDetail;
   readonly overview: ProgramOverview | null;
 }) {
-  if (!overview) return null;
-  const items: {
-    readonly key: string;
-    readonly k: string;
-    readonly v: string;
-    readonly caption?: string;
-  }[] = [
-    {
-      key: 'participants',
-      k: '참여 학생',
-      v: `${overview.participantCount}명`,
-    },
-    { key: 'teams', k: '참여 팀', v: String(overview.teamCount) },
-    {
-      key: 'repositories',
-      k: '연결 저장소',
-      v: `${overview.connectedRepositoryCount}개`,
-    },
-  ];
-  if (overview.viewerRole === 'STUDENT') {
-    items.push({
-      key: 'my-submission',
-      k: '내 제출',
-      v: `${overview.viewerDocumentsCompleted ?? 0} / ${overview.viewerDocumentsTotal ?? 0} 서류`,
-    });
-  } else if (overview.viewerRole === 'STAFF') {
-    const denominator = overview.participantCount;
-    const numerator = overview.fullySubmittedParticipantCount ?? 0;
-    const rate =
-      denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
-
-    items.push({
-      key: 'submission-rate',
-      k: '이번 마일스톤 완주율',
-      v: `${rate}% (${numerator}/${denominator})`,
-      caption: '현재 마일스톤 필수 항목을 모두 제출한 참여자 기준',
-    });
-  }
+  const guided = program.description !== '';
   return (
-    <dl
-      aria-label="프로그램 요약"
-      className="flex flex-wrap gap-x-8 gap-y-3 border-y border-border py-4"
-    >
-      {items.map((item) => (
-        <div key={item.key} className="grid gap-0.5">
-          <dt className="text-xs text-muted-foreground">{item.k}</dt>
-          <dd className="text-sm font-bold tabular-nums">{item.v}</dd>
-          {item.caption !== undefined ? (
-            <p className="text-xs text-muted-foreground">{item.caption}</p>
+    <section data-slot="program-summary" aria-label="프로그램 요약">
+      <Card className="@container">
+        <CardContent
+          className={cn(
+            'grid gap-6',
+            guided && '@2xl:grid-cols-[minmax(0,1fr)_16.5rem]',
+          )}
+        >
+          {guided ? (
+            <ProgramGuide key={program.id} description={program.description} />
           ) : null}
-        </div>
-      ))}
-    </dl>
+          <dl
+            className={cn(
+              'grid content-start gap-3',
+              guided
+                ? '@2xl:border-l @2xl:border-border @2xl:pl-6'
+                : '@2xl:grid-cols-2 @2xl:gap-x-12',
+            )}
+          >
+            {programFacts(program, overview).map((fact) => (
+              <div
+                key={fact.key}
+                className="flex items-baseline justify-between gap-4"
+              >
+                <dt className="text-small text-muted-foreground">
+                  {fact.label}
+                </dt>
+                <dd className="text-right text-sm font-bold tabular-nums">
+                  {fact.value}
+                  {fact.detail === undefined ? null : (
+                    <span className="font-normal text-muted-foreground">
+                      {` ${fact.detail}`}
+                    </span>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+    </section>
   );
 }

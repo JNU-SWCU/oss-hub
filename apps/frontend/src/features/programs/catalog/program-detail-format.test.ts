@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatSeoulDateRange,
   formatSeoulShortRange,
   isPastDue,
-  programDetailMeta,
+  programDetailContext,
 } from './program-detail-format';
 
 describe('isPastDue', () => {
@@ -42,45 +43,58 @@ describe('formatSeoulShortRange', () => {
   });
 });
 
-describe('programDetailMeta', () => {
-  const applicationPeriod = {
-    startsAt: '2026-10-04T15:00:00.000Z',
-    endsAt: '2026-10-16T14:59:00.000Z',
-  };
-
-  it('날짜 범위 앞에 무슨 기간인지 이름을 붙인다', () => {
+describe('formatSeoulDateRange', () => {
+  it('같은 해 안의 범위는 끝 날짜의 연도를 줄인다', () => {
     expect(
-      programDetailMeta({
-        organizers: ['운영기관'],
-        trackType: 'EXTRACURRICULAR',
-        applicationPeriod,
-      }),
-    ).toEqual({
-      context: '운영기관 · 비교과',
-      period: '신청 기간 2026.10.05 ~ 2026.10.16',
-    });
+      formatSeoulDateRange(
+        '2026-10-04T15:00:00.000Z',
+        '2026-10-16T14:59:00.000Z',
+      ),
+    ).toBe('2026.10.05 ~ 10.16');
   });
 
-  it('유형이 없는 프로그램도 같은 이름을 붙인다', () => {
+  it('서울 기준으로 해를 넘기면 끝 날짜에도 연도를 적는다', () => {
     expect(
-      programDetailMeta({
+      formatSeoulDateRange(
+        '2026-12-31T14:59:00.000Z',
+        '2026-12-31T15:00:00.000Z',
+      ),
+    ).toBe('2026.12.31 ~ 2027.01.01');
+  });
+
+  it('끝 날짜를 적는 방식을 바꿔 끼울 수 있다', () => {
+    expect(
+      formatSeoulDateRange(
+        '2026-10-04T15:00:00.000Z',
+        '9999-12-31T23:59:59.999Z',
+        () => '미정',
+      ),
+    ).toBe('2026.10.05 ~ 미정');
+  });
+});
+
+describe('programDetailContext', () => {
+  it('주관기관 뒤에 유형을 덧붙인다', () => {
+    expect(
+      programDetailContext({
         organizers: ['운영기관'],
-        trackType: null,
-        applicationPeriod,
+        trackType: 'EXTRACURRICULAR',
       }),
-    ).toEqual({
-      context: '운영기관',
-      period: '신청 기간 2026.10.05 ~ 2026.10.16',
-    });
+    ).toBe('운영기관 · 비교과');
+  });
+
+  it('유형이 없는 프로그램은 주관기관만 적는다', () => {
+    expect(
+      programDetailContext({ organizers: ['운영기관'], trackType: null }),
+    ).toBe('운영기관');
   });
 
   it('주관기관이 여러 곳이면 쉼표로 이어 붙인 뒤 유형을 덧붙인다', () => {
     expect(
-      programDetailMeta({
+      programDetailContext({
         organizers: ['전남대학교 SW중심대학사업단', 'OSS Hub 운영팀'],
         trackType: 'CURRICULAR',
-        applicationPeriod,
-      }).context,
+      }),
     ).toBe('전남대학교 SW중심대학사업단, OSS Hub 운영팀 · 교과');
   });
 });

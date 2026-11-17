@@ -22,22 +22,16 @@ import { MilestoneRow } from '../documents/components/milestone-row';
 import { RequirementSection } from '../documents/requirement-list';
 import { milestoneSubmissionAccess } from '../documents/milestone-submission-access';
 import type { MilestoneSubmissionAccess } from '../documents/milestone-submission-access';
-import {
-  programDetailMeta,
-  isPastDue,
-  formatSeoulDate,
-} from './program-detail-format';
-import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
-import { formatProgramEndAt } from '../authoring/program-end-at';
+import { programDetailContext, isPastDue } from './program-detail-format';
+import { ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from '../program-paths';
 import type { ProgramOverview } from './program-overview-dto';
 import { getProgramRecruitmentState } from './program-list';
 import { PROGRAM_LIST_STATUS_LABELS } from './program-list-labels';
+import { cn } from '@/lib/utils';
 import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './dto';
 import type { ViewerRole } from '../program-contract';
-
-export { ProgramFactBar };
 
 export type RenderSignInApply = (applyHref: string) => ReactNode;
 
@@ -126,10 +120,19 @@ function detailStatusBadge(program: ProgramDetail): {
 
 const APPLY_BLOCKED_REASON = '종료된 프로그램이라 신청을 받지 않습니다.';
 
+const HEADER_ACTION_CLASS = 'flex-1 sm:flex-none';
+
+function showsApplyEntry(viewer: ProgramDetail['viewer']): boolean {
+  return (
+    viewer.role === null ||
+    (viewer.role === 'STUDENT' && viewer.applicationStatus === null)
+  );
+}
+
 function BlockedApplyEntry({ label }: { readonly label: string }) {
   const reasonId = useId();
   return (
-    <div className="grid justify-items-start gap-2 sm:justify-items-end">
+    <div className={cn('grid gap-2 sm:justify-items-end', HEADER_ACTION_CLASS)}>
       <Button type="button" disabled aria-describedby={reasonId}>
         {label}
       </Button>
@@ -166,33 +169,24 @@ export function ProgramActions({
   readonly program: ProgramDetail;
   readonly renderSignInApply: RenderSignInApply;
 }) {
-  const role = program.viewer.role;
-
-  const applyBlocked = isEnded(program);
+  if (!showsApplyEntry(program.viewer)) return null;
+  if (isEnded(program)) return <BlockedApplyEntry label="신청하기" />;
 
   const applyHref = programHref(program.id, '/apply');
-  if (
-    role === null ||
-    (role === 'STUDENT' && program.viewer.applicationStatus === null)
-  ) {
-    return applyBlocked ? (
-      <BlockedApplyEntry label="신청하기" />
-    ) : (
-      <Button asChild>
-        {role === null ? (
-          renderSignInApply(applyHref)
-        ) : (
-          <Link href={applyHref}>신청하기</Link>
-        )}
-      </Button>
-    );
-  }
-  return null;
+  return (
+    <Button asChild className={HEADER_ACTION_CLASS}>
+      {program.viewer.role === null ? (
+        renderSignInApply(applyHref)
+      ) : (
+        <Link href={applyHref}>신청하기</Link>
+      )}
+    </Button>
+  );
 }
 
 function ProgramEditAction({ programId }: { readonly programId: string }) {
   return (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="outline" size="sm" className={HEADER_ACTION_CLASS}>
       <Link href={programEditHref(programId)}>
         <Pencil aria-hidden="true" />
         편집
@@ -207,7 +201,7 @@ function ProgramNotificationsAction({
   readonly programId: string;
 }) {
   return (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="outline" size="sm" className={HEADER_ACTION_CLASS}>
       <Link href={programHref(programId, '/notifications')}>
         <Mail aria-hidden="true" />
         알림
@@ -397,7 +391,15 @@ export function ProgramDetailReadyState({
   useActivityHashScroll();
 
   const badge = detailStatusBadge(program);
-  const meta = programDetailMeta(program);
+  const actions =
+    program.viewer.role === 'STAFF' ? (
+      <>
+        <ProgramEditAction programId={program.id} />
+        <ProgramNotificationsAction programId={program.id} />
+      </>
+    ) : showsApplyEntry(program.viewer) ? (
+      <ProgramActions program={program} renderSignInApply={renderSignInApply} />
+    ) : null;
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
@@ -411,46 +413,26 @@ export function ProgramDetailReadyState({
         </div>
         <div className="grid min-w-0 content-start gap-6">
           <PageHeader
+            titleClassName={cn(
+              'text-2xl sm:text-3xl',
+              'sm:py-[calc((var(--control-height)_-_1lh)_/_2)]',
+            )}
             title={
-              <span className="flex flex-wrap items-center gap-3">
-                <span className="min-w-0 text-2xl [overflow-wrap:anywhere] sm:text-3xl">
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="min-w-0 [overflow-wrap:anywhere]">
                   {program.name}
                 </span>
                 <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
               </span>
             }
-            description={
-              <>
-                {`${meta.context} · `}
-                <span>{meta.period}</span>
-              </>
-            }
+            description={programDetailContext(program)}
             actions={
-              <>
-                {program.viewer.role === 'STAFF' ? (
-                  <>
-                    <ProgramEditAction programId={program.id} />
-                    <ProgramNotificationsAction programId={program.id} />
-                  </>
-                ) : null}
-                <ProgramActions
-                  program={program}
-                  renderSignInApply={renderSignInApply}
-                />
-              </>
+              actions === null ? undefined : (
+                <div className="flex w-full gap-3 sm:w-auto">{actions}</div>
+              )
             }
           />
-          {program.operatingPeriod ? (
-            <p className="text-sm text-muted-foreground">
-              운영 기간 {formatSeoulDate(program.operatingPeriod.startsAt)} ~{' '}
-              {formatProgramEndAt(
-                program.operatingPeriod.endsAt,
-                formatSeoulDate,
-              )}
-            </p>
-          ) : null}
-          <ProgramSummary program={program} />
-          <ProgramFactBar program={program} overview={overview} />
+          <ProgramSummary program={program} overview={overview} />
         </div>
       </div>
       <ProgramMilestones program={program} />

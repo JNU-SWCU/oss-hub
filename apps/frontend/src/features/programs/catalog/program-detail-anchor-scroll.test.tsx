@@ -37,24 +37,27 @@ const program = {
 
 let container: HTMLDivElement;
 let root: Root;
-let resizeCallback: ResizeObserverCallback | undefined;
 const resizeObservers: FakeResizeObserver[] = [];
 const scrollIntoView = vi.fn();
 
 class FakeResizeObserver implements ResizeObserver {
-  constructor(callback: ResizeObserverCallback) {
-    resizeCallback = callback;
+  constructor(readonly callback: ResizeObserverCallback) {
     resizeObservers.push(this);
   }
 
   readonly disconnect = vi.fn();
-  readonly observe = vi.fn();
+  readonly observe = vi.fn<(target: Element) => void>();
   readonly unobserve = vi.fn();
+}
+
+function layoutObserver(): FakeResizeObserver | undefined {
+  return resizeObservers.find((observer) =>
+    observer.observe.mock.calls.some(([target]) => target.tagName === 'MAIN'),
+  );
 }
 
 beforeEach(() => {
   vi.useFakeTimers();
-  resizeCallback = undefined;
   resizeObservers.length = 0;
   scrollIntoView.mockReset();
   vi.stubGlobal('ResizeObserver', FakeResizeObserver);
@@ -95,16 +98,12 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
     });
     const callsBeforeLateLayout = scrollIntoView.mock.calls.length;
 
-    const lateLayoutCallback = resizeCallback;
-    if (lateLayoutCallback === undefined) {
+    const observer = layoutObserver();
+    if (observer === undefined) {
       throw new TypeError('프로그램 레이아웃 관찰자가 등록되지 않았습니다.');
     }
-    const observer = resizeObservers.at(-1);
-    if (observer === undefined) {
-      throw new TypeError('프로그램 레이아웃 관찰자 인스턴스가 없습니다.');
-    }
     act(() => {
-      lateLayoutCallback([], observer);
+      observer.callback([], observer);
     });
 
     expect(scrollIntoView.mock.calls.length).toBeGreaterThan(
@@ -121,9 +120,9 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
         />,
       );
     });
-    const resizeObserver = resizeObservers.at(-1);
+    const resizeObserver = layoutObserver();
     if (resizeObserver === undefined) {
-      throw new TypeError('프로그램 레이아웃 관찰자 인스턴스가 없습니다.');
+      throw new TypeError('프로그램 레이아웃 관찰자가 등록되지 않았습니다.');
     }
 
     await act(() => window.dispatchEvent(new WheelEvent('wheel')));
@@ -143,7 +142,7 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
       );
     });
 
-    expect(resizeObservers.at(-1)).toBeUndefined();
+    expect(layoutObserver()).toBeUndefined();
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });

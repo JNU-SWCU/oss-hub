@@ -31,9 +31,7 @@ import {
   ProgramDetailFailureState,
   ProgramMilestones,
 } from './program-detail-page';
-import { ProgramFactBar } from './program-detail-view';
 import { PROGRAM_END_AT_UNDECIDED } from '../authoring/program-end-at';
-import type { ProgramOverview } from './program-overview-dto';
 import { getProgramListBadge } from './program-list';
 import type { ApplicationStatus, ViewerRole } from '../program-contract';
 import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './dto';
@@ -389,7 +387,7 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('aria-label="활동 상세"');
   });
 
-  it('제목 줄에 모집 배지가 붙고, 주관기관·유형·신청 기간은 헤더 설명 줄에 한 번만 표시된다', () => {
+  it('제목 줄에 모집 배지가 붙고, 주관기관·유형은 헤더 설명 줄에, 신청 기간은 요약 카드에 한 번만 표시된다', () => {
     const html = renderToStaticMarkup(
       <QueryClientProvider client={queryClient}>
         <ProgramDetailReadyState
@@ -406,22 +404,21 @@ describe('ProgramDetailPage states', () => {
     expect(titleSlot).toContain('OSS 경진대회');
     expect(titleSlot).toContain('모집중');
 
-    const description =
-      '운영기관 · 비교과 · <span>신청 기간 2026.07.01 ~ 2026.08.31</span>';
-    expect(html.split(description)).toHaveLength(2);
-    expect(html).not.toContain('<strong>주관기관</strong>');
-    expect(html).not.toContain('<strong>신청기간</strong>');
+    const description = html.match(
+      /<p data-slot="page-header-description"[^>]*>(.*?)<\/p>/,
+    )?.[1];
+    expect(description).toBe('운영기관 · 비교과');
+    expect(html.split('신청 기간')).toHaveLength(2);
+    expect(html).toContain('2026.07.01 ~ 08.31');
+    expect(html.match(/data-slot="program-summary"/g)).toHaveLength(1);
   });
 
   it.each([
-    {
-      endsAt: '2026-10-31T09:00:00.000Z',
-      expectedEnd: '2026년 10월 31일 18:00',
-    },
-    { endsAt: PROGRAM_END_AT_UNDECIDED, expectedEnd: '미정' },
+    { endsAt: '2026-10-31T09:00:00.000Z', expected: '2026.09.01 ~ 10.31' },
+    { endsAt: PROGRAM_END_AT_UNDECIDED, expected: '2026.09.01 ~ 미정' },
   ])(
-    '신청 기간과 구분한 운영 기간을 서울 시각으로 표시한다: $expectedEnd',
-    ({ endsAt, expectedEnd }) => {
+    '요약 카드에 신청 기간과 구분한 운영 기간을 서울 날짜로 표시한다: $expected',
+    ({ endsAt, expected }) => {
       const html = renderToStaticMarkup(
         <QueryClientProvider client={queryClient}>
           <ProgramDetailReadyState
@@ -437,14 +434,15 @@ describe('ProgramDetailPage states', () => {
         </QueryClientProvider>,
       );
 
-      expect(html).toContain('신청 기간 2026.07.01 ~ 2026.08.31');
-      expect(html).toContain(`운영 기간 2026년 9월 1일 09:00 ~ ${expectedEnd}`);
+      expect(html).toContain('2026.07.01 ~ 08.31');
+      expect(html.split('운영 기간')).toHaveLength(2);
+      expect(html).toContain(expected);
       expect(html).not.toContain('9999');
     },
   );
 
   it.each(['STAFF'] as const)(
-    '%s에게 제목 옆 프로그램 편집 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
+    '%s에게 제목 줄의 버튼 묶음 하나에 편집·알림 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
     (role) => {
       const html = renderToStaticMarkup(
         <QueryClientProvider client={queryClient}>
@@ -457,13 +455,20 @@ describe('ProgramDetailPage states', () => {
           />
         </QueryClientProvider>,
       );
-      expect(html).toContain('data-slot="page-header-actions"');
-      expect(html).toContain('href="/programs/program-1/edit"');
+      const groups = [
+        ...html.matchAll(
+          /<div data-slot="page-header-actions"[^>]*>(.*?)<\/div>/g,
+        ),
+      ];
+      expect(groups).toHaveLength(1);
+      const group = groups[0]?.[1] ?? '';
+      expect(group).toContain('href="/programs/program-1/edit"');
 
-      expect(html).toContain('편집');
-      expect(html).toContain('lucide-pencil');
-      expect(html).toContain('href="/programs/program-1/notifications"');
-      expect(html).toContain('lucide-mail');
+      expect(group).toContain('편집');
+      expect(group).toContain('lucide-pencil');
+      expect(group).toContain('href="/programs/program-1/notifications"');
+      expect(group).toContain('알림');
+      expect(group).toContain('lucide-mail');
       expect(html).not.toContain('신청자 목록');
       expect(html).not.toContain('/programs/program-1/applicants');
       expect(html).not.toContain('/programs/program-1/submissions');
@@ -495,6 +500,55 @@ describe('ProgramDetailPage states', () => {
 
       expect(html).not.toContain('/edit"');
       expect(html).not.toContain('/notifications"');
+    },
+  );
+
+  it.each([
+    { role: 'STUDENT' as const, applicationStatus: 'APPROVED' as const },
+    { role: 'STUDENT' as const, applicationStatus: 'SUBMITTED' as const },
+    { role: 'ADMIN' as const, applicationStatus: null },
+  ])(
+    '누를 버튼이 없는 $role($applicationStatus)에게는 빈 버튼 묶음을 남기지 않는다',
+    (viewer) => {
+      const html = renderToStaticMarkup(
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailReadyState
+            renderSignInApply={stubSignInApply}
+            program={{ ...programWithoutMilestones, viewer }}
+          />
+        </QueryClientProvider>,
+      );
+
+      expect(html).not.toContain('page-header-actions');
+    },
+  );
+
+  it.each([
+    { role: 'STUDENT' as const, href: '/programs/program-1/apply' },
+    { role: null, href: '/stub-sign-in' },
+  ])(
+    '신청 전 $role 의 신청 입구는 같은 버튼 묶음 자리에 하나만 둔다',
+    ({ role, href }) => {
+      const html = renderToStaticMarkup(
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailReadyState
+            renderSignInApply={stubSignInApply}
+            program={{
+              ...programWithoutMilestones,
+              viewer: { role, applicationStatus: null },
+            }}
+          />
+        </QueryClientProvider>,
+      );
+
+      const groups = [
+        ...html.matchAll(
+          /<div data-slot="page-header-actions"[^>]*>(.*?)<\/div>/g,
+        ),
+      ];
+      expect(groups).toHaveLength(1);
+      expect(groups[0]?.[1]).toContain(`href="${href}"`);
+      expect(groups[0]?.[1]).toContain('신청하기');
     },
   );
 
@@ -742,73 +796,6 @@ describe('ProgramDetailPage states', () => {
     expect(notFoundHtml).toContain('프로그램을 찾을 수 없습니다');
     expect(failedHtml).toContain('프로그램을 불러오지 못했습니다');
     expect(failedHtml).toContain('다시 시도');
-  });
-});
-
-const overviewBase: ProgramOverview = {
-  programId: 'program-1',
-  name: 'OSS 경진대회',
-  trackType: 'EXTRACURRICULAR',
-  milestoneCount: 1,
-  boardPostCount: 0,
-  participantCount: 12,
-  teamCount: 4,
-  connectedRepositoryCount: 3,
-  viewerRole: 'STUDENT',
-  viewerDocumentsCompleted: null,
-  viewerDocumentsTotal: null,
-  fullySubmittedParticipantCount: null,
-  scheduleMilestones: [],
-  requirements: [],
-};
-
-describe('ProgramFactBar', () => {
-  it('overview 조회 실패 시(null) 아무것도 그리지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramFactBar program={programWithoutMilestones} overview={null} />,
-    );
-    expect(html).toBe('');
-  });
-
-  it('학생에게는 참여 현황과 함께 내 제출 N/M을 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramFactBar
-        program={programWithoutMilestones}
-        overview={{
-          ...overviewBase,
-          viewerRole: 'STUDENT',
-          viewerDocumentsCompleted: 2,
-          viewerDocumentsTotal: 5,
-        }}
-      />,
-    );
-    expect(html).toContain('참여 학생');
-    expect(html).toContain('12명');
-    expect(html).toContain('참여 팀');
-    expect(html).toContain('연결 저장소');
-    expect(html).toContain('내 제출');
-    expect(html).toContain('2 / 5 서류');
-    expect(html).not.toContain('이번 마일스톤 완주율');
-    expect(html).not.toContain('주관');
-    expect(html).not.toContain('신청 기간');
-  });
-
-  it('교직원에게는 내 제출 대신 이번 마일스톤 완주율과 측정 기준 캡션을 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramFactBar
-        program={programWithoutMilestones}
-        overview={{
-          ...overviewBase,
-          viewerRole: 'STAFF',
-          participantCount: 10,
-          fullySubmittedParticipantCount: 3,
-        }}
-      />,
-    );
-    expect(html).toContain('이번 마일스톤 완주율');
-    expect(html).toContain('30% (3/10)');
-    expect(html).toContain('현재 마일스톤 필수 항목을 모두 제출한 참여자 기준');
-    expect(html).not.toContain('내 제출');
   });
 });
 
