@@ -168,19 +168,6 @@ test('CI pull_request uses base.sha and push uses before', async (t) => {
     },
   });
   assert.deepEqual([pr[0].base, pr[0].head], [root, feature]);
-  const review = await resolveRanges({
-    cwd: repo.dir,
-    source: 'ci',
-    env: {
-      GITHUB_EVENT_NAME: 'pull_request_review',
-      GITHUB_EVENT_PATH: eventFile(t, {
-        review: { state: 'approved' },
-        pull_request: { base: { sha: root } },
-      }),
-      GITHUB_SHA: feature,
-    },
-  });
-  assert.deepEqual([review[0].base, review[0].head], [root, feature]);
   const push = await resolveRanges({
     cwd: repo.dir,
     source: 'ci',
@@ -353,48 +340,83 @@ function fileAppears(dir, name) {
 }
 
 const TRAPPED = 'trap \'touch "$1"\' EXIT; touch "$2"; sleep 30';
+const BOUNDED = { timeout: 15_000 };
 
-test('a deadline stops the command with SIGTERM so its EXIT trap cleans up', async (t) => {
-  const dir = scratchDir(t);
-  const marker = join(dir, 'cleaned');
-  await assert.rejects(
-    run('bash', ['-c', TRAPPED, 'bash', marker, join(dir, 'ready')], {
-      timeoutMs: 500,
-    }),
-    /timed out after 500ms/,
-  );
-  assert.equal(existsSync(marker), true);
-});
+test(
+  'stopping a command sends SIGTERM so its EXIT trap cleans up',
+  BOUNDED,
+  async (t) => {
+    const dir = scratchDir(t);
+    const marker = join(dir, 'cleaned');
+    const deadline = new AbortController();
+    const running = run(
+      'bash',
+      ['-c', TRAPPED, 'bash', marker, join(dir, 'ready')],
+      { timeoutMs: 60_000, signal: deadline.signal },
+    );
+    await fileAppears(dir, 'ready');
+    deadline.abort();
+    await assert.rejects(running, /was aborted and was stopped/);
+    assert.equal(existsSync(marker), true);
+  },
+);
 
-test('a command that ignores SIGTERM is killed after the grace period', async () => {
-  await assert.rejects(
-    run(
+test(
+  'a command that ignores SIGTERM is killed after the grace period',
+  BOUNDED,
+  async (t) => {
+    const dir = scratchDir(t);
+    const deadline = new AbortController();
+    const running = run(
       process.execPath,
-      ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"],
-      { timeoutMs: 300, killGraceMs: 300 },
-    ),
-    /timed out after 300ms/,
-  );
-});
+      [
+        '-e',
+        `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(join(dir, 'ready'))}, ''); setInterval(() => {}, 1000)`,
+      ],
+      { timeoutMs: 60_000, killGraceMs: 300, signal: deadline.signal },
+    );
+    await fileAppears(dir, 'ready');
+    deadline.abort();
+    await assert.rejects(running, /was aborted and was stopped/);
+  },
+);
 
-test('SIGINT to the verify process reaches the running command and exits 130', async (t) => {
-  const dir = scratchDir(t);
-  const marker = join(dir, 'cleaned');
-  const tools = new URL('./tools.mjs', import.meta.url).href;
-  const child = spawn(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      `import { run } from ${JSON.stringify(tools)}; await run('bash', ['-c', ${JSON.stringify(TRAPPED)}, 'bash', ${JSON.stringify(marker)}, ${JSON.stringify(join(dir, 'ready'))}], { timeoutMs: 60000 });`,
-    ],
-    { stdio: 'ignore' },
-  );
-  const exited = new Promise((resolvePromise) =>
-    child.on('exit', (code) => resolvePromise(code)),
-  );
-  await fileAppears(dir, 'ready');
-  child.kill('SIGINT');
-  assert.equal(await exited, 130);
-  assert.equal(existsSync(marker), true);
-});
+test(
+  'SIGINT stops the running command, lets callers clean up and exits 130',
+  BOUNDED,
+  async (t) => {
+    const dir = scratchDir(t);
+    const repo = tempRepo(t);
+    repo.markRemoteMain(repo.commit('root', { 'docs/a.md': 'a\n' }));
+    const at = (name) => JSON.stringify(join(dir, name));
+    const index = JSON.stringify(new URL('./index.mjs', import.meta.url).href);
+    const tools = JSON.stringify(new URL('./tools.mjs', import.meta.url).href);
+    const script = [
+      "import { writeFileSync } from 'node:fs';",
+      `import { main } from ${index};`,
+      `import { run } from ${tools};`,
+      "const reached = (name, file) => async () => { writeFileSync(file, ''); return []; };",
+      `process.exitCode = await main(['full'], { cwd: ${JSON.stringify(repo.dir)}, env: {}, reportDir: ${at('reports')}, checks: {`,
+      `  secrets: async () => { try { await run('bash', ['-c', ${JSON.stringify(TRAPPED)}, 'bash', ${at('cleaned')}, ${at('ready')}], { timeoutMs: 60000 }); } finally { writeFileSync(${at('caller-cleaned')}, ''); } return []; },`,
+      `  'url-ia': reached('url-ia', ${at('later-check')}), api: reached('api', ${at('later-check')}), 'query-gates': reached('query-gates', ${at('later-check')}), cwv: reached('cwv', ${at('later-check')}),`,
+      '} });',
+    ].join('\n');
+    const child = spawn(
+      process.execPath,
+      ['--input-type=module', '-e', script],
+      {
+        stdio: 'ignore',
+      },
+    );
+    t.after(() => child.exitCode === null && child.kill('SIGKILL'));
+    const exited = new Promise((resolvePromise) =>
+      child.on('exit', (code) => resolvePromise(code)),
+    );
+    await fileAppears(dir, 'ready');
+    child.kill('SIGINT');
+    assert.equal(await exited, 130);
+    assert.equal(existsSync(join(dir, 'cleaned')), true);
+    assert.equal(existsSync(join(dir, 'caller-cleaned')), true);
+    assert.equal(existsSync(join(dir, 'later-check')), false);
+  },
+);

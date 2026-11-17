@@ -50,6 +50,7 @@ export async function checkQueryGates({
     {
       cwd,
       timeoutMs: 1_200_000,
+      killGraceMs: 30_000,
       env: { BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN },
     },
   );

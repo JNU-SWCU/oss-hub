@@ -6,7 +6,12 @@ import { checkFull } from './full.mjs';
 import { checkQueryGates } from './query-gates.mjs';
 import { detectSource, fullRanges, resolveScope } from './scope.mjs';
 import { checkSecrets } from './secrets.mjs';
-import { REPO_ROOT, formatFinding, isEntry } from './tools.mjs';
+import {
+  REPO_ROOT,
+  formatFinding,
+  interruptedExitCode,
+  isEntry,
+} from './tools.mjs';
 import { checkUrlIa } from './url-ia.mjs';
 
 const CHECKS = {
@@ -119,6 +124,7 @@ export async function main(
   let failed = 0;
   let errored = 0;
   for (const name of checks) {
+    if (interruptedExitCode()) break;
     if (REPORT_ONLY.has(name)) {
       try {
         const findings = await checkImpls[name]({
@@ -164,6 +170,11 @@ export async function main(
       console.error(`ERROR ${name}: ${error.message}`);
       errored += 1;
     }
+  }
+  const interrupted = interruptedExitCode();
+  if (interrupted) {
+    console.error('verify: interrupted; the remaining checks were not run');
+    return interrupted;
   }
   if (errored > 0) return 2;
   return failed > 0 ? 1 : 0;

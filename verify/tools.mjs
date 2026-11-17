@@ -109,7 +109,10 @@ function signalGroup(pid, signal) {
 function forwardSignal(signal) {
   interruptedBy = signal;
   for (const pid of liveGroups) signalGroup(pid, signal);
-  if (liveGroups.size === 0) process.exit(SIGNAL_EXIT_CODES[signal]);
+}
+
+export function interruptedExitCode() {
+  return interruptedBy ? SIGNAL_EXIT_CODES[interruptedBy] : undefined;
 }
 
 function trackGroup(pid) {
@@ -125,7 +128,6 @@ function releaseGroup(pid) {
   if (liveGroups.size > 0) return;
   for (const signal of Object.keys(SIGNAL_EXIT_CODES))
     process.off(signal, forwardSignal);
-  if (interruptedBy) process.exit(SIGNAL_EXIT_CODES[interruptedBy]);
 }
 
 export function run(
@@ -136,6 +138,7 @@ export function run(
     input,
     timeoutMs = 120_000,
     killGraceMs = 10_000,
+    signal,
     env,
     raw = false,
   } = {},
@@ -150,21 +153,29 @@ export function run(
     if (child.pid !== undefined) trackGroup(child.pid);
     const stdout = [];
     const stderr = [];
-    let timedOut = false;
+    let stoppedBy;
     let killTimer;
-    const timer = setTimeout(() => {
-      timedOut = true;
+    const stop = (reason) => {
+      if (stoppedBy) return;
+      stoppedBy = reason;
       signalGroup(child.pid, 'SIGTERM');
       killTimer = setTimeout(
         () => signalGroup(child.pid, 'SIGKILL'),
         killGraceMs,
       );
-    }, timeoutMs);
+    };
+    const timer = setTimeout(
+      () => stop(`timed out after ${timeoutMs}ms`),
+      timeoutMs,
+    );
+    const onAbort = () => stop('was aborted');
+    signal?.addEventListener('abort', onAbort, { once: true });
     child.stdout.on('data', (chunk) => stdout.push(chunk));
     child.stderr.on('data', (chunk) => stderr.push(chunk));
     child.on('error', (error) => {
       clearTimeout(timer);
       clearTimeout(killTimer);
+      signal?.removeEventListener('abort', onAbort);
       if (child.pid !== undefined) releaseGroup(child.pid);
       reject(
         new VerifyError(
@@ -177,11 +188,16 @@ export function run(
     child.on('close', (code) => {
       clearTimeout(timer);
       clearTimeout(killTimer);
+      signal?.removeEventListener('abort', onAbort);
       releaseGroup(child.pid);
-      if (timedOut) {
+      if (interruptedBy) {
+        reject(new VerifyError(`${command} interrupted by ${interruptedBy}`));
+        return;
+      }
+      if (stoppedBy) {
         reject(
           new VerifyError(
-            `${command} ${args.join(' ')} timed out after ${timeoutMs}ms and was stopped`,
+            `${command} ${args.join(' ')} ${stoppedBy} and was stopped`,
           ),
         );
         return;
