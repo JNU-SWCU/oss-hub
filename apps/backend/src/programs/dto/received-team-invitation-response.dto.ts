@@ -4,7 +4,6 @@ export class ReceivedTeamInvitationResponseDto {
   declare readonly id: string;
   declare readonly teamId: string;
   declare readonly programId: string;
-  declare readonly invitedById: string;
   declare readonly invitedAt: string;
   declare readonly teamName: string;
   declare readonly programName: string;
@@ -19,7 +18,6 @@ export class ReceivedTeamInvitationResponseDto {
       id: record.id,
       teamId: record.teamId,
       programId: record.programId,
-      invitedById: record.invitedById,
       invitedAt: record.invitedAt.toISOString(),
       teamName: record.teamName,
       programName: record.programName,

@@ -162,7 +162,6 @@ function pendingInvitation(id: string, nickname: string): SentTeamInvitation {
     id,
     teamId: team.id,
     programId: program.id,
-    invitedById: 'u1',
     invitedAt: '2026-07-02T00:00:00.000Z',
     invitee: { id: 'u9', nickname, name: null, avatarUrl: null },
   };

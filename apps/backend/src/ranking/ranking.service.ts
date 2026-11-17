@@ -31,7 +31,6 @@ export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
   readonly previousRank: number | null;
 
-  readonly displayName: string;
   readonly githubLogin: string;
   readonly department: string | null;
 
@@ -183,7 +182,6 @@ export class RankingService {
       ...entry,
       rank: index + 1,
       previousRank: previousRanks.get(entry.githubId) ?? null,
-      displayName: entry.githubLogin,
     }));
   }
 
@@ -222,7 +220,6 @@ function toPublicEntry(entry: RankedPublicEntry): RankingEntry {
   return {
     rank: entry.rank,
     previousRank: entry.previousRank,
-    displayName: entry.githubLogin,
     githubLogin: entry.githubLogin,
     department: entry.department,
     commitCount: entry.commitCount,

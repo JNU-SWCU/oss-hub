@@ -96,7 +96,6 @@ describe('RankingController', () => {
       items: [
         {
           rank: 1,
-          displayName: 'mina',
           githubLogin: 'mina',
           department: '소프트웨어공학과',
           commitCount: 2,
@@ -162,7 +161,6 @@ describe('RankingController', () => {
       items: [
         {
           rank: 1,
-          displayName: 'mina',
           githubLogin: 'mina',
           department: '소프트웨어공학과',
           commitCount: 2,
@@ -279,7 +277,6 @@ describe('RankingController', () => {
       items: [
         {
           rank: 1,
-          displayName: 'mina',
           githubLogin: 'mina',
           department: '소프트웨어공학과',
           name: '미나',
@@ -307,7 +304,6 @@ describe('RankingController', () => {
 
     expect(body.items[0]).toEqual({
       rank: 1,
-      displayName: 'mina',
       githubLogin: 'mina',
       department: '소프트웨어공학과',
       name: '미나',

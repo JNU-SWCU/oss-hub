@@ -26,7 +26,6 @@ describe('RankingService canonical actor attribution', () => {
       {
         rank: 1,
         previousRank: null,
-        displayName: 'issue-author',
         githubLogin: 'issue-author',
         department: null,
         commitCount: 0,

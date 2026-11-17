@@ -23,7 +23,6 @@ describe('RankingService viewer class', () => {
       expect(page.viewerClass).toBe('public');
       expect(page.nextCycleAt).toBeNull();
       expect(page.items[0]).toMatchObject({
-        displayName: 'octo-cat',
         githubLogin: 'octo-cat',
         department: '전자공학과',
       });
@@ -59,7 +58,7 @@ describe('RankingService viewer class', () => {
       expect(harness.findViewerClass).toHaveBeenCalledWith(null);
       expect(harness.findNamesByGithubIds).not.toHaveBeenCalled();
       expect(page.viewerClass).toBe('public');
-      expect(page.items[0]?.displayName).toBe('octo-cat');
+      expect(page.items[0]?.githubLogin).toBe('octo-cat');
       expect(page.items[0]).not.toHaveProperty('name');
     });
   });
@@ -101,7 +100,6 @@ describe('RankingService viewer class', () => {
       expect(page.items).toEqual([
         expect.objectContaining({
           rank: 2,
-          displayName: 'bravo',
           githubLogin: 'bravo',
           department: null,
           name: '홍길동',
@@ -123,7 +121,6 @@ describe('RankingService viewer class', () => {
 
       expect(page.viewerClass).toBe('staff');
       expect(page.items[0]).toMatchObject({
-        displayName: 'nameless-user',
         githubLogin: 'nameless-user',
         name: null,
       });
@@ -144,7 +141,6 @@ describe('RankingService viewer class', () => {
     expect(page.viewerClass).toBe('public');
     expect(page.nextCycleAt).toBeNull();
     expect(page.items[0]).toMatchObject({
-      displayName: 'octo-cat',
       githubLogin: 'octo-cat',
       department: '전자공학과',
     });
@@ -185,7 +181,7 @@ describe('RankingService viewer class', () => {
       page.items.map((item) => `${item.rank}:${item.githubLogin}`);
     expect(order(publicPage)).toEqual(['1:charlie', '2:alpha', '3:bravo']);
     expect(order(staffPage)).toEqual(order(publicPage));
-    expect(staffPage.items.map((item) => item.displayName)).toEqual([
+    expect(staffPage.items.map((item) => item.githubLogin)).toEqual([
       'charlie',
       'alpha',
       'bravo',
@@ -211,10 +207,10 @@ describe('RankingService viewer class', () => {
     expect(harness.findMetrics).toHaveBeenCalledTimes(1);
     expect(publicPage.viewerClass).toBe('public');
     expect(publicPage.items[0]).not.toHaveProperty('name');
-    expect(publicPage.items[0]?.displayName).toBe('octo-cat');
+    expect(publicPage.items[0]?.githubLogin).toBe('octo-cat');
     expect(staffPage.viewerClass).toBe('staff');
     expect(staffPage.items[0]).toMatchObject({
-      displayName: 'octo-cat',
+      githubLogin: 'octo-cat',
       name: '홍길동',
     });
   });

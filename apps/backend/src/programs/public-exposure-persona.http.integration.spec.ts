@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import {
   AccountStatus,
@@ -315,6 +316,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         [],
         (
           await harness.prisma.team.findMany({
+            take: TEST_READ_LIMIT,
             where: { id: { startsWith: `${PREFIX}-` } },
             select: { id: true },
           })
@@ -370,7 +372,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     const staffItemKeys = [
       'commitCount',
       'department',
-      'displayName',
       'githubLogin',
       'issueCount',
       'name',
@@ -486,7 +487,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual(staffItemKeys);
         expect(item).toHaveProperty('name');
-        expect(item.displayName).toBe(item.githubLogin);
         expect(item.total).toBe(
           (item.commitCount as number) +
             (item.pullRequestCount as number) +
@@ -636,7 +636,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       );
       expect(entry).toMatchObject({
         githubLogin: studentPersona.nickname,
-        displayName: studentPersona.nickname,
         department: NAMED_PERSONA_DEPARTMENT,
         name: NAMED_PERSONA_REAL_NAME,
       });
@@ -652,7 +651,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       (item) => item.githubLogin === canonicalOnlyStudentPersona.nickname,
     );
     expect(canonicalOnlyEntry).toMatchObject({
-      displayName: canonicalOnlyStudentPersona.nickname,
       name: canonicalOnlyProfile?.name,
     });
 

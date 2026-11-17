@@ -12,7 +12,6 @@ const staffRow = (
 ): StaffRankingItem => ({
   rank: 1,
   previousRank: null,
-  displayName: 'synthetic-top',
   githubLogin: 'synthetic-top',
   name: 'synthetic-staff-name',
   department: '소프트웨어공학과',

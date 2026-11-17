@@ -144,10 +144,6 @@ function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
   return {
     rank: value.rank,
     previousRank: readPreviousRank(value.previousRank),
-    displayName:
-      typeof value.displayName === 'string'
-        ? value.displayName
-        : value.githubLogin,
     githubLogin: value.githubLogin,
     department: readOptionalDepartment(value.department),
     commitCount,

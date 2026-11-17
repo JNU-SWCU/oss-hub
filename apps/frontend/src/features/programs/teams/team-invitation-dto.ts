@@ -2,7 +2,6 @@ interface TeamInvitation {
   readonly id: string;
   readonly teamId: string;
   readonly programId: string;
-  readonly invitedById: string;
   readonly invitedAt: string;
 }
 

@@ -362,7 +362,6 @@ test('public 항목은 지표 아홉 키만 남기고 staff 항목은 richer sha
   expect(staffPage.items[0]).toEqual({
     rank: 1,
     previousRank: null,
-    displayName: 'mina',
     githubLogin: 'mina',
     name: 'synthetic-staff-name',
     department: null,

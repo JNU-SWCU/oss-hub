@@ -28,7 +28,6 @@ describe('RankingService public metrics', () => {
         {
           rank: 1,
           previousRank: null,
-          displayName: 'mina',
           githubLogin: 'mina',
           department: '소프트웨어공학과',
           commitCount: 2,

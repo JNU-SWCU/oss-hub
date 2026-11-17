@@ -65,7 +65,6 @@ const staffPage: RankingPage = {
     {
       rank: 1,
       previousRank: null,
-      displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
       name: 'synthetic-staff-name',
       department: null,

@@ -30,7 +30,6 @@ function sentInvitation(
     id: 'inv-1',
     teamId: 'team-1',
     programId: 'program-1',
-    invitedById: 'leader-1',
     invitedAt: '2026-07-01T00:00:00Z',
     invitee: candidates[0],
     ...overrides,

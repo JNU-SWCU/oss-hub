@@ -73,7 +73,6 @@ function sentInvitation(
     id,
     teamId: leaderTeam.id,
     programId: 'program-1',
-    invitedById: 'u1',
     invitedAt: '2026-07-01T00:00:00.000Z',
     invitee: {
       id: `user-${id}`,

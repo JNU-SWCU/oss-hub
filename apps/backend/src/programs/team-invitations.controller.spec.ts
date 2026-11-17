@@ -11,7 +11,6 @@ const receivedRecord = {
   teamId: 'cuid-team',
   programId: 'cuid-program',
   inviteeId: 'cuid-invitee',
-  invitedById: 'cuid-leader',
   invitedAt: new Date('2026-08-01T00:00:00.000Z'),
   teamName: '합성 팀',
   programName: '합성 프로그램',
@@ -25,7 +24,6 @@ const sentRecord = {
   teamId: 'cuid-team',
   programId: 'cuid-program',
   inviteeId: 'cuid-invitee',
-  invitedById: 'cuid-leader',
   invitedAt: new Date('2026-08-01T00:00:00.000Z'),
   invitee: {
     id: 'cuid-invitee',
@@ -114,7 +112,6 @@ describe('TeamInvitationsController', () => {
         id: 'cuid-invitation',
         teamId: 'cuid-team',
         programId: 'cuid-program',
-        invitedById: 'cuid-leader',
         invitedAt: '2026-08-01T00:00:00.000Z',
         teamName: '합성 팀',
         programName: '합성 프로그램',
@@ -144,7 +141,6 @@ describe('TeamInvitationsController', () => {
         id: 'cuid-invitation',
         teamId: 'cuid-team',
         programId: 'cuid-program',
-        invitedById: 'cuid-leader',
         invitedAt: '2026-08-01T00:00:00.000Z',
         invitee: {
           id: 'cuid-invitee',
@@ -181,7 +177,6 @@ describe('TeamInvitationsController', () => {
       teamId: 'cuid-team',
       programId: 'cuid-program',
       inviteeId: 'cuid-invitee',
-      invitedById: 'cuid-leader',
       invitedAt: new Date('2026-08-01T00:00:00.000Z'),
       invitee: {
         id: 'cuid-invitee',
@@ -216,7 +211,6 @@ describe('TeamInvitationsController', () => {
       id: 'cuid-invitation',
       teamId: 'cuid-team',
       programId: 'cuid-program',
-      invitedById: 'cuid-leader',
       invitedAt: '2026-08-01T00:00:00.000Z',
       invitee: {
         id: 'cuid-invitee',

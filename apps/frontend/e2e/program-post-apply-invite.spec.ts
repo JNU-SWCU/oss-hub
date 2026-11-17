@@ -73,7 +73,6 @@ const invitation: SentTeamInvitation = {
   id: 'synthetic-invitation',
   teamId,
   programId,
-  invitedById: 'synthetic-user',
   invitedAt: '2026-08-15T00:00:00Z',
   invitee: candidate,
 };
