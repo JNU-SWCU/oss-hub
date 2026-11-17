@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync, watch } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { main } from './index.mjs';
@@ -316,4 +316,72 @@ test('run kills a hung command at its deadline', async () => {
     }),
     /timed out after 300ms/,
   );
+});
+
+function scratchDir(t) {
+  const dir = mkdtempSync(join(tmpdir(), 'verify-run-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+function fileAppears(dir, name) {
+  return new Promise((resolvePromise) => {
+    const watcher = watch(dir, () => {
+      if (existsSync(join(dir, name))) {
+        watcher.close();
+        resolvePromise();
+      }
+    });
+    if (existsSync(join(dir, name))) {
+      watcher.close();
+      resolvePromise();
+    }
+  });
+}
+
+const TRAPPED = 'trap \'touch "$1"\' EXIT; touch "$2"; sleep 30';
+
+test('a deadline stops the command with SIGTERM so its EXIT trap cleans up', async (t) => {
+  const dir = scratchDir(t);
+  const marker = join(dir, 'cleaned');
+  await assert.rejects(
+    run('bash', ['-c', TRAPPED, 'bash', marker, join(dir, 'ready')], {
+      timeoutMs: 500,
+    }),
+    /timed out after 500ms/,
+  );
+  assert.equal(existsSync(marker), true);
+});
+
+test('a command that ignores SIGTERM is killed after the grace period', async () => {
+  await assert.rejects(
+    run(
+      process.execPath,
+      ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"],
+      { timeoutMs: 300, killGraceMs: 300 },
+    ),
+    /timed out after 300ms/,
+  );
+});
+
+test('SIGINT to the verify process reaches the running command and exits 130', async (t) => {
+  const dir = scratchDir(t);
+  const marker = join(dir, 'cleaned');
+  const tools = new URL('./tools.mjs', import.meta.url).href;
+  const child = spawn(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { run } from ${JSON.stringify(tools)}; await run('bash', ['-c', ${JSON.stringify(TRAPPED)}, 'bash', ${JSON.stringify(marker)}, ${JSON.stringify(join(dir, 'ready'))}], { timeoutMs: 60000 });`,
+    ],
+    { stdio: 'ignore' },
+  );
+  const exited = new Promise((resolvePromise) =>
+    child.on('exit', (code) => resolvePromise(code)),
+  );
+  await fileAppears(dir, 'ready');
+  child.kill('SIGINT');
+  assert.equal(await exited, 130);
+  assert.equal(existsSync(marker), true);
 });

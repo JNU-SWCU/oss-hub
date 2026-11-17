@@ -90,10 +90,55 @@ export function formatFinding(item, label = 'FAIL') {
   ].join('\n');
 }
 
+const liveGroups = new Set();
+const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143 };
+let interruptedBy;
+
+function signalGroup(pid, signal) {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    try {
+      process.kill(pid, signal);
+    } catch {
+      return;
+    }
+  }
+}
+
+function forwardSignal(signal) {
+  interruptedBy = signal;
+  for (const pid of liveGroups) signalGroup(pid, signal);
+  if (liveGroups.size === 0) process.exit(SIGNAL_EXIT_CODES[signal]);
+}
+
+function trackGroup(pid) {
+  if (liveGroups.size === 0) {
+    for (const signal of Object.keys(SIGNAL_EXIT_CODES))
+      process.on(signal, forwardSignal);
+  }
+  liveGroups.add(pid);
+}
+
+function releaseGroup(pid) {
+  liveGroups.delete(pid);
+  if (liveGroups.size > 0) return;
+  for (const signal of Object.keys(SIGNAL_EXIT_CODES))
+    process.off(signal, forwardSignal);
+  if (interruptedBy) process.exit(SIGNAL_EXIT_CODES[interruptedBy]);
+}
+
 export function run(
   command,
   args,
-  { cwd = REPO_ROOT, input, timeoutMs = 120_000, env, raw = false } = {},
+  {
+    cwd = REPO_ROOT,
+    input,
+    timeoutMs = 120_000,
+    killGraceMs = 10_000,
+    env,
+    raw = false,
+  } = {},
 ) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, {
@@ -102,21 +147,25 @@ export function run(
       detached: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
+    if (child.pid !== undefined) trackGroup(child.pid);
     const stdout = [];
     const stderr = [];
     let timedOut = false;
+    let killTimer;
     const timer = setTimeout(() => {
       timedOut = true;
-      try {
-        process.kill(-child.pid, 'SIGKILL');
-      } catch {
-        child.kill('SIGKILL');
-      }
+      signalGroup(child.pid, 'SIGTERM');
+      killTimer = setTimeout(
+        () => signalGroup(child.pid, 'SIGKILL'),
+        killGraceMs,
+      );
     }, timeoutMs);
     child.stdout.on('data', (chunk) => stdout.push(chunk));
     child.stderr.on('data', (chunk) => stderr.push(chunk));
     child.on('error', (error) => {
       clearTimeout(timer);
+      clearTimeout(killTimer);
+      if (child.pid !== undefined) releaseGroup(child.pid);
       reject(
         new VerifyError(
           error.code === 'ENOENT'
@@ -127,10 +176,12 @@ export function run(
     });
     child.on('close', (code) => {
       clearTimeout(timer);
+      clearTimeout(killTimer);
+      releaseGroup(child.pid);
       if (timedOut) {
         reject(
           new VerifyError(
-            `${command} ${args.join(' ')} timed out after ${timeoutMs}ms and was killed`,
+            `${command} ${args.join(' ')} timed out after ${timeoutMs}ms and was stopped`,
           ),
         );
         return;
