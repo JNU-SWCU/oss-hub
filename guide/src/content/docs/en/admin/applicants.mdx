@@ -24,7 +24,7 @@ No separate email is sent with the decision. Requesters check the status on thei
 <Steps>
 1. Open `가입 신청` (Registration requests) on the left. Requests appear newest first, 20 per page.
 2. Click ① the request to handle in the list image. To find someone by name or GitHub nickname, enter it in the search field above and click `검색` (Search).
-3. Check the name and department in `프로필` (Profile), then click ① `승인` (Approve) in the `대기 중인 요청` (Pending request) card.
+3. Check the name and affiliation in the profile card at the top, then click ① `승인` (Approve) in the `대기 중인 요청` (Pending request) card.
 4. In the `요청 승인` (Approve request) dialog, click ① `승인 확정` (Confirm approval).
 </Steps>
 <Shot src="admin/applicants-list.webp" alt="Registration request list with user and request time columns. ① marks the first request row." caption="① Request to handle" />
@@ -47,7 +47,7 @@ If the reason is empty, `반려 확정` (Confirm rejection) is dimmed and cannot
 <Shot src="admin/applicant-reject-dialog-empty.webp" alt="Reject request dialog with an empty reason. ① marks the empty field; Confirm rejection is dimmed and disabled." caption="① An empty reason disables `반려 확정` (Confirm rejection)" />
 
 <Success>
-A brief notification says `…님에 대한 요청 승인 처리를 완료했습니다.` (The request for … has been approved) or `요청 반려 처리를 완료했습니다.` (The request has been rejected). The ellipsis is replaced by the other person's GitHub ID. The right-hand detail panel stays open; only its history changes to `승인` (Approved) or `반려` (Rejected). The processed request has already disappeared from the list behind the panel. Close the panel and select the next request. The decision is recorded in the [audit log](/oss-hub/en/admin/audit-log/) as `승인` (Approval) or `반려` (Rejection).
+A brief notification says `…님에 대한 요청 승인 처리를 완료했습니다.` (The request for … has been approved) or `요청 반려 처리를 완료했습니다.` (The request has been rejected). The ellipsis is replaced by the other person's GitHub ID. The detail history changes to `승인` (Approved) or `반려` (Rejected), and the processed request leaves the list. From the detail page, use `가입 신청` (Registration requests) at the top to return to the list. If the details opened over the list, close that window and choose the next request. The decision is recorded in the [audit log](/oss-hub/en/admin/audit-log/) as `권한 요청 승인` (Access request approved) or `권한 요청 반려` (Access request rejected).
 </Success>
 
 ## When the queue is empty
