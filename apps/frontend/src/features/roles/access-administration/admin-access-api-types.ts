@@ -72,7 +72,7 @@ export interface AdminAccessProfile {
 
 export interface AdminAccessDetail extends AdminAccessListItem {
   readonly profile: AdminAccessProfile;
-  readonly participations: readonly UserParticipation[];
+  readonly participations: readonly UserParticipation[] | null;
 }
 
 export interface AdminAccessStaffAccessRequestHistoryItem {

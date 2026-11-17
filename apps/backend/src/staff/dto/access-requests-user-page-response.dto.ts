@@ -189,7 +189,7 @@ class UserParticipationResponseDto {
   declare readonly isLeader: boolean;
 
   static from(
-    participation: AdminAccessUserDetail['participations'][number],
+    participation: NonNullable<AdminAccessUserDetail['participations']>[number],
   ): UserParticipationResponseDto {
     return {
       programId: participation.programId,
@@ -217,7 +217,8 @@ export class AccessRequestsUserDetailResponseDto {
   declare readonly pendingRequest: PendingRequestResponseDto | null;
   declare readonly lastLoginAt: string | null;
   declare readonly profile: AdminAccessUserDetail['profile'];
-  declare readonly participations: readonly UserParticipationResponseDto[];
+  declare readonly participations:
+    readonly UserParticipationResponseDto[] | null;
   declare readonly adminGrant: {
     readonly origin: AdminOrigin;
     readonly grantedAt: string;
@@ -244,9 +245,10 @@ export class AccessRequestsUserDetailResponseDto {
       pendingRequest: toPendingRequest(user.pendingRequest),
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       profile: user.profile,
-      participations: user.participations.map((participation) =>
-        UserParticipationResponseDto.from(participation),
-      ),
+      participations:
+        user.participations?.map((participation) =>
+          UserParticipationResponseDto.from(participation),
+        ) ?? null,
       adminGrant: user.adminGrant
         ? {
             origin: user.adminGrant.origin,

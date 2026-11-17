@@ -101,6 +101,14 @@ describe('UserProfileCard — 참여 프로그램·팀', () => {
     expect(html).not.toContain('개인');
   });
 
+  it('참여 프로그램을 받지 못했으면 구역을 그리지 않는다', () => {
+    const html = render(student({ participations: null }));
+
+    expect(html).toContain('260001');
+    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램이 없습니다.');
+  });
+
   it('참여한 프로그램이 없으면 없다고 알린다', () => {
     const html = render(student({ participations: [] }));
 

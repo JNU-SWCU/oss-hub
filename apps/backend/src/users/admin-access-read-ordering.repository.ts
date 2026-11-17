@@ -100,7 +100,7 @@ export type AdminAccessUserDetail = AdminAccessUser & {
   readonly hasAdminAccess: boolean;
   readonly adminGrant: Pick<Admin, 'origin' | 'grantedAt'> | null;
   readonly profile: AdminAccessProfile;
-  readonly participations: readonly UserParticipation[];
+  readonly participations: readonly UserParticipation[] | null;
 };
 
 type AdminAccessStaffAccessRequestHistoryItem = {

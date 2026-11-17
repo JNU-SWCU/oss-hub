@@ -15,7 +15,7 @@ interface UserProfileCardProps {
     readonly studentId: string | null;
     readonly staffNumber: string | null;
     readonly department: string | null;
-    readonly participations: readonly UserParticipation[];
+    readonly participations: readonly UserParticipation[] | null;
   };
 
   headingTag?: 'h2' | 'h3';
@@ -51,6 +51,8 @@ function UserProfileCard({
 }: UserProfileCardProps) {
   const name = profile.name?.trim() ? profile.name : null;
   const SubheadingTag = HeadingTag === 'h2' ? 'h3' : 'h4';
+  const participations =
+    profile.memberKind === 'STUDENT' ? profile.participations : null;
 
   return (
     <section data-slot="user-profile-card" aria-label="프로필">
@@ -112,18 +114,18 @@ function UserProfileCard({
             </dl>
           )}
         </CardContent>
-        {profile.memberKind === 'STUDENT' ? (
+        {participations === null ? null : (
           <CardContent className={sectionClassName}>
             <SubheadingTag className="text-small font-normal text-muted-foreground">
               참여 프로그램·팀
             </SubheadingTag>
-            {profile.participations.length === 0 ? (
+            {participations.length === 0 ? (
               <p className="mt-2 text-muted-foreground">
                 참여 프로그램이 없습니다.
               </p>
             ) : (
               <ul className="mt-1 divide-y divide-border/50">
-                {profile.participations.map((participation) => (
+                {participations.map((participation) => (
                   <li
                     key={participation.programId}
                     className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2"
@@ -144,7 +146,7 @@ function UserProfileCard({
               </ul>
             )}
           </CardContent>
-        ) : null}
+        )}
       </Card>
     </section>
   );

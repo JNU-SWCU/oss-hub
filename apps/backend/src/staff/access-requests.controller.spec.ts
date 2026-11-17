@@ -5,8 +5,19 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
+import { AccountStatus } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
+import type { AdminAccessPrincipal } from '../users/admin-access-read.repository';
 import { AdminAccessService } from '../users/admin-access.service';
+import {
+  ADMIN_GITHUB_ID,
+  InMemoryAdminAccessRepository,
+  PENDING_REQUEST,
+  STAFF_GITHUB_ID,
+  accessUser,
+  auditLogHarness,
+} from '../users/admin-access.service.spec-support';
+import { MemberKind } from '../users/user-contract.config';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { AccessRequestsController } from './access-requests.controller';
 import {
@@ -116,6 +127,101 @@ describe('AccessRequestsController delegation', () => {
     },
   );
 });
+
+const PARTICIPATION = {
+  programId: 'participation-secret-program',
+  programName: 'participation-secret-program-name',
+  teamName: 'participation-secret-team-name',
+  isLeader: true,
+} as const;
+
+describe('AccessRequestsController participation privacy', () => {
+  it('withholds a pending applicant participations from a non-admin STAFF reviewer', async () => {
+    const response = await controllerWithPendingApplicant().get(
+      requestOf(reviewer()),
+      'target',
+    );
+
+    expect(response.isSelf).toBe(false);
+    expect(response.pendingRequest?.id).toBe(PENDING_REQUEST.id);
+    expect(response.profile.department).toBe('소프트웨어공학과');
+    expect(response.participations).toBeNull();
+    expect(JSON.stringify(response)).not.toContain('participation-secret');
+  });
+
+  it.each([
+    [
+      'an ADMIN reviewer',
+      reviewer({ githubId: ADMIN_GITHUB_ID, hasAdminAccess: true }),
+      undefined,
+      false,
+    ],
+    ['the applicant themself', reviewer(), STAFF_GITHUB_ID, true],
+  ] as const)(
+    'returns participations to %s',
+    async (_, viewer, applicantGithubId, isSelf) => {
+      const response = await controllerWithPendingApplicant(
+        applicantGithubId,
+      ).get(requestOf(viewer), 'target');
+
+      expect(response.isSelf).toBe(isSelf);
+      expect(response.participations).toEqual([PARTICIPATION]);
+    },
+  );
+});
+
+function controllerWithPendingApplicant(
+  applicantGithubId?: bigint,
+): AccessRequestsController {
+  const repository = new InMemoryAdminAccessRepository();
+  repository.target = accessUser({
+    pendingRequest: PENDING_REQUEST,
+    ...(applicantGithubId === undefined ? {} : { githubId: applicantGithubId }),
+  });
+  repository.participationMemberships = [
+    {
+      team: {
+        name: PARTICIPATION.teamName,
+        leaderId: 'target',
+        program: {
+          id: PARTICIPATION.programId,
+          name: PARTICIPATION.programName,
+        },
+      },
+    },
+  ];
+  return new AccessRequestsController(
+    new AdminAccessService(
+      repository,
+      auditLogHarness().service,
+      new AdminAccessMutationService(
+        new HistoryMetadataService(),
+        new UserProfileService(),
+      ),
+    ),
+  );
+}
+
+function reviewer(
+  overrides: Partial<AdminAccessPrincipal> = {},
+): AuthenticatedRequest['principal'] {
+  const principal: AdminAccessPrincipal = {
+    githubId: STAFF_GITHUB_ID,
+    memberKind: MemberKind.STAFF,
+    isProfileComplete: true,
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+    accountStatus: AccountStatus.ACTIVE,
+    ...overrides,
+  };
+  return principal as AuthenticatedRequest['principal'];
+}
+
+function requestOf(
+  principal: AuthenticatedRequest['principal'],
+): Pick<AuthenticatedRequest, 'sessionGithubId' | 'principal'> {
+  return { sessionGithubId: principal.githubId, principal };
+}
 
 function serviceHarness() {
   return Object.assign(Object.create(AdminAccessService.prototype) as object, {

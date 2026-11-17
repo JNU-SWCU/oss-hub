@@ -68,10 +68,13 @@ export function parseAdminAccessDetail(value: unknown): AdminAccessDetail {
     throw new AdminAccessResponseError();
   }
   const profile = value.profile;
-  const participations = parseUserParticipations(value.participations);
+  const participationsWithheld = value.participations === null;
+  const participations = participationsWithheld
+    ? null
+    : parseUserParticipations(value.participations);
   if (
     !isAdminAccessListItem(value) ||
-    participations === null ||
+    (!participationsWithheld && participations === null) ||
     !isRecord(profile) ||
     !(profile.name === null || typeof profile.name === 'string') ||
     !(profile.studentId === null || typeof profile.studentId === 'string') ||

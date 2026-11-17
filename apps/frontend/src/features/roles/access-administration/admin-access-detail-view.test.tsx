@@ -182,6 +182,38 @@ describe('프로필 카드 — 가입 유형별 항목과 미완료 경고', () 
     expect(html).not.toContain('프로필 미완성');
   });
 
+  it('참여 프로그램을 받지 못한 가입 신청 상세는 그 구역 없이 그리고 오류로 보지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessDetailContentForState
+        state={{
+          kind: 'ready',
+          detail: adminDetail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            pendingRequest: {
+              id: 'request-pending',
+              status: 'PENDING',
+              createdAt: '2026-10-27T04:15:00.000Z',
+            },
+            participations: null,
+          }),
+          history: adminHistory(),
+        }}
+        onRetry={() => {}}
+        mutation={adminMutation()}
+        layoutContext="overlay"
+        workspace="queue"
+      />,
+    );
+
+    expect(html).toContain('학번');
+    expect(html).toContain('대기 중인 요청');
+    expect(html).toContain('승인');
+    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램이 없습니다.');
+    expect(html).not.toContain('불러오지 못했습니다');
+  });
+
   it('교직원은 교직원 번호·소속을 그리고 학번과 참여 프로그램은 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState

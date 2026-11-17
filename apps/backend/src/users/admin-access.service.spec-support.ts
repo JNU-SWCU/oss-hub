@@ -141,6 +141,8 @@ export class InMemoryAdminAccessRepository
   actor: AdminAccessActor | null = adminActor();
   target: AdminAccessUserRow | null = accessUser();
   authoritativeTarget: AdminAccessUserRow | null = null;
+  participationMemberships: AdminAccessUserDetailRow['participationMemberships'] =
+    [];
   activeAdminCount = 2;
   actorAfterLock: AdminAccessActor | null | undefined = undefined;
   userCasSucceeds = true;
@@ -186,7 +188,7 @@ export class InMemoryAdminAccessRepository
             ...target,
             staffNumber: null,
             adminGrant: null,
-            participationMemberships: [],
+            participationMemberships: this.participationMemberships,
           }
         : null,
     );

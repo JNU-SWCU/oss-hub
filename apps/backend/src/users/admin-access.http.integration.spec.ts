@@ -1,7 +1,14 @@
 import { userAuditRows } from './user-history.integration-fixture';
 import { flatProfileFixture } from './canonical-user-fixture';
 import { DepartmentType, MemberKind } from './user-contract.config';
-import { AccountStatus, LoginHistoryEvent } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  LoginHistoryEvent,
+  ProgramCategory,
+  ProgramLifecycle,
+  ProgramTrackType,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { RolesErrorCode } from './roles-error-code.error';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
@@ -345,6 +352,95 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
       action: 'STAFF_ROLE_REQUEST_APPROVED',
     }).then((rows) => rows.length),
   ).resolves.toBe(1);
+});
+it('withholds a pending applicant participations from STAFF and returns them to ADMIN', async () => {
+  const staff = await harness.createUser(
+    'privacy-staff',
+    'STAFF',
+    AccountStatus.ACTIVE,
+  );
+  const admin = await harness.createUser(
+    'privacy-admin',
+    'ADMIN',
+    AccountStatus.ACTIVE,
+  );
+  const applicant = await harness.createUser(
+    'privacy-applicant',
+    null,
+    AccountStatus.ACTIVE,
+  );
+  await harness.createPendingRequest(applicant.id);
+  const marker = 'participation-secret';
+  const programId = `test:pr03:admin-access-http:${marker}:program:${String(applicant.githubId)}`;
+  const teamId = `test:pr03:admin-access-http:${marker}:team:${String(applicant.githubId)}`;
+  const startAt = new Date('2026-03-01T00:00:00.000Z');
+  try {
+    await harness.prisma.program.create({
+      data: {
+        id: programId,
+        name: `synthetic-${marker}-program`,
+        organizers: ['synthetic-organizer'],
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+        category: ProgramCategory.BASIC,
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        applicationTemplateKey: 'synthetic-template',
+        applicationTemplateVersion: 1,
+        applicationStartAt: startAt,
+        applicationEndAt: new Date(startAt.getTime() + 86_400_000),
+        startAt,
+        endAt: new Date(startAt.getTime() + 30 * 86_400_000),
+        description: 'synthetic-description',
+      },
+    });
+    await harness.prisma.team.create({
+      data: {
+        id: teamId,
+        programId,
+        name: `synthetic-${marker}-team`,
+        leaderId: applicant.id,
+        applicantId: applicant.id,
+        answers: {},
+        applicationTemplateVersion: 1,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
+    });
+    await harness.prisma.teamMember.create({
+      data: { teamId, programId, userId: applicant.id },
+    });
+
+    const [asStaff, asAdmin] = await Promise.all([
+      harness.request('GET', `/users/${applicant.id}/access`, staff.githubId),
+      harness.request('GET', `/users/${applicant.id}/access`, admin.githubId),
+    ]);
+
+    expect(asStaff.status).toBe(200);
+    const staffText = await asStaff.text();
+    expect(staffText).not.toContain(marker);
+    const staffBody: unknown = JSON.parse(staffText);
+    expect(staffBody).toMatchObject({
+      id: applicant.id,
+      isSelf: false,
+      pendingRequest: { status: 'PENDING' },
+      participations: null,
+    });
+    expect(asAdmin.status).toBe(200);
+    await expect(asAdmin.json()).resolves.toMatchObject({
+      id: applicant.id,
+      participations: [
+        {
+          programId,
+          programName: `synthetic-${marker}-program`,
+          teamName: `synthetic-${marker}-team`,
+          isLeader: true,
+        },
+      ],
+    });
+  } finally {
+    await harness.prisma.teamMember.deleteMany({ where: { programId } });
+    await harness.prisma.team.deleteMany({ where: { programId } });
+    await harness.prisma.program.deleteMany({ where: { id: programId } });
+  }
 });
 it('returns 400/ROL_011 for an invalid user id', async () => {
   const actor = await harness.createUser(

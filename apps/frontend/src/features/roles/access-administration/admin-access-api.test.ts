@@ -284,6 +284,21 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       expect(detail.participations).toEqual([participation]);
     });
 
+    it('상세 — 참여 프로그램이 null이면 볼 수 없는 값으로 받아들인다', () => {
+      const detail = parseAdminAccessDetail({
+        ...listItem(),
+        profile: {
+          name: '합성 사용자',
+          studentId: null,
+          department: null,
+          isComplete: false,
+        },
+        participations: null,
+      });
+
+      expect(detail.participations).toBeNull();
+    });
+
     it.each([
       ['참여 프로그램 누락', undefined],
       ['배열이 아닌 참여 프로그램', {}],
