@@ -475,7 +475,7 @@ describe('storage orphan reconciliation integration', () => {
     const unavailable = new PrismaClient({
       adapter: new PrismaPg(
         loadPrismaPoolConfig(
-          'postgresql://synthetic:synthetic@127.0.0.1:1/synthetic',
+          'postgresql://synthetic:synthetic@127.0.0.1:1/synthetic?connect_timeout=1',
         ),
       ),
     });

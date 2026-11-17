@@ -65,6 +65,9 @@ importers:
       parse5:
         specifier: ^7.3.0
         version: 7.3.0
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.1
         version: 7.10.1(@types/node@22.20.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
@@ -105,6 +108,9 @@ importers:
       '@types/nodemailer':
         specifier: ^8.0.1
         version: 8.0.1
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
       '@types/yauzl':
         specifier: 3.4.0
         version: 3.4.0
