@@ -110,8 +110,8 @@ const ITEM_CONTEXT_CLASS = cn(
 const ITEM_ACTION_CLASS =
   'col-start-4 row-start-1 justify-self-end @2xl:col-start-5';
 const ITEM_DETAIL_CLASS = cn(
-  'col-span-3 col-start-2 row-start-3 grid min-w-0 gap-2 empty:hidden',
-  '@2xl:col-span-4 @2xl:row-start-2',
+  'col-span-3 col-start-2 grid min-w-0 gap-2 empty:hidden',
+  '@2xl:col-span-4 @2xl:col-start-2',
 );
 const LINK_BUTTON_CLASS =
   'h-auto shrink-0 px-0 text-foreground underline underline-offset-2';
@@ -432,6 +432,36 @@ function DocumentStatus({
   );
 }
 
+function TemplateDownload({ document }: { readonly document: Requirement }) {
+  if (!document.hasTemplateFile) return null;
+  const fileName = document.templateFileName;
+  return (
+    <p
+      className="flex min-w-0 items-center gap-2 text-small"
+      data-testid="milestone-document-template"
+    >
+      {fileName === null ? null : (
+        <span className="shrink-0 text-muted-foreground">양식</span>
+      )}
+      <Button
+        asChild
+        variant="link"
+        size="xs"
+        className={cn(LINK_BUTTON_CLASS, 'min-w-0 shrink')}
+      >
+        <a
+          href={requirementTemplateHref(document.milestoneId, document.id)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Download aria-hidden />
+          <span className="truncate">{fileName ?? '양식 받기'}</span>
+        </a>
+      </Button>
+    </p>
+  );
+}
+
 function submitErrorMessage(error: unknown, fallback: string): string {
   if (!(error instanceof ApiError) || isUnexpectedApiProblem(error)) {
     return fallback;
@@ -466,23 +496,9 @@ function StaffDocumentRow({
             시간)
           </span>
         )}
-        {document.templateFileName ? (
-          <Button
-            asChild
-            size="sm"
-            variant="ghost"
-            className="ml-auto max-w-full"
-          >
-            <a
-              href={requirementTemplateHref(document.milestoneId, document.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Download aria-hidden />
-              <span className="truncate">{document.templateFileName}</span>
-            </a>
-          </Button>
-        ) : null}
+      </div>
+      <div className={ITEM_DETAIL_CLASS}>
+        <TemplateDownload document={document} />
       </div>
       <RequirementGraceEditor
         key={document.graceDueAt ?? 'no-grace'}
@@ -844,17 +860,6 @@ function StudentDocumentRow({
             )}
           </span>
         )}
-        {document.hasTemplateFile ? (
-          <Button asChild size="sm" variant="ghost" className="ml-auto">
-            <a
-              href={requirementTemplateHref(document.milestoneId, document.id)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Download aria-hidden /> 양식
-            </a>
-          </Button>
-        ) : null}
       </div>
       {syncNotice !== null || gate.kind !== 'open' ? null : (
         <Button
@@ -877,6 +882,7 @@ function StudentDocumentRow({
         </Button>
       )}
       <div className={ITEM_DETAIL_CLASS}>
+        <TemplateDownload document={document} />
         {document.graceDueAt != null && review === null ? (
           <p className="text-small text-muted-foreground">
             유예 기한: {formatSeoulShortDateTime(document.graceDueAt)} (한국

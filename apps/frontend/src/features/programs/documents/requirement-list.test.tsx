@@ -1828,6 +1828,55 @@ describe('문서 유예 설정과 학생 표시', () => {
     expect(container.textContent).toContain('지각으로 표시됩니다');
   });
 
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '양식이 있는 항목은 %s 에게 항목 아래 제 줄에 파일 이름으로 내려받게 한다',
+    async (viewerRole) => {
+      await render(
+        {
+          ...requirement,
+          hasTemplateFile: true,
+          templateFileName: '기획서-양식.hwp',
+        },
+        viewerRole,
+        '2099-01-01T00:00:00Z',
+      );
+
+      const line = container.querySelector(
+        '[data-testid="milestone-document-template"]',
+      );
+      const link = line?.querySelector('a');
+      expect(line?.textContent).toBe('양식기획서-양식.hwp');
+      expect(link?.getAttribute('href')).toBe(
+        apiPath('milestones/milestone-1/documents/document-1/template'),
+      );
+      expect(link?.target).toBe('_blank');
+      expect(container.querySelectorAll('a[href$="/template"]')).toHaveLength(
+        1,
+      );
+    },
+  );
+
+  it('파일 이름을 받지 못한 양식은 양식 받기라고 적는다', async () => {
+    await render(
+      { ...requirement, hasTemplateFile: true, templateFileName: null },
+      'STUDENT',
+      '2099-01-01T00:00:00Z',
+    );
+
+    expect(
+      container.querySelector('[data-testid="milestone-document-template"]')
+        ?.textContent,
+    ).toBe('양식 받기');
+  });
+
+  it('양식이 없는 항목에는 양식 줄을 두지 않는다', async () => {
+    await render(requirement, 'STUDENT', '2099-01-01T00:00:00Z');
+
+    expect(
+      container.querySelector('[data-testid="milestone-document-template"]'),
+    ).toBeNull();
+  });
+
   it('화면을 열어 둔 채 유예 기한을 넘으면 올리기 버튼을 치우고 사유를 적는다', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
