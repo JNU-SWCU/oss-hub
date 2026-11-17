@@ -85,6 +85,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'RequirementFeedbackResponseDto',
     () =>
       RequirementFeedbackResponseDto.from({
+        nextCursor: null,
         items: [
           {
             id: 'review-1',

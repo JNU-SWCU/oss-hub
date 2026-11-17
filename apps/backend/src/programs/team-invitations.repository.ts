@@ -71,6 +71,13 @@ export type CancelInvitationOutcome =
 export type DeclineInvitationOutcome =
   { readonly kind: 'not-found' } | { readonly kind: 'ok' };
 
+const INVITATION_CANDIDATE_PAGE = 20;
+
+export interface InvitationCandidatePage {
+  readonly items: readonly InvitationCandidateRecord[];
+  readonly hasMore: boolean;
+}
+
 export interface InvitationCandidateRecord {
   readonly id: string;
   readonly nickname: string;
@@ -292,7 +299,7 @@ export class TeamInvitationsRepository {
     programId: string,
     query: string,
     excludeUserId: string,
-  ): Promise<InvitationCandidateRecord[]> {
+  ): Promise<InvitationCandidatePage> {
     return this.searchInvitationCandidates(
       this.prisma,
       programId,
@@ -490,7 +497,7 @@ export class TeamInvitationsRepository {
     programId: string,
     query: string,
     excludeUserId: string,
-  ): Promise<InvitationCandidateRecord[]> {
+  ): Promise<InvitationCandidatePage> {
     const users = await prisma.user.findMany({
       where: {
         id: { not: excludeUserId },
@@ -508,13 +515,16 @@ export class TeamInvitationsRepository {
         ...USER_PROFILE_NAME_SELECT,
       },
       orderBy: { nickname: 'asc' },
-      take: 20,
+      take: INVITATION_CANDIDATE_PAGE + 1,
     });
-    return users.map((user) => ({
-      id: user.id,
-      nickname: user.nickname,
-      name: user.name ?? null,
-    }));
+    return {
+      items: users.slice(0, INVITATION_CANDIDATE_PAGE).map((user) => ({
+        id: user.id,
+        nickname: user.nickname,
+        name: user.name ?? null,
+      })),
+      hasMore: users.length > INVITATION_CANDIDATE_PAGE,
+    };
   }
 
   async acceptTeamInvitationTransaction(

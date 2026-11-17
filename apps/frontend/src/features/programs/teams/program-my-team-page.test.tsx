@@ -163,6 +163,7 @@ function invitationStub(
     sentLoading: false,
     inviteQuery: '',
     inviteCandidates: [],
+    moreCandidates: false,
     searching: false,
     searchError: null,
     invitingUserId: null,

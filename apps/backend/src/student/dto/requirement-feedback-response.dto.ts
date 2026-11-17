@@ -26,6 +26,7 @@ export class RequirementFeedbackItemResponseDto {
 }
 export class RequirementFeedbackResponseDto {
   declare readonly items: RequirementFeedbackItemResponseDto[];
+  declare readonly nextCursor: string | null;
   static from(
     result: RequirementFeedbackResult,
   ): RequirementFeedbackResponseDto {
@@ -33,6 +34,7 @@ export class RequirementFeedbackResponseDto {
       items: result.items.map((item) =>
         RequirementFeedbackItemResponseDto.from(item),
       ),
+      nextCursor: result.nextCursor,
     };
   }
 }

@@ -36,6 +36,7 @@ export interface ProvisioningStatusDto {
   readonly retryable: number;
   readonly failedFinal: number;
   readonly failedTeams: readonly ProvisioningFailedTeamDto[];
+  readonly failedTeamsHasMore: boolean;
 }
 
 export interface MailStatusDto {
@@ -60,6 +61,8 @@ const LIVE_TEAM_JOB_WHERE = {
   team: { archivedAt: null, program: { lifecycle: { not: 'DELETED' } } },
 } satisfies Prisma.RepositoryProvisionJobWhereInput;
 
+const FAILED_TEAMS_SHOWN = 100;
+
 @Injectable()
 export class SystemStatusRepository {
   private readonly boundedReads = new BoundedReadRepository();
@@ -77,7 +80,7 @@ export class SystemStatusRepository {
         _count: { _all: true },
       }),
       this.prisma.repositoryProvisionJob.findMany({
-        take: 100,
+        take: FAILED_TEAMS_SHOWN + 1,
         where: {
           ...LIVE_TEAM_JOB_WHERE,
           status: RepositoryProvisionJobStatus.FAILED_FINAL,
@@ -98,7 +101,8 @@ export class SystemStatusRepository {
       processing: count(RepositoryProvisionJobStatus.PROCESSING),
       retryable: count(RepositoryProvisionJobStatus.FAILED_RETRYABLE),
       failedFinal: count(RepositoryProvisionJobStatus.FAILED_FINAL),
-      failedTeams: failed.map((job) => ({
+      failedTeamsHasMore: failed.length > FAILED_TEAMS_SHOWN,
+      failedTeams: failed.slice(0, FAILED_TEAMS_SHOWN).map((job) => ({
         teamId: job.teamId,
         teamName: job.team.name,
         programName: job.team.program.name,

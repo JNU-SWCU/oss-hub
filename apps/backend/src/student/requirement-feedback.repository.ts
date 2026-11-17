@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { SubmissionReviewDecision } from '../programs/submissions.repository';
-const RECENT_FEEDBACK_LIMIT = 50;
+const FEEDBACK_PAGE_SIZE = 50;
 const recentReviewSelect = {
   id: true,
   event: true,
@@ -44,6 +44,10 @@ export interface RecentRequirementReview {
   readonly submissionId: string;
   readonly submissionStatus: SubmissionStatus;
 }
+export interface RecentRequirementReviewPage {
+  readonly reviews: readonly RecentRequirementReview[];
+  readonly nextCursor: string | null;
+}
 @Injectable()
 export class RequirementFeedbackRepository {
   constructor(
@@ -53,12 +57,13 @@ export class RequirementFeedbackRepository {
   async findRecentForParticipant(
     sessionGithubId: bigint,
     reviewedSince: Date,
-  ): Promise<readonly RecentRequirementReview[]> {
+    cursor: string | null,
+  ): Promise<RecentRequirementReviewPage> {
     const user = await this.prisma.user.findUnique({
       where: { githubId: sessionGithubId },
       select: { id: true },
     });
-    if (user === null) return [];
+    if (user === null) return { reviews: [], nextCursor: null };
     const rows = await this.prisma.submissionHistory.findMany({
       where: {
         createdAt: { gte: reviewedSince },
@@ -77,10 +82,16 @@ export class RequirementFeedbackRepository {
         },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: RECENT_FEEDBACK_LIMIT,
+      take: FEEDBACK_PAGE_SIZE + 1,
+      ...(cursor === null ? {} : { cursor: { id: cursor }, skip: 1 }),
       select: recentReviewSelect,
     });
-    return rows.map(toRecentReview);
+    const page = rows.slice(0, FEEDBACK_PAGE_SIZE);
+    return {
+      reviews: page.map(toRecentReview),
+      nextCursor:
+        rows.length > FEEDBACK_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,
+    };
   }
 }
 function toRecentReview(row: RecentReviewRow): RecentRequirementReview {

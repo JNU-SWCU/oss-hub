@@ -3074,10 +3074,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/InvitationCandidateResponseDto"
-                  }
+                  "$ref": "#/components/schemas/InvitationCandidatePageResponseDto"
                 }
               }
             }
@@ -3116,10 +3113,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/InvitationCandidateResponseDto"
-                  }
+                  "$ref": "#/components/schemas/InvitationCandidatePageResponseDto"
                 }
               }
             }
@@ -4471,10 +4465,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ApplicationDecisionNotificationResponseDto"
-                  }
+                  "$ref": "#/components/schemas/ApplicationDecisionNotificationPageResponseDto"
                 }
               }
             }
@@ -4518,10 +4509,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamDeletionNotificationResponseDto"
-                  }
+                  "$ref": "#/components/schemas/TeamDeletionNotificationPageResponseDto"
                 }
               }
             }
@@ -4867,7 +4855,17 @@
     "/api/v1/dashboard/student/feedback": {
       "get": {
         "operationId": "StudentDashboardController_recentFeedback",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -6463,6 +6461,9 @@
             "items": {
               "$ref": "#/components/schemas/ProvisioningFailedTeamResponseDto"
             }
+          },
+          "failedTeamsHasMore": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -6470,7 +6471,8 @@
           "processing",
           "retryable",
           "failedFinal",
-          "failedTeams"
+          "failedTeams",
+          "failedTeamsHasMore"
         ]
       },
       "MailSystemStatusResponseDto": {
@@ -9614,6 +9616,24 @@
           "name"
         ]
       },
+      "InvitationCandidatePageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvitationCandidateResponseDto"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "hasMore"
+        ]
+      },
       "CreateTeamInvitationRequestDto": {
         "type": "object",
         "properties": {
@@ -11295,6 +11315,24 @@
           "decidedAt"
         ]
       },
+      "ApplicationDecisionNotificationPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationDecisionNotificationResponseDto"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "hasMore"
+        ]
+      },
       "TeamDeletionNotificationResponseDto": {
         "type": "object",
         "properties": {
@@ -11325,6 +11363,24 @@
           "programName",
           "message",
           "deletedAt"
+        ]
+      },
+      "TeamDeletionNotificationPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamDeletionNotificationResponseDto"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "hasMore"
         ]
       },
       "NotificationSettingsResponseDto": {
@@ -12116,10 +12172,15 @@
             "items": {
               "$ref": "#/components/schemas/RequirementFeedbackItemResponseDto"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
-          "items"
+          "items",
+          "nextCursor"
         ]
       },
       "MyRepositoryItemResponseDto": {

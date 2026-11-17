@@ -381,7 +381,10 @@ describe('Audience authorization HTTP characterization', () => {
         },
         {
           provide: RequirementFeedbackRepository,
-          useValue: { findRecentForParticipant: () => Promise.resolve([]) },
+          useValue: {
+            findRecentForParticipant: () =>
+              Promise.resolve({ reviews: [], nextCursor: null }),
+          },
         },
         {
           provide: ProgramsRepository,
@@ -524,6 +527,7 @@ describe('Audience authorization HTTP characterization', () => {
                 retryable: 0,
                 failedFinal: 0,
                 failedTeams: [],
+                failedTeamsHasMore: false,
               }),
             getMailStatus: () =>
               Promise.resolve({ sent7d: 0, failed7d: 0, lastSentAt: null }),

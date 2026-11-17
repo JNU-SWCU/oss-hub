@@ -35,6 +35,7 @@ interface ProvisioningStatus {
   readonly retryable: number;
   readonly failedFinal: number;
   readonly failedTeams: readonly ProvisioningFailedTeam[];
+  readonly failedTeamsHasMore: boolean;
 }
 
 interface MailStatus {

@@ -83,6 +83,7 @@ const systemStatus: SystemStatusResult = {
     processing: 1,
     retryable: 1,
     failedFinal: 1,
+    failedTeamsHasMore: false,
     failedTeams: [
       {
         teamId: 'team-1',

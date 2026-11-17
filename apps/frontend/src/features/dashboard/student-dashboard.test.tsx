@@ -773,7 +773,12 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
   ) =>
     renderView({
       data: { items },
-      feedback: { status: 'success', items: feedback },
+      feedback: {
+        status: 'success',
+        items: feedback,
+        hasMore: false,
+        loadingMore: false,
+      },
     });
   const cardOf = (html: string, item: DashboardItem) => {
     const start = html.indexOf(`>${item.programName}</h3>`);
@@ -883,7 +888,10 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
 
   it.each([
     ['불러오는 중', { status: 'loading' }],
-    ['기간 안 판정이 없음', { status: 'success', items: [] }],
+    [
+      '기간 안 판정이 없음',
+      { status: 'success', items: [], hasMore: false, loadingMore: false },
+    ],
   ] as const)('%s이면 피드백 묶음과 칩을 그리지 않는다', (_l, feedback) => {
     const five = [
       first,
@@ -897,6 +905,32 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     expect(html).toContain(first.programName);
     expect(html).not.toContain('새 피드백');
     expect(html.match(/aria-busy="true"/g)).toBeNull();
+  });
+
+  it('다음 피드백 페이지가 있으면 피드백 더 보기 버튼을 둔다', () => {
+    const more = renderView({
+      data: { items: [first] },
+      feedback: {
+        status: 'success',
+        items: [],
+        hasMore: true,
+        loadingMore: false,
+      },
+      onLoadMoreFeedback: () => undefined,
+    });
+    const last = renderView({
+      data: { items: [first] },
+      feedback: {
+        status: 'success',
+        items: [],
+        hasMore: false,
+        loadingMore: false,
+      },
+      onLoadMoreFeedback: () => undefined,
+    });
+
+    expect(more).toContain('피드백 더 보기');
+    expect(last).not.toContain('피드백 더 보기');
   });
 
   it('피드백 조회가 실패하면 알림 바로 아래에 재시도를 두고 카드는 피드백 없이 그린다', () => {

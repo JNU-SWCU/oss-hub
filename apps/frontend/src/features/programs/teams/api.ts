@@ -6,8 +6,8 @@ import type {
   RenamedTeam,
   TeamDeletionScope,
   DeletedTeamResult,
-  InvitationCandidate,
 } from './dto';
+import type { InvitationCandidatePage } from './team-invitation-dto';
 import { apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
 import { listTeamManagementApplications } from '../applications/api';
@@ -16,9 +16,9 @@ import { isProvisioningJobStatus } from '../applications/application-presentatio
 export function searchApplicationInvitationCandidates(
   programId: string,
   query: string,
-): Promise<readonly InvitationCandidate[]> {
+): Promise<InvitationCandidatePage> {
   const search = new URLSearchParams({ query });
-  return apiClient<readonly InvitationCandidate[]>(
+  return apiClient<InvitationCandidatePage>(
     `team-invitations/programs/${encodeURIComponent(programId)}/search?${search}`,
   );
 }

@@ -30,6 +30,7 @@ const FEEDBACK = {
       href: '/programs/synthetic-program/documents?milestoneId=synthetic-milestone',
     },
   ],
+  nextCursor: null,
 } as const;
 const recentForParticipant = jest.fn();
 let application: INestApplication | undefined;
@@ -48,6 +49,7 @@ beforeEach(() => {
       milestoneName: item.milestoneName,
       itemName: item.itemName,
     })),
+    nextCursor: null,
   });
 });
 
@@ -111,7 +113,10 @@ it('세션 사용자의 최근 판정을 private, no-store로 돌려준다', asy
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toEqual(FEEDBACK);
-  expect(recentForParticipant).toHaveBeenCalledWith(SESSION_GITHUB_ID);
+  expect(recentForParticipant).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    undefined,
+  );
 });
 
 it('미인증 요청은 판정을 읽기 전에 AUT_003 401로 거부한다', async () => {

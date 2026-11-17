@@ -62,7 +62,9 @@ function buildController(overrides: Partial<ServiceMocks> = {}): {
   const mocks: ServiceMocks = {
     listReceived: jest.fn().mockResolvedValue([]),
     listSentByTeam: jest.fn().mockResolvedValue([]),
-    searchCandidates: jest.fn().mockResolvedValue([]),
+    searchCandidates: jest
+      .fn()
+      .mockResolvedValue({ items: [], hasMore: false }),
     create: jest.fn(),
     cancel: jest.fn().mockResolvedValue(undefined),
     decline: jest.fn().mockResolvedValue(undefined),

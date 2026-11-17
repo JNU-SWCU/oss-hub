@@ -23,6 +23,7 @@ describe('SystemStatusController', () => {
         processing: 0,
         retryable: 2,
         failedFinal: 1,
+        failedTeamsHasMore: false,
         failedTeams: [
           {
             teamId: 'synthetic-team',

@@ -1,3 +1,4 @@
+import type { UnreadNotificationPage } from '../application-decision-notifications.service';
 import type { TeamDeletionNotification } from '../application-decision-notifications.repository';
 
 export class TeamDeletionNotificationResponseDto {
@@ -18,6 +19,22 @@ export class TeamDeletionNotificationResponseDto {
       programName: notification.programName,
       message: notification.message,
       deletedAt: notification.deletedAt.toISOString(),
+    };
+  }
+}
+
+export class TeamDeletionNotificationPageResponseDto {
+  declare readonly items: TeamDeletionNotificationResponseDto[];
+  declare readonly hasMore: boolean;
+
+  static from(
+    page: UnreadNotificationPage<TeamDeletionNotification>,
+  ): TeamDeletionNotificationPageResponseDto {
+    return {
+      items: page.items.map((item) =>
+        TeamDeletionNotificationResponseDto.from(item),
+      ),
+      hasMore: page.hasMore,
     };
   }
 }

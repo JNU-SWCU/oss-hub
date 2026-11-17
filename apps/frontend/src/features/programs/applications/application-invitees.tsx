@@ -110,7 +110,8 @@ export function ApplicationInvitees({
         selectedInviteeIds={selected.map((candidate) => candidate.id)}
         invitation={{
           inviteQuery: query,
-          inviteCandidates: enabled ? (candidates.data ?? []) : [],
+          inviteCandidates: enabled ? (candidates.data?.items ?? []) : [],
+          moreCandidates: enabled && (candidates.data?.hasMore ?? false),
           searching: enabled && candidates.isFetching,
           searchError:
             enabled && candidates.isError

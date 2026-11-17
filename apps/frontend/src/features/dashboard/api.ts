@@ -211,18 +211,27 @@ function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
     isFeedbackHref(value.href)
   );
 }
-export async function fetchStudentFeedback(): Promise<
-  readonly DashboardFeedbackItem[]
-> {
-  const response = await apiClient<unknown>('dashboard/student/feedback');
+export interface StudentFeedbackPage {
+  readonly items: readonly DashboardFeedbackItem[];
+  readonly nextCursor: string | null;
+}
+export async function fetchStudentFeedback(
+  cursor?: string,
+): Promise<StudentFeedbackPage> {
+  const response = await apiClient<unknown>(
+    cursor === undefined
+      ? 'dashboard/student/feedback'
+      : `dashboard/student/feedback?${new URLSearchParams({ cursor }).toString()}`,
+  );
   if (
     !isRecord(response) ||
     !Array.isArray(response.items) ||
-    !response.items.every(isFeedbackItem)
+    !response.items.every(isFeedbackItem) ||
+    (response.nextCursor !== null && !isNonEmptyString(response.nextCursor))
   ) {
     throw new Error('최근 피드백 응답 형식이 올바르지 않습니다.');
   }
-  return response.items;
+  return { items: response.items, nextCursor: response.nextCursor };
 }
 function isApplicationDecisionNotice(
   value: unknown,
@@ -247,12 +256,14 @@ export async function fetchUnreadApplicationDecisionNotices(): Promise<
     'users/me/notifications/team-decisions',
   );
   if (
-    !Array.isArray(response) ||
-    !response.every(isApplicationDecisionNotice)
+    !isRecord(response) ||
+    typeof response.hasMore !== 'boolean' ||
+    !Array.isArray(response.items) ||
+    !response.items.every(isApplicationDecisionNotice)
   ) {
     throw new Error('신청 승인 알림 응답 형식이 올바르지 않습니다.');
   }
-  return response;
+  return response.items;
 }
 export async function markApplicationDecisionNoticeRead(
   notificationId: string,

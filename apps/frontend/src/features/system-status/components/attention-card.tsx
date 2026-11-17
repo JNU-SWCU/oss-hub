@@ -75,6 +75,7 @@ interface RowProps extends RetryProps {
 interface AttentionCardProps extends RetryProps {
   readonly anomalies: readonly Anomaly[];
   readonly failedTeams: readonly ProvisioningFailedTeam[];
+  readonly failedTeamsHasMore: boolean;
   readonly staleRepositories: readonly CollectionRepository[];
 }
 
@@ -155,6 +156,7 @@ function FailedTeamRow({
 function AnomalyRow({
   anomaly,
   failedTeams,
+  failedTeamsHasMore,
   staleRepositories,
   retryingTeamIds,
   onRetry,
@@ -162,6 +164,7 @@ function AnomalyRow({
 }: RowProps & {
   readonly anomaly: Anomaly;
   readonly failedTeams: readonly ProvisioningFailedTeam[];
+  readonly failedTeamsHasMore: boolean;
   readonly staleRepositories: readonly CollectionRepository[];
 }) {
   const severity = SEVERITY[anomaly.severity];
@@ -188,6 +191,11 @@ function AnomalyRow({
             cardRef={cardRef}
           />
         ))}
+        {failedTeamsHasMore ? (
+          <li className="px-4 py-2 text-small text-muted-foreground">
+            실패한 팀이 더 있습니다. 위 팀을 다시 시도하면 다음 팀이 보입니다.
+          </li>
+        ) : null}
       </ul>
     ) : anomaly.rule === 'COLLECTION_STALE' && staleRepositories.length > 0 ? (
       <StaleRepositoryList repositories={staleRepositories} />
@@ -221,6 +229,7 @@ function AnomalyRow({
 export function AttentionCard({
   anomalies,
   failedTeams,
+  failedTeamsHasMore,
   staleRepositories,
   retryingTeamIds,
   onRetry,
@@ -253,6 +262,7 @@ export function AttentionCard({
                 key={`${anomaly.rule}:${anomaly.target?.id ?? ''}`}
                 anomaly={anomaly}
                 failedTeams={failedTeams}
+                failedTeamsHasMore={failedTeamsHasMore}
                 staleRepositories={staleRepositories}
                 retryingTeamIds={retryingTeamIds}
                 onRetry={onRetry}

@@ -56,6 +56,7 @@ export class ProvisioningSystemStatusResponseDto {
   declare readonly retryable: number;
   declare readonly failedFinal: number;
   declare readonly failedTeams: ProvisioningFailedTeamResponseDto[];
+  declare readonly failedTeamsHasMore: boolean;
 
   static from(
     provisioning: SystemStatusResult['provisioning'],
@@ -68,6 +69,7 @@ export class ProvisioningSystemStatusResponseDto {
       failedTeams: provisioning.failedTeams.map((team) =>
         ProvisioningFailedTeamResponseDto.from(team),
       ),
+      failedTeamsHasMore: provisioning.failedTeamsHasMore,
     };
   }
 }

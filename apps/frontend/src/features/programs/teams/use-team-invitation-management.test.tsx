@@ -1,3 +1,4 @@
+import type { InvitationCandidatePage } from './team-invitation-dto';
 import { act } from 'react';
 import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 type Root = ReturnType<typeof createRoot>;
@@ -146,7 +147,9 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   listSentInvitationsMock.mockReset().mockResolvedValue([]);
-  searchInvitationCandidatesMock.mockReset().mockResolvedValue([]);
+  searchInvitationCandidatesMock
+    .mockReset()
+    .mockResolvedValue({ items: [], hasMore: false });
   createInvitationMock.mockReset();
   cancelInvitationMock.mockReset();
 });
@@ -354,7 +357,7 @@ describe('useTeamInvitationManagement — 신원 경합', () => {
 
 describe('useTeamInvitationManagement — 검색', () => {
   it('입력이 바뀌면 진행 중이던 검색 결과를 버린다', async () => {
-    const first = deferred<readonly InvitationCandidate[]>();
+    const first = deferred<InvitationCandidatePage>();
     searchInvitationCandidatesMock.mockImplementationOnce(() => first.promise);
     await render(leaderProps);
 
@@ -370,7 +373,7 @@ describe('useTeamInvitationManagement — 검색', () => {
       current().onInviteQueryChange('a');
     });
     await act(async () => {
-      first.resolve([candidate('u9', 'octo9')]);
+      first.resolve({ items: [candidate('u9', 'octo9')], hasMore: false });
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -380,8 +383,8 @@ describe('useTeamInvitationManagement — 검색', () => {
   });
 
   it('늦게 도착한 이전 검색이 최신 검색 결과를 덮어쓰지 않는다', async () => {
-    const first = deferred<readonly InvitationCandidate[]>();
-    const second = deferred<readonly InvitationCandidate[]>();
+    const first = deferred<InvitationCandidatePage>();
+    const second = deferred<InvitationCandidatePage>();
     searchInvitationCandidatesMock
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
@@ -401,14 +404,14 @@ describe('useTeamInvitationManagement — 검색', () => {
     });
 
     await act(async () => {
-      second.resolve([candidate('u2', 'octo2')]);
+      second.resolve({ items: [candidate('u2', 'octo2')], hasMore: false });
       await Promise.resolve();
       await Promise.resolve();
     });
     expect(current().inviteCandidates.map((item) => item.id)).toEqual(['u2']);
 
     await act(async () => {
-      first.resolve([candidate('u1', 'octo1')]);
+      first.resolve({ items: [candidate('u1', 'octo1')], hasMore: false });
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -432,9 +435,10 @@ describe('useTeamInvitationManagement — 검색', () => {
   });
 
   it('디바운스가 끝나면 마지막 입력으로 한 번만 검색한다', async () => {
-    searchInvitationCandidatesMock.mockResolvedValue([
-      candidate('u9', 'octo9'),
-    ]);
+    searchInvitationCandidatesMock.mockResolvedValue({
+      items: [candidate('u9', 'octo9')],
+      hasMore: false,
+    });
     await render(leaderProps);
 
     await act(async () => {
@@ -508,7 +512,10 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
       .mockResolvedValueOnce([
         sentInvitation('inv-1', { nickname: 'octo2', name: '실제 이름' }),
       ]);
-    searchInvitationCandidatesMock.mockResolvedValue([]);
+    searchInvitationCandidatesMock.mockResolvedValue({
+      items: [],
+      hasMore: false,
+    });
     await render(leaderProps);
 
     await act(async () => {

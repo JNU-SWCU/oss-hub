@@ -24,7 +24,9 @@ function serviceWith(
   reviews: readonly RecentRequirementReview[],
   now: Date = NOW,
 ) {
-  const findRecentForParticipant = jest.fn().mockResolvedValue(reviews);
+  const findRecentForParticipant = jest
+    .fn()
+    .mockResolvedValue({ reviews, nextCursor: null });
   return {
     service: new RequirementFeedbackService(
       { findRecentForParticipant },
@@ -82,6 +84,7 @@ describe('RequirementFeedbackService', () => {
       expect(findRecentForParticipant).toHaveBeenCalledWith(
         34290204n,
         new Date(reviewedSince),
+        null,
       );
     },
   );

@@ -84,6 +84,7 @@ function statusWith(
       processing: 0,
       retryable: 0,
       failedFinal: failedTeams.length,
+      failedTeamsHasMore: false,
       failedTeams,
     },
     mail: { sent7d: 0, failed7d: 0, lastSentAt: null },

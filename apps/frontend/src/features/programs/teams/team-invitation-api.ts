@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import type {
   ReceivedTeamInvitation,
   SentTeamInvitation,
-  InvitationCandidate,
+  InvitationCandidatePage,
   AcceptedTeamInvitation,
 } from './team-invitation-dto';
 
@@ -25,9 +25,9 @@ export function listSentInvitations(
 export function searchInvitationCandidates(
   teamId: string,
   query: string,
-): Promise<readonly InvitationCandidate[]> {
+): Promise<InvitationCandidatePage> {
   const search = new URLSearchParams({ query });
-  return apiClient<readonly InvitationCandidate[]>(
+  return apiClient<InvitationCandidatePage>(
     `team-invitations/teams/${encodeURIComponent(teamId)}/search?${search.toString()}`,
   );
 }

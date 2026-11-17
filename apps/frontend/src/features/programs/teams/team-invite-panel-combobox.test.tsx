@@ -25,6 +25,7 @@ function management(
     sentLoading: false,
     inviteQuery: 'oc',
     inviteCandidates: candidates,
+    moreCandidates: false,
     searching: false,
     searchError: null,
     invitingUserId: null,

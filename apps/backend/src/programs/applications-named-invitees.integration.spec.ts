@@ -139,7 +139,9 @@ describe('application named invitees integration', () => {
       programId,
       prefix,
     );
-    expect(candidates.map((candidate) => candidate.id)).toEqual([replacement]);
+    expect(candidates.items.map((candidate) => candidate.id)).toEqual([
+      replacement,
+    ]);
   });
 
   it('denies application candidate search to staff accounts', async () => {

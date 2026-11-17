@@ -88,7 +88,7 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
         name: true,
       },
       orderBy: { nickname: 'asc' },
-      take: 20,
+      take: 21,
     });
   });
 });

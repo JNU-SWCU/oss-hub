@@ -248,7 +248,7 @@ describe('TeamInvitationsRepository eligibility integration', () => {
       LEADER_ID,
     );
 
-    expect(candidates.map((candidate) => candidate.id)).toEqual([
+    expect(candidates.items.map((candidate) => candidate.id)).toEqual([
       ACTIVE_STUDENT_ID,
     ]);
   });

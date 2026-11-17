@@ -292,10 +292,9 @@ export class RequirementCollectionReadRepository {
     { createdAt: 'desc' },
     { id: 'desc' },
   ] satisfies Prisma.SubmissionHistoryOrderByWithRelationInput[];
-  readonly boundedReviewHistoryQuery = {
+  readonly reviewHistoryQuery = {
     where: { event: { in: SUBMISSION_REVIEW_EVENTS } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: 50,
     select: {
       id: true,
       event: true,
@@ -465,7 +464,7 @@ export class RequirementCollectionReadStoreRepository {
           },
         },
         histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.requirementCollectionReadRepository.reviewHistoryQuery,
           take: 1,
         },
       },
@@ -982,7 +981,7 @@ export class RequirementsRepository {
           },
         },
         histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.requirementCollectionReadRepository.reviewHistoryQuery,
           take: 1,
         },
       },
@@ -1246,8 +1245,7 @@ export class RequirementsRepository {
               },
             },
             histories: {
-              ...this.requirementCollectionReadRepository
-                .boundedReviewHistoryQuery,
+              ...this.requirementCollectionReadRepository.reviewHistoryQuery,
               take: 1,
             },
           },
@@ -2102,7 +2100,7 @@ export class RequirementsRepository {
           },
         },
         histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.requirementCollectionReadRepository.reviewHistoryQuery,
           take: 1,
         },
       },

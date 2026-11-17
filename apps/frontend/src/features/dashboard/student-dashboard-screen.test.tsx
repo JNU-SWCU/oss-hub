@@ -99,7 +99,9 @@ describe('StudentDashboardScreen', () => {
       .mockResolvedValue([notice]);
     mocks.fetchUnreadTeamDeletionNotices.mockReset().mockResolvedValue([]);
     mocks.markTeamDeletionNoticeRead.mockReset().mockResolvedValue(undefined);
-    mocks.fetchStudentFeedback.mockReset().mockResolvedValue([]);
+    mocks.fetchStudentFeedback
+      .mockReset()
+      .mockResolvedValue({ items: [], nextCursor: null });
     mocks.markApplicationDecisionNoticeRead
       .mockReset()
       .mockImplementation(async () => {
@@ -176,7 +178,10 @@ describe('StudentDashboardScreen', () => {
     mocks.fetchStudentDashboard.mockResolvedValue(dashboardFixture);
     mocks.fetchStudentFeedback
       .mockRejectedValueOnce(new Error('synthetic feedback failure'))
-      .mockResolvedValueOnce([feedbackItemFixture]);
+      .mockResolvedValueOnce({
+        items: [feedbackItemFixture],
+        nextCursor: null,
+      });
 
     await act(() => {
       root.render(<StudentDashboardScreen />);
@@ -195,6 +200,8 @@ describe('StudentDashboardScreen', () => {
     expect(captured.props?.feedback).toEqual({
       status: 'success',
       items: [feedbackItemFixture],
+      hasMore: false,
+      loadingMore: false,
     });
     expect(captured.props?.data).toEqual(dashboardFixture);
     expect(mocks.fetchStudentFeedback).toHaveBeenCalledTimes(2);

@@ -11,7 +11,7 @@ import {
 import {
   TeamInvitationsRepository,
   type AcceptedInvitationResult,
-  type InvitationCandidateRecord,
+  type InvitationCandidatePage,
   type ReceivedTeamInvitationRecord,
   type SentTeamInvitationRecord,
   type InviteeAccountRow,
@@ -47,11 +47,11 @@ export class TeamInvitationsService {
     githubId: bigint,
     teamId: string,
     query: string,
-  ): Promise<InvitationCandidateRecord[]> {
+  ): Promise<InvitationCandidatePage> {
     const userId = await this.requireUserId(githubId);
     const team = await this.requireTeamLeader(teamId, userId);
     const trimmed = query.trim();
-    if (!trimmed) return [];
+    if (!trimmed) return { items: [], hasMore: false };
     return this.repository.searchCandidates(team.programId, trimmed, userId);
   }
 
@@ -59,7 +59,7 @@ export class TeamInvitationsService {
     githubId: bigint,
     programId: string,
     query: string,
-  ): Promise<InvitationCandidateRecord[]> {
+  ): Promise<InvitationCandidatePage> {
     const userId = await this.requireUserId(githubId);
     if (
       this.inviteeEligibility(
@@ -76,7 +76,7 @@ export class TeamInvitationsService {
       );
     }
     const trimmed = query.trim();
-    if (trimmed.length < 2) return [];
+    if (trimmed.length < 2) return { items: [], hasMore: false };
     return this.repository.searchCandidates(programId, trimmed, userId);
   }
 

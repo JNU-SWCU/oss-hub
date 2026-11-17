@@ -147,7 +147,7 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
 
     const notices = await service.listUnread(GITHUB_IDS[0]);
 
-    expect(notices).toMatchObject([
+    expect(notices.items).toMatchObject([
       { id: 'synthetic-revert', decision: 'SUBMITTED' },
     ]);
     expect(
@@ -169,7 +169,10 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
 
     const notices = await service.listUnread(GITHUB_IDS[0]);
 
-    expect(notices.map(({ id }) => id)).toEqual(['synthetic-a-new-approval']);
+    expect(notices.items.map(({ id }) => id)).toEqual([
+      'synthetic-a-new-approval',
+    ]);
+    expect(notices.hasMore).toBe(false);
     expect(
       await prisma.notification.count({
         where: { userId: USER_IDS[0], status: 'UNREAD' },
@@ -188,7 +191,10 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
     });
     await repository.markRead(GITHUB_IDS[0], 'synthetic-new');
 
-    expect(await service.listUnread(GITHUB_IDS[0])).toEqual([]);
+    expect(await service.listUnread(GITHUB_IDS[0])).toEqual({
+      items: [],
+      hasMore: false,
+    });
     expect(
       await prisma.notification.count({
         where: { userId: USER_IDS[0], status: 'UNREAD' },
@@ -202,7 +208,10 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
       data: decision('synthetic-stale', ApplicationStatus.APPROVED, 0),
     });
 
-    expect(await service.listUnread(GITHUB_IDS[0])).toEqual([]);
+    expect(await service.listUnread(GITHUB_IDS[0])).toEqual({
+      items: [],
+      hasMore: false,
+    });
   });
 
   it('hides a reverted notice after a newer submission starts another review', async () => {
@@ -215,7 +224,10 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
       data: { submittedAt: new Date(TIMES[2]) },
     });
 
-    expect(await service.listUnread(GITHUB_IDS[0])).toEqual([]);
+    expect(await service.listUnread(GITHUB_IDS[0])).toEqual({
+      items: [],
+      hasMore: false,
+    });
   });
 
   it('returns historical unread team deletions and acknowledges only the selected owned notice', async () => {
@@ -244,7 +256,9 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
       ],
     });
 
-    expect(await service.listUnreadTeamDeletions(GITHUB_IDS[0])).toMatchObject([
+    expect(
+      (await service.listUnreadTeamDeletions(GITHUB_IDS[0])).items,
+    ).toMatchObject([
       {
         id: 'synthetic-deleted-a',
         message: '중복 팀 정리',
@@ -255,7 +269,7 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
     await repository.markTeamDeletionRead(GITHUB_IDS[1], 'synthetic-deleted-a');
     await repository.markTeamDeletionRead(GITHUB_IDS[0], 'synthetic-deleted-a');
     expect(
-      (await service.listUnreadTeamDeletions(GITHUB_IDS[0])).map(
+      (await service.listUnreadTeamDeletions(GITHUB_IDS[0])).items.map(
         ({ id }) => id,
       ),
     ).toEqual(['synthetic-deleted-b']);

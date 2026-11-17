@@ -2,6 +2,7 @@ import { Controller, Get, Header, Inject, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ActivityTimelineRequestDto } from './dto/activity-timeline-request.dto';
 import { ActivityTimelineResponseDto } from './dto/activity-timeline-response.dto';
+import { RequirementFeedbackRequestDto } from './dto/requirement-feedback-request.dto';
 import { RequirementFeedbackResponseDto } from './dto/requirement-feedback-response.dto';
 import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
 import { ProgramActivityService } from '../programs/program-activity.service';
@@ -53,9 +54,13 @@ export class StudentDashboardController {
   @Protected()
   async recentFeedback(
     @Req() request: SessionIdentity,
+    @Query() query: RequirementFeedbackRequestDto,
   ): Promise<RequirementFeedbackResponseDto> {
     return RequirementFeedbackResponseDto.from(
-      await this.feedback.recentForParticipant(request.sessionGithubId),
+      await this.feedback.recentForParticipant(
+        request.sessionGithubId,
+        query.cursor,
+      ),
     );
   }
 }

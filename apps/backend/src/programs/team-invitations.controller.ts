@@ -13,7 +13,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { AcceptTeamInvitationResponseDto } from './dto/accept-team-invitation-response.dto';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';
-import { InvitationCandidateResponseDto } from './dto/invitation-candidate-response.dto';
+import { InvitationCandidatePageResponseDto } from './dto/invitation-candidate-response.dto';
 import { ReceivedTeamInvitationResponseDto } from './dto/received-team-invitation-response.dto';
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
 import { TeamInvitationResponseDto } from './dto/team-invitation-response.dto';
@@ -56,14 +56,13 @@ export class TeamInvitationsController {
     @Req() request: AuthenticatedRequest,
     @Param('teamId') teamId: string,
     @Query() query: SearchInvitationCandidatesRequestDto,
-  ): Promise<InvitationCandidateResponseDto[]> {
-    const candidates = await this.service.searchCandidates(
-      request.sessionGithubId,
-      teamId,
-      query.query,
-    );
-    return candidates.map((candidate) =>
-      InvitationCandidateResponseDto.from(candidate),
+  ): Promise<InvitationCandidatePageResponseDto> {
+    return InvitationCandidatePageResponseDto.from(
+      await this.service.searchCandidates(
+        request.sessionGithubId,
+        teamId,
+        query.query,
+      ),
     );
   }
 
@@ -72,14 +71,14 @@ export class TeamInvitationsController {
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
     @Query() query: SearchInvitationCandidatesRequestDto,
-  ): Promise<InvitationCandidateResponseDto[]> {
-    return (
+  ): Promise<InvitationCandidatePageResponseDto> {
+    return InvitationCandidatePageResponseDto.from(
       await this.service.searchApplicationCandidates(
         request.sessionGithubId,
         programId,
         query.query,
-      )
-    ).map((candidate) => InvitationCandidateResponseDto.from(candidate));
+      ),
+    );
   }
 
   @Post('teams/:teamId/invitations')

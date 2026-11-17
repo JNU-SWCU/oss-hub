@@ -1,4 +1,7 @@
-import type { InvitationCandidateRecord } from '../team-invitations.repository';
+import type {
+  InvitationCandidatePage,
+  InvitationCandidateRecord,
+} from '../team-invitations.repository';
 
 export class InvitationCandidateResponseDto {
   declare readonly id: string;
@@ -12,6 +15,22 @@ export class InvitationCandidateResponseDto {
       id: record.id,
       nickname: record.nickname,
       name: record.name,
+    };
+  }
+}
+
+export class InvitationCandidatePageResponseDto {
+  declare readonly items: InvitationCandidateResponseDto[];
+  declare readonly hasMore: boolean;
+
+  static from(
+    page: InvitationCandidatePage,
+  ): InvitationCandidatePageResponseDto {
+    return {
+      items: page.items.map((record) =>
+        InvitationCandidateResponseDto.from(record),
+      ),
+      hasMore: page.hasMore,
     };
   }
 }

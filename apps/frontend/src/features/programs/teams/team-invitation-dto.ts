@@ -25,6 +25,11 @@ export interface InvitationCandidate {
   readonly name: string | null;
 }
 
+export interface InvitationCandidatePage {
+  readonly items: readonly InvitationCandidate[];
+  readonly hasMore: boolean;
+}
+
 export interface AcceptedTeamInvitation {
   readonly programId: string;
 }

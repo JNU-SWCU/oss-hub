@@ -70,6 +70,8 @@ export type StudentFeedbackState =
   | {
       readonly status: 'success';
       readonly items: readonly DashboardFeedbackItem[];
+      readonly hasMore: boolean;
+      readonly loadingMore: boolean;
     };
 export interface TeamDeletionNotice {
   readonly id: string;

@@ -33,6 +33,7 @@ function provisioning(
     processing: 0,
     retryable: 0,
     failedFinal: 0,
+    failedTeamsHasMore: false,
     failedTeams: [],
     ...overrides,
   };

@@ -17,6 +17,7 @@ interface RequirementFeedbackItemResult {
 }
 export interface RequirementFeedbackResult {
   readonly items: readonly RequirementFeedbackItemResult[];
+  readonly nextCursor: string | null;
 }
 export const REQUIREMENT_FEEDBACK_CLOCK = Symbol('REQUIREMENT_FEEDBACK_CLOCK');
 export type RequirementFeedbackClock = () => Date;
@@ -40,12 +41,17 @@ export class RequirementFeedbackService {
   ) {}
   async recentForParticipant(
     sessionGithubId: bigint,
+    cursor?: string,
   ): Promise<RequirementFeedbackResult> {
-    const reviews = await this.repository.findRecentForParticipant(
+    const page = await this.repository.findRecentForParticipant(
       sessionGithubId,
       feedbackWindowStart(this.clock()),
+      cursor ?? null,
     );
-    return { items: reviews.map((review) => this.toFeedbackItem(review)) };
+    return {
+      items: page.reviews.map((review) => this.toFeedbackItem(review)),
+      nextCursor: page.nextCursor,
+    };
   }
   private toFeedbackItem(
     review: RecentRequirementReview,

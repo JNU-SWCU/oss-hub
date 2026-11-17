@@ -199,15 +199,15 @@ it('preserves canonical and legacy fallback projections across all three consume
   expect(departments.map((row) => row.department)).toEqual(
     expect.arrayContaining(['canonical-department', 'legacy-only-department']),
   );
-  expect(canonicalCandidates).toEqual([
+  expect(canonicalCandidates.items).toEqual([
     {
       id: canonicalUserId,
       nickname: 'canonical-login',
       name: 'canonical-person',
     },
   ]);
-  expect(staleLegacyCandidates).toEqual([]);
-  expect(legacyCandidates).toEqual([
+  expect(staleLegacyCandidates).toEqual({ items: [], hasMore: false });
+  expect(legacyCandidates.items).toEqual([
     {
       id: legacyUserId,
       nickname: 'legacy-login',

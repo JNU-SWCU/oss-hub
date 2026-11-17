@@ -33,6 +33,7 @@ interface StudentDashboardViewProps {
   onRetryTeamDeletions?: () => void;
   onRetry: () => void;
   onRetryFeedback?: () => void;
+  onLoadMoreFeedback?: () => void;
 }
 
 function DashboardSkeleton() {
@@ -60,6 +61,7 @@ export function StudentDashboardView({
   onRetryTeamDeletions,
   onRetry,
   onRetryFeedback,
+  onLoadMoreFeedback,
 }: StudentDashboardViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
@@ -140,6 +142,20 @@ export function StudentDashboardView({
           }
         />
       )}
+      {status === 'success' &&
+      feedback.status === 'success' &&
+      feedback.hasMore &&
+      onLoadMoreFeedback ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-10 self-center px-3"
+          disabled={feedback.loadingMore}
+          onClick={onLoadMoreFeedback}
+        >
+          피드백 더 보기
+        </Button>
+      ) : null}
     </main>
   );
 }
