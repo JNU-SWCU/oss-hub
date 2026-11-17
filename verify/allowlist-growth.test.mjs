@@ -161,3 +161,67 @@ test('pre-push, pull_request and push inputs all see the trailer', async (t) => 
     }
   }
 });
+
+test('deleting, renaming, emptying or breaking a guarded file fails without a trailer', async (t) => {
+  const { repo, base } = setup(t);
+  const cases = [
+    [
+      'delete thresholds',
+      () => repo.commit('x', { [THRESHOLDS]: null }),
+      THRESHOLDS,
+      /deleted or renamed/,
+    ],
+    [
+      'rename query-lint',
+      () => {
+        repo.git('mv', QUERY, 'verify/moved.json');
+        return repo.commit('x');
+      },
+      QUERY,
+      /deleted or renamed/,
+    ],
+    [
+      'empty url-ia',
+      () => repo.commit('x', { [URL_IA]: '' }),
+      URL_IA,
+      /emptied/,
+    ],
+    [
+      'invalid thresholds',
+      () => repo.commit('x', { [THRESHOLDS]: '{not json' }),
+      THRESHOLDS,
+      /unparseable: .*not valid JSON/,
+    ],
+    [
+      'non-object query-lint',
+      () => repo.commit('x', { [QUERY]: '[]' }),
+      QUERY,
+      /not a JSON object/,
+    ],
+    [
+      'loop without export',
+      () => repo.commit('x', { [LOOP]: 'export const other = {};\n' }),
+      LOOP,
+      /does not export/,
+    ],
+    [
+      'broken loop module',
+      () => repo.commit('x', { [LOOP]: 'export const = ;\n' }),
+      LOOP,
+      /could not be loaded/,
+    ],
+  ];
+  for (const [name, change, path, reason] of cases) {
+    repo.git('reset', '-q', '--hard', base);
+    const head = change();
+    const findings = await check(repo, base, head);
+    assert.deepEqual(rules(findings), ['allowlist-growth'], name);
+    assert.ok(findings[0].message.includes(path), name);
+    assert.match(findings[0].message, reason, name);
+  }
+  repo.git('reset', '-q', '--hard', base);
+  const approved = repo.commit('drop\n\nAllowlist-Approved: #1907', {
+    [THRESHOLDS]: null,
+  });
+  assert.deepEqual(await check(repo, base, approved), []);
+});

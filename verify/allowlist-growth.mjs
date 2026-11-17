@@ -8,11 +8,16 @@ import {
 const TRAILER = 'Allowlist-Approved';
 
 function parseJson(text, label) {
+  let value;
   try {
-    return JSON.parse(text);
+    value = JSON.parse(text);
   } catch (error) {
     throw new VerifyError(`${label} is not valid JSON: ${error.message}`);
   }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new VerifyError(`${label} is not a JSON object`);
+  }
+  return value;
 }
 
 function queryLintGrowth(base, head) {
@@ -29,14 +34,19 @@ function queryLintGrowth(base, head) {
 }
 
 async function loadAllowlistModule(text, label) {
+  let allowlist;
   try {
     const module = await import(
       `data:text/javascript;base64,${Buffer.from(text).toString('base64')}`
     );
-    return module.awaitInLoopAllowlist ?? {};
+    allowlist = module.awaitInLoopAllowlist;
   } catch (error) {
     throw new VerifyError(`${label} could not be loaded: ${error.message}`);
   }
+  if (allowlist === null || typeof allowlist !== 'object') {
+    throw new VerifyError(`${label} does not export awaitInLoopAllowlist`);
+  }
+  return allowlist;
 }
 
 function methodKeys(allowlist) {
@@ -92,51 +102,56 @@ function thresholdLoosening(base, head) {
 const GUARDED_FILES = [
   {
     path: 'verify/query-lint-allowlist.json',
-    growth: async (base, head, path) =>
-      queryLintGrowth(parseJson(base, path), parseJson(head, path)),
+    parse: async (text, label) => parseJson(text, label),
+    growth: queryLintGrowth,
   },
   {
     path: 'apps/backend/eslint-rules/no-await-in-loop.allowlist.mjs',
-    growth: async (base, head, path) =>
-      multisetGrowth(
-        methodKeys(await loadAllowlistModule(base, path)),
-        methodKeys(await loadAllowlistModule(head, path)),
-      ),
+    parse: async (text, label) =>
+      methodKeys(await loadAllowlistModule(text, label)),
+    growth: multisetGrowth,
   },
   {
     path: 'verify/url-ia-allowlist.json',
-    growth: async (base, head, path) =>
-      multisetGrowth(
-        urlIaKeys(parseJson(base, path)),
-        urlIaKeys(parseJson(head, path)),
-      ),
+    parse: async (text, label) => urlIaKeys(parseJson(text, label)),
+    growth: multisetGrowth,
   },
   {
     path: 'verify/thresholds.json',
-    growth: async (base, head, path) =>
-      thresholdLoosening(parseJson(base, path), parseJson(head, path)),
+    parse: async (text, label) => parseJson(text, label),
+    growth: thresholdLoosening,
   },
 ];
+
+async function headGrowth(cwd, range, { path, parse, growth }) {
+  const baseText = await showAtRevision(cwd, range.base, path);
+  const headText = await showAtRevision(cwd, range.head, path);
+  if (baseText === null && headText === null) return [];
+  if (baseText === null) {
+    throw new VerifyError(
+      `${path} does not exist at trusted base ${range.base.slice(0, 9)}; refusing to compare against the working copy`,
+    );
+  }
+  const base = await parse(baseText, `${path} at ${range.base}`);
+  if (headText === null) return ['file deleted or renamed'];
+  if (headText.trim() === '') return ['file emptied'];
+  let head;
+  try {
+    head = await parse(headText, `${path} at ${range.head.slice(0, 9)}`);
+  } catch (error) {
+    if (error instanceof VerifyError) return [`unparseable: ${error.message}`];
+    throw error;
+  }
+  return growth(base, head);
+}
 
 export async function checkAllowlistGrowth({ cwd, ranges }) {
   const findings = [];
   for (const range of ranges) {
     const grown = [];
-    for (const { path, growth } of GUARDED_FILES) {
-      const headText = await showAtRevision(cwd, range.head, path);
-      if (headText === null) continue;
-      const baseText = await showAtRevision(cwd, range.base, path);
-      if (baseText === null) {
-        throw new VerifyError(
-          `${path} does not exist at trusted base ${range.base.slice(0, 9)}; refusing to compare against the working copy`,
-        );
-      }
-      const added = await growth(
-        baseText,
-        headText,
-        `${path} at ${range.head}`,
-      );
-      if (added.length > 0) grown.push({ path, added });
+    for (const file of GUARDED_FILES) {
+      const added = await headGrowth(cwd, range, file);
+      if (added.length > 0) grown.push({ path: file.path, added });
     }
     if (grown.length === 0) continue;
     const approvals = await issueTrailers(cwd, range, TRAILER);
