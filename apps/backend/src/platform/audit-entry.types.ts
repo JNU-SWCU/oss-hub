@@ -17,7 +17,7 @@ export type AuditTarget = {
   readonly teamName: string | null;
 };
 
-type AuditChangeValue = string | boolean | null;
+type AuditChangeValue = string | number | boolean | null;
 
 export type AuditChange = {
   readonly field: string;

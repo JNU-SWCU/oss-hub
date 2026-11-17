@@ -6202,24 +6202,30 @@
           "before": {
             "oneOf": [
               {
-                "type": "string"
+                "type": "string",
+                "nullable": true
+              },
+              {
+                "type": "number"
               },
               {
                 "type": "boolean"
               }
-            ],
-            "nullable": true
+            ]
           },
           "after": {
             "oneOf": [
               {
-                "type": "string"
+                "type": "string",
+                "nullable": true
+              },
+              {
+                "type": "number"
               },
               {
                 "type": "boolean"
               }
-            ],
-            "nullable": true
+            ]
           },
           "field": {
             "type": "string"

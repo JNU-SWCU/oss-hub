@@ -55,15 +55,21 @@ class AuditTargetResponseDto {
 class AuditChangeResponseDto {
   declare readonly field: string;
   @ApiProperty({
-    oneOf: [{ type: 'string' }, { type: 'boolean' }],
-    nullable: true,
+    oneOf: [
+      { type: 'string', nullable: true },
+      { type: 'number' },
+      { type: 'boolean' },
+    ],
   })
-  declare readonly before: string | boolean | null;
+  declare readonly before: string | number | boolean | null;
   @ApiProperty({
-    oneOf: [{ type: 'string' }, { type: 'boolean' }],
-    nullable: true,
+    oneOf: [
+      { type: 'string', nullable: true },
+      { type: 'number' },
+      { type: 'boolean' },
+    ],
   })
-  declare readonly after: string | boolean | null;
+  declare readonly after: string | number | boolean | null;
 
   static from(change: AuditChange): AuditChangeResponseDto {
     return {
