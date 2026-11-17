@@ -285,14 +285,11 @@ export class CollectionSyncService {
 
     try {
       const changed: CollectionRepositoryRow[] = [];
-      for (
-        let offset = 0;
-        offset < targets.length && !stoppedForBudget;
-        offset += PROBE_BATCH_SIZE
-      ) {
+      const probeFrom = async (offset: number): Promise<void> => {
+        if (offset >= targets.length || stoppedForBudget) return;
         if (this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          break;
+          return;
         }
         const batch = targets.slice(offset, offset + PROBE_BATCH_SIZE);
         const unchanged = await this.probe(
@@ -314,12 +311,16 @@ export class CollectionSyncService {
         });
         await this.recordSuccess(lease, unchanged, succeededAt);
         stats.succeededRepos += unchanged.length;
-      }
+        await probeFrom(offset + PROBE_BATCH_SIZE);
+      };
+      await probeFrom(0);
 
-      for (const repository of changed) {
+      const collectFrom = async (index: number): Promise<void> => {
+        const repository = changed[index];
+        if (repository === undefined) return;
         if (stoppedForBudget || this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          break;
+          return;
         }
         const outcome = await this.collect(
           runtime,
@@ -332,7 +333,9 @@ export class CollectionSyncService {
           runId,
         );
         if (outcome === 'STOPPED_FOR_BUDGET') stoppedForBudget = true;
-      }
+        await collectFrom(index + 1);
+      };
+      await collectFrom(0);
 
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
       status = 'COMPLETED';
@@ -397,7 +400,8 @@ export class CollectionSyncService {
     this.observeRateLimit(stats, result.rateLimit);
 
     const unchanged: bigint[] = [];
-    for (const [index, target] of batch.entries()) {
+    await batch.reduce(async (previous, target, index) => {
+      await previous;
       const probed = result.repositories[index] ?? null;
       if (
         probed === null ||
@@ -413,7 +417,7 @@ export class CollectionSyncService {
           runId,
         );
         if (relocated !== null) changed.push(relocated);
-        continue;
+        return;
       }
       const current = observationChanged(target, probed)
         ? await this.refresh(lease, source, target.githubRepositoryId, {
@@ -425,14 +429,14 @@ export class CollectionSyncService {
         : target;
       if (current === null) {
         stats.unavailableRepos += 1;
-        continue;
+        return;
       }
       if (kind !== 'hourly' || hasActivitySince(target.lastSuccessAt, probed)) {
         changed.push(current);
       } else {
         unchanged.push(target.githubRepositoryId);
       }
-    }
+    }, Promise.resolve());
     return unchanged;
   }
 
@@ -553,7 +557,8 @@ export class CollectionSyncService {
       this.observeRateLimit(stats, result.rateLimit);
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        for (const kind of CONTRIBUTION_KINDS) {
+        await CONTRIBUTION_KINDS.reduce(async (previous, kind) => {
+          await previous;
           const recorded = await repo.recordContributions(
             repository.githubRepositoryId,
             kind,
@@ -561,7 +566,7 @@ export class CollectionSyncService {
           );
           stats.inserted += recorded.inserted;
           stats.authorFilled += recorded.authorFilled;
-        }
+        }, Promise.resolve());
         await repo.recordRepositorySuccess(
           [repository.githubRepositoryId],
           succeededAt,

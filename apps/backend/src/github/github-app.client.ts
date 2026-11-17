@@ -251,20 +251,19 @@ export class GithubAppClient {
     const repositoryPath = this.repositoryPath(repositoryName);
     const target = githubLogin.toLowerCase();
     const invitations = await this.listInvitations(repositoryPath);
-    for (const invitation of invitations) {
-      if (invitation.login.toLowerCase() !== target) {
-        continue;
-      }
-      const cancelResponse = await this.request(
-        `${repositoryPath}/invitations/${invitation.invitationId}`,
-        { method: 'DELETE' },
-      );
-
-      if (cancelResponse.status === 204 || cancelResponse.status === 404) {
-        continue;
-      }
-      await throwForGithubErrorResponse(cancelResponse, this.now());
-    }
+    await invitations
+      .filter((invitation) => invitation.login.toLowerCase() === target)
+      .reduce(async (previous, invitation) => {
+        await previous;
+        const cancelResponse = await this.request(
+          `${repositoryPath}/invitations/${invitation.invitationId}`,
+          { method: 'DELETE' },
+        );
+        if (cancelResponse.status === 204 || cancelResponse.status === 404) {
+          return;
+        }
+        await throwForGithubErrorResponse(cancelResponse, this.now());
+      }, Promise.resolve());
 
     const response = await this.request(
       `${repositoryPath}/collaborators/${encodeURIComponent(githubLogin)}`,
@@ -294,7 +293,10 @@ export class GithubAppClient {
     repositoryPath: string,
   ): Promise<readonly GithubRepositoryInvitation[]> {
     const invitations: GithubRepositoryInvitation[] = [];
-    for (let page = 1; page <= INVITATION_PAGE_LIMIT; page += 1) {
+    const readPage = async (
+      page: number,
+    ): Promise<readonly GithubRepositoryInvitation[]> => {
+      if (page > INVITATION_PAGE_LIMIT) throw invalidGithubResponseError();
       const response = await this.request(
         `${repositoryPath}/invitations?per_page=${INVITATION_PAGE_SIZE}&page=${page}`,
       );
@@ -306,9 +308,9 @@ export class GithubAppClient {
       if (parsed.length < INVITATION_PAGE_SIZE) {
         return invitations;
       }
-    }
-
-    throw invalidGithubResponseError();
+      return readPage(page + 1);
+    };
+    return readPage(1);
   }
 
   private async assertRepositoryAccessible(name: string): Promise<void> {

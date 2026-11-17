@@ -94,16 +94,18 @@ export class CollectionDiscoveryClient {
     from: string,
     to: string,
   ): Promise<CollectionUserActivityMetrics> {
-    let counts: {
+    let counts = null as {
       commitCount: number;
       pullRequestCount: number;
       issueCount: number;
       repositoryCount: number;
-    } | null = null;
+    } | null;
     let ownedStarCount = 0;
     let organizationStarCount = 0;
-    let after: string | null = null;
-    for (let page = 0; ; page += 1) {
+    const readPage = async (
+      page: number,
+      after: string | null,
+    ): Promise<void> => {
       if (page >= MAX_ACTIVITY_PAGES) {
         throw new CollectionDiscoveryClientError('RESPONSE');
       }
@@ -139,9 +141,11 @@ export class CollectionDiscoveryClient {
         ownedStarCount += this.count(this.record(node).stargazerCount);
       }
       const pageInfo = this.record(repositories.pageInfo);
-      if (!this.boolean(pageInfo.hasNextPage)) break;
-      after = this.string(pageInfo.endCursor);
-    }
+      if (!this.boolean(pageInfo.hasNextPage)) return;
+      await readPage(page + 1, this.string(pageInfo.endCursor));
+    };
+    await readPage(0, null);
+    if (counts === null) throw new CollectionDiscoveryClientError('RESPONSE');
     return { ...counts, starCount: ownedStarCount + organizationStarCount };
   }
 
@@ -187,77 +191,76 @@ export class CollectionDiscoveryClient {
     );
   }
 
-  private async request(payload: {
-    query: string;
-    variables: Record<string, unknown>;
-  }): Promise<Record<string, unknown>> {
-    const deadlineMs = this.config.deadlineMs ?? DEFAULT_DEADLINE_MS;
-    const deadline = this.now() + deadlineMs;
+  private async request(
+    payload: {
+      query: string;
+      variables: Record<string, unknown>;
+    },
+    attempt = 0,
+    deadline = this.now() + (this.config.deadlineMs ?? DEFAULT_DEADLINE_MS),
+  ): Promise<Record<string, unknown>> {
     const url = this.config.apiUrl ?? DEFAULT_API_URL;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const remaining = deadline - this.now();
-      if (remaining <= 0) throw new CollectionDiscoveryClientError('DEADLINE');
-      const signal = AbortSignal.timeout(Math.max(1, remaining));
-      const token = await this.tokens.getToken(signal);
-      if (deadline - this.now() <= 0)
+    const remaining = deadline - this.now();
+    if (remaining <= 0) throw new CollectionDiscoveryClientError('DEADLINE');
+    const signal = AbortSignal.timeout(Math.max(1, remaining));
+    const token = await this.tokens.getToken(signal);
+    if (deadline - this.now() <= 0)
+      throw new CollectionDiscoveryClientError('DEADLINE');
+    let response: Response;
+    try {
+      response = await this.fetcher(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT,
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+    } catch {
+      if (this.now() >= deadline)
         throw new CollectionDiscoveryClientError('DEADLINE');
-      let response: Response;
-      try {
-        response = await this.fetcher(url, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': USER_AGENT,
-          },
-          body: JSON.stringify(payload),
-          signal,
-        });
-      } catch {
-        if (this.now() >= deadline)
-          throw new CollectionDiscoveryClientError('DEADLINE');
-        throw new CollectionDiscoveryClientError('UPSTREAM');
-      }
-      if (response.status === 401) {
-        if (attempt === 0) {
-          this.tokens.clear(token);
-          continue;
-        }
-        throw new CollectionDiscoveryClientError('AUTH');
-      }
-      if (!response.ok) {
-        if (
-          response.status === 429 ||
-          (response.status === 403 &&
-            (response.headers.get('x-ratelimit-remaining') === '0' ||
-              response.headers.has('retry-after')))
-        ) {
-          throw new CollectionDiscoveryClientError(
-            'RATE_LIMITED',
-            this.retryAfter(response.headers),
-          );
-        }
-        throw new CollectionDiscoveryClientError('UPSTREAM');
-      }
-      let json: unknown;
-      try {
-        json = await response.json();
-      } catch {
-        throw new CollectionDiscoveryClientError('RESPONSE');
-      }
-      const body = this.record(json);
-
-      if (Array.isArray(body.errors) && body.errors.length > 0) {
-        const rateLimited = body.errors.some(
-          (e) => this.isRecord(e) && e.type === 'RATE_LIMITED',
-        );
-        throw new CollectionDiscoveryClientError(
-          rateLimited ? 'RATE_LIMITED' : 'GRAPHQL_ERROR',
-        );
-      }
-      return body;
+      throw new CollectionDiscoveryClientError('UPSTREAM');
     }
-    throw new CollectionDiscoveryClientError('AUTH');
+    if (response.status === 401) {
+      if (attempt === 0) {
+        this.tokens.clear(token);
+        return this.request(payload, 1, deadline);
+      }
+      throw new CollectionDiscoveryClientError('AUTH');
+    }
+    if (!response.ok) {
+      if (
+        response.status === 429 ||
+        (response.status === 403 &&
+          (response.headers.get('x-ratelimit-remaining') === '0' ||
+            response.headers.has('retry-after')))
+      ) {
+        throw new CollectionDiscoveryClientError(
+          'RATE_LIMITED',
+          this.retryAfter(response.headers),
+        );
+      }
+      throw new CollectionDiscoveryClientError('UPSTREAM');
+    }
+    let json: unknown;
+    try {
+      json = await response.json();
+    } catch {
+      throw new CollectionDiscoveryClientError('RESPONSE');
+    }
+    const body = this.record(json);
+
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      const rateLimited = body.errors.some(
+        (e) => this.isRecord(e) && e.type === 'RATE_LIMITED',
+      );
+      throw new CollectionDiscoveryClientError(
+        rateLimited ? 'RATE_LIMITED' : 'GRAPHQL_ERROR',
+      );
+    }
+    return body;
   }
 
   private retryAfter(headers: Headers): number | undefined {

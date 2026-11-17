@@ -56,18 +56,20 @@ export class RepositoryOutboxConsumerService {
   }
 
   async runBatch(): Promise<void> {
-    for (let index = 0; index < PROVISION_BATCH_SIZE; index += 1) {
-      const result = await this.consumeNext(this.workerId, this.now());
-      if (result.kind === 'EMPTY') {
-        break;
-      }
-    }
-    for (let index = 0; index < PROVISION_BATCH_SIZE; index += 1) {
-      const result = await this.worker.runNext(this.workerId);
-      if (result.kind === 'EMPTY') {
-        break;
-      }
-    }
+    const drain = async (
+      next: () => Promise<{ readonly kind: string }>,
+      remaining: number,
+    ): Promise<void> => {
+      if (remaining <= 0) return;
+      const result = await next();
+      if (result.kind === 'EMPTY') return;
+      await drain(next, remaining - 1);
+    };
+    await drain(
+      () => this.consumeNext(this.workerId, this.now()),
+      PROVISION_BATCH_SIZE,
+    );
+    await drain(() => this.worker.runNext(this.workerId), PROVISION_BATCH_SIZE);
   }
 
   async consumeNext(

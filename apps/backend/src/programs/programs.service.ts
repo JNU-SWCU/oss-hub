@@ -663,9 +663,11 @@ export class ProgramAuthoringService {
         programName: program.name,
       }),
     });
-    for (const milestone of plan.milestones) {
+    await plan.milestones.reduce(async (previousMilestone, milestone) => {
+      await previousMilestone;
       const milestoneId = await store.createMilestone(program.id, milestone);
-      for (const document of milestone.documents) {
+      await milestone.documents.reduce(async (previousDocument, document) => {
+        await previousDocument;
         const documentId = await store.createDocument(milestoneId, document);
         if (document.templateUploadId !== null) {
           const upload = uploads.find(
@@ -679,8 +681,8 @@ export class ProgramAuthoringService {
             upload,
           });
         }
-      }
-    }
+      }, Promise.resolve());
+    }, Promise.resolve());
     return program;
   }
   toCanonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {

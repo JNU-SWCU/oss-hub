@@ -46,24 +46,24 @@ export class PrismaSerializationRetryRepository {
     const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     const backoffMs = options.backoffMs ?? defaultBackoffMs;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const attempt = async (count: number): Promise<T> => {
       try {
         return await run();
       } catch (error) {
         if (!this.isSerializationFailure(error)) {
           throw error;
         }
-        if (attempt >= maxAttempts) {
+        if (count >= maxAttempts) {
           throw options.onExhausted ? options.onExhausted(error) : error;
         }
-        const delay = backoffMs(attempt);
+        const delay = backoffMs(count);
         if (delay > 0) {
           await sleep(delay);
         }
+        return attempt(count + 1);
       }
-    }
-
-    throw new Error('withSerializationRetry: unreachable');
+    };
+    return attempt(1);
   }
 }
 

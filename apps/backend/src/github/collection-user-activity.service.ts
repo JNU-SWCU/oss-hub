@@ -119,35 +119,44 @@ export class CollectionUserActivityService {
     let skippedPastYearCount = 0;
     let failedUserCount = 0;
 
-    for (const user of users) {
-      let userFailed = false;
-      for (const year of targetYears) {
-        if (
-          year !== currentYear &&
-          (await this.repository.hasObservation(user.githubId, year))
-        ) {
-          skippedPastYearCount += 1;
-          continue;
-        }
-
-        try {
-          await this.observe(user, year, currentYear, startedAt);
-          upsertedRowCount += 1;
-        } catch (error) {
-          userFailed = true;
-
-          this.logger.warn({
-            event: 'collection.user_activity.user_failed',
-            year,
-            kind:
-              error instanceof CollectionDiscoveryClientError
-                ? error.kind
-                : 'UNKNOWN',
-          });
-        }
+    const observeYear = async (
+      user: CollectionActivityUserRow,
+      year: number,
+    ): Promise<boolean> => {
+      if (
+        year !== currentYear &&
+        (await this.repository.hasObservation(user.githubId, year))
+      ) {
+        skippedPastYearCount += 1;
+        return false;
       }
+      try {
+        await this.observe(user, year, currentYear, startedAt);
+        upsertedRowCount += 1;
+        return false;
+      } catch (error) {
+        this.logger.warn({
+          event: 'collection.user_activity.user_failed',
+          year,
+          kind:
+            error instanceof CollectionDiscoveryClientError
+              ? error.kind
+              : 'UNKNOWN',
+        });
+        return true;
+      }
+    };
+    await users.reduce(async (previousUser, user) => {
+      await previousUser;
+      const userFailed = await targetYears.reduce(
+        async (failedBefore, year) => {
+          const failed = await failedBefore;
+          return (await observeYear(user, year)) || failed;
+        },
+        Promise.resolve(false),
+      );
       if (userFailed) failedUserCount += 1;
-    }
+    }, Promise.resolve());
 
     return {
       observedUserCount: users.length,

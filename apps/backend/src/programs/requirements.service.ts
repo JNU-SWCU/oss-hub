@@ -834,7 +834,8 @@ export class ProgramDocumentChangeRequestsService {
         const targets = candidates.filter((candidate) =>
           statuses.includes(candidate.status),
         );
-        for (const target of targets) {
+        await targets.reduce(async (previous, target) => {
+          await previous;
           const submission = await store.findSubmissionForReview(
             target.requirementId,
             target.teamId,
@@ -859,7 +860,7 @@ export class ProgramDocumentChangeRequestsService {
             submission.id,
             SubmissionStatus.CHANGES_REQUESTED,
           );
-        }
+        }, Promise.resolve());
         return targets.length;
       },
     );

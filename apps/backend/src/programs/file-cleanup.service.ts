@@ -80,18 +80,18 @@ export class FileCleanupService {
       Math.max(Math.trunc(batchSize), 0),
       DEFAULT_BATCH_SIZE,
     );
-    let claimedCount = 0;
-    for (let index = 0; index < limit; index += 1) {
+    const claimFrom = async (claimedCount: number): Promise<number> => {
+      if (claimedCount >= limit) return claimedCount;
       const claimedAt = this.now();
       const file = await this.files.claimNextForDeletion({
         now: claimedAt,
         leaseExpiresAt: new Date(claimedAt.getTime() + DELETE_LEASE_MS),
       });
-      if (file === null) break;
-      claimedCount += 1;
+      if (file === null) return claimedCount;
       await this.deleteClaimed(file);
-    }
-    return claimedCount;
+      return claimFrom(claimedCount + 1);
+    };
+    return claimFrom(0);
   }
 
   private async deleteClaimed(file: {
@@ -247,14 +247,15 @@ export class StorageOrphanReconciliationService {
     const skippedReferencedKeys: string[] = [];
     if (options.mode === 'delete') {
       await options.onDeletePlan?.(orphanKeys);
-      for (const key of orphanKeys) {
+      await orphanKeys.reduce(async (previous, key) => {
+        await previous;
         if (await this.references.isLiveKey(key)) {
           skippedReferencedKeys.push(key);
-          continue;
+          return;
         }
         await this.storage.delete(key);
         deletedKeys.push(key);
-      }
+      }, Promise.resolve());
     }
 
     return {

@@ -351,9 +351,10 @@ export class DeadlineDigestService {
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
     const window = this.deadlineWindow(now);
     const programIds = await this.repository.findAutomaticProgramIds(window);
-    for (const programId of programIds) {
+    await programIds.reduce(async (previous, programId) => {
+      await previous;
       const source = await this.repository.findDeadlineProgram(programId);
-      if (source === null || !source.notifyOnDeadline) continue;
+      if (source === null || !source.notifyOnDeadline) return;
       const prepared = this.prepareDeadlineDigest(
         this.buildDeadlineEligibility(source, window),
         [],
@@ -371,7 +372,7 @@ export class DeadlineDigestService {
           mailSender: this.mailSender,
         },
       );
-    }
+    }, Promise.resolve());
   }
 
   private async requireEligibility(

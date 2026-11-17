@@ -400,93 +400,93 @@ export class RepositoryProvisionWorkerService {
     attemptCount: number,
     now: () => Date,
   ): Promise<void> {
-    let retainedRevokeFailure: { readonly error: unknown } | null = null;
-    for (const invitation of invitations) {
-      if (invitation.intent !== 'REVOKE') {
-        continue;
-      }
-      try {
-        await this.jobs.renewLease(jobId, workerId, requestId, now());
-        await this.github.revokeCollaborator(
-          repository.name,
-          invitation.githubLogin,
-        );
-        await this.state.completeInvitation({
-          jobId,
-          workerId,
-          requestId,
-          invitationId: invitation.id,
-          githubRepositoryId: repository.githubRepositoryId,
-          expectedStatus: invitation.status,
-          status: RepositoryInvitationStatus.REVOKED,
-          now: now(),
-        });
-      } catch (error) {
-        if (
-          error instanceof RepositoryProvisionLeaseLostError ||
-          error instanceof RepositoryProvisionSupersededError
-        ) {
-          throw error;
+    let retainedRevokeFailure = null as { readonly error: unknown } | null;
+    await invitations
+      .filter((invitation) => invitation.intent === 'REVOKE')
+      .reduce(async (previous, invitation) => {
+        await previous;
+        try {
+          await this.jobs.renewLease(jobId, workerId, requestId, now());
+          await this.github.revokeCollaborator(
+            repository.name,
+            invitation.githubLogin,
+          );
+          await this.state.completeInvitation({
+            jobId,
+            workerId,
+            requestId,
+            invitationId: invitation.id,
+            githubRepositoryId: repository.githubRepositoryId,
+            expectedStatus: invitation.status,
+            status: RepositoryInvitationStatus.REVOKED,
+            now: now(),
+          });
+        } catch (error) {
+          if (
+            error instanceof RepositoryProvisionLeaseLostError ||
+            error instanceof RepositoryProvisionSupersededError
+          ) {
+            throw error;
+          }
+          await this.recordInvitationFailure(
+            invitation,
+            repository,
+            jobId,
+            workerId,
+            requestId,
+            attemptCount,
+            error,
+            now,
+          );
+          retainedRevokeFailure ??= { error };
         }
-        await this.recordInvitationFailure(
-          invitation,
-          repository,
-          jobId,
-          workerId,
-          requestId,
-          attemptCount,
-          error,
-          now,
-        );
-        retainedRevokeFailure ??= { error };
-      }
-    }
+      }, Promise.resolve());
     if (retainedRevokeFailure !== null) {
       throw retainedRevokeFailure.error;
     }
-    for (const invitation of invitations) {
-      if (invitation.intent !== 'GRANT') {
-        continue;
-      }
-      try {
-        await this.jobs.renewLease(jobId, workerId, requestId, now());
-        const outcome = await this.github.ensureCollaborator(
-          repository.name,
-          invitation.githubLogin,
-        );
-        await this.state.completeInvitation({
-          jobId,
-          workerId,
-          requestId,
-          invitationId: invitation.id,
-          githubRepositoryId: repository.githubRepositoryId,
-          expectedStatus: invitation.status,
-          status:
-            outcome === COLLABORATOR_OUTCOMES.SUCCEEDED
-              ? RepositoryInvitationStatus.SUCCEEDED
-              : RepositoryInvitationStatus.PENDING,
-          now: now(),
-        });
-      } catch (error) {
-        if (
-          error instanceof RepositoryProvisionLeaseLostError ||
-          error instanceof RepositoryProvisionSupersededError
-        ) {
+    await invitations
+      .filter((invitation) => invitation.intent === 'GRANT')
+      .reduce(async (previous, invitation) => {
+        await previous;
+        try {
+          await this.jobs.renewLease(jobId, workerId, requestId, now());
+          const outcome = await this.github.ensureCollaborator(
+            repository.name,
+            invitation.githubLogin,
+          );
+          await this.state.completeInvitation({
+            jobId,
+            workerId,
+            requestId,
+            invitationId: invitation.id,
+            githubRepositoryId: repository.githubRepositoryId,
+            expectedStatus: invitation.status,
+            status:
+              outcome === COLLABORATOR_OUTCOMES.SUCCEEDED
+                ? RepositoryInvitationStatus.SUCCEEDED
+                : RepositoryInvitationStatus.PENDING,
+            now: now(),
+          });
+        } catch (error) {
+          if (
+            error instanceof RepositoryProvisionLeaseLostError ||
+            error instanceof RepositoryProvisionSupersededError
+          ) {
+            throw error;
+          }
+          await this.recordInvitationFailure(
+            invitation,
+            repository,
+            jobId,
+            workerId,
+            requestId,
+            attemptCount,
+            error,
+            now,
+          );
           throw error;
         }
-        await this.recordInvitationFailure(
-          invitation,
-          repository,
-          jobId,
-          workerId,
-          requestId,
-          attemptCount,
-          error,
-          now,
-        );
-        throw error;
-      }
-    }
+      }, Promise.resolve());
   }
 
   private async recordInvitationFailure(
