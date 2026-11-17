@@ -205,6 +205,12 @@ async function changedFiles(cwd, ranges) {
   return [...files].sort();
 }
 
+export async function fullRanges(cwd, defaultBranch = DEFAULT_BRANCH) {
+  const head = await git(cwd, ['rev-parse', 'HEAD']);
+  const base = await mergeBaseOrFail(cwd, head, defaultBranch, 'full run');
+  return [{ base, head, ref: 'HEAD' }];
+}
+
 export function detectSource(argv, env) {
   if (argv.includes('--pre-push')) return 'pre-push';
   if (env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME) return 'ci';

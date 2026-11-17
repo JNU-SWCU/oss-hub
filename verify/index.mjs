@@ -4,7 +4,7 @@ import { checkApi } from './api.mjs';
 import { createCiApproval } from './approval.mjs';
 import { checkFull } from './full.mjs';
 import { checkQueryGates } from './query-gates.mjs';
-import { detectSource, resolveScope } from './scope.mjs';
+import { detectSource, fullRanges, resolveScope } from './scope.mjs';
 import { checkSecrets } from './secrets.mjs';
 import { REPO_ROOT, formatFinding, isEntry } from './tools.mjs';
 import { checkUrlIa } from './url-ia.mjs';
@@ -68,16 +68,20 @@ export async function main(
   const source = detectSource(argv, env);
   let scope;
   try {
-    scope = await resolveScope({
-      cwd,
-      source,
-      env,
-      stdin: source === 'pre-push' ? (stdin ?? readFileSync(0, 'utf8')) : '',
-      remote:
-        source === 'pre-push'
-          ? argv[argv.indexOf('--pre-push') + 2]
-          : undefined,
-    });
+    scope =
+      command === 'full'
+        ? { ranges: await fullRanges(cwd) }
+        : await resolveScope({
+            cwd,
+            source,
+            env,
+            stdin:
+              source === 'pre-push' ? (stdin ?? readFileSync(0, 'utf8')) : '',
+            remote:
+              source === 'pre-push'
+                ? argv[argv.indexOf('--pre-push') + 2]
+                : undefined,
+          });
   } catch (error) {
     if (REPORT_ONLY.has(command)) {
       console.log(
@@ -92,7 +96,7 @@ export async function main(
     console.log(JSON.stringify(scope, null, 2));
     return 0;
   }
-  if (scope.ranges.length === 0) {
+  if (command !== 'full' && scope.ranges.length === 0) {
     console.log(
       'verify: nothing new to verify (deletions or commits already on the remote)',
     );
@@ -101,7 +105,8 @@ export async function main(
   const requested =
     command === 'scoped' ? scopedChecks(scope) : COMMANDS[command];
   const checks = requested.filter(
-    (name) => !SCOPE_GATED[name] || scope[SCOPE_GATED[name]],
+    (name) =>
+      command === 'full' || !SCOPE_GATED[name] || scope[SCOPE_GATED[name]],
   );
   for (const name of requested.filter((item) => !checks.includes(item))) {
     console.log(
@@ -116,7 +121,11 @@ export async function main(
   for (const name of checks) {
     if (REPORT_ONLY.has(name)) {
       try {
-        const findings = await checkImpls[name]({ cwd, ranges: scope.ranges });
+        const findings = await checkImpls[name]({
+          cwd,
+          source,
+          ranges: scope.ranges,
+        });
         for (const item of findings) console.log(formatFinding(item, 'REPORT'));
         const file = writeReport(reportDir, name, scope.ranges, { findings });
         console.log(
@@ -140,6 +149,7 @@ export async function main(
     try {
       const findings = await checkImpls[name]({
         cwd,
+        source,
         ranges: scope.ranges,
         ...(source === 'ci'
           ? { approval: createCiApproval({ env, cwd }) }

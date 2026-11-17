@@ -16,7 +16,12 @@ function tail(result) {
     .join('\n');
 }
 
-export async function checkQueryGates({ cwd, runCommand = run }) {
+export async function checkQueryGates({
+  cwd,
+  source,
+  runCommand = run,
+  log = console.log,
+}) {
   const findings = [];
   const lint = await runCommand(
     'pnpm',
@@ -32,6 +37,12 @@ export async function checkQueryGates({ cwd, runCommand = run }) {
         'exit 0',
       ),
     );
+  }
+  if (source === 'ci') {
+    log(
+      `NOTICE query-gates: ${QUERY_GATE_SPECS.join(', ')} run once in the ci job's backend integration test step`,
+    );
+    return findings;
   }
   const growth = await runCommand(
     'bash',

@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { main } from './index.mjs';
 import { QUERY_GATE_PATTERN, checkQueryGates } from './query-gates.mjs';
 import { classifyFiles } from './scope.mjs';
+import { join } from 'node:path';
 import { tempRepo } from './test-support.mjs';
 import { REPO_ROOT } from './tools.mjs';
 
@@ -26,6 +27,85 @@ test('query gates run only for backend repository, service, prisma and test chan
   ]) {
     assert.equal(classifyFiles([file]).queryGates, false, file);
   }
+});
+
+async function recordChecks(argv, options) {
+  const ran = [];
+  const record = (name) => async () => {
+    ran.push(name);
+    return [];
+  };
+  const logs = [];
+  const silenced = [console.log, console.error];
+  console.log = (line) => logs.push(line);
+  console.error = (line) => logs.push(line);
+  try {
+    const exit = await main(argv, {
+      env: {},
+      ...options,
+      checks: Object.fromEntries(
+        ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'].map((name) => [
+          name,
+          record(name),
+        ]),
+      ),
+    });
+    return { exit, ran, logs };
+  } finally {
+    [console.log, console.error] = silenced;
+  }
+}
+
+const EVERY_CHECK = ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'];
+
+test('verify full runs every check on an already-pushed checkout', async (t) => {
+  const repo = tempRepo(t);
+  const head = repo.commit('root', { 'docs/a.md': 'a\n' });
+  repo.markRemoteMain(head);
+  const result = await recordChecks(['full'], {
+    cwd: repo.dir,
+    reportDir: join(repo.dir, 'reports'),
+  });
+  assert.equal(result.exit, 0);
+  assert.deepEqual(result.ran, EVERY_CHECK);
+});
+
+test('verify full runs every check for a docs-only change', async (t) => {
+  const repo = tempRepo(t);
+  repo.markRemoteMain(repo.commit('root', { 'docs/a.md': 'a\n' }));
+  repo.commit('docs', { 'docs/b.md': 'b\n' });
+  const result = await recordChecks(['full'], {
+    cwd: repo.dir,
+    reportDir: join(repo.dir, 'reports'),
+  });
+  assert.equal(result.exit, 0);
+  assert.deepEqual(result.ran, EVERY_CHECK);
+  assert.equal(
+    result.logs.some((line) => /^SKIP /.test(String(line))),
+    false,
+  );
+});
+
+test('in CI the query gates lint but leave the gate specs to the ci job', async () => {
+  const calls = [];
+  const notices = [];
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    source: 'ci',
+    log: (line) => notices.push(line),
+    runCommand: async (command, args) => {
+      calls.push([command, ...args]);
+      return { code: 1, stdout: '[LINT.NO_LIMIT] audit mismatch', stderr: '' };
+    },
+  });
+  assert.deepEqual(calls, [
+    ['pnpm', '--filter', 'backend', 'run', 'query-lint:check'],
+  ]);
+  assert.deepEqual(
+    findings.map((item) => item.rule),
+    ['query-lint'],
+  );
+  assert.match(notices[0], /^NOTICE query-gates: .*ci job/);
 });
 
 async function runBackend(t, files) {
