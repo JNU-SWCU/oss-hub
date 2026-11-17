@@ -54,6 +54,7 @@ const enumExemptFiles = [
   `${flatModuleGlob}/*.module.ts`,
   `${flatModuleGlob}/*.repository.ts`,
   'src/platform/prisma.service.ts',
+  'src/platform/prisma-query-lint.config.ts',
   'prisma/**/*.ts',
 ];
 const enumPattern = `/^(${prismaEnumNames.join('|')})$/`;

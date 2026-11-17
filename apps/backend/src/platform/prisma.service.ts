@@ -2,6 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { loadPrismaPoolConfig } from './prisma-pool.config';
+import { loadPrismaQueryLintConfig } from './prisma-query-lint.config';
 
 @Injectable()
 export class PrismaService
@@ -10,6 +11,7 @@ export class PrismaService
 {
   constructor() {
     super({ adapter: new PrismaPg(loadPrismaPoolConfig()) });
+    return loadPrismaQueryLintConfig().createLintedClient(this);
   }
 
   async onModuleInit(): Promise<void> {

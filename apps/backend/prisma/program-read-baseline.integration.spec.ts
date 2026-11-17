@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { PlatformRepository } from '../src/platform/platform.repository';
@@ -37,13 +38,14 @@ class UnseededProgramBaselineError extends Error {
   }
 }
 
-const prisma = new MeasuredPrisma({
+const measured = new MeasuredPrisma({
   adapter: new PrismaPg(loadPrismaPoolConfig()),
   log: [{ emit: 'event', level: 'query' }],
 });
+const prisma = loadPrismaQueryLintConfig().createLintedClient(measured);
 let queryCount = 0;
 let queryBarrier: (() => void) | undefined;
-prisma.$on('query', (event) => {
+measured.$on('query', (event) => {
   if (event.query === 'SELECT 1 AS "program_baseline_query_barrier"') {
     queryBarrier?.();
   } else {

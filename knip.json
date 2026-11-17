@@ -25,7 +25,8 @@
         ".design-sync/compile-css.mjs",
         ".design-sync/emit-types.mjs",
         ".design-sync/contract.test.mjs",
-        ".design-sync/previews/*.tsx"
+        ".design-sync/previews/*.tsx",
+        "verify/*.test.mjs"
       ],
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
       "paths": {
