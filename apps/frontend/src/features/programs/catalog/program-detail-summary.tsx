@@ -1,6 +1,7 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { useClampedText } from '@/lib/use-clamped-text';
 import { cn } from '@/lib/utils';
 import { formatProgramEndAt } from '../authoring/program-end-at';
 import { formatSeoulDateRange } from './program-detail-format';
@@ -80,21 +81,8 @@ function programFacts(
 
 function ProgramGuide({ description }: { readonly description: string }) {
   const contentId = useId();
-  const contentRef = useRef<HTMLParagraphElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
-
-  useLayoutEffect(() => {
-    const content = contentRef.current;
-    if (content === null || expanded) return;
-    const measure = (): void => {
-      setOverflowing(content.scrollHeight > content.clientHeight);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [description, expanded]);
+  const { ref, expanded, overflowing, toggle } =
+    useClampedText<HTMLParagraphElement>(description);
 
   return (
     <div
@@ -104,7 +92,7 @@ function ProgramGuide({ description }: { readonly description: string }) {
       <CardTitle>프로그램 안내</CardTitle>
       <p
         id={contentId}
-        ref={contentRef}
+        ref={ref}
         className={cn(
           'text-sm leading-6 break-keep whitespace-pre-wrap',
           !expanded && 'line-clamp-5',
@@ -123,7 +111,7 @@ function ProgramGuide({ description }: { readonly description: string }) {
           aria-label={
             expanded ? '프로그램 안내 접기' : '프로그램 안내 전체 보기'
           }
-          onClick={() => setExpanded((current) => !current)}
+          onClick={toggle}
         >
           {expanded ? '접기' : '전체 보기'}
         </Button>

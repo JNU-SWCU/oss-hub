@@ -15,9 +15,15 @@ const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
-export function milestoneDeadlineLabel(dDay: number): string {
-  if (dDay < 0) return '마감 지남';
-  return dDay === 0 ? '오늘 마감' : `D-${dDay}`;
+export type MilestoneCountdownTone = 'ahead' | 'soon' | 'closed';
+
+export function milestoneCountdown(
+  dDay: number,
+  pastDue: boolean,
+): { readonly label: string; readonly tone: MilestoneCountdownTone } {
+  if (pastDue || dDay < 0) return { label: '마감', tone: 'closed' };
+  if (dDay === 0) return { label: 'D-Day', tone: 'soon' };
+  return { label: `D-${dDay}`, tone: dDay <= 3 ? 'soon' : 'ahead' };
 }
 
 function trackTypeLabel(trackType: ProgramTrackType): string {

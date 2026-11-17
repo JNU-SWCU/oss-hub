@@ -163,7 +163,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
     });
   }
 
-  function actionButton(label: '올리기' | '수정'): HTMLButtonElement {
+  function actionButton(label: '올리기' | '교체'): HTMLButtonElement {
     const found = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === label,
     );
@@ -277,7 +277,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
       expect(container.textContent).not.toContain('승인 후 제출할 수 있습니다');
       expect(blockedNote()).toBeNull();
 
-      expect(actionLabels()).not.toContain('수정');
+      expect(actionLabels()).not.toContain('교체');
     },
   );
 

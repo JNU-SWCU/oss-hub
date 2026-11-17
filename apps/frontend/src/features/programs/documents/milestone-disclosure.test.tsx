@@ -176,7 +176,7 @@ describe('마일스톤 접기', () => {
     expect(openStates(groups)).toEqual(['false', 'false', 'true']);
   });
 
-  it('마감이 모두 지났으면 마지막 마일스톤을 펼친다', async () => {
+  it('마감이 모두 지났으면 모두 접어 둔다', async () => {
     const groups = await renderMilestones(
       programWith(
         MILESTONES.map((milestone) => ({
@@ -187,7 +187,7 @@ describe('마일스톤 접기', () => {
       ),
     );
 
-    expect(openStates(groups)).toEqual(['false', 'false', 'true']);
+    expect(openStates(groups)).toEqual(['false', 'false', 'false']);
   });
 
   it('오늘 마감이 이미 지났으면 그 마일스톤 대신 다음 것을 펼친다', async () => {
@@ -224,7 +224,7 @@ describe('마일스톤 접기', () => {
     expect(openStates(groups)).toEqual(['true', 'false']);
   });
 
-  it('오늘 마감이 전부 지났으면 마지막 마일스톤을 펼친다', async () => {
+  it('오늘 마감이 전부 지났으면 모두 접어 둔다', async () => {
     const groups = await renderMilestones(
       programWith([
         milestoneOf('milestone-1', '오전 마감', {
@@ -238,20 +238,15 @@ describe('마일스톤 접기', () => {
       ]),
     );
 
-    expect(openStates(groups)).toEqual(['false', 'true']);
+    expect(openStates(groups)).toEqual(['false', 'false']);
   });
 
-  it('접힌 줄에도 이름·마감·상태 배지가 남는다', async () => {
+  it('접힌 줄에는 번호·이름·마감·상태 배지만 남는다', async () => {
     const groups = await renderMilestones();
 
-    const [first] = groups;
-    expect(first.textContent).toContain('기획서 제출');
-    expect(first.textContent).toContain('마감 지남');
-    expect(first.textContent).toContain('승인');
-
     expect(
-      first.querySelector('[data-testid="milestone-row"]')?.textContent,
-    ).toContain('1');
+      groups[0].querySelector('[data-testid="milestone-row"]')?.textContent,
+    ).toBe('1기획서 제출07.20 23:59 · 마감승인');
   });
 
   it('보완을 요청받은 마일스톤 줄은 학생 말로 보완 필요라고 읽는다', async () => {
@@ -265,20 +260,25 @@ describe('마일스톤 접기', () => {
   it('접힌 마일스톤도 경계선과 묶음을 그대로 갖는다', async () => {
     const groups = await renderMilestones();
 
-    for (const group of groups) {
+    for (const [position, group] of groups.entries()) {
       expect(group.tagName).toBe('ARTICLE');
-      expect(group.className).toContain('[&+&]:border-t-2');
+      expect(
+        group.querySelector('[data-slot="milestone-divider"]') !== null,
+      ).toBe(position > 0);
     }
     for (const [index, group] of groups.slice(1).entries()) {
       expect(group.previousElementSibling).toBe(groups[index]);
     }
   });
 
-  it('접힌 마일스톤의 제출 항목은 화면에서 빠진다', async () => {
+  it('접힌 마일스톤의 공지와 제출 항목은 화면에서 빠진다', async () => {
     const groups = await renderMilestones();
 
     const closed = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
     expect(closed.getAttribute('data-state')).toBe('closed');
+    expect(closed.querySelector('[role="note"]')?.textContent).toBe(
+      '기획서 제출 안내',
+    );
 
     expect(closed.className).toContain('data-[state=closed]:hidden');
 
@@ -343,7 +343,10 @@ describe('마일스톤 접기', () => {
   it('열어서 볼 것이 없는 마일스톤은 접지 않는다', async () => {
     const groups = await renderMilestones(
       programWith([
-        milestoneOf('milestone-1', '안내용 단계', { submissionItemCount: 0 }),
+        milestoneOf('milestone-1', '안내용 단계', {
+          submissionItemCount: 0,
+          description: null,
+        }),
       ]),
     );
 
@@ -351,8 +354,38 @@ describe('마일스톤 접기', () => {
     expect(groups[0].getAttribute('data-state')).toBeNull();
   });
 
-  it('제출 항목을 볼 수 없는 방문자에게는 접기를 걸지 않는다', async () => {
+  it('제출 항목 없이 공지만 있는 마일스톤은 공지를 여닫는다', async () => {
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-1', '안내용 단계', { submissionItemCount: 0 }),
+      ]),
+    );
+
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+    expect(panel.querySelector('[role="note"]')?.textContent).toBe(
+      '안내용 단계 안내',
+    );
+    expect(
+      panel.querySelector('[data-testid="milestone-document-rows"]'),
+    ).toBeNull();
+  });
+
+  it('제출 항목을 볼 수 없는 방문자에게는 공지만 여닫게 한다', async () => {
     const groups = await renderMilestones(programWith([MILESTONES[0]], null));
+
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+    expect(panel.querySelector('[role="note"]')?.textContent).toBe(
+      '기획서 제출 안내',
+    );
+    expect(
+      panel.querySelector('[data-testid="milestone-document-rows"]'),
+    ).toBeNull();
+  });
+
+  it('공지도 제출 항목도 볼 수 없는 방문자에게는 접기를 걸지 않는다', async () => {
+    const groups = await renderMilestones(
+      programWith([{ ...MILESTONES[0], description: null }], null),
+    );
 
     expect(triggerOf(groups[0])).toBeNull();
   });

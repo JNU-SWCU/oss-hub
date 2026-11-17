@@ -9,20 +9,19 @@ import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
   FailureState,
-  ListPanel,
   PageHeader,
   SectionHeading,
   StatusBadge,
 } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
-import { MilestoneRow } from '../documents/components/milestone-row';
-import { RequirementSection } from '../documents/requirement-list';
+import {
+  milestoneSubmissionNotice,
+  ProgramMilestoneTimeline,
+} from '../documents/components/program-milestone-timeline';
 import { milestoneSubmissionAccess } from '../documents/milestone-submission-access';
-import type { MilestoneSubmissionAccess } from '../documents/milestone-submission-access';
-import { programDetailContext, isPastDue } from './program-detail-format';
+import { programDetailContext } from './program-detail-format';
 import { ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from '../program-paths';
@@ -30,17 +29,12 @@ import type { ProgramOverview } from './program-overview-dto';
 import { getProgramRecruitmentState } from './program-list';
 import { PROGRAM_LIST_STATUS_LABELS } from './program-list-labels';
 import { cn } from '@/lib/utils';
-import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './dto';
-import type { ViewerRole } from '../program-contract';
+import type { ProgramDetail, ProgramListItem } from './dto';
 
 export type RenderSignInApply = (applyHref: string) => ReactNode;
 
 const ACTIVITY_SECTION_ID = 'activity';
 const ACTIVITY_HASH = `#${ACTIVITY_SECTION_ID}`;
-
-function milestoneNameId(milestoneId: string): string {
-  return `milestone-${milestoneId}-name`;
-}
 
 const SCROLL_HANDOVER_EVENTS = [
   'wheel',
@@ -239,110 +233,26 @@ export function ProgramDetailFailureState({
   );
 }
 
-function MilestoneGroup({
-  program,
-  milestone,
-  position,
-  submissionAccess,
-  defaultOpen,
-}: {
-  readonly program: ProgramDetail;
-  readonly milestone: ProgramDetail['milestones'][number];
-  readonly position: number;
-
-  readonly submissionAccess: MilestoneSubmissionAccess;
-
-  readonly defaultOpen: boolean;
-}) {
-  const contentId = useId();
-  const foldable = hasSubmissionDetail(milestone, program.viewer.role);
-  const row = (
-    <MilestoneRow
-      programId={program.id}
-      milestone={milestone}
-      position={position}
-      nameId={milestoneNameId(milestone.id)}
-      disclosureContentId={foldable ? contentId : undefined}
-      viewerRole={program.viewer.role}
-      submissionAccess={submissionAccess}
-    />
-  );
-  const detail = (
-    <RequirementSection
-      programId={program.id}
-      milestoneId={milestone.id}
-      viewerRole={program.viewer.role}
-      closed={isPastDue(milestone.dueAt)}
-      dueAt={milestone.dueAt}
-      submissionAccess={submissionAccess}
-    />
-  );
-  const groupProps = {
-    role: 'listitem',
-    'data-testid': 'milestone-group',
-    'aria-labelledby': milestoneNameId(milestone.id),
-    className: '[&+&]:border-t-2 [&+&]:border-border',
-  } as const;
-
-  if (!foldable) {
-    return (
-      <article {...groupProps}>
-        {row}
-        {detail}
-      </article>
-    );
-  }
-  return (
-    <Collapsible defaultOpen={defaultOpen} asChild>
-      <article {...groupProps}>
-        {row}
-
-        <CollapsibleContent
-          id={contentId}
-          className="data-[state=closed]:hidden"
-          forceMount
-        >
-          {detail}
-        </CollapsibleContent>
-      </article>
-    </Collapsible>
-  );
-}
-
-function hasSubmissionDetail(
-  milestone: ProgramMilestone,
-  viewerRole: ViewerRole,
-): boolean {
-  if (viewerRole === null || viewerRole === 'PENDING') return false;
-  return milestone.submissionItemCount > 0;
-}
-
-function initiallyOpenMilestoneId(program: ProgramDetail): string | null {
-  const foldable = program.milestones.filter((milestone) =>
-    hasSubmissionDetail(milestone, program.viewer.role),
-  );
-  if (foldable.length === 0) return null;
-  const current = foldable.find((milestone) => !isPastDue(milestone.dueAt));
-  return (current ?? foldable[foldable.length - 1]).id;
-}
-
 export function ProgramMilestones({
   program,
 }: {
   readonly program: ProgramDetail;
 }) {
   const submissionAccess = milestoneSubmissionAccess(program.viewer);
-  const openMilestoneId = initiallyOpenMilestoneId(program);
   return (
     <section
       id="milestones"
-      className="grid scroll-mt-24 gap-4"
+      className="@container grid scroll-mt-24 gap-6"
       aria-labelledby="milestones-title"
     >
       <SectionHeading
         id="milestones-title"
         title="마일스톤"
-        meta={`${program.milestones.length}개`}
+        meta={milestoneSubmissionNotice(
+          program.milestones,
+          program.viewer.role,
+          submissionAccess,
+        )}
       />
       {program.milestones.length === 0 ? (
         <EmptyState
@@ -358,22 +268,12 @@ export function ProgramMilestones({
           }
         />
       ) : (
-        <ListPanel role="list">
-          {program.milestones.map((milestone, index) => (
-            <MilestoneGroup
-              key={milestone.id}
-              program={program}
-              milestone={milestone}
-              position={index + 1}
-              submissionAccess={submissionAccess}
-
-              defaultOpen={
-                program.viewer.role === 'STAFF' ||
-                milestone.id === openMilestoneId
-              }
-            />
-          ))}
-        </ListPanel>
+        <ProgramMilestoneTimeline
+          programId={program.id}
+          milestones={program.milestones}
+          viewerRole={program.viewer.role}
+          submissionAccess={submissionAccess}
+        />
       )}
     </section>
   );

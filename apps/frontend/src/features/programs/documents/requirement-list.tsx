@@ -6,24 +6,39 @@ import {
   useRequirementsQuery,
   useRequirementParticipantHistoryQuery,
 } from './queries';
-import { Download, Pencil, Upload } from 'lucide-react';
+import {
+  BadgeCheck,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  Download,
+  FileArchive,
+  FileText,
+  ImageIcon,
+  LinkIcon,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react';
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type ReactElement,
 } from 'react';
-import { StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
 import {
-  SUBMISSION_DISPLAY_BADGE,
   submissionStatusLabel,
   type SubmissionDisplayStatus,
 } from '@/lib/status-vocabulary';
+import { useClampedText } from '@/lib/use-clamped-text';
+import { cn } from '@/lib/utils';
 import {
+  requirementCurrentFileHref,
   requirementTemplateHref,
   submitRequirement,
   uploadRequirementFile,
@@ -41,15 +56,16 @@ import {
 import type { MilestoneSubmissionAccess } from './milestone-submission-access';
 import { requirementSubmitGate } from './milestone-submit-gate';
 import {
+  requirementFileKind,
+  type RequirementFileKind,
+} from './requirement-file-kind';
+import {
   isRequirementResubmissionFinal,
-  REQUIREMENT_REVIEW_DISPLAY_LABELS,
   requirementReviewNoticeTone,
   requirementViewerDisplay,
   type RequirementReviewDisplay,
-  type RequirementReviewNoticeTone,
 } from './requirement-review';
 import {
-  formatSeoulDate,
   isPastDue,
   formatSeoulShortDateTime,
 } from '../catalog/program-detail-format';
@@ -75,7 +91,49 @@ function isStaffRole(role: ViewerRole): role is 'STAFF' {
   return role === 'STAFF';
 }
 
-const REQUIREMENT_BLOCK_CLASS = 'grid px-6 pt-1 pb-5';
+const REQUIREMENT_BLOCK_CLASS = '@container grid px-6 pt-1 pb-5';
+const ITEM_LIST_CLASS = cn(
+  'grid grid-cols-[auto_minmax(0,1fr)_auto_auto] gap-2',
+  '@2xl:grid-cols-[auto_fit-content(50%)_auto_minmax(0,1fr)_auto]',
+);
+const ITEM_CLASS = 'col-span-full grid grid-cols-subgrid items-start gap-y-1';
+const ITEM_ICON_CLASS = 'row-start-1 flex h-control items-center';
+const ITEM_NAME_CLASS = cn(
+  'col-start-2 row-start-1 min-w-0 text-small leading-5 break-keep',
+  'py-[calc((var(--spacing-control)-1.25rem)/2)] [overflow-wrap:anywhere]',
+);
+const ITEM_CONTEXT_CLASS = cn(
+  'col-span-3 col-start-2 row-start-2 flex min-w-0 flex-wrap items-center',
+  'gap-x-2 gap-y-1 text-small empty:hidden',
+  '@2xl:col-span-1 @2xl:col-start-4 @2xl:row-start-1 @2xl:min-h-control',
+);
+const ITEM_ACTION_CLASS =
+  'col-start-4 row-start-1 justify-self-end @2xl:col-start-5';
+const ITEM_DETAIL_CLASS = cn(
+  'col-span-3 col-start-2 row-start-3 grid min-w-0 gap-2 empty:hidden',
+  '@2xl:col-span-4 @2xl:row-start-2',
+);
+const LINK_BUTTON_CLASS =
+  'h-auto shrink-0 px-0 text-foreground underline underline-offset-2';
+
+const FILE_KIND_ICON = {
+  link: LinkIcon,
+  image: ImageIcon,
+  archive: FileArchive,
+  document: FileText,
+} as const satisfies Record<RequirementFileKind, LucideIcon>;
+
+const STATUS_ICON = {
+  NOT_SUBMITTED: [Circle, 'text-muted-foreground'],
+  OVERDUE: [Circle, 'text-destructive'],
+  SUBMITTED: [CircleCheck, 'text-primary'],
+  APPROVED: [BadgeCheck, 'text-status-approved-fg'],
+  CHANGES_REQUESTED: [CircleAlert, 'text-status-pending-fg'],
+  REJECTED: [CircleX, 'text-destructive'],
+} as const satisfies Record<
+  SubmissionDisplayStatus,
+  readonly [LucideIcon, string]
+>;
 
 function ConflictNotice({
   notice,
@@ -103,9 +161,11 @@ export function RequirementSectionBody({
   onRefresh = () => Promise.resolve(true),
   onSubmitConflict,
   onSubmitted,
+  className,
 }: {
   readonly programId: string;
   readonly state: RequirementSectionState;
+  readonly className?: string;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
   readonly dueAt?: string;
@@ -125,7 +185,11 @@ export function RequirementSectionBody({
   if (state.kind === 'failed') {
     return (
       <div
-        className={`${REQUIREMENT_BLOCK_CLASS} gap-2 text-small text-muted-foreground`}
+        className={cn(
+          REQUIREMENT_BLOCK_CLASS,
+          'gap-2 text-small text-muted-foreground',
+          className,
+        )}
       >
         <ConflictNotice notice={conflictNotice} />
         <p>제출 항목을 불러오지 못했습니다.</p>
@@ -148,25 +212,28 @@ export function RequirementSectionBody({
   const completed = state.documents.filter(
     (document) => document.viewerSubmission?.submitted,
   ).length;
-  const headerLabel = staff
-    ? `${closed ? '마감' : '접수중'} · ${total}개 항목`
-    : `제출 ${completed}/${total} 완료`;
 
   return (
-    <div className={`${REQUIREMENT_BLOCK_CLASS} gap-3`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className={cn(REQUIREMENT_BLOCK_CLASS, 'gap-2', className)}>
+      <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-small font-bold text-muted-foreground">
           제출 항목
         </h3>
-        <span className="text-small text-muted-foreground">{headerLabel}</span>
+        {staff ? null : (
+          <span className="text-small text-muted-foreground tabular-nums">
+            제출{' '}
+            <b className="font-bold text-foreground">{`${completed}/${total}`}</b>
+          </span>
+        )}
       </div>
       <ConflictNotice notice={conflictNotice} />
-      <ul className="grid gap-3" data-testid="milestone-document-rows">
+      <ul className={ITEM_LIST_CLASS} data-testid="milestone-document-rows">
         {state.documents.map((document) =>
           staff ? (
             <StaffDocumentRow
               key={document.id}
               document={document}
+              countShown={total > 1}
               onRefresh={onRefresh}
             />
           ) : (
@@ -198,9 +265,11 @@ export function RequirementSection({
   dueAt,
   submissionAccess,
   onBusyChange,
+  className,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
+  readonly className?: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
   readonly dueAt?: string;
@@ -269,6 +338,7 @@ export function RequirementSection({
       dueAt={dueAt}
       submissionAccess={submissionAccess}
       onBusyChange={onBusyChange}
+      className={className}
       conflictNotice={conflictNotice}
       onRetry={() => {
         setConflictNotice(null);
@@ -300,15 +370,47 @@ export function RequirementSection({
   );
 }
 
+function RequirementIcon({ document }: { readonly document: Requirement }) {
+  const Icon = FILE_KIND_ICON[requirementFileKind(document)];
+  return (
+    <span className={cn(ITEM_ICON_CLASS, 'col-start-1')}>
+      <Icon aria-hidden className="size-4 text-muted-foreground" />
+    </span>
+  );
+}
+
 function DocumentName({ document }: { readonly document: Requirement }) {
   return (
-    <span className="min-w-0 flex-1 basis-full truncate text-small sm:basis-0">
+    <span className={ITEM_NAME_CLASS}>
       {document.name}
       {document.required ? (
-        <span aria-label="필수" className="ml-0.5 text-destructive">
+        <span
+          aria-label="필수"
+          className="ml-0.5 text-destructive before:content-['\2060']"
+        >
           *
         </span>
       ) : null}
+    </span>
+  );
+}
+
+function DocumentStatus({
+  status,
+}: {
+  readonly status: SubmissionDisplayStatus;
+}) {
+  const [Icon, tone] = STATUS_ICON[status];
+  const label = submissionStatusLabel(status, 'student');
+  return (
+    <span
+      className={cn(ITEM_ICON_CLASS, 'col-start-3')}
+      title={label}
+      data-status={status}
+      data-testid="milestone-document-status"
+    >
+      <Icon aria-hidden className={cn('size-4', tone)} />
+      <span className="sr-only">{label}</span>
     </span>
   );
 }
@@ -322,30 +424,45 @@ function submitErrorMessage(error: unknown, fallback: string): string {
 
 function StaffDocumentRow({
   document,
+  countShown,
   onRefresh,
 }: {
   readonly document: Requirement;
+  readonly countShown: boolean;
   readonly onRefresh: () => Promise<boolean>;
 }) {
+  const count = countShown ? document.teamSubmissionCount : undefined;
   return (
-    <li className="grid gap-1" data-testid="milestone-document-row">
-      <div className="flex flex-wrap items-center gap-3">
-        <DocumentName document={document} />
-        {document.teamSubmissionCount ? (
-          <StatusBadge variant="recruiting">
-            {document.teamSubmissionCount.submitted}/
-            {document.teamSubmissionCount.total}개 팀 제출
-          </StatusBadge>
-        ) : null}
-
+    <li className={ITEM_CLASS} data-testid="milestone-document-row">
+      <RequirementIcon document={document} />
+      <DocumentName document={document} />
+      <div className={ITEM_CONTEXT_CLASS}>
+        {count === undefined ? null : (
+          <span className="tabular-nums">
+            제출{' '}
+            <b className="font-bold">{`${count.submitted}/${count.total}`}</b>
+          </span>
+        )}
+        {document.graceDueAt == null ? null : (
+          <span className="text-muted-foreground">
+            유예 기한: {formatSeoulShortDateTime(document.graceDueAt)} (한국
+            시간)
+          </span>
+        )}
         {document.templateFileName ? (
-          <Button asChild size="sm" variant="ghost">
+          <Button
+            asChild
+            size="sm"
+            variant="ghost"
+            className="ml-auto max-w-full"
+          >
             <a
               href={requirementTemplateHref(document.milestoneId, document.id)}
               target="_blank"
               rel="noreferrer"
             >
-              <Download aria-hidden /> {document.templateFileName}
+              <Download aria-hidden />
+              <span className="truncate">{document.templateFileName}</span>
             </a>
           </Button>
         ) : null}
@@ -354,72 +471,73 @@ function StaffDocumentRow({
         key={document.graceDueAt ?? 'no-grace'}
         document={document}
         onRefresh={onRefresh}
+        className={ITEM_ACTION_CLASS}
+        formClassName={ITEM_DETAIL_CLASS}
       />
     </li>
   );
 }
 
-function StudentReviewNotice({
-  display,
-  tone,
-  review,
-}: {
-  readonly display: RequirementReviewDisplay;
-  readonly tone: RequirementReviewNoticeTone;
-  readonly review: NonNullable<
-    NonNullable<Requirement['viewerSubmission']>['review']
-  >;
-}) {
+function ReviewComment({ comment }: { readonly comment: string | null }) {
+  const text = comment ?? '사유 없이 저장되었습니다.';
+  const contentId = useId();
+  const { ref, expanded, overflowing, toggle } =
+    useClampedText<HTMLSpanElement>(text);
   return (
-    <Alert
-      variant={tone === 'warning' ? 'destructive' : 'default'}
+    <span
+      className="flex max-w-full min-w-0 items-start gap-2"
       data-testid="milestone-document-review-notice"
     >
-      <AlertDescription className="grid gap-1">
-        <span className="font-semibold">
-          {REQUIREMENT_REVIEW_DISPLAY_LABELS[display]} ·{' '}
-          {formatSeoulDate(review.reviewedAt)}
-        </span>
-        <span className="break-keep whitespace-pre-wrap">
-          {review.comment ?? '사유 없이 저장되었습니다.'}
-        </span>
-      </AlertDescription>
-    </Alert>
+      <span
+        id={contentId}
+        ref={ref}
+        className={cn(
+          'min-w-0 break-keep [overflow-wrap:anywhere]',
+          expanded ? 'whitespace-pre-wrap' : 'line-clamp-1',
+        )}
+      >
+        {text}
+      </span>
+      {overflowing || expanded ? (
+        <Button
+          type="button"
+          variant="link"
+          size="xs"
+          className={LINK_BUTTON_CLASS}
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          onClick={toggle}
+        >
+          {expanded ? '접기' : '더 보기'}
+        </Button>
+      ) : null}
+    </span>
   );
 }
 
-function HeldSubmitAction({
-  note,
-  label,
-  icon,
-  ghost,
-  noteId,
+function CurrentFile({
+  document,
+  fileName,
 }: {
-  readonly note: string;
-  readonly label: string;
-  readonly icon: ReactElement;
-  readonly ghost: boolean;
-  readonly noteId: string;
+  readonly document: Requirement;
+  readonly fileName: string;
 }) {
   return (
-    <>
-      <Button
-        type="button"
-        size="sm"
-        variant={ghost ? 'ghost' : 'default'}
-        disabled
-        aria-describedby={noteId}
-      >
-        {icon} {label}
-      </Button>
-      <span
-        id={noteId}
-        className="text-small text-muted-foreground break-keep"
-        data-testid="milestone-document-blocked-note"
-      >
-        {note}
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="min-w-0 truncate" title={fileName}>
+        {fileName}
       </span>
-    </>
+      <Button asChild variant="link" size="xs" className={LINK_BUTTON_CLASS}>
+        <a
+          href={requirementCurrentFileHref(document.milestoneId, document.id)}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${fileName} 보기 (새 탭에서 열림)`}
+        >
+          보기
+        </a>
+      </Button>
+    </span>
   );
 }
 
@@ -660,27 +778,62 @@ function StudentDocumentRow({
     return send(input);
   }
 
-  const actionLabel = submitted ? '수정' : '올리기';
-  const actionIcon = submitted ? (
-    <Pencil aria-hidden />
-  ) : (
-    <Upload aria-hidden />
-  );
+  const noteId = `${document.id}-submission-blocked`;
+  const meta = [
+    submitted && submittedAt ? (
+      <span key="submitted-at">
+        {formatSeoulShortDateTime(submittedAt)} 제출
+      </span>
+    ) : null,
+    review !== null && reviewNoticeTone !== null ? (
+      <span key="reviewed-at">
+        {formatSeoulShortDateTime(review.reviewedAt)} 검토
+      </span>
+    ) : null,
+    viewerSubmission?.submittedLate === true ? (
+      <span key="late" className="text-status-pending-fg">
+        지각 제출
+      </span>
+    ) : null,
+    syncNotice !== null ? (
+      <span key="note">저장된 제출의 최신 상태를 확인하는 중입니다.</span>
+    ) : gate.kind === 'settled' ? (
+      <span key="note">{gate.note}</span>
+    ) : gate.kind === 'held' ? (
+      <span
+        key="note"
+        id={noteId}
+        data-testid="milestone-document-blocked-note"
+      >
+        {gate.note}
+      </span>
+    ) : null,
+  ].filter((part) => part !== null);
 
   return (
-    <li className="grid gap-2" data-testid="milestone-document-row">
-      <div className="flex flex-wrap items-center gap-3">
-        <DocumentName document={document} />
-        <StatusBadge variant={SUBMISSION_DISPLAY_BADGE[badgeStatus]}>
-          {submissionStatusLabel(badgeStatus, 'student')}
-        </StatusBadge>
-        {submitted && submittedAt ? (
-          <span className="text-small text-muted-foreground">
-            {formatSeoulShortDateTime(submittedAt)} 제출
-          </span>
+    <li className={ITEM_CLASS} data-testid="milestone-document-row">
+      <RequirementIcon document={document} />
+      <DocumentName document={document} />
+      <DocumentStatus status={badgeStatus} />
+      <div className={ITEM_CONTEXT_CLASS}>
+        {review !== null && reviewNoticeTone !== null ? (
+          <ReviewComment comment={review.comment} />
+        ) : viewerSubmission?.hasCurrentFile === true &&
+          viewerSubmission.currentFileName !== null ? (
+          <CurrentFile
+            document={document}
+            fileName={viewerSubmission.currentFileName}
+          />
         ) : null}
+        {meta.length === 0 ? null : (
+          <span className="break-keep text-muted-foreground">
+            {meta.flatMap((part, index) =>
+              index === 0 ? [part] : [' · ', part],
+            )}
+          </span>
+        )}
         {document.hasTemplateFile ? (
-          <Button asChild size="sm" variant="ghost">
+          <Button asChild size="sm" variant="ghost" className="ml-auto">
             <a
               href={requirementTemplateHref(document.milestoneId, document.id)}
               target="_blank"
@@ -690,171 +843,155 @@ function StudentDocumentRow({
             </a>
           </Button>
         ) : null}
-        {syncNotice !== null ? (
-          <span className="text-small text-muted-foreground break-keep">
-            저장된 제출의 최신 상태를 확인하는 중입니다.
-          </span>
-        ) : gate.kind === 'settled' ? (
-          <span className="text-small text-muted-foreground break-keep">
-            {gate.note}
-          </span>
-        ) : gate.kind === 'held' ? (
-          <HeldSubmitAction
-            note={gate.note}
-            label={actionLabel}
-            icon={actionIcon}
-            ghost={submitted}
-            noteId={`${document.id}-submission-blocked`}
-          />
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant={submitted ? 'ghost' : 'default'}
-            onClick={() => {
-              if (!editing)
-                setExpectedRevision(viewerSubmission?.revision ?? 0);
-              setEditing((value) => !value);
-            }}
-          >
-            {actionIcon} {actionLabel}
-          </Button>
-        )}
       </div>
-      {viewerSubmission?.submittedLate === true ? (
-        <p className="text-small text-warning">지각 제출</p>
-      ) : null}
-      {document.graceDueAt != null && review === null ? (
-        <p className="text-small text-muted-foreground">
-          유예 기한: {formatSeoulShortDateTime(document.graceDueAt)} (한국
-          시간). 원래 마감 뒤 제출은 지각으로 표시됩니다.
-        </p>
-      ) : null}
-      {review === null || reviewNoticeTone === null ? null : (
-        <StudentReviewNotice
-          display={display}
-          tone={reviewNoticeTone}
-          review={review}
-        />
-      )}
-      {history.length === 0 && historyIsComplete ? null : (
-        <RequirementHistoryTimeline
-          history={history}
-          completeness={
-            !historyIsComplete
-              ? 'incomplete'
-              : historyNextCursor !== null
-                ? 'has-more'
-                : 'complete'
-          }
-        />
-      )}
-      {!submitted || historyMetadata?.hasHistory !== true ? null : (
-        <div className="grid gap-2">
-          {isHistoryLoading ? (
-            <p
-              className="text-small text-muted-foreground"
-              data-testid="milestone-document-history-loading"
-            >
-              제출 이력을 불러오는 중입니다.
-            </p>
-          ) : null}
-          {historyForbidden ? (
-            <div
-              className="grid gap-2 py-2"
-              data-testid="milestone-document-history-forbidden"
-            >
-              <p className="text-small break-keep text-muted-foreground">
-                제출 이력은 신청이 승인된 참여자만 볼 수 있습니다. 이 프로그램에
-                신청해 승인되면 열립니다.
-              </p>
-            </div>
-          ) : null}
-          {historyError === null ? null : (
-            <Alert data-testid="milestone-document-history-error">
-              <AlertDescription className="flex flex-wrap items-center gap-2">
-                <span className="break-keep">{historyError}</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void loadHistory()}
-                >
-                  다시 시도
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          {historyNextCursor === null || historyError !== null ? null : (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              disabled={isHistoryLoading}
-              onClick={() => void loadHistory()}
-            >
-              이전 이력 더 보기
-            </Button>
-          )}
-        </div>
-      )}
-      {gate.kind === 'open' &&
-      submissionAccess.kind !== 'blocked' &&
-      syncNotice === null &&
-      editing ? (
-        <SubmissionForm
-          documentName={document.name}
-          documentId={document.id}
-          submissionType={document.submissionType}
-          fileUpload={fileUpload}
-          currentFileName={viewerSubmission?.currentFileName ?? null}
-          isResubmission={submitted}
-          submitting={submitting}
-          fileRejection={fileRejection}
-          onCancel={() => setEditing(false)}
-          onSubmit={submitDraft}
-        />
-      ) : null}
-
-      {pendingDraft === null ? null : (
-        <RequirementResubmissionDialog
-          documentName={document.name}
-          removedFileName={
-            pendingDraft.file === null
-              ? (viewerSubmission?.currentFileName ?? null)
-              : null
-          }
-          submitting={submitting}
-          onCancel={() => setPendingDraft(null)}
-          onConfirm={() => {
-            const draft = pendingDraft;
-            setPendingDraft(null);
-            void send(draft);
+      {syncNotice !== null || gate.kind === 'settled' ? null : (
+        <Button
+          type="button"
+          size="sm"
+          variant={submitted ? 'ghost' : 'default'}
+          className={ITEM_ACTION_CLASS}
+          disabled={gate.kind === 'held'}
+          aria-describedby={gate.kind === 'held' ? noteId : undefined}
+          onClick={() => {
+            if (!editing) setExpectedRevision(viewerSubmission?.revision ?? 0);
+            setEditing((value) => !value);
           }}
-        />
+        >
+          {submitted ? (
+            '교체'
+          ) : (
+            <>
+              <Upload aria-hidden /> 올리기
+            </>
+          )}
+        </Button>
       )}
-      {syncNotice === null ? null : (
-        <Alert data-testid="milestone-document-submit-sync-notice">
-          <AlertDescription className="flex flex-wrap items-center gap-2">
-            <span className="break-keep">{syncNotice}</span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={syncing}
-              onClick={() => void refreshDocument()}
-            >
-              최신 상태 다시 불러오기
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {error ? (
-        <p role="alert" className="text-small text-destructive">
-          {error} 입력한 내용은 그대로 있으니 확인한 뒤 다시 시도해 주세요.
-        </p>
-      ) : null}
+      <div className={ITEM_DETAIL_CLASS}>
+        {document.graceDueAt != null && review === null ? (
+          <p className="text-small text-muted-foreground">
+            유예 기한: {formatSeoulShortDateTime(document.graceDueAt)} (한국
+            시간). 원래 마감 뒤 제출은 지각으로 표시됩니다.
+          </p>
+        ) : null}
+        {history.length === 0 && historyIsComplete ? null : (
+          <RequirementHistoryTimeline
+            history={history}
+            completeness={
+              !historyIsComplete
+                ? 'incomplete'
+                : historyNextCursor !== null
+                  ? 'has-more'
+                  : 'complete'
+            }
+          />
+        )}
+        {!submitted || historyMetadata?.hasHistory !== true ? null : (
+          <div className="grid gap-2">
+            {isHistoryLoading ? (
+              <p
+                className="text-small text-muted-foreground"
+                data-testid="milestone-document-history-loading"
+              >
+                제출 이력을 불러오는 중입니다.
+              </p>
+            ) : null}
+            {historyForbidden ? (
+              <div
+                className="grid gap-2 py-2"
+                data-testid="milestone-document-history-forbidden"
+              >
+                <p className="text-small break-keep text-muted-foreground">
+                  제출 이력은 신청이 승인된 참여자만 볼 수 있습니다. 이
+                  프로그램에 신청해 승인되면 열립니다.
+                </p>
+              </div>
+            ) : null}
+            {historyError === null ? null : (
+              <Alert data-testid="milestone-document-history-error">
+                <AlertDescription className="flex flex-wrap items-center gap-2">
+                  <span className="break-keep">{historyError}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void loadHistory()}
+                  >
+                    다시 시도
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {historyNextCursor === null || historyError !== null ? null : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-fit"
+                disabled={isHistoryLoading}
+                onClick={() => void loadHistory()}
+              >
+                이전 이력 더 보기
+              </Button>
+            )}
+          </div>
+        )}
+        {gate.kind === 'open' &&
+        submissionAccess.kind !== 'blocked' &&
+        syncNotice === null &&
+        editing ? (
+          <SubmissionForm
+            documentName={document.name}
+            documentId={document.id}
+            submissionType={document.submissionType}
+            fileUpload={fileUpload}
+            currentFileName={viewerSubmission?.currentFileName ?? null}
+            isResubmission={submitted}
+            submitting={submitting}
+            fileRejection={fileRejection}
+            onCancel={() => setEditing(false)}
+            onSubmit={submitDraft}
+          />
+        ) : null}
+
+        {pendingDraft === null ? null : (
+          <RequirementResubmissionDialog
+            documentName={document.name}
+            removedFileName={
+              pendingDraft.file === null
+                ? (viewerSubmission?.currentFileName ?? null)
+                : null
+            }
+            submitting={submitting}
+            onCancel={() => setPendingDraft(null)}
+            onConfirm={() => {
+              const draft = pendingDraft;
+              setPendingDraft(null);
+              void send(draft);
+            }}
+          />
+        )}
+        {syncNotice === null ? null : (
+          <Alert data-testid="milestone-document-submit-sync-notice">
+            <AlertDescription className="flex flex-wrap items-center gap-2">
+              <span className="break-keep">{syncNotice}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={syncing}
+                onClick={() => void refreshDocument()}
+              >
+                최신 상태 다시 불러오기
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {error ? (
+          <p role="alert" className="text-small text-destructive">
+            {error} 입력한 내용은 그대로 있으니 확인한 뒤 다시 시도해 주세요.
+          </p>
+        ) : null}
+      </div>
     </li>
   );
 }

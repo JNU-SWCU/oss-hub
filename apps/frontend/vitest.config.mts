@@ -50,6 +50,7 @@ const happyDomTests = [
   'src/features/programs/teams/{program-my-team-page.test.tsx,program-staff-team-detail-page.test.tsx,program-staff-teams-page.test.tsx,program-teams-page.test.tsx,repository-url-editor.test.tsx,repository-url-history.test.tsx,staff-team-members-panel.test.tsx,team-activity-graph.test.tsx,team-delete-dialog.test.tsx,team-invitation-notifications.test.tsx,team-invite-panel-combobox.test.tsx,team-invite-panel.test.tsx,team-members-panel.test.tsx,team-repository-panel.test.tsx,use-team-invitation-management.test.tsx}',
   'src/features/programs/authoring/program-organizer-field.test.tsx',
   'src/features/programs/catalog/components/activity-graph-panel.test.tsx',
+  'src/features/programs/documents/components/{milestone-notice.test.tsx,program-milestone-timeline.test.tsx}',
   'src/features/programs/notifications/program-notifications-page.test.tsx',
   'src/features/ranking/components/ranking-screen.test.tsx',
   'src/features/reviews/{submission-review-conflict.test.tsx,submission-review-refresh.test.tsx,submission-review-request-order.test.tsx,submission-review-screen.test.tsx}',

@@ -3,6 +3,7 @@ import {
   formatSeoulDateRange,
   formatSeoulShortRange,
   isPastDue,
+  milestoneCountdown,
   programDetailContext,
 } from './program-detail-format';
 
@@ -40,6 +41,41 @@ describe('formatSeoulShortRange', () => {
         '2027-01-01T14:59:00.000Z',
       ),
     ).toBe('27.01.01 – 27.01.01 23:59');
+  });
+});
+
+describe('milestoneCountdown', () => {
+  it('마감 나흘 전까지는 남은 날을 여유 있는 단계로 적는다', () => {
+    expect(milestoneCountdown(10, false)).toEqual({
+      label: 'D-10',
+      tone: 'ahead',
+    });
+    expect(milestoneCountdown(4, false)).toEqual({
+      label: 'D-4',
+      tone: 'ahead',
+    });
+  });
+
+  it('마감 사흘 전부터 당일까지는 임박으로 적는다', () => {
+    expect(milestoneCountdown(3, false)).toEqual({
+      label: 'D-3',
+      tone: 'soon',
+    });
+    expect(milestoneCountdown(1, false)).toEqual({
+      label: 'D-1',
+      tone: 'soon',
+    });
+    expect(milestoneCountdown(0, false)).toEqual({
+      label: 'D-Day',
+      tone: 'soon',
+    });
+  });
+
+  it('마감 시각이 지났으면 당일이어도 마감이라고 적는다', () => {
+    const closed = { label: '마감', tone: 'closed' };
+    expect(milestoneCountdown(0, true)).toEqual(closed);
+    expect(milestoneCountdown(-4, true)).toEqual(closed);
+    expect(milestoneCountdown(-1, false)).toEqual(closed);
   });
 });
 

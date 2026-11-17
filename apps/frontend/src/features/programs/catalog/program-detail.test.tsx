@@ -19,7 +19,6 @@ afterEach(() => {
 });
 import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
 import { ActivityPanelBody } from './components/activity-graph-panel';
-import { MilestoneRow } from '../documents/components/milestone-row';
 import { ApiError } from '@/lib/api-client';
 import { RequirementSectionBody } from '../documents/requirement-list';
 import type { Requirement } from '../documents/requirement-dto';
@@ -61,194 +60,6 @@ const milestone: ProgramMilestone = {
   viewerSubmissionStatus: 'REJECTED',
   applicationSubmissionSummary: null,
 };
-
-describe('MilestoneRow', () => {
-  it('역할 없는 사람에게 비공개 제출 상태 대신 가입 안내를 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{ ...milestone, viewerSubmissionStatus: null }}
-        viewerRole={null}
-        submissionAccess={access(null)}
-      />,
-    );
-    expect(html).toContain('기획서 제출');
-    expect(html).toContain('D-5');
-    expect(html).toContain('가입 후 확인');
-
-    expect(html).not.toContain('로그인');
-    expect(html).not.toContain('>반려<');
-  });
-
-  it('학생에게 반려 상태를 색뿐 아니라 텍스트로 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={milestone}
-        viewerRole="STUDENT"
-        submissionAccess={access('STUDENT', 'APPROVED')}
-      />,
-    );
-    expect(html).toContain('data-variant="rejected"');
-    expect(html).toContain('>반려<');
-  });
-
-  it('항목이 있는 마일스톤은 항목 제출 화면으로 연결한다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{
-          ...milestone,
-          submissionItemCount: 2,
-          dueAt: '2099-08-10T23:59:59+09:00',
-          viewerSubmissionStatus: 'NOT_SUBMITTED',
-        }}
-        viewerRole="STUDENT"
-        submissionAccess={access('STUDENT', 'APPROVED')}
-      />,
-    );
-
-    expect(html).toContain('미제출');
-    expect(html).toContain('제출하기');
-    expect(html).toContain('/documents?milestoneId=milestone-1');
-  });
-
-  it('제출 항목이 없는 신규 마일스톤은 승인이 아니라 안내용으로 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{
-          ...milestone,
-          submissionItemCount: 0,
-          viewerSubmissionStatus: null,
-        }}
-        viewerRole="STUDENT"
-        submissionAccess={access('STUDENT', 'APPROVED')}
-      />,
-    );
-
-    expect(html).toContain('제출 없음 · 안내용');
-    expect(html).not.toContain('승인');
-    expect(html).not.toContain('제출하기');
-  });
-
-  it('신청 승인 전에는 실행할 수 없는 제출 안내를 노출하지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{
-          ...milestone,
-          submissionItemCount: 2,
-          viewerSubmissionStatus: null,
-        }}
-        viewerRole="STUDENT"
-        submissionAccess={access('STUDENT', 'SUBMITTED')}
-      />,
-    );
-
-    expect(html).toContain(
-      '신청 승인을 기다리는 중입니다. 승인되면 제출할 수 있습니다.',
-    );
-    expect(html).not.toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
-  });
-
-  it('반려된 신청에는 #1098 이전 문구를 그대로 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{
-          ...milestone,
-          dueAt: '2099-08-10T23:59:59+09:00',
-          viewerSubmissionStatus: 'NOT_SUBMITTED',
-        }}
-        viewerRole="STUDENT"
-        submissionAccess={access('STUDENT', 'REJECTED')}
-      />,
-    );
-
-    expect(html).toContain('신청 승인 후 제출 상태를 확인할 수 있습니다.');
-    expect(html).not.toContain('미제출');
-    expect(html).not.toContain('제출하기');
-    expect(html).not.toContain('반려되어');
-  });
-
-  it('마감 후 보완 요청도 #116 체크리스트에서 다시 제출할 수 있다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{
-          ...milestone,
-          dDay: -2,
-          viewerSubmissionStatus: 'CHANGES_REQUESTED',
-        }}
-        viewerRole="STUDENT"
-        submissionAccess={access('STUDENT', 'APPROVED')}
-      />,
-    );
-    expect(html).toContain('다시 제출');
-    expect(html).toContain(
-      '/programs/program-1/documents?milestoneId=milestone-1',
-    );
-    expect(html).not.toContain('/milestones/milestone-1/submit');
-  });
-  it('교직원에게 제출 요약은 표시하되 미구현 #124 경로는 노출하지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={{
-          ...milestone,
-          viewerSubmissionStatus: null,
-          applicationSubmissionSummary: {
-            notSubmitted: 2,
-            submitted: 1,
-            approved: 1,
-            changesRequested: 1,
-            rejected: 0,
-            total: 5,
-          },
-        }}
-        viewerRole="STAFF"
-        submissionAccess={access('STAFF')}
-      />,
-    );
-    expect(html).toContain('3/5');
-    expect(html).not.toContain('전체 현황');
-    expect(html).not.toContain('/programs/program-1/submissions');
-  });
-
-  it('교직원 마일스톤에는 마감과 운영자 공지를 구분해 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <MilestoneRow
-        programId="program-1"
-        position={1}
-        nameId="milestone-1-name"
-        milestone={milestone}
-        viewerRole="STAFF"
-        submissionAccess={access('STAFF')}
-      />,
-    );
-
-    expect(html).toContain('마감 2026년 8월 10일');
-    expect(html).toContain('aria-label="운영자 공지"');
-    expect(html).toContain('PDF 기획서를 제출해 주세요.');
-  });
-});
 
 describe('ActivityPanelBody', () => {
   it('저장소 없음과 부분 실패를 독립 상태로 표시한다', () => {
@@ -755,24 +566,6 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('/programs/program-1/edit#milestones');
   });
 
-  it('교직원은 제출 항목이 있는 모든 마일스톤을 처음부터 펼쳐 둔다', () => {
-    const html = renderToStaticMarkup(
-      <QueryClientProvider client={queryClient}>
-        <ProgramMilestones
-          program={{
-            ...programWithoutMilestones,
-            milestones: [
-              { ...milestone, id: 'milestone-1', submissionItemCount: 1 },
-              { ...milestone, id: 'milestone-2', submissionItemCount: 1 },
-            ],
-          }}
-        />
-      </QueryClientProvider>,
-    );
-
-    expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(2);
-  });
-
   it('404와 일반 실패를 구분하고 일반 실패에는 재시도를 제공한다', () => {
     const notFound = detailFailure(
       new ApiError({
@@ -874,7 +667,7 @@ describe('RequirementSectionBody', () => {
     expect(html).toBe('');
   });
 
-  it('교직원에게는 팀 제출 카운트를 보이고 양식 관리 컨트롤은 노출하지 않는다', () => {
+  it('교직원에게는 항목별 제출 수를 보이고 양식 관리 컨트롤은 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <RequirementSectionBody
         programId="program-1"
@@ -889,6 +682,11 @@ describe('RequirementSectionBody', () => {
 
               teamSubmissionCount: { submitted: 2, total: 4 },
             }),
+            buildDocument({
+              id: 'document-2',
+              name: '결과보고서',
+              teamSubmissionCount: { submitted: 4, total: 4 },
+            }),
           ],
           fileUpload: requirementUploadPolicy(),
         }}
@@ -901,11 +699,39 @@ describe('RequirementSectionBody', () => {
         onSubmitConflict={vi.fn()}
       />,
     );
-    expect(html).toContain('2/4개 팀 제출');
-    expect(html).toContain('기획서');
+    const text = html.replace(/<[^>]+>/g, '');
+    expect(text).toContain('기획서*제출 2/4');
+    expect(text).toContain('결과보고서*제출 4/4');
+    expect(text).not.toContain('팀');
     expect(html).not.toContain('양식 올리기');
     expect(html).not.toContain('양식 교체');
     expect(html).not.toContain('type="file"');
+  });
+
+  it('항목이 하나뿐이면 마일스톤 줄의 제출 수를 항목에서 되풀이하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <RequirementSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
+        state={{
+          kind: 'ready',
+          documents: [
+            buildDocument({ teamSubmissionCount: { submitted: 2, total: 4 } }),
+          ],
+          fileUpload: requirementUploadPolicy(),
+        }}
+        viewerRole="STAFF"
+        closed={false}
+        submissionAccess={access('STAFF')}
+        conflictNotice={null}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('기획서');
+    expect(html.replace(/<[^>]+>/g, '')).not.toContain('2/4');
   });
 
   it('학생에게는 기존 양식 다운로드를 유지한다', () => {
@@ -932,7 +758,7 @@ describe('RequirementSectionBody', () => {
     expect(html).toContain('target="_blank"');
   });
 
-  it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
+  it('학생에게는 검토 대기 상태와 제출 시각, 교체 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <RequirementSectionBody
         programId="program-1"
@@ -964,13 +790,14 @@ describe('RequirementSectionBody', () => {
         onSubmitConflict={vi.fn()}
       />,
     );
-    expect(html).toContain('검토 대기');
-    expect(html).toContain('08.01 14:22 제출');
-    expect(html).toContain('수정');
-    expect(html).toContain('제출 1/1 완료');
+    const text = html.replace(/<[^>]+>/g, '');
+    expect(text).toContain('검토 대기');
+    expect(text).toContain('08.01 14:22 제출');
+    expect(text).toContain('교체');
+    expect(text).toContain('제출 1/1');
   });
 
-  it('미제출 학생에게는 미제출 배지와 올리기 버튼을 보여준다', () => {
+  it('미제출 학생에게는 미제출 상태와 올리기 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <RequirementSectionBody
         programId="program-1"
@@ -991,6 +818,6 @@ describe('RequirementSectionBody', () => {
     );
     expect(html).toContain('미제출');
     expect(html).toContain('올리기');
-    expect(html).toContain('제출 0/1 완료');
+    expect(html.replace(/<[^>]+>/g, '')).toContain('제출 0/1');
   });
 });

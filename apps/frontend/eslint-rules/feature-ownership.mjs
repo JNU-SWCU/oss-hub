@@ -41,7 +41,7 @@ export const programEntries = {
   ],
   documents: [
     'queries',
-    'components/milestone-row',
+    'components/program-milestone-timeline',
     'requirement-dto',
     'requirement-editor',
     'requirement-editor-flow',
