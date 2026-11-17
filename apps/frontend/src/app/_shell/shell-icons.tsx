@@ -34,6 +34,12 @@ const ICON_PATHS = {
       <path d="M18 20a6 6 0 0 0-2-4.5" />
     </>
   ),
+  person: (
+    <>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+    </>
+  ),
   inbox: (
     <>
       <path d="M3 13h5l2 3h4l2-3h5" />

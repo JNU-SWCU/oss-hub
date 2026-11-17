@@ -41,7 +41,7 @@ const happyDomTests = [
   'src/features/dashboard/{pending-invite-reach.test.tsx,student-dashboard-screen.test.tsx,student-dashboard-sections.test.tsx}',
   'src/features/landing/cosmos/cosmos-interaction.test.ts',
   'src/features/landing/{landing-focus.test.ts,landing-journey-focus.test.tsx,landing-reveal.test.tsx}',
-  'src/features/profile/{profile-onboarding-consent.test.tsx,profile-onboarding-screen.test.tsx}',
+  'src/features/profile/{my-profile-screen.test.tsx,profile-onboarding-consent.test.tsx,profile-onboarding-screen.test.tsx}',
   'src/features/profile/settings/account-deactivation-section.test.tsx',
   'src/features/programs/applications/{application-confirmation-dialog.test.tsx,application-decision-dialog.test.tsx,application-team-departure.test.tsx,program-apply-invitation-search.test.tsx,program-apply-page-initialization.test.tsx,program-apply-page.test.tsx,student-rejection-reach.test.tsx}',
   'src/features/programs/catalog/{program-detail-anchor-scroll.test.tsx,program-detail-page.test.tsx,program-detail-summary.interaction.test.tsx,program-human-first-contract.test.tsx,program-list-page.test.tsx}',

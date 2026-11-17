@@ -5,10 +5,12 @@ import { createTestQueryClient, renderWithQuery } from './render-with-query';
 import { StaffInsightsScreen } from '@/features/staff-insights/staff-insights-screen';
 import { SystemStatusScreen } from '@/features/system-status/components/system-status-screen';
 import { MyRepositoriesScreen } from '@/features/repositories/components/my-repositories-screen';
+import { MyProfileScreen } from '@/features/profile/components/my-profile-screen';
 import { PublicProfileView } from '@/features/profile/components/public-profile-view';
 import { ProjectDetailView } from '@/features/projects/components/project-detail-view';
 import { ActivityGraphContent } from '@/features/programs/catalog/components/activity-graph-panel';
 import type { PublicProfile } from '@/features/profile/public-profile-types';
+import type { UserProfile } from '@/features/profile/types';
 import type { ProjectDetail } from '@/features/projects/types';
 import type { StaffInsightsViewState } from '@/features/staff-insights/staff-insights-view';
 import type { MyRepositoriesState } from '@/features/repositories/types';
@@ -22,6 +24,7 @@ const api = vi.hoisted(() => ({
   system: vi.fn(),
   repositories: vi.fn(),
   profile: vi.fn(),
+  myProfile: vi.fn(),
   project: vi.fn(),
   activity: vi.fn(),
 }));
@@ -42,6 +45,10 @@ vi.mock('@/features/profile/public-profile-api', async (importOriginal) => ({
     typeof import('@/features/profile/public-profile-api')
   >()),
   loadPublicProfile: api.profile,
+}));
+vi.mock('@/features/profile/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/profile/api')>()),
+  getMyProfile: api.myProfile,
 }));
 vi.mock('@/features/projects/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/projects/api')>()),
@@ -100,6 +107,17 @@ const profile: PublicProfile = {
   projects: [],
   observedTotals: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
 };
+const myProfile: UserProfile = {
+  githubLogin: 'query-user',
+  memberKind: 'STAFF',
+  name: 'query-name',
+  studentId: null,
+  staffNumber: null,
+  department: null,
+  phone: null,
+  isComplete: true,
+  participations: [],
+};
 const project: ProjectDetail = {
   projectId: 'project-1',
   programId: 'program-1',
@@ -157,6 +175,13 @@ const cases = [
     load: api.profile,
     data: profile,
     ready: 'h1',
+  },
+  {
+    name: 'my-profile',
+    render: () => <MyProfileScreen />,
+    load: api.myProfile,
+    data: myProfile,
+    ready: '[data-slot="user-profile-card"]',
   },
   {
     name: 'project',

@@ -1,9 +1,15 @@
 import type { NavItem } from '@/components';
 
+const MY_PROFILE_MENU: NavItem = {
+  label: '내 정보',
+  href: '/dashboard/me',
+};
+
 export const STUDENT_MENU: NavItem[] = [
   { label: '내 대시보드', href: '/dashboard' },
   { label: '내 저장소', href: '/my-repos' },
   { label: '내 활동', href: '/dashboard/activity' },
+  MY_PROFILE_MENU,
 ];
 
 const ACCESS_REQUEST_MENU: NavItem = {
@@ -15,6 +21,7 @@ export const STAFF_MENU: NavItem[] = [
   { label: '운영 대시보드', href: '/dashboard' },
   { label: '인사이트', href: '/dashboard/insights' },
   ACCESS_REQUEST_MENU,
+  MY_PROFILE_MENU,
 ];
 
 export const ADMIN_SYSTEM_MENU: NavItem[] = [
@@ -26,4 +33,5 @@ export const ADMIN_SYSTEM_MENU: NavItem[] = [
 export const ADMIN_MENU: NavItem[] = [
   ...ADMIN_SYSTEM_MENU,
   ACCESS_REQUEST_MENU,
+  MY_PROFILE_MENU,
 ];
