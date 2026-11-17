@@ -227,7 +227,7 @@ it('중복 학번은 DDL과 쓰기를 모두 롤백하고 legacy 데이터를 �
 
   await expect(upgrade).rejects.toMatchObject({
     code: 'P2010',
-    meta: { code: '23505' },
+    meta: { driverAdapterError: { cause: { originalCode: '23505' } } },
   });
   await expect(readLegacyRows()).resolves.toEqual(before);
   await expect(userProfileTableExists()).resolves.toBe(false);

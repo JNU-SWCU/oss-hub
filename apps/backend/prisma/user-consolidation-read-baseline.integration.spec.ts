@@ -1,4 +1,6 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { legacyRead } from './user-consolidation-legacy-read.fixture';
 import {
@@ -18,7 +20,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaClient({
-  datasources: { db: { url: legacyDatabaseUrl } },
+  adapter: new PrismaPg(loadPrismaPoolConfig(legacyDatabaseUrl)),
   log: [{ emit: 'event', level: 'query' }],
 });
 const queries: string[] = [];

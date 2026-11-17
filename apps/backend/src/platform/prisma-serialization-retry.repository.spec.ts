@@ -23,8 +23,14 @@ function rawSerializationFailure(): Prisma.PrismaClientKnownRequestError {
       code: 'P2010',
       clientVersion: 'test',
       meta: {
-        code: '40001',
-        message: 'could not serialize access due to concurrent update',
+        driverAdapterError: {
+          cause: {
+            originalCode: '40001',
+            originalMessage:
+              'could not serialize access due to concurrent update',
+            kind: 'TransactionWriteConflict',
+          },
+        },
       },
     },
   );
@@ -36,7 +42,15 @@ function rawSyntaxFailure(): Prisma.PrismaClientKnownRequestError {
     {
       code: 'P2010',
       clientVersion: 'test',
-      meta: { code: '42601', message: 'syntax error at or near "SELCT"' },
+      meta: {
+        driverAdapterError: {
+          cause: {
+            originalCode: '42601',
+            originalMessage: 'syntax error at or near "SELCT"',
+            kind: 'postgres',
+          },
+        },
+      },
     },
   );
 }

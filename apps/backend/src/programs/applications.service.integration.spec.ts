@@ -8,11 +8,14 @@ import {
   ProgramLifecycle,
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
+  PrismaClient,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { ApplicationsErrorCode } from './teams.error';
 import {
   ApplicationsRepository,
@@ -395,11 +398,11 @@ describe('TeamApplicationService integration', () => {
           description: 'synthetic-description',
         },
       });
-      const databaseUrl = new URL(process.env.DATABASE_URL ?? '');
-      databaseUrl.searchParams.set('connection_limit', '1');
-      const applicantPrisma = new PrismaService({
-        datasources: { db: { url: databaseUrl.toString() } },
-      });
+      const applicantPrisma = new PrismaClient({
+        adapter: new PrismaPg(
+          loadPrismaPoolConfig(process.env.DATABASE_URL, 1),
+        ),
+      }) as unknown as PrismaService;
       const applicantService = new TeamApplicationService(
         new ApplicationsRepository(
           applicantPrisma,
@@ -647,11 +650,11 @@ describe('TeamApplicationService integration', () => {
           data: { teamId, programId, userId: 'synthetic-decision-member' },
         });
       }
-      const url = new URL(process.env.DATABASE_URL ?? '');
-      url.searchParams.set('connection_limit', '1');
-      const approvalPrisma = new PrismaService({
-        datasources: { db: { url: url.toString() } },
-      });
+      const approvalPrisma = new PrismaClient({
+        adapter: new PrismaPg(
+          loadPrismaPoolConfig(process.env.DATABASE_URL, 1),
+        ),
+      }) as unknown as PrismaService;
       const approvalService = new TeamApplicationService(
         new ApplicationsRepository(
           approvalPrisma,

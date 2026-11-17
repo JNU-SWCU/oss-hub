@@ -27,7 +27,7 @@ import { LockProgramTreeRepository } from '../platform/lock-program-tree.reposit
 import { FileLifecycle, Prisma } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
-import { type UnwrapTuple } from '@prisma/client/runtime/library';
+import { type UnwrapTuple } from '@prisma/client/runtime/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramErrorCode } from './programs.error';
 import {

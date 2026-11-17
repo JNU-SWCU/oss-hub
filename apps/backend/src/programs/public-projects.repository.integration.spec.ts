@@ -9,6 +9,8 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { PublicProjectsRepository } from './public-projects.repository';
 import {
   deleteRepos,
@@ -360,6 +362,7 @@ describe('PublicProjectsRepository integration', () => {
 
   it('N+1 회귀 가드(실 DB) — pageSize가 5에서 40으로 늘어도 listPage는 정확히 1개 쿼리만 낸다', async () => {
     const queryLogClient = new PrismaClient({
+      adapter: new PrismaPg(loadPrismaPoolConfig()),
       log: [{ emit: 'event', level: 'query' }],
     });
     await queryLogClient.$connect();
