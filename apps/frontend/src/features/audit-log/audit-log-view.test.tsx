@@ -154,4 +154,17 @@ describe('AuditLogView', () => {
       '관리자 회원 유형 변경 박샘플 학생 → 교직원',
     );
   });
+
+  it('lets the actor cell and its second line wrap below sm without changing the shared cell', () => {
+    const html = render({ view: 'table' });
+    const actorCell = html.match(
+      /<td data-slot="table-cell" class="([^"]*)"><div class="flex min-w-0 flex-col gap-1">/,
+    );
+
+    expect(actorCell?.[1]).toContain('whitespace-normal');
+    expect(actorCell?.[1]).toContain('sm:whitespace-nowrap');
+    expect(html).toMatch(
+      /data-slot="audit-row-detail" class="[^"]*break-keep [^"]*\[overflow-wrap:anywhere\][^"]*sm:hidden/,
+    );
+  });
 });

@@ -101,7 +101,10 @@ function sortableColumn(
         : 'none',
     },
     headClassName: cn('whitespace-nowrap', visibility),
-    cellClassName: cn('align-top sm:whitespace-nowrap', visibility),
+    cellClassName: cn(
+      'align-top whitespace-normal sm:whitespace-nowrap',
+      visibility,
+    ),
     cell,
   };
 }
@@ -136,7 +139,7 @@ export function AuditLogTable({
         <AuditLogActor record={record} />
         <div
           data-slot="audit-row-detail"
-          className="flex flex-col gap-0.5 text-xs leading-relaxed sm:hidden"
+          className="flex min-w-0 flex-col gap-0.5 text-xs leading-relaxed break-keep [overflow-wrap:anywhere] sm:hidden"
         >
           <span className="flex flex-wrap items-baseline gap-x-1">
             <AuditLogRole record={record} />
