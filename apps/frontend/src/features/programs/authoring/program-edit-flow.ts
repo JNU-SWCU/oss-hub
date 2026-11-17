@@ -12,7 +12,11 @@ import type {
   UpsertMilestoneInput,
 } from './dto';
 import { isProgramEndAtUndecided } from './program-end-at';
-import { teamSizeValue } from './program-team-size';
+import {
+  TEAM_MAX_SIZE_MESSAGE,
+  TEAM_MIN_SIZE_MESSAGE,
+  teamSizeValue,
+} from './program-team-size';
 import {
   programOrganizersError,
   type ProgramTrackType,
@@ -510,8 +514,16 @@ function mapProblemFieldErrors(
         errors.endAt = fieldError.message;
         break;
       case 'teamMinSize':
+        errors.team =
+          fieldError.code === 'INVALID_TEAM_RANGE'
+            ? TEAM_MIN_SIZE_MESSAGE
+            : fieldError.message;
+        break;
       case 'teamMaxSize':
-        errors.team = fieldError.message;
+        errors.team =
+          fieldError.code === 'INVALID_TEAM_RANGE'
+            ? TEAM_MAX_SIZE_MESSAGE
+            : fieldError.message;
         break;
       case 'description':
         errors.description = fieldError.message;

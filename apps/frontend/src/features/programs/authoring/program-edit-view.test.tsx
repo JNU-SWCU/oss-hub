@@ -9,6 +9,7 @@ function renderToStaticMarkup(element: React.ReactNode) {
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/api-client';
 import type { EditableProgram } from './dto';
 import {
   buildProgramEditInput,
@@ -366,6 +367,48 @@ describe('ProgramEditView contract', () => {
 
     expect(createFormMessage).toBe('운영 종료를 입력해 주세요.');
     expect(mapProgramEditError(error).endAt).toBe(createFormMessage);
+  });
+
+  it('maps server team range field errors to the create-form wording by field and code', () => {
+    const createFormMessage = (
+      path: string,
+      sizes: { readonly teamMinSize: string; readonly teamMaxSize: string },
+    ) =>
+      validateProgramAuthoringStep(
+        { ...completedAuthoringState(), ...sizes },
+        'basic',
+      ).find((issue) => issue.path === path)?.message;
+    const maxMessage = createFormMessage('teamMaxSize', {
+      teamMinSize: '8',
+      teamMaxSize: '5',
+    });
+    const minMessage = createFormMessage('teamMinSize', {
+      teamMinSize: '0',
+      teamMaxSize: '5',
+    });
+    const teamRangeError = (fields: readonly string[]) =>
+      new ApiError({
+        type: 'about:blank',
+        title: 'BAD_REQUEST',
+        status: 400,
+        detail: '프로그램 입력값이 올바르지 않습니다.',
+        instance: '/programs/program-1',
+        code: 'PRG_001',
+        fieldErrors: fields.map((field) => ({
+          field,
+          code: 'INVALID_TEAM_RANGE',
+          message: 'Synthetic server message.',
+        })),
+      });
+
+    expect(maxMessage).toBeDefined();
+    expect(minMessage).toBeDefined();
+    expect(
+      mapProgramEditError(teamRangeError(['teamMinSize', 'teamMaxSize'])).team,
+    ).toBe(maxMessage);
+    expect(mapProgramEditError(teamRangeError(['teamMinSize'])).team).toBe(
+      minMessage,
+    );
   });
 
   it('rejects moving program start after an existing milestone start on startAt', () => {
