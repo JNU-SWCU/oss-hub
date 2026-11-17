@@ -261,7 +261,7 @@ jobs:
     name: verify
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: 체크아웃
         uses: actions/checkout@v4
@@ -327,7 +327,7 @@ jobs:
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
         run: pnpm test:verify
 
-      - name: 스코프별 verify (secrets, URL IA 보고, API 계약)
+      - name: 스코프별 verify (secrets, URL IA 보고, API 계약, 쿼리 게이트)
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node verify/index.mjs scoped

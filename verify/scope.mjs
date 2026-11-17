@@ -19,6 +19,13 @@ const BOTH_PATTERNS = [
   /^\.github\/workflows\//,
 ];
 
+const QUERY_GATE_PATTERNS = [
+  /^apps\/backend\/src\/.*\.(repository|service)\.ts$/,
+  /^apps\/backend\/prisma\//,
+  /^apps\/backend\/test\//,
+  /^apps\/backend\/eslint-rules\//,
+];
+
 export function classifyFiles(files) {
   const both = files.some((file) =>
     BOTH_PATTERNS.some((pattern) => pattern.test(file)),
@@ -26,6 +33,11 @@ export function classifyFiles(files) {
   return {
     frontend: both || files.some((file) => file.startsWith('apps/frontend/')),
     backend: both || files.some((file) => file.startsWith('apps/backend/')),
+    queryGates:
+      both ||
+      files.some((file) =>
+        QUERY_GATE_PATTERNS.some((pattern) => pattern.test(file)),
+      ),
     both,
     securityAlways: true,
   };

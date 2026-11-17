@@ -13,6 +13,7 @@ test('classifyFiles applies the D1 scope table', () => {
   assert.deepEqual(classifyFiles(['apps/frontend/src/app/page.tsx']), {
     frontend: true,
     backend: false,
+    queryGates: false,
     both: false,
     securityAlways: true,
   });
@@ -33,6 +34,7 @@ test('classifyFiles applies the D1 scope table', () => {
   assert.deepEqual(docs, {
     frontend: false,
     backend: false,
+    queryGates: false,
     both: false,
     securityAlways: true,
   });

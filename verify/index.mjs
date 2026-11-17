@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { checkApi } from './api.mjs';
 import { createCiApproval } from './approval.mjs';
 import { checkFull } from './full.mjs';
+import { checkQueryGates } from './query-gates.mjs';
 import { detectSource, resolveScope } from './scope.mjs';
 import { checkSecrets } from './secrets.mjs';
 import { REPO_ROOT, formatFinding, isEntry } from './tools.mjs';
@@ -12,6 +13,7 @@ const CHECKS = {
   secrets: (context) => checkSecrets(context),
   'url-ia': (context) => checkUrlIa(context),
   api: (context) => checkApi(context),
+  'query-gates': (context) => checkQueryGates(context),
   cwv: () => checkFull({}),
 };
 
@@ -29,8 +31,8 @@ function writeReport(reportDir, name, ranges, payload) {
 
 const COMMANDS = {
   frontend: ['secrets', 'url-ia'],
-  backend: ['secrets', 'api'],
-  full: ['secrets', 'url-ia', 'api', 'cwv'],
+  backend: ['secrets', 'api', 'query-gates'],
+  full: ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'],
   'url-ia': ['url-ia'],
 };
 
@@ -41,9 +43,11 @@ function scopedChecks(scope) {
   return [
     'secrets',
     ...(scope.frontend ? ['url-ia'] : []),
-    ...(scope.backend ? ['api'] : []),
+    ...(scope.backend ? ['api', 'query-gates'] : []),
   ];
 }
+
+const SCOPE_GATED = { 'query-gates': 'queryGates' };
 
 export async function main(
   argv,
@@ -94,7 +98,16 @@ export async function main(
     );
     return 0;
   }
-  const checks = command === 'scoped' ? scopedChecks(scope) : COMMANDS[command];
+  const requested =
+    command === 'scoped' ? scopedChecks(scope) : COMMANDS[command];
+  const checks = requested.filter(
+    (name) => !SCOPE_GATED[name] || scope[SCOPE_GATED[name]],
+  );
+  for (const name of requested.filter((item) => !checks.includes(item))) {
+    console.log(
+      `SKIP ${name}: no backend repository, service, prisma or test change in range`,
+    );
+  }
   console.log(
     `verify ${command} (${source}): ${scope.ranges.map((range) => `${range.base.slice(0, 9)}..${range.head.slice(0, 9)}`).join(', ')}; checks: ${checks.join(', ')}`,
   );

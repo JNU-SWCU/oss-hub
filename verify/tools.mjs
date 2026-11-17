@@ -21,6 +21,7 @@ export const REDOCLY_PACKAGE = '@redocly/cli@2.79.0';
 
 const VERIFY_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1907';
 const URL_RULES_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1859';
+const QUERY_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1909';
 
 export const RULE_SOURCES = {
   'secrets-gitleaks': 'https://github.com/gitleaks/gitleaks',
@@ -37,6 +38,8 @@ export const RULE_SOURCES = {
   'url-ia-duplicate-screen':
     'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
   'url-ia-allowlist-stale': URL_RULES_ISSUE,
+  'query-lint': QUERY_ISSUE,
+  'query-growth': QUERY_ISSUE,
   'cwv-run-failed':
     'https://github.com/GoogleChrome/lighthouse/blob/main/docs/variability.md',
 };
