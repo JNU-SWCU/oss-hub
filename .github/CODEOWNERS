@@ -3,6 +3,7 @@
 /.design-sync/contract.test.mjs @GoBeromsu
 /.githooks/pre-commit.test.sh    @GoBeromsu
 /dev.sh                        @GoBeromsu
+/verify/                       @GoBeromsu
 
 /apps/backend/src/auth/ @GoBeromsu
 /apps/backend/prisma/   @GoBeromsu
