@@ -3,7 +3,6 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import {
   AdminAccessResponseError,
   fetchAdminAccessDetail,
-  fetchAdminAccessFacets,
   fetchAdminAccessHistory,
   fetchAdminAccessList,
   fetchAdminAccessRequests,
@@ -25,9 +24,7 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 const facets = () => ({
-  roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
-  accountStatuses: { active: 2, deactivated: 0 },
-  pendingRequests: { none: 2, pending: 0 },
+  pendingRequests: { pending: 0 },
 });
 
 const listItem = () => ({
@@ -123,17 +120,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       await fetchAdminAccessList({});
 
       expect(apiClient).toHaveBeenCalledWith('users/access', undefined);
-    });
-
-    it('facets 조회는 users/access/facets에 같은 필터 query를 붙인다', async () => {
-      vi.mocked(apiClient).mockResolvedValue(facets());
-
-      await fetchAdminAccessFacets({ role: 'ADMIN' });
-
-      expect(apiClient).toHaveBeenCalledWith(
-        'users/access/facets?role=ADMIN',
-        undefined,
-      );
     });
 
     it('상세 조회는 대상 ID를 인코딩해 users/:id/access를 호출한다', async () => {

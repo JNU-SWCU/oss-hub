@@ -327,7 +327,14 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
         ]),
       );
     }
-    const beforeRanking = await ranking.findMetrics({ currentYear: 2026 });
+    const NOW_FOR_RANKING = new Date();
+    const beforeRanking = await ranking
+      .findRankedPage(
+        { currentYear: 2026 },
+        { offset: 0, limit: 10_000 },
+        NOW_FOR_RANKING,
+      )
+      .then((page) => page.rows);
     expect(beforeRanking).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ githubId, commitCount: 7 }),
@@ -371,9 +378,15 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     expect(await repositoryContributionTotals(prisma, [oldGithubId])).toEqual(
       beforeContributions,
     );
-    expect(await ranking.findMetrics({ currentYear: 2026 })).toEqual(
-      beforeRanking,
-    );
+    expect(
+      await ranking
+        .findRankedPage(
+          { currentYear: 2026 },
+          { offset: 0, limit: 10_000 },
+          NOW_FOR_RANKING,
+        )
+        .then((page) => page.rows),
+    ).toEqual(beforeRanking);
   },
 );
 

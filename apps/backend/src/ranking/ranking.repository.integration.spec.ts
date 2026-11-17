@@ -156,9 +156,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
+describe('RankingRepository 순위 행 — canonical STUDENT 경계', () => {
   it('학생과 학생 관리자만 집계 행으로 나온다', async () => {
-    const rows = await repository.findMetrics({ currentYear: YEAR });
+    const rows = await rankingMetrics(repository, { currentYear: YEAR });
 
     expect(
       rows
@@ -169,7 +169,7 @@ describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
   });
 
   it('교직원·교직원 관리자·미지정·프로필 없음은 연도 무관 조회에서도 빠진다', async () => {
-    const rows = await repository.findMetrics({});
+    const rows = await rankingMetrics(repository, {});
 
     const excluded = MEMBERS.filter(
       (member) => member.memberKind !== MemberKind.STUDENT,
@@ -181,7 +181,7 @@ describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
   });
 
   it('학생 행의 지표·학과는 기존 계약 그대로 실린다', async () => {
-    const rows = await repository.findMetrics({ currentYear: YEAR });
+    const rows = await rankingMetrics(repository, { currentYear: YEAR });
 
     expect(rows.find((row) => row.githubLogin === `${PREFIX}-student`)).toEqual(
       {
@@ -198,7 +198,7 @@ describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
   });
 });
 
-describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
+describe('RankingRepository 순위 행 — PRIVATE 행 합산', () => {
   it('PRIVATE 행이 있는 학생만 필드별 합산되고 별은 PUBLIC 값이다', async () => {
     await prisma.githubUserActivityObservation.create({
       data: {
@@ -214,7 +214,7 @@ describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
       },
     });
 
-    const rows = await repository.findMetrics({ currentYear: YEAR });
+    const rows = await rankingMetrics(repository, { currentYear: YEAR });
     await prisma.githubUserActivityObservation.deleteMany({
       where: { githubId: 8_961_000_000_001n, visibility: 'PRIVATE' },
     });
@@ -383,3 +383,24 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
     expect(items.every((item) => 'name' in item)).toBe(true);
   });
 });
+
+async function rankingMetrics(
+  repository: RankingRepository,
+  query: Parameters<RankingRepository['findRankedPage']>[0],
+) {
+  const { rows } = await repository.findRankedPage(
+    query,
+    { offset: 0, limit: 10_000 },
+    new Date(),
+  );
+  return rows.map((row) => ({
+    githubId: row.githubId,
+    githubLogin: row.githubLogin,
+    department: row.department,
+    commitCount: row.commitCount,
+    pullRequestCount: row.pullRequestCount,
+    issueCount: row.issueCount,
+    repositoryCount: row.repositoryCount,
+    starCount: row.starCount,
+  }));
+}

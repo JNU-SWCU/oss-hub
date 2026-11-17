@@ -235,9 +235,7 @@ function serviceHarness() {
       limit: 20,
       total: 0,
       facets: {
-        roles: { unassigned: 0, student: 0, staff: 0, admin: 0 },
-        accountStatuses: { active: 0, deactivated: 0 },
-        pendingRequests: { none: 0, pending: 0 },
+        pendingRequests: { pending: 0 },
       },
     }),
     get: jest.fn().mockResolvedValue({}),

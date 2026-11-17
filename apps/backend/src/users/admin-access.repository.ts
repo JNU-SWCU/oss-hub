@@ -71,13 +71,6 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     );
   }
 
-  facets(query: AdminAccessListQuery) {
-    return this.adminAccessReadRepository.listAdminAccessFacets(
-      this.prisma,
-      query,
-    );
-  }
-
   findById(userId: string) {
     return this.adminAccessReadRepository.findAdminAccessUserById(
       this.prisma,

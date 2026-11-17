@@ -12,62 +12,7 @@ export interface StandingFilter {
   readonly visibility: ActivityVisibility | null;
 }
 
-export interface StandingRow {
-  readonly githubId: bigint;
-  readonly year: number;
-  readonly visibility: ActivityVisibility;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-}
-
-interface StandingSqlRow {
-  readonly githubId: bigint;
-  readonly year: number;
-  readonly visibility: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-}
-
 const STANDING = Prisma.raw(STANDING_SQL);
-
-const STANDING_COLUMNS = Prisma.raw(`
-  github_id AS "githubId",
-  year,
-  visibility::text AS visibility,
-  commit_count AS "commitCount",
-  pull_request_count AS "pullRequestCount",
-  issue_count AS "issueCount",
-  repository_count AS "repositoryCount",
-  star_count AS "starCount"
-`);
-
-function visibilityOf(value: string): ActivityVisibility {
-  if (value === ActivityVisibility.PUBLIC) return ActivityVisibility.PUBLIC;
-  if (value === ActivityVisibility.PRIVATE) return ActivityVisibility.PRIVATE;
-  throw new Error(`Unexpected activity visibility: ${value}`);
-}
-
-function standingRow(row: StandingSqlRow): StandingRow {
-  if (typeof row.githubId !== 'bigint') {
-    throw new Error('Standing github id was not a bigint');
-  }
-  return {
-    githubId: row.githubId,
-    year: row.year,
-    visibility: visibilityOf(row.visibility),
-    commitCount: row.commitCount,
-    pullRequestCount: row.pullRequestCount,
-    issueCount: row.issueCount,
-    repositoryCount: row.repositoryCount,
-    starCount: row.starCount,
-  };
-}
 
 function standingWhere(filter: StandingFilter): Prisma.Sql {
   const predicates: Prisma.Sql[] = [];
@@ -84,58 +29,6 @@ function standingWhere(filter: StandingFilter): Prisma.Sql {
 @Injectable()
 export class ContributorReadRepository {
   constructor(private readonly prisma: PrismaService) {}
-
-  async readStandingRows(
-    filter: StandingFilter,
-  ): Promise<readonly StandingRow[]> {
-    const rows = await boundedReads.readCapped(
-      READ_CAP.standingRows,
-      'Standing rows',
-      (take) =>
-        this.prisma.$queryRaw<StandingSqlRow[]>`
-      SELECT ${STANDING_COLUMNS}
-      FROM ${STANDING}
-      ${standingWhere(filter)}
-      LIMIT ${take}
-    `,
-    );
-    return rows.map(standingRow);
-  }
-
-  async readRowsBefore(
-    filter: StandingFilter,
-    before: Date,
-  ): Promise<readonly StandingRow[]> {
-    const rows = await boundedReads.readCapped(
-      READ_CAP.standingRows,
-      'Standing rows before',
-      (take) =>
-        this.prisma.$queryRaw<StandingSqlRow[]>`
-      SELECT ${STANDING_COLUMNS}
-      FROM (
-        SELECT DISTINCT ON (observation.github_id, observation.year, observation.visibility)
-          observation.github_id,
-          observation.year,
-          observation.visibility,
-          observation.commit_count,
-          observation.pull_request_count,
-          observation.issue_count,
-          observation.repository_count,
-          observation.star_count
-        FROM github_user_activity_history AS observation
-        WHERE observation.observed_at < ${before}
-        ORDER BY
-          observation.github_id,
-          observation.year,
-          observation.visibility,
-          observation.observed_at DESC
-      ) AS previous
-      ${standingWhere(filter)}
-      LIMIT ${take}
-    `,
-    );
-    return rows.map(standingRow);
-  }
 
   async readStandingYears(filter: StandingFilter): Promise<readonly number[]> {
     const rows = await boundedReads.readCapped(

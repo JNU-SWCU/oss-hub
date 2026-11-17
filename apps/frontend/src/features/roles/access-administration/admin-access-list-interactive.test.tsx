@@ -457,11 +457,7 @@ describe.each(['directory', 'queue'] as const)(
         page: 1,
         limit: 20,
         total,
-        facets: {
-          roles: { unassigned: 0, student: 0, staff: total, admin: 0 },
-          accountStatuses: { active: total, deactivated: 0 },
-          pendingRequests: { none: total, pending: 0 },
-        },
+        facets: { pendingRequests: { pending: 0 } },
       });
     }
 

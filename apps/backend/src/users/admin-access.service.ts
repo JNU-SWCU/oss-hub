@@ -14,7 +14,6 @@ import {
   type AdminAccessUserRecord,
 } from './admin-access-read.repository';
 import {
-  type AdminAccessFacets,
   type AdminAccessHistoryQuery,
   type AdminAccessListQuery,
   type AdminAccessPendingFilter,
@@ -164,14 +163,6 @@ export class AdminAccessService {
     const mayReadParticipations =
       this.adminAccessMutationService.isAdminActor(actor) || detail.isSelf;
     return mayReadParticipations ? detail : { ...detail, participations: null };
-  }
-
-  async facets(
-    principal: AdminAccessPrincipal,
-    request: AdminAccessListRequest,
-  ): Promise<AdminAccessFacets> {
-    this.adminAccessMutationService.requireActiveAdmin(principal);
-    return this.repository.facets(this.listQueryFromRequest(request));
   }
 
   getFromRequest(

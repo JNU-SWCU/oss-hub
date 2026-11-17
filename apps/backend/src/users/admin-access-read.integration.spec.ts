@@ -122,9 +122,7 @@ it('uses DB pagination and computes each facet against the other active filters'
   expect(page.items[0]?.id).toBe(`${prefix}staff-pending`);
   expect(page.total).toBe(2);
   expect(page.facets).toEqual({
-    roles: { unassigned: 2, student: 0, staff: 0, admin: 0 },
-    accountStatuses: { active: 2, deactivated: 1 },
-    pendingRequests: { none: 1, pending: 2 },
+    pendingRequests: { pending: 2 },
   });
 });
 it('derives lastLoginAt from the latest successful LOGIN and preserves null', async () => {

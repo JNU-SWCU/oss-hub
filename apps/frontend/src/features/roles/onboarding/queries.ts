@@ -30,9 +30,6 @@ export function useStaffRoleRequestMutation() {
         client.invalidateQueries({
           queryKey: featureKey('admin-access', 'list'),
         }),
-        client.invalidateQueries({
-          queryKey: featureKey('admin-access', 'facets'),
-        }),
       ]);
     },
   });

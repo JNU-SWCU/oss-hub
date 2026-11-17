@@ -516,11 +516,6 @@
   { "method": "GET", "path": "/api/v1/users/access", "access": "PROTECTED" },
   {
     "method": "GET",
-    "path": "/api/v1/users/access/facets",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
     "path": "/api/v1/users/access/requests",
     "access": "PROTECTED"
   },

@@ -27,7 +27,6 @@ export const READ_CAP = {
   reviewHistoryPerTeam: 100,
   admins: 100,
   activityYears: 100,
-  standingRows: 10_000,
   contributionRows: 50_000,
   activityPointsPerTeam: MEMBERS_PER_TEAM * 366,
   departments: 200,

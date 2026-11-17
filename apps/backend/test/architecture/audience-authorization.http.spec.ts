@@ -170,11 +170,6 @@ const routes: readonly RouteCase[] = [
   },
   {
     method: 'GET',
-    path: 'users/access/facets',
-    statuses: [200, 200, 403, 403, 401, 401, 401, 401],
-  },
-  {
-    method: 'GET',
     path: 'users/user-1/access',
     statuses: [404, 404, 404, 403, 401, 401, 401, 401],
   },
@@ -260,7 +255,7 @@ describe('Audience authorization HTTP characterization', () => {
           accountStatus: actor.accountStatus,
         };
   const findActor = () => Promise.resolve(actorRow());
-  const facets = { roles: [], accountStatuses: [], pendingRequests: [] };
+  const facets = { pendingRequests: { pending: 0 } };
   const emptyPage = { items: [], page: 1, limit: 20, total: 0, facets };
   const transactionStore = {
     userHistoryWriter: {},
@@ -556,8 +551,8 @@ describe('Audience authorization HTTP characterization', () => {
     await app.close();
   });
 
-  it('covers 18 routes for 8 roles', () => {
-    expect(routes).toHaveLength(18);
+  it('covers 17 routes for 8 roles', () => {
+    expect(routes).toHaveLength(17);
     expect(roles).toHaveLength(8);
   });
 

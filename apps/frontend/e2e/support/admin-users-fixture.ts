@@ -275,9 +275,7 @@ export const adminUsersListPage = {
   limit: ADMIN_USERS_PAGE_LIMIT,
   total: ADMIN_USERS_TOTAL,
   facets: {
-    roles: { unassigned: 2, student: 27, staff: 8, admin: 4 },
-    accountStatuses: { active: 39, deactivated: 2 },
-    pendingRequests: { none: 38, pending: 3 },
+    pendingRequests: { pending: 3 },
   },
 };
 

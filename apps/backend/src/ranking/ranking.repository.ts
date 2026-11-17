@@ -1,5 +1,3 @@
-import { READ_CAP } from '../platform/bounded-read.config';
-import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, UserType } from '@prisma/client';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
@@ -9,8 +7,6 @@ import {
   USER_AUTHORITY_SELECT,
   USER_PROFILE_NAME_SELECT,
 } from '../platform/user-profile-read.config';
-
-const boundedReads = new BoundedReadRepository();
 
 export type RankingRepositoryViewerClass = 'public' | 'member' | 'staff';
 
@@ -261,32 +257,6 @@ export class RankingRepository {
       return 'staff';
     }
     return 'member';
-  }
-
-  async findMetrics(
-    query: RankingMetricsQuery,
-  ): Promise<readonly RankingMetricRow[]> {
-    return boundedReads.readCapped(
-      READ_CAP.standingRows,
-      'Ranking metrics',
-      (take) =>
-        this.prisma.$queryRaw<RankingMetricRow[]>`
-      WITH folded AS (${foldedActivity(currentRows(query))})
-      SELECT
-        member."githubId" AS "githubId",
-        member.login AS "githubLogin",
-        member.department,
-        COALESCE(folded.commit_count, 0)::int AS "commitCount",
-        COALESCE(folded.pull_request_count, 0)::int AS "pullRequestCount",
-        COALESCE(folded.issue_count, 0)::int AS "issueCount",
-        COALESCE(folded.repository_count, 0)::int AS "repositoryCount",
-        COALESCE(folded.star_count, 0)::int AS "starCount"
-      FROM "User" AS member
-      LEFT JOIN folded ON folded.github_id = member."githubId"
-      WHERE ${RANKING_MEMBER}
-      LIMIT ${take}
-    `,
-    );
   }
 
   async findRankedPage(

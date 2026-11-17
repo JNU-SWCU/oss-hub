@@ -95,11 +95,7 @@ describe('가입 신청(queue) 결정 — 권위 있는 응답으로만 갱신�
         queryKey: featureKey('admin-access', 'list', 'queue'),
         queryFn: fetchPending,
       });
-      const facets = useQuery({
-        queryKey: featureKey('admin-access', 'facets'),
-        queryFn: fetchPending,
-      });
-      return <output>{`pending:${list.data},facets:${facets.data}`}</output>;
+      return <output>{`pending:${list.data}`}</output>;
     }
     loadAdminAccessDetail.mockResolvedValue({
       detail: PENDING_DETAIL,
@@ -115,10 +111,10 @@ describe('가입 신청(queue) 결정 — 권위 있는 응답으로만 갱신�
         <AdminAccessDetailScreen userId="target" workspace="queue" />
       </>,
     );
-    expect(container.textContent).toContain('pending:1,facets:1');
+    expect(container.textContent).toContain('pending:1');
     await approve();
-    expect(container.textContent).toContain('pending:0,facets:0');
-    expect(fetchPending).toHaveBeenCalledTimes(4);
+    expect(container.textContent).toContain('pending:0');
+    expect(fetchPending).toHaveBeenCalledTimes(2);
     expect(loadAdminAccessDetail).toHaveBeenCalledTimes(1);
   });
 

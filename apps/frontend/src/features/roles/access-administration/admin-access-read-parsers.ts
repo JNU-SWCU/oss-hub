@@ -42,13 +42,6 @@ export function parseAdminAccessListPage(value: unknown): AdminAccessListPage {
   };
 }
 
-export function parseAdminAccessFacets(value: unknown): AdminAccessFacetCounts {
-  if (!isAdminAccessFacetCounts(value)) {
-    throw new AdminAccessResponseError();
-  }
-  return value;
-}
-
 export function parseAdminAccessDetail(value: unknown): AdminAccessDetail {
   if (!isRecord(value)) {
     throw new AdminAccessResponseError();

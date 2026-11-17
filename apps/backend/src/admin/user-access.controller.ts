@@ -19,7 +19,6 @@ import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
 import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
 import {
-  AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
   AdminAccessUserPageResponseDto,
   AdminProfileUpdateResponseDto,
@@ -42,7 +41,7 @@ export class UserAccessController {
     @Inject(AdminAccessService)
     private readonly service: Pick<
       AdminAccessService,
-      'list' | 'facets' | 'patchAccessFromRequest'
+      'list' | 'patchAccessFromRequest'
     >,
     @Inject(AdminProfileService)
     private readonly profileService: Pick<
@@ -70,18 +69,6 @@ export class UserAccessController {
   ): Promise<AdminAccessUserPageResponseDto> {
     return AdminAccessUserPageResponseDto.from(
       await this.service.list(request.principal, query),
-    );
-  }
-
-  @Get('access/facets')
-  @Header('Cache-Control', 'private, no-store')
-  @Protected()
-  async facets(
-    @Req() request: SessionIdentity,
-    @Query() query: AdminAccessListRequestDto,
-  ): Promise<AdminAccessFacetsResponseDto> {
-    return AdminAccessFacetsResponseDto.from(
-      await this.service.facets(request.principal, query),
     );
   }
 

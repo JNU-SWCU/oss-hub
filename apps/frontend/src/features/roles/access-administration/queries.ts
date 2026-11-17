@@ -52,9 +52,6 @@ export async function invalidateAdminAccess(
   await Promise.all([
     client.invalidateQueries({ queryKey: featureKey('admin-access', 'list') }),
     client.invalidateQueries({
-      queryKey: featureKey('admin-access', 'facets'),
-    }),
-    client.invalidateQueries({
       queryKey: adminAccessDetailKey(userId),
       refetchType: refetchDetail ? 'active' : 'none',
     }),

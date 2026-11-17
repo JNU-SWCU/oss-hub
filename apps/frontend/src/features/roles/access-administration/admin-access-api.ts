@@ -1,7 +1,6 @@
 import { apiClient, withQuery } from '@/lib/api-client';
 import type {
   AdminAccessDetail,
-  AdminAccessFacetCounts,
   AdminAccessHistory,
   AdminAccessHistoryParams,
   AdminAccessListPage,
@@ -13,7 +12,6 @@ import type {
 } from './admin-access-api-types';
 import {
   parseAdminAccessDetail,
-  parseAdminAccessFacets,
   parseAdminAccessHistory,
   parseAdminAccessListPage,
 } from './admin-access-read-parsers';
@@ -29,7 +27,6 @@ export type {
   AdminAccessConflictProjection,
   AdminAccessDecidedRequest,
   AdminAccessDetail,
-  AdminAccessFacetCounts,
   AdminAccessHistory,
   AdminAccessHistoryParams,
   AdminAccessListItem,
@@ -121,18 +118,6 @@ export async function fetchAdminAccessRequests(
     signal ? { signal } : undefined,
   );
   return parseAdminAccessListPage(value);
-}
-
-export async function fetchAdminAccessFacets(
-  params: AdminAccessListParams,
-  signal?: AbortSignal,
-): Promise<AdminAccessFacetCounts> {
-  const search = serializeAdminAccessListQuery(params);
-  const value = await apiClient<unknown>(
-    withQuery('users/access/facets', new URLSearchParams(search)),
-    signal ? { signal } : undefined,
-  );
-  return parseAdminAccessFacets(value);
 }
 
 export async function fetchAdminAccessDetail(

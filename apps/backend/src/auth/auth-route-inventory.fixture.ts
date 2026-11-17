@@ -155,7 +155,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/users/:id/access/history',
   'PUBLIC GET /api/v1/users/:userId/public-profile',
   'PROTECTED GET /api/v1/users/access',
-  'PROTECTED GET /api/v1/users/access/facets',
   'PROTECTED GET /api/v1/users/access/requests',
   'PROTECTED GET /api/v1/users/me/login-history',
   'PROTECTED GET /api/v1/users/me/notification-email',

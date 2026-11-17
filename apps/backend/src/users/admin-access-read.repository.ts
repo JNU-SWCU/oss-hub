@@ -336,7 +336,6 @@ export interface AdminAccessRepositoryPort {
     query: AdminAccessListQuery,
     sortContext?: 'directory' | 'requestQueue',
   ): Promise<AdminAccessUserPageRecord>;
-  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets>;
   findById(userId: string): Promise<AdminAccessUserDetailRow | null>;
   listStaffAccessRequestHistory(
     userId: string,

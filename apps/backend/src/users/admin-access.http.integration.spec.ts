@@ -45,15 +45,10 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
       loginAt,
     },
   });
-  const [list, facets, detail, history] = await Promise.all([
+  const [list, detail, history] = await Promise.all([
     harness.request(
       'GET',
       `/users/access?page=1&limit=1&query=${readQuery}&sort=createdAt&direction=asc`,
-      actor.githubId,
-    ),
-    harness.request(
-      'GET',
-      `/users/access/facets?query=${readQuery}`,
       actor.githubId,
     ),
     harness.request('GET', `/users/${target.id}/access`, actor.githubId),
@@ -63,22 +58,11 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
       actor.githubId,
     ),
   ]);
-  expect([list.status, facets.status, detail.status, history.status]).toEqual([
-    200, 200, 200, 200,
-  ]);
+  expect([list.status, detail.status, history.status]).toEqual([200, 200, 200]);
   await expect(list.json()).resolves.toMatchObject({
     items: [expect.objectContaining({ id: actor.id })],
     total: 2,
-    facets: {
-      roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
-      accountStatuses: { active: 2, deactivated: 0 },
-      pendingRequests: { none: 2, pending: 0 },
-    },
-  });
-  await expect(facets.json()).resolves.toMatchObject({
-    roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
-    accountStatuses: { active: 2, deactivated: 0 },
-    pendingRequests: { none: 2, pending: 0 },
+    facets: { pendingRequests: { pending: 0 } },
   });
   await expect(detail.json()).resolves.toMatchObject({
     id: target.id,
