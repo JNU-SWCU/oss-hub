@@ -650,3 +650,61 @@ describe('StaffInsightsRepository program scorecard', () => {
     );
   });
 });
+
+describe('StaffInsightsRepository leader candidates bound', () => {
+  const TIE_YEAR = 2112;
+  const TIE_BASE = 8_962_100_000_000n;
+  const tied = Array.from({ length: 12 }, (_, index) => ({
+    id: `staff-insights-it-tie-${String(index).padStart(2, '0')}`,
+    githubId: TIE_BASE + BigInt(index),
+    login: `insights-tie-${String(index).padStart(2, '0')}`,
+  }));
+
+  beforeAll(async () => {
+    await prisma.user.createMany({
+      data: tied.map((student) => ({
+        id: student.id,
+        githubId: student.githubId,
+        nickname: student.login,
+        type: 'STUDENT' as const,
+        name: '합성 동점',
+        department: '소프트웨어공학과',
+        departmentType: 'DEPARTMENT' as const,
+        profileCreatedAt: CUTOFF,
+        profileUpdatedAt: CUTOFF,
+      })),
+    });
+    await prisma.githubUserActivityObservation.createMany({
+      data: tied.map((student) => ({
+        githubId: student.githubId,
+        year: TIE_YEAR,
+        visibility: ActivityVisibility.PUBLIC,
+        commitCount: 3,
+        pullRequestCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        observedAt: new Date('2112-03-04T00:00:00.000Z'),
+      })),
+    });
+  });
+
+  afterAll(async () => {
+    const githubIds = tied.map((student) => student.githubId);
+    await prisma.githubUserActivityObservation.deleteMany({
+      where: { githubId: { in: githubIds } },
+    });
+    await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
+  });
+
+  it('returns at most ten tied leaders per list, ordered by login', async () => {
+    const rows = await repository.listPeriodLeaderCandidates(
+      { currentYear: TIE_YEAR },
+      ['소프트웨어공학과'],
+    );
+
+    expect(rows.map((row) => row.githubLogin)).toEqual(
+      tied.slice(0, 10).map((student) => student.login),
+    );
+  });
+});

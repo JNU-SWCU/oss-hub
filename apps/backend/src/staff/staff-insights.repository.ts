@@ -11,7 +11,7 @@ import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 
-export interface StaffInsightsActivityCounts {
+interface StaffInsightsActivityCounts {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;
@@ -121,7 +121,8 @@ function rankedCandidatesSql(
 ): Prisma.Sql {
   const order = Prisma.sql`
     ORDER BY total DESC, commit_count DESC, pull_request_count DESC,
-      issue_count DESC, repository_count DESC, star_count DESC
+      issue_count DESC, repository_count DESC, star_count DESC,
+      lower(login) COLLATE "C", github_id
   `;
   return Prisma.sql`
     WITH activity AS (${activity}),
@@ -149,8 +150,8 @@ function rankedCandidatesSql(
     ranked AS (
       SELECT
         candidates.*,
-        RANK() OVER (${order}) AS overall_rank,
-        RANK() OVER (PARTITION BY cohort ${order}) AS cohort_rank
+        ROW_NUMBER() OVER (${order}) AS overall_rank,
+        ROW_NUMBER() OVER (PARTITION BY cohort ${order}) AS cohort_rank
       FROM candidates
       WHERE total > 0
     )
@@ -168,6 +169,8 @@ function rankedCandidatesSql(
     FROM ranked
     WHERE overall_rank <= ${LEADER_LIMIT}
       OR (cohort <> 'unregistered' AND cohort_rank <= ${LEADER_LIMIT})
+    ORDER BY overall_rank
+    LIMIT ${LEADER_LIMIT * 3}
   `;
 }
 
