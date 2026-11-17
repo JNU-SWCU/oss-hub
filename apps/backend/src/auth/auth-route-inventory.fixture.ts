@@ -204,6 +204,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED POST /api/v1/repositories/:repositoryId/publish',
   'PROTECTED POST /api/v1/role-requests',
   'PROTECTED POST /api/v1/submission-files/checks',
+  'PROTECTED POST /api/v1/system-status/provisioning/:teamId/retry',
   'PROTECTED POST /api/v1/team-invitations/:invitationId/accept',
   'PROTECTED POST /api/v1/team-invitations/:invitationId/cancel',
   'PROTECTED POST /api/v1/team-invitations/:invitationId/decline',

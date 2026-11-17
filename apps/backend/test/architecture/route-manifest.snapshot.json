@@ -428,6 +428,11 @@
   { "method": "GET", "path": "/api/v1/system-status", "access": "PROTECTED" },
   {
     "method": "POST",
+    "path": "/api/v1/system-status/provisioning/:teamId/retry",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
     "path": "/api/v1/team-invitations/:invitationId/accept",
     "access": "PROTECTED"
   },

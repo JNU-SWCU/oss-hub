@@ -1081,3 +1081,100 @@ describe('TeamApplicationService.decide — 판정 이력과 알림', () => {
     expect(createApplicationDecisionNotifications).not.toHaveBeenCalled();
   });
 });
+
+describe('TeamApplicationService.retryFailedRepositoryProvision', () => {
+  it('최종 실패한 발급은 이전 요청을 정리한 뒤 새 발급 요청을 만든다', async () => {
+    const {
+      service,
+      store,
+      findRepositoryProvisionJob,
+      discardRepositoryProvisionRequest,
+      createRepositoryProvisionEvent,
+    } = createHarness({ provisioningEnabled: true });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        repositoryProvisioningEnabled: true,
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.FAILED_FINAL,
+      repoId: null,
+    });
+
+    await expect(
+      service.retryFailedRepositoryProvision(APPLICATION_ID),
+    ).resolves.toEqual({ eventId: 'synthetic-event' });
+
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
+      expect.any(Date),
+      expect.any(Function),
+    );
+    expect(createRepositoryProvisionEvent).toHaveBeenCalledWith(
+      {
+        teamId: APPLICATION_ID,
+        programId: 'synthetic-program',
+        collaboratorGithubLogins: ['synthetic-applicant'],
+        repositoryConnectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
+        idempotencyKey: `repository-provision:${APPLICATION_ID}`,
+        requestedAt: expect.any(Date) as unknown,
+      },
+      expect.any(Function),
+    );
+    expect(
+      discardRepositoryProvisionRequest.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      createRepositoryProvisionEvent.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it('없는 팀은 404이고 아무 것도 바꾸지 않는다', async () => {
+    const {
+      service,
+      store,
+      discardRepositoryProvisionRequest,
+      createRepositoryProvisionEvent,
+    } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(null);
+
+    const error: unknown = await service
+      .retryFailedRepositoryProvision('missing-team')
+      .catch((caught: unknown) => caught);
+
+    expectDomainCode(error, ApplicationsErrorCode.TEAM_NOT_FOUND);
+    expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
+    expect(createRepositoryProvisionEvent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    RepositoryProvisionJobStatus.PENDING,
+    RepositoryProvisionJobStatus.PROCESSING,
+    RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+    RepositoryProvisionJobStatus.SUCCEEDED,
+  ])('발급 상태 %s는 409이고 아무 것도 바꾸지 않는다', async (status) => {
+    const {
+      service,
+      findRepositoryProvisionJob,
+      discardRepositoryProvisionRequest,
+      createRepositoryProvisionEvent,
+    } = createHarness({ provisioningEnabled: true });
+    findRepositoryProvisionJob.mockResolvedValue(
+      status === null ? null : { status, repoId: null },
+    );
+
+    const error: unknown = await service
+      .retryFailedRepositoryProvision(APPLICATION_ID)
+      .catch((caught: unknown) => caught);
+
+    expectDomainCode(
+      error,
+      ApplicationsErrorCode.REPOSITORY_PROVISION_NOT_RETRYABLE,
+    );
+    expect(error).toMatchObject({ errorCode: { status: 409 } });
+    expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
+    expect(createRepositoryProvisionEvent).not.toHaveBeenCalled();
+  });
+});

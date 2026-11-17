@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GithubModule } from '../github/github.module';
+import { ProgramsModule } from '../programs/programs.module';
 import { UsersModule } from '../users/users.module';
 import { UserAccessController } from './user-access.controller';
 import { AuditLogController } from './audit-log.controller';
@@ -12,7 +13,7 @@ import {
 } from './system-status.service';
 
 @Module({
-  imports: [GithubModule, UsersModule],
+  imports: [GithubModule, ProgramsModule, UsersModule],
   controllers: [
     UserAccessController,
     AuditLogController,

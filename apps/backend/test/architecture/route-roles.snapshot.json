@@ -210,6 +210,13 @@
     "error": "Active administrator access is required"
   },
   {
+    "method": "POST",
+    "path": "/api/v1/system-status/provisioning/:teamId/retry",
+    "roles": ["ADMIN"],
+    "status": 403,
+    "error": "Active administrator access is required"
+  },
+  {
     "method": "GET",
     "path": "/api/v1/teams/:id",
     "roles": ["STAFF"],

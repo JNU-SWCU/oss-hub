@@ -28,6 +28,7 @@ import {
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import { RepositoryProvisionJobRepository } from '../github/repository-provision-job.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -1115,6 +1116,130 @@ describe('TeamApplicationService integration', () => {
         where: { idempotencyKey: `repository-provision:${teamId}` },
       }),
     ).resolves.toBe(1);
+  });
+
+  it('최종 실패한 발급을 새 요청으로 다시 큐에 넣고 worker가 다시 claim한다', async () => {
+    const teamId = APPLICATION_IDS[0];
+    await createApplication(teamId, true);
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+    const failed = await prisma.repositoryProvisionJob.update({
+      where: { teamId },
+      data: {
+        status: RepositoryProvisionJobStatus.FAILED_FINAL,
+        attemptCount: 5,
+        lastErrorCode: 'REPOSITORY_PROVISION_INTERNAL',
+        finishedAt: new Date(),
+      },
+    });
+    const failedRequestId = failed.currentEventId;
+    if (failedRequestId === null)
+      throw new Error('approval must set a request');
+    await prisma.repositoryIssuanceHistory.create({
+      data: {
+        requestId: failedRequestId,
+        teamId,
+        connectionMode: RepositoryConnectionMode.NEW,
+        outcome: RepositoryIssuanceOutcome.FAILED_FINAL,
+        lastErrorCode: 'REPOSITORY_PROVISION_INTERNAL',
+        requestedAt: new Date(),
+        closedAt: new Date(),
+      },
+    });
+    const workers = new RepositoryProvisionJobRepository(prisma);
+    await expect(
+      workers.claimNext({
+        workerId: 'synthetic-worker',
+        now: new Date(),
+        leaseMs: 60_000,
+      }),
+    ).resolves.toBeNull();
+
+    const { eventId } = await service.retryFailedRepositoryProvision(teamId);
+
+    expect(eventId).not.toBe(failedRequestId);
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: { idempotencyKey: `repository-provision:${teamId}` },
+      }),
+    ).resolves.toMatchObject({ id: eventId, status: 'PENDING' });
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({ where: { teamId } }),
+    ).resolves.toMatchObject({
+      currentEventId: eventId,
+      status: RepositoryProvisionJobStatus.PENDING,
+      attemptCount: 0,
+      lastErrorCode: null,
+    });
+    await expect(
+      prisma.repositoryIssuanceHistory.findMany({
+        where: { teamId },
+        select: { requestId: true, outcome: true },
+      }),
+    ).resolves.toEqual([
+      {
+        requestId: failedRequestId,
+        outcome: RepositoryIssuanceOutcome.FAILED_FINAL,
+      },
+    ]);
+
+    const repeated: unknown = await service
+      .retryFailedRepositoryProvision(teamId)
+      .catch((error: unknown) => error);
+    expect(repeated).toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.REPOSITORY_PROVISION_NOT_RETRYABLE,
+        status: 409,
+      },
+    });
+    await expect(
+      prisma.outboxEvent.findMany({
+        where: { aggregateId: teamId },
+        select: { id: true },
+      }),
+    ).resolves.toEqual([{ id: eventId }]);
+
+    await expect(
+      workers.claimNext({
+        workerId: 'synthetic-worker',
+        now: new Date(),
+        leaseMs: 60_000,
+      }),
+    ).resolves.toEqual({
+      id: expect.any(String) as unknown,
+      teamId,
+      requestId: eventId,
+      repoId: null,
+      attemptCount: 1,
+    });
+  });
+
+  it('최종 실패가 아닌 발급과 없는 팀은 다시 시도하지 않는다', async () => {
+    const teamId = APPLICATION_IDS[1];
+    await createApplication(teamId, true);
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+    const before = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { teamId },
+    });
+
+    await expect(
+      service.retryFailedRepositoryProvision(teamId),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.REPOSITORY_PROVISION_NOT_RETRYABLE,
+      },
+    });
+    await expect(
+      service.retryFailedRepositoryProvision('synthetic-missing-team'),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.TEAM_NOT_FOUND, status: 404 },
+    });
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({ where: { teamId } }),
+    ).resolves.toEqual(before);
   });
 
   it('이미 판정된 신청은 409와 최신 상태를 반환한다', async () => {
