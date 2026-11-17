@@ -198,7 +198,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('measures per-request Prisma query counts at 1x and 10x synthetic data', async () => {
+it('keeps per-request Prisma query counts equal at 1x and 10x synthetic data', async () => {
   await prisma.$connect();
   const [small, large] = [
     await measureScale(SCALES[0]),
@@ -262,4 +262,12 @@ it('measures per-request Prisma query counts at 1x and 10x synthetic data', asyn
       ),
     );
   }
+
+  expect(
+    report
+      .filter((row) => row.oneX.queries !== row.tenX.queries)
+      .map(
+        (row) => `${row.endpoint}: ${row.oneX.queries} -> ${row.tenX.queries}`,
+      ),
+  ).toEqual([]);
 }, 600_000);

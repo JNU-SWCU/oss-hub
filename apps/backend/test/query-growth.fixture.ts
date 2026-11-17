@@ -1,7 +1,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { at } from './query-growth';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+const CHUNK_SIZE = 5_000;
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 const GITHUB_ID_BASE = 9_710_000_000_000_000n;
 const REPO_ID_BASE = 9_720_000_000_000_000n;
@@ -20,6 +23,7 @@ export interface QueryGrowthWorld {
   readonly staffGithubId: bigint;
   readonly studentGithubId: bigint;
   readonly targetProgramId: string;
+  readonly targetMilestoneId: string;
   readonly targetTeamId: string;
   readonly targetProjectId: string;
   readonly profileUserId: string;
@@ -32,16 +36,28 @@ function seoulYear(instant: Date): number {
   return new Date(instant.getTime() + SEOUL_OFFSET_MS).getUTCFullYear();
 }
 
+async function createInChunks<T>(
+  rows: readonly T[],
+  create: (data: T[]) => Promise<unknown>,
+): Promise<void> {
+  for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
+    await create(rows.slice(offset, offset + CHUNK_SIZE));
+  }
+}
+
 export async function seedQueryGrowthWorld(
   prisma: PrismaClient,
   scale: number,
   now: Date,
 ): Promise<QueryGrowthWorld> {
   const year = seoulYear(now);
-  const studentCount = 4 * scale;
   const programCount = 2 * scale;
   const teamsPerProgram = 2 * scale;
+  const membersPerTeam = 2 * scale;
   const milestonesPerProgram = 2 * scale;
+  const documentsPerMilestone = scale;
+  const observationsPerKind = scale;
+  const studentCount = teamsPerProgram * membersPerTeam;
   const programStart = new Date(now.getTime() - 30 * DAY_MS);
   const profile = { profileCreatedAt: now, profileUpdatedAt: now };
 
@@ -77,56 +93,53 @@ export async function seedQueryGrowthWorld(
     ],
   });
 
-  const observedEarly = new Date(Date.UTC(year, 0, 15));
-  const observedLate = new Date(now.getTime() - 60 * 60 * 1000);
-  const previousYearObserved = new Date(Date.UTC(year - 1, 11, 1));
-  await prisma.githubUserActivityObservation.createMany({
-    data: studentGithubIds.flatMap((githubId, index) => [
-      {
-        githubId,
-        year,
-        visibility: 'PUBLIC' as const,
-        commitCount: index + 1,
-        pullRequestCount: 1,
-        issueCount: 1,
-        repositoryCount: 1,
-        starCount: 1,
-        observedAt: observedEarly,
-      },
-      {
-        githubId,
-        year,
-        visibility: 'PUBLIC' as const,
-        commitCount: index + 10,
-        pullRequestCount: 2,
-        issueCount: 2,
-        repositoryCount: 2,
-        starCount: 2,
-        observedAt: observedLate,
-      },
-      {
-        githubId,
-        year,
-        visibility: 'PRIVATE' as const,
-        commitCount: 3,
-        pullRequestCount: 1,
-        issueCount: 0,
-        repositoryCount: 1,
-        observedAt: observedLate,
-      },
-      {
-        githubId,
-        year: year - 1,
-        visibility: 'PUBLIC' as const,
-        commitCount: index + 5,
-        pullRequestCount: 1,
-        issueCount: 1,
-        repositoryCount: 1,
-        starCount: 1,
-        observedAt: previousYearObserved,
-      },
-    ]),
+  const observedEarly = Date.UTC(year, 0, 15);
+  const observedLate = now.getTime() - 60 * 60 * 1000;
+  const previousYearObserved = Date.UTC(year - 1, 11, 1);
+  const counts = (base: number) => ({
+    commitCount: base,
+    pullRequestCount: 1,
+    issueCount: 1,
+    repositoryCount: 1,
   });
+  await createInChunks(
+    studentGithubIds.flatMap((githubId, index) =>
+      Array.from({ length: observationsPerKind }, (_, sample) => [
+        {
+          githubId,
+          year,
+          visibility: 'PUBLIC' as const,
+          ...counts(index + sample + 1),
+          starCount: 1,
+          observedAt: new Date(observedEarly + sample * HOUR_MS),
+        },
+        {
+          githubId,
+          year,
+          visibility: 'PUBLIC' as const,
+          ...counts(index + sample + 10),
+          starCount: 2,
+          observedAt: new Date(observedLate - sample * MINUTE_MS),
+        },
+        {
+          githubId,
+          year,
+          visibility: 'PRIVATE' as const,
+          ...counts(sample + 3),
+          observedAt: new Date(observedLate - sample * MINUTE_MS),
+        },
+        {
+          githubId,
+          year: year - 1,
+          visibility: 'PUBLIC' as const,
+          ...counts(index + sample + 5),
+          starCount: 1,
+          observedAt: new Date(previousYearObserved + sample * HOUR_MS),
+        },
+      ]).flat(),
+    ),
+    (data) => prisma.githubUserActivityObservation.createMany({ data }),
+  );
 
   const programIds = Array.from({ length: programCount }, (_, index) =>
     id(`program-${index}`),
@@ -145,22 +158,28 @@ export async function seedQueryGrowthWorld(
       startAt: programStart,
       endAt: new Date(now.getTime() + 60 * DAY_MS),
       teamMinSize: 1,
-      teamMaxSize: 3,
+      teamMaxSize: membersPerTeam,
       description: 'Synthetic query growth fixture',
     })),
   });
 
   const milestones = programIds.flatMap((programId, programIndex) =>
-    Array.from({ length: milestonesPerProgram }, (_, index) => ({
-      id: id(`milestone-${programIndex}-${index}`),
-      programId,
-      name: `Milestone ${index}`,
-      startAt: programStart,
-      dueAt: new Date(
-        now.getTime() + (index % 2 === 0 ? -10 : 10) * DAY_MS + index * 1000,
-      ),
-      requirementId: id(`requirement-${programIndex}-${index}`),
-    })),
+    Array.from({ length: milestonesPerProgram }, (_, index) => {
+      const milestoneId = id(`milestone-${programIndex}-${index}`);
+      return {
+        id: milestoneId,
+        programId,
+        name: `Milestone ${index}`,
+        startAt: programStart,
+        dueAt: new Date(
+          now.getTime() + (index % 2 === 0 ? -10 : 10) * DAY_MS + index * 1000,
+        ),
+        requirementIds: Array.from(
+          { length: documentsPerMilestone },
+          (_, document) => `${milestoneId}-document-${document}`,
+        ),
+      };
+    }),
   );
   await prisma.milestone.createMany({
     data: milestones.map((milestone) => ({
@@ -171,27 +190,30 @@ export async function seedQueryGrowthWorld(
       dueAt: milestone.dueAt,
     })),
   });
-  await prisma.requirement.createMany({
-    data: milestones.map((milestone) => ({
-      id: milestone.requirementId,
-      milestoneId: milestone.id,
-      name: `Document for ${milestone.name}`,
-      required: true,
-      sortOrder: 1,
-    })),
-  });
+  await createInChunks(
+    milestones.flatMap((milestone) =>
+      milestone.requirementIds.map((requirementId, index) => ({
+        id: requirementId,
+        milestoneId: milestone.id,
+        name: `Document ${index} for ${milestone.name}`,
+        required: true,
+        sortOrder: index + 1,
+      })),
+    ),
+    (data) => prisma.requirement.createMany({ data }),
+  );
 
   const teams = programIds.flatMap((programId, programIndex) =>
-    Array.from({ length: teamsPerProgram }, (_, index) => ({
-      id: id(`team-${programIndex}-${index}`),
-      programId,
-      approved: index % 2 === 0,
-      memberIds: [at(studentIds, index * 2), at(studentIds, index * 2 + 1)],
-      memberGithubIds: [
-        at(studentGithubIds, index * 2),
-        at(studentGithubIds, index * 2 + 1),
-      ],
-    })),
+    Array.from({ length: teamsPerProgram }, (_, index) => {
+      const first = index * membersPerTeam;
+      return {
+        id: id(`team-${programIndex}-${index}`),
+        programId,
+        approved: index % 2 === 0,
+        memberIds: studentIds.slice(first, first + membersPerTeam),
+        memberGithubIds: studentGithubIds.slice(first, first + membersPerTeam),
+      };
+    }),
   );
   await prisma.team.createMany({
     data: teams.map((team, index) => ({
@@ -207,21 +229,22 @@ export async function seedQueryGrowthWorld(
       processedAt: team.approved ? programStart : null,
     })),
   });
-  await prisma.teamMember.createMany({
-    data: teams.flatMap((team) =>
+  await createInChunks(
+    teams.flatMap((team) =>
       team.memberIds.map((userId) => ({
         teamId: team.id,
         programId: team.programId,
         userId,
       })),
     ),
-  });
+    (data) => prisma.teamMember.createMany({ data }),
+  );
 
   const approvedTeams = teams.filter((team) => team.approved);
   const repos = approvedTeams.map((team, index) => ({
     team,
     githubRepoId: REPO_ID_BASE + BigInt(index),
-    publishedAt: new Date(now.getTime() - (index + 1) * 60 * 1000),
+    publishedAt: new Date(now.getTime() - (index + 1) * MINUTE_MS),
   }));
   await prisma.repo.createMany({
     data: repos.map((repo, index) => ({
@@ -241,8 +264,8 @@ export async function seedQueryGrowthWorld(
       validFrom: programStart,
     })),
   });
-  await prisma.contributionEvent.createMany({
-    data: repos.flatMap((repo) =>
+  await createInChunks(
+    repos.flatMap((repo) =>
       repo.team.memberGithubIds.flatMap((authorGithubId, member) =>
         Array.from({ length: scale }, (_, index) =>
           (['COMMIT', 'PULL_REQUEST'] as const).map((kind) => ({
@@ -256,33 +279,37 @@ export async function seedQueryGrowthWorld(
         ).flat(),
       ),
     ),
-  });
+    (data) => prisma.contributionEvent.createMany({ data }),
+  );
 
   const targetProgramId = at(programIds, 0);
-  const dueRequirements = milestones.filter(
-    (milestone) =>
-      milestone.programId === targetProgramId &&
-      milestone.dueAt.getTime() < now.getTime(),
-  );
+  const dueRequirementIds = milestones
+    .filter(
+      (milestone) =>
+        milestone.programId === targetProgramId &&
+        milestone.dueAt.getTime() < now.getTime(),
+    )
+    .flatMap((milestone) => milestone.requirementIds);
   const targetSubmissions = approvedTeams
     .filter((team) => team.programId === targetProgramId)
     .flatMap((team) =>
-      dueRequirements.map((milestone) => ({
-        id: id(`submission-${team.id}-${milestone.requirementId}`),
-        requirementId: milestone.requirementId,
+      dueRequirementIds.map((requirementId) => ({
+        id: id(`submission-${team.id}-${requirementId}`),
+        requirementId,
         teamId: team.id,
         submittedById: at(team.memberIds, 0),
       })),
     );
-  await prisma.submission.createMany({
-    data: targetSubmissions.map((submission) => ({
+  await createInChunks(
+    targetSubmissions.map((submission) => ({
       ...submission,
       status: 'SUBMITTED' as const,
       submittedAt: now,
     })),
-  });
-  await prisma.submissionHistory.createMany({
-    data: targetSubmissions.map((submission) => ({
+    (data) => prisma.submission.createMany({ data }),
+  );
+  await createInChunks(
+    targetSubmissions.map((submission) => ({
       id: `${submission.id}-history`,
       submissionId: submission.id,
       event: 'SUBMITTED' as const,
@@ -290,7 +317,8 @@ export async function seedQueryGrowthWorld(
       actorId: submission.submittedById,
       createdAt: now,
     })),
-  });
+    (data) => prisma.submissionHistory.createMany({ data }),
+  );
 
   return {
     scale,
@@ -298,6 +326,7 @@ export async function seedQueryGrowthWorld(
     staffGithubId,
     studentGithubId: at(studentGithubIds, 0),
     targetProgramId,
+    targetMilestoneId: at(milestones, 0).id,
     targetTeamId: at(teams, 0).id,
     targetProjectId: at(repos, 0).githubRepoId.toString(),
     profileUserId: at(studentIds, 0),
@@ -322,6 +351,9 @@ export async function countQueryGrowthRows(
     contributions,
     targetSubmissions,
     profileProjects,
+    targetTeamMembers,
+    profileStudentObservations,
+    targetMilestoneDocuments,
   ] = await Promise.all([
     prisma.user.count({ where: { id: SEEDED, type: 'STUDENT' } }),
     prisma.githubUserActivityObservation.count({
@@ -343,6 +375,13 @@ export async function countQueryGrowthRows(
     prisma.teamRepo.count({
       where: { team: { members: { some: { userId: world.profileUserId } } } },
     }),
+    prisma.teamMember.count({ where: { teamId: world.targetTeamId } }),
+    prisma.githubUserActivityObservation.count({
+      where: { githubId: world.studentGithubId },
+    }),
+    prisma.requirement.count({
+      where: { milestoneId: world.targetMilestoneId },
+    }),
   ]);
   return {
     students,
@@ -357,6 +396,9 @@ export async function countQueryGrowthRows(
     contributions,
     targetSubmissions,
     profileProjects,
+    targetTeamMembers,
+    profileStudentObservations,
+    targetMilestoneDocuments,
   };
 }
 
