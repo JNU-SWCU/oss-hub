@@ -167,6 +167,39 @@ describe('마일스톤 접기', () => {
     return panel;
   }
 
+  function stubDocuments(documents: readonly Requirement[]): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              documents,
+              fileUpload: requirementUploadPolicy(),
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+  }
+
+  function rowButtons(group: HTMLElement): readonly HTMLButtonElement[] {
+    return [
+      ...group.querySelectorAll<HTMLButtonElement>(
+        '[data-testid="milestone-row"] button:not([data-slot="collapsible-trigger"])',
+      ),
+    ];
+  }
+
+  function buttonLabels(scope: HTMLElement): readonly string[] {
+    return [...scope.querySelectorAll('button')].map(
+      (button) => button.textContent?.trim() ?? '',
+    );
+  }
+
+  const rowButtonLabels = (group: HTMLElement) =>
+    rowButtons(group).map((button) => button.textContent?.trim() ?? '');
+
   const openStates = (groups: readonly HTMLElement[]) =>
     groups.map((group) => triggerOf(group)?.getAttribute('aria-expanded'));
 
@@ -176,7 +209,7 @@ describe('마일스톤 접기', () => {
     expect(openStates(groups)).toEqual(['false', 'false', 'true']);
   });
 
-  it('마감이 모두 지났으면 마지막 마일스톤을 펼친다', async () => {
+  it('마감이 모두 지났으면 모두 접어 둔다', async () => {
     const groups = await renderMilestones(
       programWith(
         MILESTONES.map((milestone) => ({
@@ -187,7 +220,7 @@ describe('마일스톤 접기', () => {
       ),
     );
 
-    expect(openStates(groups)).toEqual(['false', 'false', 'true']);
+    expect(openStates(groups)).toEqual(['false', 'false', 'false']);
   });
 
   it('오늘 마감이 이미 지났으면 그 마일스톤 대신 다음 것을 펼친다', async () => {
@@ -224,7 +257,7 @@ describe('마일스톤 접기', () => {
     expect(openStates(groups)).toEqual(['true', 'false']);
   });
 
-  it('오늘 마감이 전부 지났으면 마지막 마일스톤을 펼친다', async () => {
+  it('오늘 마감이 전부 지났으면 모두 접어 둔다', async () => {
     const groups = await renderMilestones(
       programWith([
         milestoneOf('milestone-1', '오전 마감', {
@@ -238,20 +271,15 @@ describe('마일스톤 접기', () => {
       ]),
     );
 
-    expect(openStates(groups)).toEqual(['false', 'true']);
+    expect(openStates(groups)).toEqual(['false', 'false']);
   });
 
-  it('접힌 줄에도 이름·마감·상태 배지가 남는다', async () => {
+  it('접힌 줄에는 번호·이름·마감·상태 배지만 남는다', async () => {
     const groups = await renderMilestones();
 
-    const [first] = groups;
-    expect(first.textContent).toContain('기획서 제출');
-    expect(first.textContent).toContain('마감 지남');
-    expect(first.textContent).toContain('승인');
-
     expect(
-      first.querySelector('[data-testid="milestone-row"]')?.textContent,
-    ).toContain('1');
+      groups[0].querySelector('[data-testid="milestone-row"]')?.textContent,
+    ).toBe('1기획서 제출07.20 23:59 · 마감승인');
   });
 
   it('보완을 요청받은 마일스톤 줄은 학생 말로 보완 필요라고 읽는다', async () => {
@@ -265,20 +293,25 @@ describe('마일스톤 접기', () => {
   it('접힌 마일스톤도 경계선과 묶음을 그대로 갖는다', async () => {
     const groups = await renderMilestones();
 
-    for (const group of groups) {
+    for (const [position, group] of groups.entries()) {
       expect(group.tagName).toBe('ARTICLE');
-      expect(group.className).toContain('[&+&]:border-t-2');
+      expect(
+        group.querySelector('[data-slot="milestone-divider"]') !== null,
+      ).toBe(position > 0);
     }
     for (const [index, group] of groups.slice(1).entries()) {
       expect(group.previousElementSibling).toBe(groups[index]);
     }
   });
 
-  it('접힌 마일스톤의 제출 항목은 화면에서 빠진다', async () => {
+  it('접힌 마일스톤의 공지와 제출 항목은 화면에서 빠진다', async () => {
     const groups = await renderMilestones();
 
     const closed = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
     expect(closed.getAttribute('data-state')).toBe('closed');
+    expect(closed.querySelector('[role="note"]')?.textContent).toBe(
+      '기획서 제출 안내',
+    );
 
     expect(closed.className).toContain('data-[state=closed]:hidden');
 
@@ -297,6 +330,96 @@ describe('마일스톤 접기', () => {
     await act(async () => trigger.click());
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(panelOf(trigger).getAttribute('data-state')).toBe('closed');
+  });
+
+  it('제출 항목이 하나뿐인 마일스톤은 그 항목의 올리기를 줄에 두고 펼친 항목에는 되풀이하지 않는다', async () => {
+    const groups = await renderMilestones();
+    const panel = panelOf(triggerOf(groups[2]) as HTMLButtonElement);
+
+    expect(rowButtonLabels(groups[2])).toEqual(['올리기']);
+    expect(buttonLabels(panel)).not.toContain('올리기');
+    expect(
+      panel.querySelector('[data-testid="milestone-document-status"]'),
+    ).not.toBeNull();
+    expect(
+      groups[2].querySelector('[data-testid="milestone-row"] a'),
+    ).toBeNull();
+  });
+
+  it('이미 낸 하나뿐인 항목은 줄에 교체를 두고 펼친 항목에는 되풀이하지 않는다', async () => {
+    stubDocuments([
+      {
+        ...documentOf('milestone-3'),
+        viewerSubmission: {
+          submitted: true,
+          submittedAt: '2026-08-04T10:00:00+09:00',
+          revision: 1,
+          status: 'SUBMITTED',
+          hasCurrentFile: false,
+          currentFileName: null,
+          review: null,
+          history: { hasHistory: false, isComplete: true },
+        },
+      },
+    ]);
+    const groups = await renderMilestones(
+      programWith([{ ...MILESTONES[2], viewerSubmissionStatus: 'SUBMITTED' }]),
+    );
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+
+    expect(rowButtonLabels(groups[0])).toEqual(['교체']);
+    expect(buttonLabels(panel)).not.toContain('교체');
+  });
+
+  it('낼 수 없는 하나뿐인 항목은 줄에 버튼을 올리지 않는다', async () => {
+    const groups = await renderMilestones();
+
+    expect(rowButtonLabels(groups[0])).toEqual([]);
+    expect(rowButtonLabels(groups[1])).toEqual([]);
+  });
+
+  it('접힌 마일스톤의 줄에서 올리기를 누르면 그 마일스톤을 펼치고 제출 입력을 연다', async () => {
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-2', '지금 단계'),
+        milestoneOf('milestone-3', '다음 단계', {
+          dueAt: '2026-08-15T23:59:59+09:00',
+          dDay: 10,
+        }),
+      ]),
+    );
+    const trigger = triggerOf(groups[1]) as HTMLButtonElement;
+    const upload = rowButtons(groups[1]).at(0);
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(upload?.textContent?.trim()).toBe('올리기');
+
+    await act(async () => upload?.click());
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      panelOf(trigger).querySelector('input[type="file"], textarea'),
+    ).not.toBeNull();
+  });
+
+  it('제출 항목이 여럿이면 줄에는 버튼을 두지 않고 펼친 항목마다 올리기를 둔다', async () => {
+    stubDocuments([
+      documentOf('milestone-3'),
+      {
+        ...documentOf('milestone-3'),
+        id: 'milestone-3-document-2',
+        name: 'milestone-3 서류 2',
+      },
+    ]);
+    const groups = await renderMilestones(
+      programWith([{ ...MILESTONES[2], submissionItemCount: 2 }]),
+    );
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+
+    expect(rowButtonLabels(groups[0])).toEqual([]);
+    expect(
+      buttonLabels(panel).filter((label) => label === '올리기'),
+    ).toHaveLength(2);
   });
 
   it('여러 마일스톤을 동시에 펼쳐 둘 수 있다', async () => {
@@ -343,7 +466,10 @@ describe('마일스톤 접기', () => {
   it('열어서 볼 것이 없는 마일스톤은 접지 않는다', async () => {
     const groups = await renderMilestones(
       programWith([
-        milestoneOf('milestone-1', '안내용 단계', { submissionItemCount: 0 }),
+        milestoneOf('milestone-1', '안내용 단계', {
+          submissionItemCount: 0,
+          description: null,
+        }),
       ]),
     );
 
@@ -351,8 +477,38 @@ describe('마일스톤 접기', () => {
     expect(groups[0].getAttribute('data-state')).toBeNull();
   });
 
-  it('제출 항목을 볼 수 없는 방문자에게는 접기를 걸지 않는다', async () => {
+  it('제출 항목 없이 공지만 있는 마일스톤은 공지를 여닫는다', async () => {
+    const groups = await renderMilestones(
+      programWith([
+        milestoneOf('milestone-1', '안내용 단계', { submissionItemCount: 0 }),
+      ]),
+    );
+
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+    expect(panel.querySelector('[role="note"]')?.textContent).toBe(
+      '안내용 단계 안내',
+    );
+    expect(
+      panel.querySelector('[data-testid="milestone-document-rows"]'),
+    ).toBeNull();
+  });
+
+  it('제출 항목을 볼 수 없는 방문자에게는 공지만 여닫게 한다', async () => {
     const groups = await renderMilestones(programWith([MILESTONES[0]], null));
+
+    const panel = panelOf(triggerOf(groups[0]) as HTMLButtonElement);
+    expect(panel.querySelector('[role="note"]')?.textContent).toBe(
+      '기획서 제출 안내',
+    );
+    expect(
+      panel.querySelector('[data-testid="milestone-document-rows"]'),
+    ).toBeNull();
+  });
+
+  it('공지도 제출 항목도 볼 수 없는 방문자에게는 접기를 걸지 않는다', async () => {
+    const groups = await renderMilestones(
+      programWith([{ ...MILESTONES[0], description: null }], null),
+    );
 
     expect(triggerOf(groups[0])).toBeNull();
   });

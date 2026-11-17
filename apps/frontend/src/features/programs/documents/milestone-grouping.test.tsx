@@ -180,10 +180,12 @@ describe('마일스톤 목록의 경계', () => {
   it('첫 묶음을 뺀 모든 묶음이 위쪽 경계선을 갖는다', async () => {
     const groups = await renderMilestones();
 
-    for (const group of groups) {
-      expect(group.className).toContain('[&+&]:border-t-2');
-      expect(group.className).toContain('[&+&]:border-border');
-    }
+    expect(
+      groups.map(
+        (group) =>
+          group.querySelector('[data-slot="milestone-divider"]') !== null,
+      ),
+    ).toEqual([false, true, true]);
     expect(groups[0].previousElementSibling).toBeNull();
     for (const group of groups.slice(1)) {
       expect(group.previousElementSibling).toBe(
@@ -217,6 +219,9 @@ describe('마일스톤 목록의 경계', () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0].previousElementSibling).toBeNull();
+    expect(
+      groups[0].querySelector('[data-slot="milestone-divider"]'),
+    ).toBeNull();
   });
 });
 
@@ -276,10 +281,12 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
   );
 
   it('제출 항목은 그대로 다 보여 준다', () => {
-    const html = bodyMarkup('ready');
+    const host = document.createElement('div');
+    host.innerHTML = bodyMarkup('ready');
 
-    expect(html).toContain('제출 항목');
-    expect(html).toContain('milestone-1 서류');
-    expect(html).toContain('제출 0/1 완료');
+    expect(host.textContent).toContain('제출 항목');
+    expect(host.textContent).toContain('milestone-1 서류');
+    expect(host.textContent).toContain('제출 0/1');
+    expect(host.textContent).not.toContain('완료');
   });
 });

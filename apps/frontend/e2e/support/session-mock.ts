@@ -16,6 +16,11 @@ const SESSION_AUTHORITIES = {
     hasStaffAccess: true,
     hasAdminAccess: false,
   },
+  student: {
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+  },
 } as const satisfies Record<string, MemberAuthority>;
 
 export type SessionActor = keyof typeof SESSION_AUTHORITIES;

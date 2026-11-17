@@ -157,12 +157,12 @@ describe('milestoneRowSubmitGate', () => {
   });
 
   it.each([
-    ['NOT_SUBMITTED' as const, OPEN_DUE, false],
-    ['CHANGES_REQUESTED' as const, PAST_DUE, true],
-  ])('%s 줄은 열린 채로 둔다', (status, dueAt, resubmission) => {
+    ['NOT_SUBMITTED' as const, OPEN_DUE],
+    ['CHANGES_REQUESTED' as const, PAST_DUE],
+  ])('%s 줄은 열린 채로 둔다', (status, dueAt) => {
     expect(
       milestoneRowSubmitGate(milestone(status, dueAt), access('APPROVED')),
-    ).toEqual({ kind: 'open', status, resubmission });
+    ).toEqual({ kind: 'open', status });
   });
 });
 

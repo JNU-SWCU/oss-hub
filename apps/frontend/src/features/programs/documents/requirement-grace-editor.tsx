@@ -4,18 +4,22 @@ import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 import { updateRequirementGrace } from './requirement-api';
 import type { Requirement } from './requirement-dto';
 import { toDateTimeLocal } from '../authoring/program-edit-flow';
-import { formatSeoulShortDateTime } from '../catalog/program-detail-format';
 import { seoulDateTimeValue } from '../authoring/seoul-date-time';
 
 export function RequirementGraceEditor({
   document,
   onRefresh,
+  className,
+  formClassName,
 }: {
   readonly document: Requirement;
   readonly onRefresh: () => Promise<boolean>;
+  readonly className?: string;
+  readonly formClassName?: string;
 }) {
   const id = useId();
   const [editing, setEditing] = useState(false);
@@ -57,28 +61,24 @@ export function RequirementGraceEditor({
 
   if (!editing)
     return (
-      <div className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
-        {document.graceDueAt == null ? null : (
-          <span>
-            유예 기한: {formatSeoulShortDateTime(document.graceDueAt)} (한국
-            시간)
-          </span>
-        )}
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          aria-label={`${document.name} 유예 기한 설정`}
-          onClick={() => setEditing(true)}
-        >
-          {document.graceDueAt == null ? '유예 기한 설정' : '유예 기한 변경'}
-        </Button>
-      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className={className}
+        aria-label={`${document.name} 유예 기한 설정`}
+        onClick={() => setEditing(true)}
+      >
+        {document.graceDueAt == null ? '유예 기한 설정' : '유예 기한 변경'}
+      </Button>
     );
 
   return (
     <form
-      className="grid gap-2 rounded-control border border-border p-3"
+      className={cn(
+        'grid gap-2 rounded-control border border-border p-3',
+        formClassName,
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         void save();

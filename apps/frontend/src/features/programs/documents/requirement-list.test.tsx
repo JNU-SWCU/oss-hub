@@ -15,6 +15,7 @@ afterEach(() => {
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
 import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
+import { apiPath } from '@/lib/api-client';
 import { requirementsKey, programFeatureKey } from '@/lib/query-keys';
 import { RequirementSection, RequirementSectionBody } from './requirement-list';
 import type {
@@ -348,8 +349,8 @@ describe('제출과 판정이 부딪혔을 때', () => {
       expect(container.textContent).toContain('기획서');
     });
 
-    const edit = button('수정');
-    if (edit === null) throw new TypeError('수정 버튼을 찾지 못했습니다.');
+    const edit = button('교체');
+    if (edit === null) throw new TypeError('교체 버튼을 찾지 못했습니다.');
     await act(async () => edit.click());
 
     const input = submissionInput();
@@ -403,10 +404,10 @@ describe('제출과 판정이 부딪혔을 때', () => {
       );
     });
     await vi.waitFor(() => {
-      expect(button('수정')).not.toBeNull();
+      expect(button('교체')).not.toBeNull();
     });
-    const edit = button('수정');
-    if (edit === null) throw new TypeError('수정 버튼을 찾지 못했습니다.');
+    const edit = button('교체');
+    if (edit === null) throw new TypeError('교체 버튼을 찾지 못했습니다.');
     await act(async () => edit.click());
 
     expect(container.textContent).toContain('기존 제출 파일');
@@ -435,7 +436,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await resubmit();
     await vi.waitFor(() => {
-      expect(button('수정')).toBeNull();
+      expect(button('교체')).toBeNull();
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -444,7 +445,8 @@ describe('제출과 판정이 부딪혔을 때', () => {
       '승인된 제출 항목은 다시 제출할 수 없습니다.',
     );
     expect(
-      container.querySelector('[data-slot="status-badge"]')?.textContent,
+      container.querySelector('[data-testid="milestone-document-status"]')
+        ?.textContent,
     ).toBe('승인');
 
     const notice = submitNotice();
@@ -605,7 +607,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     await vi.waitFor(() => {
       expect(container.textContent).toContain('제출은 저장되었습니다.');
     });
-    expect(button('수정')).toBeNull();
+    expect(button('교체')).toBeNull();
     expect(submissionInput()).toBeNull();
 
     await act(async () => button('최신 상태 다시 불러오기')?.click());
@@ -838,7 +840,11 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
   }
 
-  it('상태마다 배지 문구가 갈린다', async () => {
+  function status(): HTMLElement | null {
+    return container.querySelector('[data-testid="milestone-document-status"]');
+  }
+
+  it('상태마다 상태 표시의 이름이 갈리고 줄의 배지를 항목에서 되풀이하지 않는다', async () => {
     const cases = [
       [{ submitted: false, submittedAt: null, status: null }, '미제출'],
       [{ status: 'SUBMITTED' as const }, '검토 대기'],
@@ -867,8 +873,8 @@ describe('학생 행이 판정을 읽는 방식', () => {
 
     for (const [overrides, label] of cases) {
       await renderRow(viewer(overrides));
-      const badge = container.querySelector('[data-slot="status-badge"]');
-      expect(badge?.textContent).toBe(label);
+      expect(status()?.textContent).toBe(label);
+      expect(container.querySelector('[data-slot="status-badge"]')).toBeNull();
     }
   });
 
@@ -878,22 +884,20 @@ describe('학생 행이 판정을 읽는 방식', () => {
       submittedAt: null,
       status: null,
     });
-    const badge = () =>
-      container.querySelector<HTMLElement>('[data-slot="status-badge"]');
 
     await renderRow(unsubmitted, true, '2026-01-01T00:00:00.000Z');
-    expect(badge()?.textContent).toBe('기한 지남');
-    expect(badge()?.getAttribute('data-variant')).toBe('rejected');
+    expect(status()?.textContent).toBe('기한 지남');
+    expect(status()?.getAttribute('data-status')).toBe('OVERDUE');
 
     await renderRow(unsubmitted, false, '2999-01-01T00:00:00.000Z');
-    expect(badge()?.textContent).toBe('미제출');
+    expect(status()?.textContent).toBe('미제출');
 
     await renderRow(
       viewer({ status: 'SUBMITTED' }),
       true,
       '2026-01-01T00:00:00.000Z',
     );
-    expect(badge()?.textContent).toBe('검토 대기');
+    expect(status()?.textContent).toBe('검토 대기');
   });
 
   it('이력이 있는 제출만 첫 cursor 페이지를 읽어 표시한다', async () => {
@@ -1117,7 +1121,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
         ),
       ).not.toBeNull();
     });
-    expect(buttonTexts()).toContain('수정');
+    expect(buttonTexts()).toContain('교체');
 
     await act(async () => actionButton('다시 시도').click());
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -1218,7 +1222,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(buttonTexts()).toContain('다시 시도');
   });
 
-  it('보완 요청·반려는 사유를 날짜와 함께 경고 톤으로 보여 준다', async () => {
+  it('보완 요청은 사유 한 줄과 검토 시각을 보완 필요 표시 옆에 보여 준다', async () => {
     await renderRow(
       viewer({
         status: 'CHANGES_REQUESTED',
@@ -1229,15 +1233,9 @@ describe('학생 행이 판정을 읽는 방식', () => {
       }),
     );
 
-    const box = notice();
-    expect(box).not.toBeNull();
-    expect(box?.textContent).toContain('표지의 이름이 신청서와 다릅니다.');
-    expect(box?.textContent).toContain('보완 요청');
-    expect(box?.textContent).toContain('2026년 8월 2일');
-
-    expect(box?.closest('[data-slot="alert"]')?.className).toContain(
-      'text-destructive',
-    );
+    expect(notice()?.textContent).toBe('표지의 이름이 신청서와 다릅니다.');
+    expect(status()?.getAttribute('data-status')).toBe('CHANGES_REQUESTED');
+    expect(container.textContent).toContain('08.02 10:20 검토');
   });
 
   it('반려 사유도 같은 자리에 그대로 보인다', async () => {
@@ -1251,10 +1249,11 @@ describe('학생 행이 판정을 읽는 방식', () => {
       }),
     );
 
-    expect(notice()?.textContent).toContain('제출 기한을 두 주 넘겼습니다.');
+    expect(notice()?.textContent).toBe('제출 기한을 두 주 넘겼습니다.');
+    expect(status()?.getAttribute('data-status')).toBe('REJECTED');
   });
 
-  it('승인에 적은 사유도 날짜와 함께 학생에게 보인다', async () => {
+  it('승인에 적은 사유도 검토 시각과 함께 승인 표시 옆에 보인다', async () => {
     await renderRow(
       viewer({
         status: 'APPROVED',
@@ -1265,32 +1264,14 @@ describe('학생 행이 판정을 읽는 방식', () => {
       }),
     );
 
-    const box = notice();
-    expect(box).not.toBeNull();
-    expect(box?.textContent).toContain(
+    expect(notice()?.textContent).toBe(
       '잘 받았습니다. 다음 단계는 개별로 안내드릴게요.',
     );
-    expect(box?.textContent).toContain('승인');
-    expect(box?.textContent).toContain('2026년 8월 2일');
+    expect(status()?.getAttribute('data-status')).toBe('APPROVED');
+    expect(container.textContent).toContain('08.02 10:20 검토');
   });
 
-  it('승인 사유는 경고 톤으로 키우지 않는다', async () => {
-    await renderRow(
-      viewer({
-        status: 'APPROVED',
-        review: {
-          comment: '수고했습니다.',
-          reviewedAt: '2026-08-02T01:20:00.000Z',
-        },
-      }),
-    );
-
-    expect(notice()?.closest('[data-slot="alert"]')?.className).not.toContain(
-      'text-destructive',
-    );
-  });
-
-  it('사유 없는 승인에는 상자를 세우지 않는다', async () => {
+  it('사유 없는 승인에는 사유 줄과 검토 시각을 두지 않는다', async () => {
     await renderRow(
       viewer({
         status: 'APPROVED',
@@ -1302,18 +1283,113 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
 
     expect(notice()).toBeNull();
+    expect(container.textContent).not.toContain('검토');
+  });
+
+  it('사유 없이 저장된 보완 요청은 사유가 없다고 적는다', async () => {
+    await renderRow(
+      viewer({
+        status: 'CHANGES_REQUESTED',
+        review: { comment: null, reviewedAt: '2026-08-02T01:20:00.000Z' },
+      }),
+    );
+
+    expect(notice()?.textContent).toBe('사유 없이 저장되었습니다.');
+  });
+
+  it('낸 파일은 이름과 새 탭으로 여는 보기 링크로 보여 준다', async () => {
+    await renderRow(
+      viewer({ hasCurrentFile: true, currentFileName: '기획서-최종.pdf' }),
+    );
+
+    const link = [...container.querySelectorAll('a')].find(
+      (anchor) => anchor.textContent === '보기',
+    );
+    expect(link?.getAttribute('href')).toBe(
+      apiPath(
+        'milestones/milestone-1/documents/document-1/submissions/current/file',
+      ),
+    );
+    expect(link?.target).toBe('_blank');
+    expect(container.textContent).toContain('기획서-최종.pdf');
+  });
+
+  it('검토 사유가 있으면 파일 이름 대신 사유를 먼저 보여 준다', async () => {
+    await renderRow(
+      viewer({
+        status: 'CHANGES_REQUESTED',
+        hasCurrentFile: true,
+        currentFileName: '기획서-최종.pdf',
+        review: {
+          comment: '표지를 고쳐 주세요.',
+          reviewedAt: '2026-08-02T01:20:00.000Z',
+        },
+      }),
+    );
+
+    expect(notice()?.textContent).toBe('표지를 고쳐 주세요.');
+    expect(container.textContent).not.toContain('기획서-최종.pdf');
+  });
+
+  it('사유가 한 줄을 넘으면 더 보기로 펼치고 접기로 되돌린다', async () => {
+    const measured = ['scrollHeight', 'clientHeight'] as const;
+    const native = measured.map(
+      (name) =>
+        [
+          name,
+          Object.getOwnPropertyDescriptor(HTMLElement.prototype, name),
+        ] as const,
+    );
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get: () => 60,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get: () => 20,
+    });
+    try {
+      await renderRow(
+        viewer({
+          status: 'CHANGES_REQUESTED',
+          review: {
+            comment: '첫 줄 사유입니다.\n둘째 줄 사유입니다.',
+            reviewedAt: '2026-08-02T01:20:00.000Z',
+          },
+        }),
+      );
+      const comment = notice()?.querySelector('span');
+      const toggle = actionButton('더 보기');
+
+      expect(toggle.getAttribute('aria-controls')).toBe(comment?.id);
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(comment?.classList).toContain('line-clamp-1');
+
+      await act(async () => toggle.click());
+
+      expect(actionButton('접기').getAttribute('aria-expanded')).toBe('true');
+      expect(comment?.classList).not.toContain('line-clamp-1');
+    } finally {
+      for (const [name, descriptor] of native) {
+        if (descriptor === undefined) {
+          Reflect.deleteProperty(HTMLElement.prototype, name);
+        } else {
+          Object.defineProperty(HTMLElement.prototype, name, descriptor);
+        }
+      }
+    }
   });
 
   it('승인·반려된 서류에는 제출 입력을 열지 않는다', async () => {
     await renderRow(viewer({ status: 'APPROVED' }));
-    expect(buttonTexts()).not.toContain('수정');
+    expect(buttonTexts()).not.toContain('교체');
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain(
       '승인된 제출 항목은 다시 제출할 수 없습니다.',
     );
 
     await renderRow(viewer({ status: 'REJECTED' }));
-    expect(buttonTexts()).not.toContain('수정');
+    expect(buttonTexts()).not.toContain('교체');
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain(
       '반려된 제출 항목은 다시 제출할 수 없습니다.',
@@ -1322,12 +1398,12 @@ describe('학생 행이 판정을 읽는 방식', () => {
 
   it('보완 요청·검토 대기·미제출에는 제출 입력을 연다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
-    expect(buttonTexts()).toContain('수정');
-    await act(async () => actionButton('수정').click());
+    expect(buttonTexts()).toContain('교체');
+    await act(async () => actionButton('교체').click());
     expect(container.querySelector('input[type="file"]')).not.toBeNull();
 
     await renderRow(viewer({ status: 'SUBMITTED' }));
-    expect(buttonTexts()).toContain('수정');
+    expect(buttonTexts()).toContain('교체');
 
     await renderRow(
       viewer({ submitted: false, submittedAt: null, status: null }),
@@ -1337,7 +1413,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
 
   it('마감이 지나도 보완 요청은 다시 낼 수 있다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), true);
-    const editButton = actionButton('수정');
+    const editButton = actionButton('교체');
     expect(editButton.disabled).toBe(false);
     await act(async () => editButton.click());
     expect(
@@ -1347,18 +1423,20 @@ describe('학생 행이 판정을 읽는 방식', () => {
     ).not.toBeNull();
   });
 
-  it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
+  it('마감 뒤 미제출·검토 대기에는 버튼 없이 마감 사유만 적는다', async () => {
     await renderRow(
       viewer({ submitted: false, submittedAt: null, status: null }),
       true,
     );
-    expect(actionButton('올리기').disabled).toBe(true);
+    expect(buttonTexts()).not.toContain('올리기');
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
 
     await renderRow(viewer({ status: 'SUBMITTED' }), true);
-    expect(actionButton('수정').disabled).toBe(true);
+    expect(buttonTexts()).not.toContain('교체');
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
   });
 
-  it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', async () => {
+  it('마감 뒤, 보완 요청에 이미 응한 제출에는 교체 없이 마감 사유만 적는다', async () => {
     await renderRow(
       viewer({
         status: 'SUBMITTED',
@@ -1372,22 +1450,23 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
 
     expect(container.textContent).toContain('검토 대기');
-    expect(actionButton('수정').disabled).toBe(true);
+    expect(buttonTexts()).not.toContain('교체');
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
   });
 
   it('마감 전에는 검토 대기도 잠기지 않는다', async () => {
     await renderRow(viewer({ status: 'SUBMITTED' }));
 
-    expect(actionButton('수정').disabled).toBe(false);
+    expect(actionButton('교체').disabled).toBe(false);
   });
 
   it('통합 제출도 승인되면 입력 칸이 열리지 않는다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     const editButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === '수정',
+      (button) => button.textContent?.trim() === '교체',
     );
     if (!(editButton instanceof HTMLButtonElement)) {
-      throw new TypeError('수정 버튼을 찾지 못했습니다.');
+      throw new TypeError('교체 버튼을 찾지 못했습니다.');
     }
     await act(async () => editButton.click());
     expect(
@@ -1397,7 +1476,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     ).not.toBeNull();
 
     await renderRow(viewer({ status: 'APPROVED' }));
-    expect(buttonTexts()).not.toContain('수정');
+    expect(buttonTexts()).not.toContain('교체');
     expect(
       container.querySelector(
         'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
@@ -1470,10 +1549,10 @@ describe('시간이 지나도 보완 요청에는 별도 재제출 기한이 없
 
   function editButton(): HTMLButtonElement {
     const found = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === '수정',
+      (button) => button.textContent?.trim() === '교체',
     );
     if (!(found instanceof HTMLButtonElement)) {
-      throw new TypeError('수정 버튼을 찾지 못했습니다.');
+      throw new TypeError('교체 버튼을 찾지 못했습니다.');
     }
     return found;
   }
@@ -1664,6 +1743,11 @@ describe('문서 유예 설정과 학생 표시', () => {
     if (found === undefined) throw new Error(`Missing button: ${label}`);
     return found;
   }
+  function hasButton(label: string): boolean {
+    return [...container.querySelectorAll('button')].some(
+      (candidate) => candidate.textContent?.trim() === label,
+    );
+  }
 
   it('운영자가 한국 시간 날짜만 저장하고 문서를 다시 읽는다', async () => {
     const fetchMock = vi
@@ -1744,7 +1828,56 @@ describe('문서 유예 설정과 학생 표시', () => {
     expect(container.textContent).toContain('지각으로 표시됩니다');
   });
 
-  it('화면을 열어 둔 채 유예 기한을 넘으면 제출 버튼을 닫는다', async () => {
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '양식이 있는 항목은 %s 에게 항목 아래 제 줄에 파일 이름으로 내려받게 한다',
+    async (viewerRole) => {
+      await render(
+        {
+          ...requirement,
+          hasTemplateFile: true,
+          templateFileName: '기획서-양식.hwp',
+        },
+        viewerRole,
+        '2099-01-01T00:00:00Z',
+      );
+
+      const line = container.querySelector(
+        '[data-testid="milestone-document-template"]',
+      );
+      const link = line?.querySelector('a');
+      expect(line?.textContent).toBe('양식기획서-양식.hwp');
+      expect(link?.getAttribute('href')).toBe(
+        apiPath('milestones/milestone-1/documents/document-1/template'),
+      );
+      expect(link?.target).toBe('_blank');
+      expect(container.querySelectorAll('a[href$="/template"]')).toHaveLength(
+        1,
+      );
+    },
+  );
+
+  it('파일 이름을 받지 못한 양식은 양식 받기라고 적는다', async () => {
+    await render(
+      { ...requirement, hasTemplateFile: true, templateFileName: null },
+      'STUDENT',
+      '2099-01-01T00:00:00Z',
+    );
+
+    expect(
+      container.querySelector('[data-testid="milestone-document-template"]')
+        ?.textContent,
+    ).toBe('양식 받기');
+  });
+
+  it('양식이 없는 항목에는 양식 줄을 두지 않는다', async () => {
+    await render(requirement, 'STUDENT', '2099-01-01T00:00:00Z');
+
+    expect(
+      container.querySelector('[data-testid="milestone-document-template"]'),
+    ).toBeNull();
+  });
+
+  it('화면을 열어 둔 채 유예 기한을 넘으면 올리기 버튼을 치우고 사유를 적는다', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
     await render(
@@ -1753,7 +1886,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     );
     expect(button('올리기').disabled).toBe(false);
     await act(async () => vi.advanceTimersByTime(1001));
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
     expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
   });
   it('화면 새로고침으로 줄어든 유예 기한은 실제 현재 시각에 맞춰 닫는다', async () => {
@@ -1769,7 +1902,7 @@ describe('문서 유예 설정과 학생 표시', () => {
       'STUDENT',
     );
     await act(async () => vi.advanceTimersByTime(0));
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
   });
 
   it('원래 마감 뒤에 낸 서류를 지각 제출로 표시한다', async () => {
@@ -1801,7 +1934,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     await act(async () => vi.advanceTimersByTime(1000));
     expect(button('올리기').disabled).toBe(false);
     await act(async () => vi.advanceTimersByTime(1));
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
   });
 
   it('원래 마감 전부터 연 화면에서 유예를 해제하면 다시 닫는다', async () => {
@@ -1819,6 +1952,6 @@ describe('문서 유예 설정과 학생 표시', () => {
       'STUDENT',
       '2026-10-20T00:00:01Z',
     );
-    expect(button('올리기').disabled).toBe(true);
+    expect(hasButton('올리기')).toBe(false);
   });
 });

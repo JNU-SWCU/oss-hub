@@ -195,7 +195,7 @@ const cases = [
     render: () => <ActivityGraphContent programId="program-1" />,
     load: api.activity,
     data: activity,
-    ready: 'strong',
+    ready: 'tbody th[scope="row"]',
   },
 ];
 
@@ -272,9 +272,9 @@ describe('read-only screen queries', () => {
     view = await renderWithQuery(<ActivityGraphContent programId="old" />);
     await view.rerender(<ActivityGraphContent programId="new" />);
     await act(async () => old.resolve(activity));
-    expect(view.container.querySelector('strong')?.textContent).toBe(
-      'new-team',
-    );
+    expect(
+      view.container.querySelector('tbody th[scope="row"]')?.textContent,
+    ).toBe('new-team');
   });
 
   it.each(cases)(
