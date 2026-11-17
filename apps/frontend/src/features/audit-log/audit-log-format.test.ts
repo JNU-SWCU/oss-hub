@@ -34,6 +34,7 @@ describe('audit log formatting', () => {
       before: null,
       after: null,
       note: '남은 팀원이 없어 팀 삭제',
+      field: null,
     });
   });
 
@@ -41,7 +42,7 @@ describe('audit log formatting', () => {
     expect(
       actionLabel({
         ...roleChange,
-        change: { before: 'UNSELECTED', after: 'STUDENT' },
+        change: { field: 'userType', before: 'UNSELECTED', after: 'STUDENT' },
       }),
     ).toBe('회원 유형 선택');
     expect(actionLabel(roleChange)).toBe('회원 유형 변경');
@@ -73,9 +74,24 @@ describe('audit log formatting', () => {
       changeLabel({
         ...roleChange,
         action: 'TEAM_RENAMED',
-        change: { before: 'PUBLIC', after: '새 팀' },
+        change: { field: 'teamName', before: 'PUBLIC', after: '새 팀' },
       }),
-    ).toEqual({ before: 'PUBLIC', after: '새 팀', note: null });
+    ).toEqual({ field: null, before: 'PUBLIC', after: '새 팀', note: null });
+  });
+
+  it('labels a changed grant even when the effective role does not change', () => {
+    expect(
+      changeLabel({
+        ...roleChange,
+        action: 'REVOKE_STAFF_ACCESS',
+        change: { field: 'hasStaffAccess', before: true, after: false },
+      }),
+    ).toEqual({
+      field: '교직원 접근',
+      before: '있음',
+      after: '없음',
+      note: null,
+    });
   });
 
   it('adds the year to day labels outside the current year', () => {

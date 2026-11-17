@@ -10,18 +10,40 @@ import {
 } from './audit-log-parts';
 import type { AuditLogRecord } from './types';
 
-interface FeedDay {
-  readonly key: string;
-  readonly records: readonly AuditLogRecord[];
+interface FeedChain {
+  readonly head: AuditLogRecord;
+  readonly linked: AuditLogRecord[];
 }
 
-function groupByDay(records: readonly AuditLogRecord[]): readonly FeedDay[] {
-  const days: { key: string; records: AuditLogRecord[] }[] = [];
+interface FeedDay {
+  readonly key: string;
+  readonly chains: FeedChain[];
+}
+
+export function groupAuditFeed(
+  records: readonly AuditLogRecord[],
+): readonly FeedDay[] {
+  const days: FeedDay[] = [];
+  let requestChains = new Map<string, FeedChain>();
   for (const record of records) {
     const key = dayKey(record.occurredAt);
-    const last = days.at(-1);
-    if (last?.key === key) last.records.push(record);
-    else days.push({ key, records: [record] });
+    let day = days.at(-1);
+    if (day?.key !== key) {
+      day = { key, chains: [] };
+      days.push(day);
+      requestChains = new Map();
+    }
+    const chain =
+      record.requestId === null
+        ? undefined
+        : requestChains.get(record.requestId);
+    if (chain) {
+      chain.linked.push(record);
+      continue;
+    }
+    const created = { head: record, linked: [] };
+    day.chains.push(created);
+    if (record.requestId !== null) requestChains.set(record.requestId, created);
   }
   return days;
 }
@@ -73,25 +95,25 @@ export function AuditLogFeed({
 }): ReactElement {
   return (
     <div className="flex flex-col gap-4">
-      {groupByDay(records).map((day) => (
+      {groupAuditFeed(records).map((day) => (
         <section
           key={day.key}
-          aria-label={dayLabel(day.records[0].occurredAt, now)}
+          aria-label={dayLabel(day.chains[0].head.occurredAt, now)}
         >
           <h2 className="text-xs font-semibold text-muted-foreground">
-            {dayLabel(day.records[0].occurredAt, now)}
+            {dayLabel(day.chains[0].head.occurredAt, now)}
           </h2>
           <ul className="flex flex-col">
-            {day.records.map((record, index) => (
+            {day.chains.flatMap((chain) => [
               <FeedRow
-                key={record.id}
-                record={record}
-                chained={
-                  record.requestId !== null &&
-                  day.records[index - 1]?.requestId === record.requestId
-                }
-              />
-            ))}
+                key={chain.head.id}
+                record={chain.head}
+                chained={false}
+              />,
+              ...chain.linked.map((record) => (
+                <FeedRow key={record.id} record={record} chained />
+              )),
+            ])}
           </ul>
         </section>
       ))}

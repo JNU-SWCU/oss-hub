@@ -29,9 +29,12 @@ export interface AuditLogTarget {
   readonly teamName: string | null;
 }
 
+export type AuditLogChangeValue = string | boolean | null;
+
 export interface AuditLogChange {
-  readonly before: string | null;
-  readonly after: string | null;
+  readonly field: string;
+  readonly before: AuditLogChangeValue;
+  readonly after: AuditLogChangeValue;
 }
 
 export type TeamMembershipOperation = 'LEAVE' | 'REMOVE' | 'TRANSFER_LEADER';

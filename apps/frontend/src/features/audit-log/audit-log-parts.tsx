@@ -90,6 +90,9 @@ export function AuditLogChangeValue({
   if (label === null) return null;
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1">
+      {label.field ? (
+        <span className="text-muted-foreground">{label.field}</span>
+      ) : null}
       {label.before ? (
         <>
           <del className="text-muted-foreground">{label.before}</del>

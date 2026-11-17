@@ -1,6 +1,7 @@
 import {
   AUDIT_LOG_ACTION_LABELS,
   type AuditLogCategory,
+  type AuditLogChangeValue,
   type AuditLogPerson,
   type AuditLogRecord,
   type TeamMembershipOperation,
@@ -46,6 +47,11 @@ const CHANGE_VALUE_LABELS: Readonly<Record<string, string>> = {
   DELETED: '삭제',
   PRIVATE: '비공개',
   PUBLIC: '공개',
+};
+
+const CHANGE_FIELD_LABELS: Readonly<Record<string, string>> = {
+  hasStaffAccess: '교직원 접근',
+  hasAdminAccess: '관리자 접근',
 };
 
 const MEMBERSHIP_ACTION_LABELS: Readonly<
@@ -148,15 +154,17 @@ export function actionLabel(record: AuditLogRecord): string {
 }
 
 export interface ChangeLabel {
+  readonly field: string | null;
   readonly before: string | null;
   readonly after: string | null;
   readonly note: string | null;
 }
 
-function changeValue(record: AuditLogRecord, value: string | null) {
+function changeValue(field: string, value: AuditLogChangeValue) {
   if (value === null) return null;
-  if (record.category === 'SUBMISSION') return `v${value}`;
-  if (record.action === 'TEAM_RENAMED') return value;
+  if (typeof value === 'boolean') return value ? '있음' : '없음';
+  if (field === 'revision') return `v${value}`;
+  if (field === 'teamName') return value;
   return lookup(CHANGE_VALUE_LABELS, value) ?? value;
 }
 
@@ -168,11 +176,15 @@ export function changeLabel(record: AuditLogRecord): ChangeLabel | null {
       ? '팀장 승계'
       : null;
   if (record.change === null) {
-    return note === null ? null : { before: null, after: null, note };
+    return note === null
+      ? null
+      : { field: null, before: null, after: null, note };
   }
+  const { field, before, after } = record.change;
   return {
-    before: changeValue(record, record.change.before),
-    after: changeValue(record, record.change.after),
+    field: lookup(CHANGE_FIELD_LABELS, field) ?? null,
+    before: changeValue(field, before),
+    after: changeValue(field, after),
     note,
   };
 }

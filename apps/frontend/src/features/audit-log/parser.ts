@@ -4,6 +4,7 @@ import {
   type AuditLogCategory,
   type AuditLogCategoryCounts,
   type AuditLogChange,
+  type AuditLogChangeValue,
   type AuditLogPage,
   type AuditLogPerson,
   type AuditLogRecord,
@@ -116,12 +117,17 @@ function target(value: unknown): AuditLogTarget {
   };
 }
 
+function changeValue(value: unknown): AuditLogChangeValue {
+  return typeof value === 'boolean' ? value : nullableString(value);
+}
+
 function change(value: unknown): AuditLogChange | null {
   if (value === null) return null;
-  const record = exactRecord(value, ['before', 'after']);
+  const record = exactRecord(value, ['field', 'before', 'after']);
   return {
-    before: nullableString(record.before),
-    after: nullableString(record.after),
+    field: nonEmptyString(record.field),
+    before: changeValue(record.before),
+    after: changeValue(record.after),
   };
 }
 
