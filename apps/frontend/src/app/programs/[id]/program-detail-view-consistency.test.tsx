@@ -320,7 +320,6 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
           programId: 'program-1',
           name: DETAIL.name,
           trackType: DETAIL.trackType,
-          milestoneCount: 1,
           boardPostCount: 0,
           participantCount: 5,
           teamCount: 5,

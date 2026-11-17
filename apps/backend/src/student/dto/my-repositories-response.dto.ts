@@ -17,8 +17,6 @@ export class MyRepositoryItemResponseDto {
   declare readonly provisionStatus: RepositoryProvisionJobStatus;
   declare readonly invitationStatus: RepositoryInvitationStatus | null;
   declare readonly visibility: RepositoryVisibility | null;
-  declare readonly lastErrorCode: string | null;
-  declare readonly updatedAt: string;
 
   static from(item: MyRepositoryResult): MyRepositoryItemResponseDto {
     return {
@@ -33,8 +31,6 @@ export class MyRepositoryItemResponseDto {
       provisionStatus: item.provisionStatus,
       invitationStatus: item.invitationStatus,
       visibility: item.visibility,
-      lastErrorCode: item.lastErrorCode,
-      updatedAt: item.updatedAt.toISOString(),
     };
   }
 }

@@ -229,7 +229,7 @@ describe('requirementCollectionDataFor', () => {
     pageSize: 20,
     total: 0,
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
-    filterCounts: { all: 0, hasMissing: 0, zeroSubmission: 0 },
+    filterCounts: { all: 0, zeroSubmission: 0 },
     documentTotals: [],
   } satisfies RequirementCollection;
 

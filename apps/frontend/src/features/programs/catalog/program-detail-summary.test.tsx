@@ -25,7 +25,6 @@ const studentOverview: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
   trackType: 'EXTRACURRICULAR',
-  milestoneCount: 1,
   boardPostCount: 0,
   participantCount: 12,
   teamCount: 4,

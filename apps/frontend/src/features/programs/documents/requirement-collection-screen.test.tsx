@@ -95,7 +95,7 @@ function collection(
     pageSize: 20,
     total: rows.length,
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
-    filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+    filterCounts: { all: 47, zeroSubmission: 5 },
     documentTotals: [{ documentId: 'd1', submitted: 30, total: 47 }],
     ...overrides,
   };

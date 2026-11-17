@@ -224,8 +224,6 @@ export class RequirementCollectionService {
     }));
     const filterCounts = {
       all: allRows.length,
-      hasMissing: allRows.filter((row) => hasMissingRequired(row, documents))
-        .length,
       zeroSubmission: allRows.filter((row) => hasZeroSubmission(row, documents))
         .length,
     };
@@ -525,7 +523,6 @@ interface RequirementCollectionPageRow<
 
 interface RequirementCollectionFilterCounts {
   readonly all: number;
-  readonly hasMissing: number;
   readonly zeroSubmission: number;
 }
 

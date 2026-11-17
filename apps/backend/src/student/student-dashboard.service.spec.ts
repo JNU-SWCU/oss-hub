@@ -232,14 +232,11 @@ describe('StudentDashboardService', () => {
       expect.objectContaining({
         teamId: 'application-1',
         teamName: 'Solo Team',
-        teamUrl: '/programs/program-1/my-team',
         detailUrl: '/programs/program-1',
-        checklistUrl: '/programs/program-1/submissions',
       }),
       expect.objectContaining({
         teamId: 'application-2',
         teamName: 'Synthetic Team',
-        teamUrl: '/programs/program-1/my-team',
       }),
     ]);
     expect(items[0]).not.toHaveProperty('applicationMode');
@@ -262,9 +259,7 @@ describe('StudentDashboardService', () => {
       }),
     ]);
     const [item] = await service.getStudentDashboard(101n);
-    expect(item?.teamUrl).toBe('/programs/program%3A1/my-team');
     expect(item?.detailUrl).toBe('/programs/program%3A1');
-    expect(item?.checklistUrl).toBe('/programs/program%3A1/submissions');
   });
   it('drops a card whose team name is blank instead of inventing one', async () => {
     findParticipatingApplications.mockResolvedValue([
@@ -280,7 +275,6 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([application({ status })]);
     const [item] = await service.getStudentDashboard(101n);
     expect(item?.detailUrl).toBe(detailUrl);
-    expect(item?.teamUrl).toBe('/programs/program-1/my-team');
   });
   it('keeps nextMilestone null for applications that are not approved', async () => {
     findParticipatingApplications.mockResolvedValue([

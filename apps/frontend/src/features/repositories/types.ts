@@ -26,18 +26,13 @@ export type MyRepositoryResponseItem = {
   readonly provisionStatus: RepositoryProvisionStatus;
   readonly invitationStatus: RepositoryInvitationStatus;
   readonly visibility: RepositoryVisibility | null;
-  readonly lastErrorCode: string | null;
-  readonly updatedAt: string;
 };
 
 export type MyRepositoriesResponse = {
   readonly items: readonly MyRepositoryResponseItem[];
 };
 
-export type MyRepositoryItem = Omit<
-  MyRepositoryResponseItem,
-  'lastErrorCode'
-> & {
+export type MyRepositoryItem = MyRepositoryResponseItem & {
   readonly modeLabel: string;
   readonly provisionLabel: string;
   readonly invitationLabel: string | null;

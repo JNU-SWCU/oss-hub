@@ -212,7 +212,6 @@ describe('ProgramApplicationsController', () => {
             enabled: false,
             jobStatus: 'DISABLED' as const,
             updatedAt: new Date('2026-07-15T01:00:00.000Z'),
-            safeErrorClass: null,
           },
           repository: {
             url: 'https://github.test/synthetic-org/synthetic-application',
@@ -274,7 +273,6 @@ describe('ProgramApplicationsController', () => {
             enabled: false,
             jobStatus: 'DISABLED',
             updatedAt: '2026-07-15T01:00:00.000Z',
-            safeErrorClass: null,
           },
           repository: {
             url: 'https://github.test/synthetic-org/synthetic-application',

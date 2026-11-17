@@ -9,7 +9,6 @@ import type {
   ApplicationListPage,
   ApplicationReviewHistoryEntry,
   RepositoryProvisioningJobStatus,
-  RepositoryProvisioningSafeErrorClass,
   StaffApplicationDetail,
 } from '../team.repository';
 
@@ -50,7 +49,6 @@ export class ApplicationListItemResponseDto {
     readonly enabled: boolean;
     readonly jobStatus: RepositoryProvisioningJobStatus;
     readonly updatedAt: string;
-    readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
 
   declare readonly repository: ApplicationRepositoryResponseDto | null;
@@ -80,7 +78,6 @@ export class ApplicationListItemResponseDto {
         enabled: item.repositoryProvisioning.enabled,
         jobStatus: item.repositoryProvisioning.jobStatus,
         updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
-        safeErrorClass: item.repositoryProvisioning.safeErrorClass,
       },
       repository: item.repository
         ? ApplicationRepositoryResponseDto.from(item.repository)
@@ -153,7 +150,6 @@ export class ApplicationDetailResponseDto {
     readonly enabled: boolean;
     readonly jobStatus: RepositoryProvisioningJobStatus;
     readonly updatedAt: string;
-    readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
 
   declare readonly repository: ApplicationRepositoryResponseDto | null;

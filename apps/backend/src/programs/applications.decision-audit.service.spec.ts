@@ -1104,7 +1104,7 @@ describe('TeamApplicationService.retryFailedRepositoryProvision', () => {
 
     await expect(
       service.retryFailedRepositoryProvision(APPLICATION_ID),
-    ).resolves.toEqual({ eventId: 'synthetic-event' });
+    ).resolves.toBeUndefined();
 
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,

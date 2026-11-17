@@ -127,7 +127,6 @@ const application = {
   isManager: true,
   canManage: true,
   canEdit: true,
-  canCancel: true,
 } satisfies StudentApplication;
 
 const sessionUser = {

@@ -137,7 +137,6 @@ export interface UploadedSubmissionFileResponse {
 export interface UploadedRequirementFileResponse {
   readonly fileId: string;
   readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
 }

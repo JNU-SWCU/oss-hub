@@ -16,7 +16,6 @@ const post: BoardPostDetail = {
   body: '중간 산출물 마감일이 정확히 언제인가요?',
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
-  updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 2,
   canEdit: true,
   canDelete: true,

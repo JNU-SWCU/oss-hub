@@ -46,7 +46,6 @@ const overview: Awaited<ReturnType<typeof getProgramOverview>> = {
   programId: 'synthetic-program',
   name: 'Synthetic program',
   trackType: null,
-  milestoneCount: 0,
   boardPostCount: 0,
   participantCount: 0,
   teamCount: 0,

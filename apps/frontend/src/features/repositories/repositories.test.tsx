@@ -27,7 +27,6 @@ function responseItem({
   provisionStatus,
   invitationStatus = null,
   visibility = 'PRIVATE',
-  lastErrorCode = null,
   hasRepository = provisionStatus === 'SUCCEEDED',
 }: {
   readonly id: string;
@@ -36,7 +35,6 @@ function responseItem({
   readonly provisionStatus: RepositoryProvisionStatus;
   readonly invitationStatus?: RepositoryInvitationStatus;
   readonly visibility?: RepositoryVisibility;
-  readonly lastErrorCode?: string | null;
   readonly hasRepository?: boolean;
 }): MyRepositoryResponseItem {
   const owner = connectionMode === 'NEW' ? 'JNU-SWCU' : 'synthetic-student';
@@ -52,8 +50,6 @@ function responseItem({
     provisionStatus,
     invitationStatus,
     visibility: hasRepository ? visibility : null,
-    lastErrorCode,
-    updatedAt: '2026-07-24T01:00:00.000Z',
   };
 }
 
@@ -77,13 +73,11 @@ function readyResponse(): MyRepositoriesResponse {
       responseItem({
         id: 'retrying',
         provisionStatus: 'FAILED_RETRYABLE',
-        lastErrorCode: 'PROVISION_TIMEOUT',
       }),
       responseItem({
         id: 'final-failure',
         mode: 'TEAM',
         provisionStatus: 'FAILED_FINAL',
-        lastErrorCode: 'PROVISION_FAILED',
       }),
       responseItem({
         id: 'invite-retrying',
@@ -399,35 +393,10 @@ describe('my repositories response parser', () => {
       'missing successful repository data',
       { ...response.items[0], repositoryName: null },
     ],
-    ['invalid date', { ...response.items[0], updatedAt: 'today' }],
-    [
-      'non-canonical date',
-      { ...response.items[0], updatedAt: '2026-07-24T10:00:00+09:00' },
-    ],
-    [
-      'rolled-over date',
-      { ...response.items[0], updatedAt: '2026-02-30T00:00:00.000Z' },
-    ],
   ])('%s 응답을 거부한다', (_case, malformedItem) => {
     expect(() =>
       parseMyRepositoriesResponse({ items: [malformedItem] }),
     ).toThrow('내 저장소 응답 형식이 올바르지 않습니다');
-  });
-
-  it('lastErrorCode를 문자열 계약으로만 파싱하고 화면 모델과 HTML에서는 제외한다', () => {
-    const secret = 'private key: SECRET';
-    const repositories = parseMyRepositoriesResponse({
-      items: [{ ...response.items[0], lastErrorCode: secret }],
-    });
-    const viewHtml = renderToStaticMarkup(
-      <MyRepositoriesView
-        state={{ kind: 'ready', repositories }}
-        onRetry={vi.fn()}
-      />,
-    );
-
-    expect(Object.hasOwn(repositories.items[0], 'lastErrorCode')).toBe(false);
-    expect(viewHtml).not.toContain(secret);
   });
 
   it('wire extra metadata는 화면 모델에 투영하지 않는다', () => {

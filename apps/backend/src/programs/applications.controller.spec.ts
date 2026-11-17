@@ -118,7 +118,6 @@ describe('ApplicationsController', () => {
         enabled: false,
         jobStatus: 'DISABLED',
         updatedAt: new Date('2026-08-06T01:00:00.000Z'),
-        safeErrorClass: null,
       },
       repository: null,
       isRepositoryPublicationPlanned: true,

@@ -18,13 +18,9 @@ describe('MyRepositoriesResponseDto', () => {
         invitationStatus:
           connectionMode === 'NEW' ? 'REVOKE_FAILED_RETRYABLE' : null,
         visibility: 'PRIVATE',
-        lastErrorCode: 'GITHUB_UNAVAILABLE',
-        updatedAt: new Date('2026-09-10T00:00:00.000Z'),
       };
 
-      expect(MyRepositoriesResponseDto.from([item]).items).toEqual([
-        { ...item, updatedAt: '2026-09-10T00:00:00.000Z' },
-      ]);
+      expect(MyRepositoriesResponseDto.from([item]).items).toEqual([item]);
     },
   );
 });

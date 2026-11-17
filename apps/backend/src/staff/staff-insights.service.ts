@@ -88,7 +88,6 @@ export interface StaffInsightsProgramRow {
   readonly dueRequirementCount: number;
   readonly submittedRequirementCount: number;
   readonly completionRate: number | null;
-  readonly contributionCount: number;
   readonly activeTeamCount: number;
   readonly repoTeamCount: number;
   readonly contributionsPerParticipant: number | null;

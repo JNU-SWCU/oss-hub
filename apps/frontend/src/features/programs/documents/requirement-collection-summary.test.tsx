@@ -18,7 +18,7 @@ function collection(total: number, submitted: number): RequirementCollection {
     page: 2,
     pageSize: 20,
     total: 0,
-    filterCounts: { all: total, hasMissing: 0, zeroSubmission: total },
+    filterCounts: { all: total, zeroSubmission: total },
     deliveryCounts: {
       missing: 0,
       complete: 0,

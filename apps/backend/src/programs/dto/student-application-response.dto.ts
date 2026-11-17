@@ -16,7 +16,6 @@ export class StudentApplicationResponseDto {
   declare readonly isManager: boolean;
   declare readonly canManage: boolean;
   declare readonly canEdit: boolean;
-  declare readonly canCancel: boolean;
 
   static from(
     application: StudentApplicationView,
@@ -35,7 +34,6 @@ export class StudentApplicationResponseDto {
       isManager: application.isManager,
       canManage: application.canManage,
       canEdit: application.canManage,
-      canCancel: application.canManage,
     };
   }
 }

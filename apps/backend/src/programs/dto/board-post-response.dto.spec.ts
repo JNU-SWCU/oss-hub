@@ -31,7 +31,6 @@ describe('게시판 글 응답 권한 계약', () => {
     const response = BoardPostDetailResponseDto.from({
       ...post,
       body: '합성 본문',
-      updatedAt: createdAt,
       comments: [
         {
           id: 'cuid-synthetic-comment',

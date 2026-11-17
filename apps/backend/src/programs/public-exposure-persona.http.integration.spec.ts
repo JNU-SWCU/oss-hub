@@ -737,11 +737,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       staffPersona.githubId,
       { isConfirmed: true },
     );
-    expect(staff.status).toBe(200);
-    await expect(staff.json()).resolves.toMatchObject({
-      repositoryId: gateRepoForStaff.repositoryId,
-      visibility: RepositoryVisibility.PUBLIC,
-    });
+    expect(staff.status).toBe(204);
 
     harness.githubPublishRepositoryMock?.mockResolvedValue({
       githubRepositoryId: gateRepoForAdmin.githubRepositoryId,
@@ -789,11 +785,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       staffPersona.githubId,
       { isConfirmed: true },
     );
-    expect(staffPublishesSecondRepository.status).toBe(200);
-    await expect(staffPublishesSecondRepository.json()).resolves.toMatchObject({
-      repositoryId: gateRepoForAdmin.repositoryId,
-      visibility: RepositoryVisibility.PUBLIC,
-    });
+    expect(staffPublishesSecondRepository.status).toBe(204);
 
     for (const repositoryId of [
       gateRepoForStaff.repositoryId,

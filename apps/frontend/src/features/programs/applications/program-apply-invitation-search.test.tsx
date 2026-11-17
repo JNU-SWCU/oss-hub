@@ -154,16 +154,13 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
 }
 
 function candidate(id: string, nickname: string): InvitationCandidate {
-  return { id, nickname, name: null, avatarUrl: null };
+  return { id, nickname, name: null };
 }
 
 function pendingInvitation(id: string, nickname: string): SentTeamInvitation {
   return {
     id,
-    teamId: team.id,
-    programId: program.id,
-    invitedAt: '2026-07-02T00:00:00.000Z',
-    invitee: { id: 'u9', nickname, name: null, avatarUrl: null },
+    invitee: { id: 'u9', nickname, name: null },
   };
 }
 

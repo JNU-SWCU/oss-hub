@@ -62,7 +62,7 @@ const memberTeam: ProgramTeam = {
 };
 
 function candidate(id: string, nickname: string): InvitationCandidate {
-  return { id, nickname, name: null, avatarUrl: null };
+  return { id, nickname, name: null };
 }
 
 function sentInvitation(
@@ -71,14 +71,10 @@ function sentInvitation(
 ): SentTeamInvitation {
   return {
     id,
-    teamId: leaderTeam.id,
-    programId: 'program-1',
-    invitedAt: '2026-07-01T00:00:00.000Z',
     invitee: {
       id: `user-${id}`,
       nickname: invitee.nickname,
       name: invitee.name,
-      avatarUrl: null,
     },
   };
 }

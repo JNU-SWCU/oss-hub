@@ -98,7 +98,6 @@ export interface PersonalizedProgramListItem extends ProgramListRecord {
   readonly note?: ProgramListItemNote;
   readonly viewerApplicationStatus?: ApplicationStatus;
   readonly applicationCount?: number;
-  readonly pendingApplicationCount?: number;
 }
 export interface ProgramListPage {
   readonly items: readonly ProgramListPageItem[];

@@ -25,8 +25,6 @@ export class ProgramListResponseDto {
 
   declare readonly applicationCount?: number;
 
-  declare readonly pendingApplicationCount?: number;
-
   static from(program: ProgramListPageItem): ProgramListResponseDto {
     return {
       coverImageUrl: program.coverImageUrl,
@@ -41,7 +39,6 @@ export class ProgramListResponseDto {
       note: program.note,
       viewerApplicationStatus: program.viewerApplicationStatus,
       applicationCount: program.applicationCount,
-      pendingApplicationCount: program.pendingApplicationCount,
     };
   }
 }

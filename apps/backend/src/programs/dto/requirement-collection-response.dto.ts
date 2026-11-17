@@ -46,11 +46,10 @@ export class RequirementCollectionDocumentResponseDto {
 }
 export class RequirementCollectionFileResponseDto {
   declare readonly name: string;
-  declare readonly sizeBytes: number;
   static from(
     file: NonNullable<RequirementCollectionSubmission['file']>,
   ): RequirementCollectionFileResponseDto {
-    return { name: file.originalFileName, sizeBytes: file.sizeBytes };
+    return { name: file.originalFileName };
   }
 }
 export class RequirementCollectionReviewResponseDto {
@@ -140,14 +139,12 @@ export class RequirementCollectionRowResponseDto {
 }
 export class RequirementCollectionFilterCountsResponseDto {
   declare readonly all: number;
-  declare readonly hasMissing: number;
   declare readonly zeroSubmission: number;
   static from(
     counts: RequirementCollectionResult['filterCounts'],
   ): RequirementCollectionFilterCountsResponseDto {
     return {
       all: counts.all,
-      hasMissing: counts.hasMissing,
       zeroSubmission: counts.zeroSubmission,
     };
   }

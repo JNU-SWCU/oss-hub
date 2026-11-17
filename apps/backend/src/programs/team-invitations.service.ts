@@ -197,7 +197,7 @@ export class TeamInvitationsService {
       case 'invitee-not-eligible':
         throw this.error(TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE);
       case 'ok':
-        return { teamId: outcome.teamId, programId: outcome.programId };
+        return { programId: outcome.programId };
     }
   }
 

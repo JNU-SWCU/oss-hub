@@ -422,11 +422,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         id: INVITEE_ID,
         nickname: 'atomic-invitee',
         name: 'Synthetic user',
-        avatarUrl: null,
       },
     });
     expect(Object.keys(sent!.invitee).sort()).toEqual([
-      'avatarUrl',
       'id',
       'name',
       'nickname',
@@ -457,10 +455,8 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       id: FILLER_ID,
       nickname: 'atomic-filler',
       name: 'Synthetic user',
-      avatarUrl: null,
     });
     expect(Object.keys(outcome.invitation.invitee).sort()).toEqual([
-      'avatarUrl',
       'id',
       'name',
       'nickname',

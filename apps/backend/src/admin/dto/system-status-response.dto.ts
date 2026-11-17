@@ -8,9 +8,6 @@ export type CollectionHealthResponseDto = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
 export type CurrentRunStatusResponseDto = 'IDLE' | 'PROCESSING';
 
-export type SystemStatusSafeReasonResponseDto =
-  'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
-
 export class CollectionSystemStatusResponseDto {
   declare readonly health: CollectionHealthResponseDto;
   declare readonly trackedRepositoryCount: number;
@@ -18,7 +15,6 @@ export class CollectionSystemStatusResponseDto {
   declare readonly lastSuccessAt: string | null;
   declare readonly nextCycleAt: string | null;
   declare readonly currentRunStatus: CurrentRunStatusResponseDto;
-  declare readonly safeReason: SystemStatusSafeReasonResponseDto | null;
 
   static from(
     collection: SystemStatusResult['collection'],
@@ -30,7 +26,6 @@ export class CollectionSystemStatusResponseDto {
       lastSuccessAt: collection.lastSuccessAt?.toISOString() ?? null,
       nextCycleAt: collection.nextCycleAt?.toISOString() ?? null,
       currentRunStatus: collection.currentRunStatus,
-      safeReason: collection.safeReason,
     };
   }
 }

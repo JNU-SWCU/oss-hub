@@ -148,14 +148,10 @@ type RepositoryProvisioningJobStatus =
   | 'FAILED_FINAL'
   | 'ANOMALOUS';
 
-type RepositoryProvisioningSafeErrorClass =
-  'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
-
 export interface RepositoryProvisioning {
   readonly enabled: boolean;
   readonly jobStatus: RepositoryProvisioningJobStatus;
   readonly updatedAt: string;
-  readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
 export type RepositoryConnectionMode = 'NEW' | 'OWN';

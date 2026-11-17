@@ -14,7 +14,6 @@ import {
   AdminAccessReadRepository,
 } from './admin-access-read.repository';
 import { UsersErrorCode } from './users-error-code.error';
-import { AccessRequestsUserDetailResponseDto } from '../staff/dto/access-requests-user-page-response.dto';
 import {
   ADMIN_ACCESS_DECISION_KINDS,
   ADMIN_ACCESS_PENDING_STATES,
@@ -48,57 +47,6 @@ const adminAccessMutationService = new AdminAccessMutationService(
   new UserProfileService(),
 );
 describe('admin access read profile completeness', () => {
-  it.each([
-    ['MIGRATION', 'MIGRATED_QUALIFICATION_CREATED'],
-    ['ADMIN', 'GRANTED'],
-    ['BOOTSTRAP', 'GRANTED'],
-    [null, null],
-  ] as const)(
-    'discloses current %s qualification time meaning in the detail response',
-    async (origin, grantTimeMeaning) => {
-      const grantedAt = new Date('2026-11-02T16:00:00.000Z');
-      const qualification = origin
-        ? { userId: 'grant-target', origin, grantedAt }
-        : null;
-      const prisma = prismaReturning({
-        ...userRow({
-          id: 'grant-target',
-          role: 'ADMIN',
-          name: 'Synthetic admin',
-          studentId: null,
-          department: 'Synthetic department',
-          pendingRequest: null,
-        }),
-        admin: qualification,
-      });
-      const detail = toDetail(
-        await new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-        ).findAdminAccessUserById(prisma, 'grant-target'),
-      );
-      if (!detail) throw new Error('Expected the qualification target');
-
-      const response: unknown = JSON.parse(
-        JSON.stringify(
-          AccessRequestsUserDetailResponseDto.from({
-            ...detail,
-            isSelf: false,
-          }),
-        ),
-      );
-
-      expect(response).toMatchObject({
-        hasAdminAccess: origin !== null,
-        adminGrant: origin
-          ? {
-              origin,
-              grantedAt: '2026-11-02T16:00:00.000Z',
-              grantTimeMeaning,
-            }
-          : null,
-      });
-    },
-  );
   it('treats a pending staff request without a student id as complete', async () => {
     const prisma = prismaReturning(
       userRow({
@@ -505,9 +453,7 @@ function userRow(options: UserRowOptions): AdminAccessUserDetailSource {
     approvalDecidedAt: null,
     approvalDecidedById: null,
     approvalReason: null,
-    admin: facts.hasAdminAccess
-      ? { userId: options.id, origin: 'BOOTSTRAP', grantedAt: at }
-      : null,
+    admin: facts.hasAdminAccess ? { userId: options.id } : null,
     accountStatus: AccountStatus.ACTIVE,
     createdAt: options.createdAt ?? at,
     loginHistories: [],

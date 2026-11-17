@@ -801,7 +801,6 @@ export class AdminAccessMutationService {
     const record = this.toAdminAccessUserRecord(user);
     return {
       ...record,
-      adminGrant: row.adminGrant,
       profile: {
         name: row.name,
         studentId: row.studentId,

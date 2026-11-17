@@ -42,12 +42,10 @@ export interface StudentDashboardItem {
   readonly programId: string;
   readonly programName: string;
   readonly teamName: string;
-  readonly teamUrl: string;
   readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly nextMilestone: StudentDashboardMilestone | null;
   readonly progress: StudentDashboardProgress | null;
   readonly detailUrl: string;
-  readonly checklistUrl: string;
   readonly repository: StudentDashboardRepositoryItem | null;
 }
 export interface StudentDashboardRepositoryItem {
@@ -69,9 +67,6 @@ function isSafeProgramId(value: string): boolean {
 function detailUrlFor(status: ApplicationStatus, programId: string): string {
   const program = `/programs/${encodeURIComponent(programId)}`;
   return status === ApplicationStatus.APPROVED ? program : `${program}/apply`;
-}
-function teamUrlFor(programId: string): string {
-  return `/programs/${encodeURIComponent(programId)}/my-team`;
 }
 interface MilestoneStatuses {
   readonly status: MilestoneCompletionStatus;
@@ -147,13 +142,11 @@ export class StudentDashboardService {
         programId: application.program.id,
         programName: application.program.name,
         teamName: application.name,
-        teamUrl: teamUrlFor(application.program.id),
         applicationStatus: application.status,
         nextMilestone,
         progress:
           milestoneStatuses === null ? null : progressOf(milestoneStatuses),
         detailUrl: detailUrlFor(application.status, application.program.id),
-        checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
         repository: this.repositoryFor(application, repositoryByApplication),
       });
     }

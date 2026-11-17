@@ -106,7 +106,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         optedOutCount: 1,
         noEmailCount: 0,
         staffRecipientCount: 2,
-        sentAt: '2026-05-01T00:10:00.000Z',
         previewVersion: 'preview-v1',
         sentCount: 5,
         duplicateCount: 1,

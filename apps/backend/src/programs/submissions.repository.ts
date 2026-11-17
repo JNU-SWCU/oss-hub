@@ -700,9 +700,7 @@ export interface SubmissionReviewRecord {
 export interface SubmissionReviewFileRecord {
   readonly fileId: string;
   readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
-  readonly expiresAt: Date;
   readonly downloadUrl: string;
 }
 export interface SubmissionRevisionRecord {
@@ -754,11 +752,6 @@ interface SubmissionReviewTarget {
 export interface SubmissionReviewResult {
   readonly reviewId: string;
   readonly submissionStatus: SubmissionStatus;
-}
-export interface RepositoryPublishResult {
-  readonly repositoryId: string;
-  readonly visibility: typeof RepositoryVisibility.PUBLIC;
-  readonly publishedAt: Date;
 }
 export interface PublishEligibilitySource {
   readonly submissions: readonly SubmissionCompletionTargetRow[];

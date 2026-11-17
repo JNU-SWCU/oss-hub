@@ -13,8 +13,6 @@ type CollectionHealthResult = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
 type CurrentRunStatusResult = 'IDLE' | 'PROCESSING';
 
-type SystemStatusSafeReasonResult = 'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
-
 interface CollectionSystemStatusResult {
   readonly health: CollectionHealthResult;
   readonly trackedRepositoryCount: number;
@@ -22,7 +20,6 @@ interface CollectionSystemStatusResult {
   readonly lastSuccessAt: Date | null;
   readonly nextCycleAt: Date | null;
   readonly currentRunStatus: CurrentRunStatusResult;
-  readonly safeReason: SystemStatusSafeReasonResult | null;
 }
 
 export type SystemStatusAnomalyRule =
@@ -140,12 +137,6 @@ export class SystemStatusService {
         lastSuccessAt,
         nextCycleAt,
         currentRunStatus: running ? 'PROCESSING' : 'IDLE',
-        safeReason:
-          health === 'EMPTY'
-            ? 'NO_TRACKED_REPOSITORIES'
-            : health === 'DELAYED'
-              ? 'STALE_DATA'
-              : null,
       },
       provisioning,
       mail,

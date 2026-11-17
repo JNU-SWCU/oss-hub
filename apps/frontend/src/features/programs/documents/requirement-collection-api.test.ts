@@ -121,7 +121,7 @@ describe('getRequirementCollection', () => {
       pageSize: 20,
       total: 47,
       deliveryCounts: { missing: 0, late: 0, complete: 0, noRequiredItems: 0 },
-      filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+      filterCounts: { all: 47, zeroSubmission: 5 },
       documentTotals: [],
     };
     const fetchMock = vi.fn().mockResolvedValue(

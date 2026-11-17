@@ -1124,7 +1124,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       isManager: true,
       canManage: true,
       canEdit: true,
-      canCancel: true,
     });
 
     await renderPage('program-x');
@@ -1182,7 +1181,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
         isManager: true,
         canManage: true,
         canEdit: true,
-        canCancel: true,
       });
       await saveDeferred.promise;
       await Promise.resolve();

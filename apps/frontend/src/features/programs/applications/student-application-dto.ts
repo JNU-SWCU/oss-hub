@@ -17,8 +17,6 @@ export interface StudentApplication {
   readonly canManage: boolean;
 
   readonly canEdit: boolean;
-
-  readonly canCancel: boolean;
 }
 
 export interface UpdateStudentApplicationInput {

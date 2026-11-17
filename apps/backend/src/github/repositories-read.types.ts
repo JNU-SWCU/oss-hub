@@ -17,6 +17,4 @@ export interface MyRepositoryResult {
   readonly provisionStatus: RepositoryProvisionJobStatus;
   readonly invitationStatus: RepositoryInvitationStatus | null;
   readonly visibility: RepositoryVisibility | null;
-  readonly lastErrorCode: string | null;
-  readonly updatedAt: Date;
 }

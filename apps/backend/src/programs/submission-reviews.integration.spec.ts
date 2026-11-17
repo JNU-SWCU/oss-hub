@@ -339,16 +339,23 @@ describe('SubmissionReviewsService integration', () => {
       target.githubRepositoryId,
       new Date('2026-07-01T00:00:00.000Z'),
     );
-    const first = await service.publishRepository(
+    await service.publishRepository(
       target.githubRepositoryId.toString(),
       REVIEWER_GITHUB_ID,
     );
-    const second = await service.publishRepository(
+    await service.publishRepository(
       target.githubRepositoryId.toString(),
       REVIEWER_GITHUB_ID,
     );
-    expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
-    expect(second).toEqual(first);
+    await expect(
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: target.githubRepositoryId },
+        select: { visibility: true, publishedAt: true },
+      }),
+    ).resolves.toEqual({
+      visibility: RepositoryVisibility.PUBLIC,
+      publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+    });
     expect(github.publishRepository).not.toHaveBeenCalled();
   });
   it('동시에 두 요청이 경합해도 정확히 1건의 typed audit만 남고, 패자는 승자가 커밋한 상태를 재조회하며 공개 조회에 즉시 반영된다', async () => {

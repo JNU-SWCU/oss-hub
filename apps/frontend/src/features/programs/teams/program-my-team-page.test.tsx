@@ -135,7 +135,6 @@ const application: StudentApplication = {
   isManager: true,
   canManage: true,
   canEdit: true,
-  canCancel: true,
 };
 
 const activity: TeamActivity = {
@@ -374,7 +373,6 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       isManager: false,
       canManage: false,
       canEdit: false,
-      canCancel: false,
     });
     await renderPage({ nickname: 'synthetic-member' });
     expect(headerBadge()?.textContent).toBe('신청');

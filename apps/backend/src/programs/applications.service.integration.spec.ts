@@ -1161,14 +1161,14 @@ describe('TeamApplicationService integration', () => {
       }),
     ).resolves.toBeNull();
 
-    const { eventId } = await service.retryFailedRepositoryProvision(teamId);
+    await service.retryFailedRepositoryProvision(teamId);
 
+    const { id: eventId, status } = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { idempotencyKey: `repository-provision:${teamId}` },
+      select: { id: true, status: true },
+    });
     expect(eventId).not.toBe(failedRequestId);
-    await expect(
-      prisma.outboxEvent.findUniqueOrThrow({
-        where: { idempotencyKey: `repository-provision:${teamId}` },
-      }),
-    ).resolves.toMatchObject({ id: eventId, status: 'PENDING' });
+    expect(status).toBe('PENDING');
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({ where: { teamId } }),
     ).resolves.toMatchObject({

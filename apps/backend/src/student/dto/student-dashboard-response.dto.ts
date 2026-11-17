@@ -76,12 +76,10 @@ export class StudentDashboardItemResponseDto {
 
   declare readonly teamName: string;
 
-  declare readonly teamUrl: string;
   declare readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   declare readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
   declare readonly progress: StudentDashboardProgressResponseDto | null;
   declare readonly detailUrl: string;
-  declare readonly checklistUrl: string;
   declare readonly repository: StudentDashboardRepositoryResponseDto | null;
 
   static from(item: StudentDashboardItem): StudentDashboardItemResponseDto {
@@ -91,7 +89,6 @@ export class StudentDashboardItemResponseDto {
       programId: item.programId,
       programName: item.programName,
       teamName: item.teamName,
-      teamUrl: item.teamUrl,
       applicationStatus: item.applicationStatus,
       nextMilestone: item.nextMilestone
         ? StudentDashboardMilestoneResponseDto.from(item.nextMilestone)
@@ -100,7 +97,6 @@ export class StudentDashboardItemResponseDto {
         ? StudentDashboardProgressResponseDto.from(item.progress)
         : null,
       detailUrl: item.detailUrl,
-      checklistUrl: item.checklistUrl,
       repository: item.repository
         ? StudentDashboardRepositoryResponseDto.from(item.repository)
         : null,

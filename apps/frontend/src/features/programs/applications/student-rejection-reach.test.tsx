@@ -55,7 +55,6 @@ const REJECTED_APPLICATION = {
   isManager: true,
   canManage: false,
   canEdit: false,
-  canCancel: false,
 } as const satisfies StudentApplication;
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {

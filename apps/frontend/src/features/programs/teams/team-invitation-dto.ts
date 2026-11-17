@@ -1,11 +1,6 @@
-interface TeamInvitation {
+export interface ReceivedTeamInvitation {
   readonly id: string;
-  readonly teamId: string;
   readonly programId: string;
-  readonly invitedAt: string;
-}
-
-export interface ReceivedTeamInvitation extends TeamInvitation {
   readonly teamName: string;
   readonly programName: string;
   readonly invitedByDisplayName: string;
@@ -17,10 +12,10 @@ interface TeamInvitationInvitee {
   readonly id: string;
   readonly nickname: string;
   readonly name: string | null;
-  readonly avatarUrl: string | null;
 }
 
-export interface SentTeamInvitation extends TeamInvitation {
+export interface SentTeamInvitation {
+  readonly id: string;
   readonly invitee: TeamInvitationInvitee;
 }
 
@@ -28,10 +23,8 @@ export interface InvitationCandidate {
   readonly id: string;
   readonly nickname: string;
   readonly name: string | null;
-  readonly avatarUrl: string | null;
 }
 
 export interface AcceptedTeamInvitation {
-  readonly teamId: string;
   readonly programId: string;
 }

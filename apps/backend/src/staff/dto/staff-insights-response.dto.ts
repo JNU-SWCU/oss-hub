@@ -227,7 +227,6 @@ export class StaffInsightsProgramResponseDto {
   declare readonly dueRequirementCount: number;
   declare readonly submittedRequirementCount: number;
   declare readonly completionRate: number | null;
-  declare readonly contributionCount: number;
   declare readonly activeTeamCount: number;
   declare readonly repoTeamCount: number;
   declare readonly contributionsPerParticipant: number | null;
@@ -250,7 +249,6 @@ export class StaffInsightsProgramResponseDto {
       dueRequirementCount: row.dueRequirementCount,
       submittedRequirementCount: row.submittedRequirementCount,
       completionRate: row.completionRate,
-      contributionCount: row.contributionCount,
       activeTeamCount: row.activeTeamCount,
       repoTeamCount: row.repoTeamCount,
       contributionsPerParticipant: row.contributionsPerParticipant,

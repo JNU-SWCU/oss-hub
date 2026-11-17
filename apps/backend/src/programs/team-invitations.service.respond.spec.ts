@@ -146,10 +146,7 @@ describe('TeamInvitationsService.accept', () => {
       expect.any(Date),
       expect.any(Function),
     );
-    expect(result).toEqual({
-      teamId: syntheticTeamId,
-      programId: syntheticProgramId,
-    });
+    expect(result).toEqual({ programId: syntheticProgramId });
   });
 
   it('records the JOINED history inside the accept transaction, not after it resolves', async () => {

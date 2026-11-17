@@ -274,11 +274,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
-    expect(result).toEqual({
-      repositoryId: '1',
-      visibility: RepositoryVisibility.PUBLIC,
-      publishedAt: REVIEWED_AT,
-    });
+    expect(result).toBeUndefined();
   });
 
   it('필수 마일스톤 미승인 상태에서는 GitHub 호출을 막는다', async () => {

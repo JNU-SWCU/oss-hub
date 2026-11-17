@@ -372,7 +372,6 @@ it('records four real repository read paths with twenty warm samples and SQL cou
         expect(row).toMatchObject({
           teamCount: 10,
           participantCount: 20,
-          milestoneCount: 2,
           connectedRepositoryCount: 10,
         });
       },
@@ -439,13 +438,11 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     },
     {
       name: 'staff-team-detail',
-      method: 'TeamRepository.findStaffTeamDetail (including evidence queries)',
+      method: 'TeamRepository.findStaffTeamDetail',
       run: async () => {
         const row = await teams.findStaffTeamDetail(programId, id('team-0'));
         expect(row?.members).toHaveLength(2);
         expect(row?.application?.id).toBe(id('team-0'));
-        expect(row?.repositoryContributions?.members).toHaveLength(2);
-        expect(row?.repositoryUrlHistory.rows).toHaveLength(1);
       },
     },
   ];

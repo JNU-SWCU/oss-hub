@@ -1,12 +1,6 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import {
-  TeamDeletionScopeRepository,
-  TeamRepository,
-  ProgramTeamDeletionRepository,
-} from './team.repository';
+import { TeamRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -28,11 +22,6 @@ import {
 } from './programs.repository';
 import { ProgramViewerService } from './program-viewer.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
-import { TeamMembershipService } from './team-membership.service';
-import { HistoryMetadataService } from '../platform/history-metadata.service';
-import { RepositoryPublishService } from '../github/repository-publish.service';
-import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './submissions.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -40,32 +29,6 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const teamsService = new TeamMembershipService(
-  new TeamRepository(
-    prisma,
-    new ProgramTeamRepositoryEvidenceRepository(prisma),
-    new PlatformRepository(),
-    new TeamHistoryRepository(),
-  ),
-  new ProgramTeamDeletionRepository(
-    new TeamHistoryRepository(),
-    prisma,
-    new TeamDeletionScopeRepository(),
-    new PrismaSerializationRetryRepository(),
-  ),
-  new HistoryMetadataService(),
-  new RepositoryPublishService(),
-  new RepositoryUrlService(),
-  new MilestoneCompletionService(),
-  new StudentRepositoryUrlService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-  ),
-);
 const prefix = `staff-evidence-${randomUUID()}`;
 const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const memberId = `${prefix}-member`;
@@ -196,110 +159,20 @@ it('projects current repository facts and URL audit history without reading or m
     ],
   });
 
-  const detail = await new TeamRepository(
+  const history = await new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
     new TeamHistoryRepository(),
-  ).findStaffTeamDetail(programId, teamId);
+  ).findStaffRepositoryUrlHistory(programId, teamId);
 
-  expect(detail?.repositoryContributions?.members).toEqual([
-    {
-      userId: memberId,
-      githubId: githubId.toString(),
-      commitCount: 7,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      issueCount: 0,
-      hasObservations: true,
-    },
-  ]);
-
-  expect(detail?.repositoryUrlHistory.rows).toHaveLength(1);
-  const view = await teamsService.getForStaff(programId, teamId);
-  expect(view.repositoryUrlHistory.items).toHaveLength(1);
-  expect(view.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
-    'actor-before-rename',
-  );
+  expect(history?.rows).toHaveLength(1);
+  expect(history?.rows[0]?.metadata).toMatchObject({
+    actorGithubLogin: 'actor-before-rename',
+  });
   expect(
     (await repositoryContributionTotals(prisma, [githubId + 1n])).commitCount,
   ).toBe(900);
-});
-
-it('reads contributions of a program that never set an end date', async () => {
-  const scope = `staff-evidence-sentinel-${randomUUID()}`;
-  const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
-  const scopedProgramId = `${scope}-program`;
-  const scopedTeamId = `${scope}-team`;
-  await prisma.user.create({
-    data: { id: `${scope}-member`, githubId: base, nickname: 'sentinel' },
-  });
-  await prisma.program.create({
-    data: {
-      startAt: new Date('2026-07-31Z'),
-      endAt: new Date('9999-12-31T23:59:59.999Z'),
-      id: scopedProgramId,
-      name: 'Synthetic program',
-      organizers: ['Synthetic'],
-      category: 'BASIC',
-      applicationTemplateKey: 'synthetic',
-      applicationTemplateVersion: 1,
-      description: 'Synthetic',
-      applicationStartAt: new Date('2026-07-01Z'),
-      applicationEndAt: new Date('2026-07-31Z'),
-    },
-  });
-  await prisma.team.create({
-    data: {
-      id: scopedTeamId,
-      programId: scopedProgramId,
-      name: 'Synthetic team',
-      leaderId: `${scope}-member`,
-      applicantId: `${scope}-member`,
-      answers: { title: 'Synthetic team' },
-      applicationTemplateVersion: 1,
-    },
-  });
-  await prisma.teamMember.create({
-    data: {
-      teamId: scopedTeamId,
-      programId: scopedProgramId,
-      userId: `${scope}-member`,
-    },
-  });
-  await prisma.team.update({
-    where: { id: scopedTeamId },
-    data: {
-      programId: scopedProgramId,
-      applicantId: `${scope}-member`,
-      answers: {},
-      applicationTemplateVersion: 1,
-    },
-  });
-  await seedRepo(prisma, {
-    githubRepositoryId: base + 1n,
-    nameWithOwner: 'synthetic/sentinel',
-    source: 'EXTERNAL_PUBLIC',
-    teamId: scopedTeamId,
-  });
-  await seedDailyContributions(
-    prisma,
-    base + 1n,
-    [{ githubId: base, date: '2026-08-01', commitCount: 3 }],
-    'EXTERNAL_PUBLIC',
-  );
-
-  const detail = await new TeamRepository(
-    prisma,
-    new ProgramTeamRepositoryEvidenceRepository(prisma),
-    new PlatformRepository(),
-    new TeamHistoryRepository(),
-  ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
-
-  expect(detail?.repositoryContributions).toMatchObject({
-    window: { from: '2026-07-31', to: '+010000-01-01', timeZone: 'Asia/Seoul' },
-    members: [{ userId: `${scope}-member`, commitCount: 3 }],
-  });
 });
 
 it('counts only the currently linked repository in program totals after a relink', async () => {
@@ -332,112 +205,7 @@ it('counts only the currently linked repository in program totals after a relink
   });
 });
 
-it('counts issues for team members, so an issue-only member has observations', async () => {
-  const scope = `staff-evidence-issue-${randomUUID()}`;
-  const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
-  const activeId = `${scope}-active`;
-  const issueOnlyId = `${scope}-issue-only`;
-  const scopedProgramId = `${scope}-program`;
-  const scopedTeamId = `${scope}-team`;
-  await prisma.user.createMany({
-    data: [
-      { id: activeId, githubId: base, nickname: 'synthetic-active' },
-      { id: issueOnlyId, githubId: base + 1n, nickname: 'synthetic-issuer' },
-    ],
-  });
-  await prisma.program.create({
-    data: {
-      id: scopedProgramId,
-      name: 'Synthetic program',
-      organizers: ['Synthetic'],
-      category: 'BASIC',
-      applicationTemplateKey: 'synthetic',
-      applicationTemplateVersion: 1,
-      description: 'Synthetic',
-      applicationStartAt: new Date('2026-07-01Z'),
-      applicationEndAt: new Date('2026-07-31Z'),
-      startAt: new Date('2026-07-31T15:00:00Z'),
-      endAt: new Date('2026-08-31T14:59:59Z'),
-    },
-  });
-  await prisma.team.create({
-    data: {
-      id: scopedTeamId,
-      programId: scopedProgramId,
-      name: 'Synthetic team',
-      leaderId: activeId,
-      applicantId: activeId,
-      answers: { title: 'Synthetic team' },
-      applicationTemplateVersion: 1,
-    },
-  });
-  await prisma.teamMember.createMany({
-    data: [activeId, issueOnlyId].map((userId) => ({
-      teamId: scopedTeamId,
-      programId: scopedProgramId,
-      userId,
-    })),
-  });
-  await prisma.team.update({
-    where: { id: scopedTeamId },
-    data: {
-      programId: scopedProgramId,
-      applicantId: activeId,
-      answers: {},
-      applicationTemplateVersion: 1,
-    },
-  });
-  await seedRepo(prisma, {
-    githubRepositoryId: base + 2n,
-    nameWithOwner: 'synthetic/issue-only',
-    source: 'EXTERNAL_PUBLIC',
-    teamId: scopedTeamId,
-  });
-  await seedDailyContributions(
-    prisma,
-    base + 2n,
-    [
-      { githubId: base, date: '2026-08-01', commitCount: 2 },
-      { githubId: base, date: '2026-08-02', issueCount: 5 },
-      { githubId: base + 1n, date: '2026-08-01', issueCount: 1 },
-    ],
-    'EXTERNAL_PUBLIC',
-  );
-
-  const detail = await new TeamRepository(
-    prisma,
-    new ProgramTeamRepositoryEvidenceRepository(prisma),
-    new PlatformRepository(),
-    new TeamHistoryRepository(),
-  ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
-
-  expect(
-    [...(detail?.repositoryContributions?.members ?? [])].sort((a, b) =>
-      a.userId.localeCompare(b.userId),
-    ),
-  ).toEqual([
-    {
-      userId: activeId,
-      githubId: base.toString(),
-      commitCount: 2,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      issueCount: 5,
-      hasObservations: true,
-    },
-    {
-      userId: issueOnlyId,
-      githubId: (base + 1n).toString(),
-      commitCount: 0,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      issueCount: 1,
-      hasObservations: true,
-    },
-  ]);
-});
-
-it('counts only student authors in team, program and public totals', async () => {
+it('counts only student authors in program and public totals', async () => {
   const scope = `student-authors-${randomUUID()}`;
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const lastSuccessAt = new Date();
@@ -647,14 +415,4 @@ it('counts only student authors in team, program and public totals', async () =>
       { repositoryId: teams.staffOnly.repo, commitCount: 0 },
     ]),
   );
-
-  const detail = await new TeamRepository(
-    prisma,
-    new ProgramTeamRepositoryEvidenceRepository(prisma),
-    platform,
-    new TeamHistoryRepository(),
-  ).findStaffTeamDetail(scopedProgramId, teams.mixed.id);
-  expect(detail?.repositoryContributions?.members).toEqual([
-    expect.objectContaining({ userId: people.member.id, commitCount: 2 }),
-  ]);
 });

@@ -61,19 +61,14 @@ const application: StudentApplication = {
   isManager: true,
   canManage: true,
   canEdit: true,
-  canCancel: true,
 };
 const candidate = {
   id: 'synthetic-invitee',
   nickname: 'synthetic-invitee',
   name: '합성 팀원',
-  avatarUrl: null,
 };
 const invitation: SentTeamInvitation = {
   id: 'synthetic-invitation',
-  teamId,
-  programId,
-  invitedAt: '2026-08-15T00:00:00Z',
   invitee: candidate,
 };
 

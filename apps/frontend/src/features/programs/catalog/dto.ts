@@ -26,7 +26,6 @@ export interface ProgramListItem {
   readonly note?: ProgramListItemNote;
   readonly viewerApplicationStatus?: ApplicationStatus;
   readonly applicationCount?: number;
-  readonly pendingApplicationCount?: number;
 }
 export interface ProgramListParams {
   readonly page: number;

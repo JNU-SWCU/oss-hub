@@ -20,7 +20,6 @@ const item: ApplicationListItem = {
     enabled: false,
     jobStatus: 'DISABLED',
     updatedAt: '2026-08-05T05:32:00.000Z',
-    safeErrorClass: null,
   },
   isRepositoryPublicationPlanned: true,
   repository: null,

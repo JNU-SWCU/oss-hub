@@ -98,7 +98,6 @@ const APPROVED_APPLICATION: StudentApplication = {
   isManager: true,
   canManage: true,
   canEdit: false,
-  canCancel: false,
 };
 
 function studentMilestones(): readonly ProgramMilestone[] {
@@ -200,7 +199,6 @@ async function installProgramRoutes(
           programId,
           name: program.name,
           trackType: 'EXTRACURRICULAR',
-          milestoneCount: milestones.length,
           boardPostCount: 0,
           participantCount: teams,
           teamCount: teams,

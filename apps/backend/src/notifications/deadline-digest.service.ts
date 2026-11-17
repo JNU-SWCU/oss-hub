@@ -154,7 +154,6 @@ export type DeadlineDigestSendRequest = DeadlineDigestGuidance & {
 
 export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
   readonly staffRecipientCount: number;
-  readonly sentAt: string;
   readonly previewVersion: string;
   readonly sentCount: number;
   readonly duplicateCount: number;
@@ -339,7 +338,6 @@ export class DeadlineDigestService {
     return {
       ...eligibility.summary,
       staffRecipientCount: staffRecipients.length,
-      sentAt: now.toISOString(),
       previewVersion: prepared.previewVersion,
       sentCount: outcomes.filter((outcome) => outcome === 'SENT').length,
       duplicateCount: outcomes.filter((outcome) => outcome === 'DUPLICATE')

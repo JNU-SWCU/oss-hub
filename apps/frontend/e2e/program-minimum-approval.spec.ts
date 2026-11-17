@@ -59,7 +59,6 @@ const application: ApplicationListItem = {
     enabled: false,
     jobStatus: 'DISABLED',
     updatedAt: row.submittedAt,
-    safeErrorClass: null,
   },
   isRepositoryPublicationPlanned: false,
   participation: 'TEAM',

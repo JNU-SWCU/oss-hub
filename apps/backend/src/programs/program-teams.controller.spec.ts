@@ -404,8 +404,6 @@ describe('TeamsController', () => {
         },
       ],
       application: null,
-      repositoryContributions: null,
-      repositoryUrlHistory: { items: [], nextCursor: null },
     });
     const controller = new TeamsController(serviceStub({ getForStaff }));
 
@@ -425,8 +423,6 @@ describe('TeamsController', () => {
         },
       ],
       application: null,
-      repositoryContributions: null,
-      repositoryUrlHistory: { items: [], nextCursor: null },
     });
   });
 

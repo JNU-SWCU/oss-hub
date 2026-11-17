@@ -134,7 +134,6 @@ import {
   type RepositoryUrlHistoryCursor,
   type TeamApplicationView,
   type RepositoryUrlHistoryRows,
-  type TeamRepositoryContributionsRow,
   type TeamActivityRow,
 } from './program-team-repository-evidence.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
@@ -441,14 +440,10 @@ export interface ApplicationListAnswers {
 export type RepositoryProvisioningJobStatus =
   'NOT_REQUESTED' | 'DISABLED' | RepositoryProvisionJobStatus | 'ANOMALOUS';
 
-export type RepositoryProvisioningSafeErrorClass =
-  'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
-
 export interface ApplicationRepositoryProvisioning {
   readonly enabled: boolean;
   readonly jobStatus: RepositoryProvisioningJobStatus;
   readonly updatedAt: Date;
-  readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
 interface ApplicationListRepository {
@@ -519,7 +514,6 @@ export type ApplicationListProvisionJob = {
   readonly repoId: bigint | null;
   readonly status: RepositoryProvisionJobStatus;
   readonly updatedAt: Date;
-  readonly lastErrorCode: string | null;
 };
 
 export interface ApplicationListSource {
@@ -924,7 +918,6 @@ export class ApplicationsRepository {
                 status: true,
                 repoId: true,
                 updatedAt: true,
-                lastErrorCode: true,
               },
             }),
           ]);
@@ -980,7 +973,6 @@ export class ApplicationsRepository {
               status: true,
               repoId: true,
               updatedAt: true,
-              lastErrorCode: true,
             },
           }),
         ]);
@@ -2213,14 +2205,11 @@ export interface TeamApplicationRow {
   readonly job: {
     readonly status: RepositoryProvisionJobStatus;
     readonly updatedAt: Date;
-    readonly lastErrorCode: string | null;
     readonly repoId: bigint | null;
   } | null;
 }
 
 export interface StaffTeamDetailRecord {
-  readonly repositoryContributions: TeamRepositoryContributionsRow | null;
-  readonly repositoryUrlHistory: RepositoryUrlHistoryRows;
   readonly id: string;
   readonly name: string;
   readonly leaderId: string;
@@ -2500,7 +2489,6 @@ export class TeamRepository {
         select: {
           status: true,
           updatedAt: true,
-          lastErrorCode: true,
           repoId: true,
         },
       }),
@@ -2672,7 +2660,6 @@ export class TeamRepository {
         select: {
           status: true,
           updatedAt: true,
-          lastErrorCode: true,
           repoId: true,
         },
       }),
@@ -2688,11 +2675,6 @@ export class TeamRepository {
         name: member.user.name ?? null,
       })),
       application: applicationRow,
-      repositoryContributions: await this.evidence.contributions(
-        team,
-        team.members,
-      ),
-      repositoryUrlHistory: await this.evidence.history({ programId, teamId }),
     };
   }
   async findStaffRepositoryUrlHistory(

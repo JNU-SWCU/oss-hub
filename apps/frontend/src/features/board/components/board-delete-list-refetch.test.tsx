@@ -68,7 +68,6 @@ const post: BoardPostDetail = {
   body: '삭제 뒤 목록 재조회를 검증합니다.',
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
-  updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 0,
   canEdit: true,
   canDelete: true,

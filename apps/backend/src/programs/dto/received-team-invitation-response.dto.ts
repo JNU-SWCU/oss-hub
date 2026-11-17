@@ -2,9 +2,7 @@ import type { ReceivedTeamInvitationRecord } from '../team-invitations.repositor
 
 export class ReceivedTeamInvitationResponseDto {
   declare readonly id: string;
-  declare readonly teamId: string;
   declare readonly programId: string;
-  declare readonly invitedAt: string;
   declare readonly teamName: string;
   declare readonly programName: string;
   declare readonly invitedByDisplayName: string;
@@ -16,9 +14,7 @@ export class ReceivedTeamInvitationResponseDto {
   ): ReceivedTeamInvitationResponseDto {
     return {
       id: record.id,
-      teamId: record.teamId,
       programId: record.programId,
-      invitedAt: record.invitedAt.toISOString(),
       teamName: record.teamName,
       programName: record.programName,
       invitedByDisplayName: record.invitedByDisplayName,

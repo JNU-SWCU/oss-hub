@@ -38,7 +38,6 @@ export class ProgramOverviewResponseDto {
   declare readonly programId: string;
   declare readonly name: string;
   declare readonly trackType: string | null;
-  declare readonly milestoneCount: number;
   declare readonly boardPostCount: number;
 
   declare readonly participantCount: number;
@@ -61,7 +60,6 @@ export class ProgramOverviewResponseDto {
       programId: view.programId,
       name: view.name,
       trackType: view.trackType,
-      milestoneCount: view.milestoneCount,
       boardPostCount: view.boardPostCount,
       participantCount: view.participantCount,
       teamCount: view.teamCount,

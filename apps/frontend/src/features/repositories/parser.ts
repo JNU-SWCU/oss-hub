@@ -109,16 +109,6 @@ function isSafeGithubUrl(
 
 function responseItem(value: unknown): MyRepositoryResponseItem {
   if (!isRecord(value)) return invalidResponse();
-  const updatedAt = nonEmptyString(value.updatedAt);
-  const parsedUpdatedAt = new Date(updatedAt);
-  if (
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(updatedAt) ||
-    Number.isNaN(parsedUpdatedAt.getTime()) ||
-    parsedUpdatedAt.toISOString() !== updatedAt
-  ) {
-    return invalidResponse();
-  }
-
   const parsedProvisionStatus = provisionStatus(value.provisionStatus);
   const parsedConnectionMode = connectionMode(value.connectionMode);
   const repositoryId = nullableString(value.repositoryId);
@@ -164,8 +154,6 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
     provisionStatus: parsedProvisionStatus,
     invitationStatus: parsedInvitationStatus,
     visibility: parsedVisibility,
-    lastErrorCode: nullableString(value.lastErrorCode),
-    updatedAt,
   };
 }
 
@@ -237,7 +225,6 @@ export function parseMyRepositoriesResponse(value: unknown): MyRepositories {
       provisionStatus: item.provisionStatus,
       invitationStatus: item.invitationStatus,
       visibility: item.visibility,
-      updatedAt: item.updatedAt,
       modeLabel: item.applicationMode === 'PERSONAL' ? '개인' : '팀',
       provisionLabel:
         item.repositoryId !== null && item.provisionStatus !== 'SUCCEEDED'

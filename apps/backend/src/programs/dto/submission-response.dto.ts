@@ -4,7 +4,6 @@ import type { SubmissionDetail } from '../submissions.repository';
 export class SubmissionFileResponseDto {
   declare readonly id: string;
   declare readonly fileName: string;
-  declare readonly contentType: string;
   declare readonly size: number;
 
   static from(file: {
@@ -16,7 +15,6 @@ export class SubmissionFileResponseDto {
     return {
       id: file.id,
       fileName: file.originalFileName,
-      contentType: file.mimeType,
       size: file.sizeBytes,
     };
   }

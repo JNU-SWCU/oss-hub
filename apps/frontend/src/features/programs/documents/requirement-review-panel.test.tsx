@@ -220,7 +220,7 @@ describe('판정 패널의 파일', () => {
   it('첨부가 있으면 파일명과 내려받기를 준다', () => {
     const fileHref = submissionFileHref('m1', 'd1', 'a1');
     const html = render({
-      cell: cell({ file: { name: '기획서-가팀.pdf', sizeBytes: 2048 } }),
+      cell: cell({ file: { name: '기획서-가팀.pdf' } }),
       fileHref,
     });
 
@@ -267,7 +267,7 @@ describe('판정 패널의 제출 내용', () => {
 
   it('파일 제출에는 글을 만들지 않는다', () => {
     const html = render({
-      cell: cell({ file: { name: '기획서-가팀.pdf', sizeBytes: 2048 } }),
+      cell: cell({ file: { name: '기획서-가팀.pdf' } }),
       fileHref: submissionFileHref('m1', 'd1', 'a1'),
     });
 
@@ -296,7 +296,7 @@ describe('보여 줄 내용이 없는 제출', () => {
 
   it('내려받을 첨부가 있으면 그 문구를 띄우지 않는다', () => {
     const html = render({
-      cell: cell({ file: { name: '기획서-가팀.pdf', sizeBytes: 2048 } }),
+      cell: cell({ file: { name: '기획서-가팀.pdf' } }),
       fileHref: submissionFileHref('m1', 'd1', 'a1'),
     });
 

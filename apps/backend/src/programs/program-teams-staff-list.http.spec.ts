@@ -112,8 +112,6 @@ const STAFF_TEAM_DETAIL: StaffTeamDetailRecord = {
   leaderId: 'user-a',
   members: TEAM_MEMBER_RECORDS,
   application: null,
-  repositoryContributions: null,
-  repositoryUrlHistory: { rows: [], hasMore: false },
 };
 
 const STAFF_TEAM_DETAIL_BODY = {
@@ -122,8 +120,6 @@ const STAFF_TEAM_DETAIL_BODY = {
   memberCount: 2,
   members: TEAM_MEMBER_VIEWS,
   application: null,
-  repositoryContributions: null,
-  repositoryUrlHistory: { items: [], nextCursor: null },
   deletionScope: EMPTY_TEAM_DELETION_SCOPE,
 };
 

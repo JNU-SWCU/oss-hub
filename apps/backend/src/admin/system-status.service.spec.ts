@@ -114,7 +114,6 @@ describe('SystemStatusService', () => {
         lastSuccessAt: new Date('2026-07-25T11:55:00.000Z'),
         nextCycleAt: new Date('2026-07-25T13:00:00.000Z'),
         currentRunStatus: 'IDLE',
-        safeReason: null,
       },
       provisioning: provisioning(),
       mail: mail(),
@@ -147,7 +146,6 @@ describe('SystemStatusService', () => {
       health: 'EMPTY',
       trackedRepositoryCount: 0,
       lastSuccessAt: null,
-      safeReason: 'NO_TRACKED_REPOSITORIES',
     });
   });
 
@@ -162,7 +160,6 @@ describe('SystemStatusService', () => {
     expect(result.collection).toMatchObject({
       health: 'DELAYED',
       staleRepositoryCount: 1,
-      safeReason: 'STALE_DATA',
     });
     expect(
       result.collectionRepositories.map(({ repositoryName, stale }) => [

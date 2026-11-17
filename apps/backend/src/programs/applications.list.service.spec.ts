@@ -100,7 +100,6 @@ describe('TeamApplicationService.listForProgram', () => {
             enabled: true,
             jobStatus: 'NOT_REQUESTED',
             updatedAt: new Date('2026-07-15T01:00:00.000Z'),
-            safeErrorClass: null,
           },
           repository: null,
           isRepositoryPublicationPlanned: true,
@@ -128,7 +127,6 @@ describe('TeamApplicationService.listForProgram', () => {
             enabled: true,
             jobStatus: 'PENDING',
             updatedAt: new Date('2026-07-16T01:00:00.000Z'),
-            safeErrorClass: null,
           },
           repository: {
             url: 'https://github.test/synthetic-org/team-1',
@@ -314,7 +312,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: true,
         jobStatus: 'NOT_REQUESTED',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: null,
       },
     },
     {
@@ -324,7 +321,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: false,
         jobStatus: 'DISABLED',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: null,
       },
     },
     {
@@ -337,7 +333,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: true,
         jobStatus: 'ANOMALOUS',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: 'UNKNOWN',
       },
     },
     {
@@ -352,7 +347,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: false,
         jobStatus: 'ANOMALOUS',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: 'UNKNOWN',
       },
     },
   ])('non-approved: $name', async ({ source, expected }) => {
@@ -388,42 +382,37 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: true,
         jobStatus: 'ANOMALOUS',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: 'UNKNOWN',
       });
     },
   );
 
   it.each([
-    [RepositoryProvisionJobStatus.PENDING, null, 'PENDING', null],
-    [RepositoryProvisionJobStatus.PROCESSING, null, 'PROCESSING', null],
-    [RepositoryProvisionJobStatus.SUCCEEDED, null, 'SUCCEEDED', null],
+    [RepositoryProvisionJobStatus.PENDING, null, 'PENDING'],
+    [RepositoryProvisionJobStatus.PROCESSING, null, 'PROCESSING'],
+    [RepositoryProvisionJobStatus.SUCCEEDED, null, 'SUCCEEDED'],
     [
       RepositoryProvisionJobStatus.FAILED_RETRYABLE,
       'GITHUB_OPERATIONS_RATE_LIMITED',
       'FAILED_RETRYABLE',
-      'RATE_LIMIT',
     ],
     [
       RepositoryProvisionJobStatus.FAILED_FINAL,
       'GITHUB_OPERATIONS_AUTHENTICATION',
       'FAILED_FINAL',
-      'AUTH',
     ],
     [
       RepositoryProvisionJobStatus.FAILED_FINAL,
       'GITHUB_OPERATIONS_INVALID_INPUT',
       'FAILED_FINAL',
-      'UPSTREAM_REJECTED',
     ],
     [
       RepositoryProvisionJobStatus.FAILED_FINAL,
       'REPOSITORY_PROVISION_INTERNAL',
       'FAILED_FINAL',
-      'UNKNOWN',
     ],
   ])(
     'processed job %s with error %s projects %s',
-    async (jobStatus, lastErrorCode, expectedStatus, safeErrorClass) => {
+    async (jobStatus, lastErrorCode, expectedStatus) => {
       await expect(
         projectRepositoryProvisioning({
           outboxStatus: OutboxEventStatus.PROCESSED,
@@ -434,25 +423,23 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: true,
         jobStatus: expectedStatus,
         updatedAt: jobUpdatedAt,
-        safeErrorClass,
       });
     },
   );
 
   it.each([
-    [OutboxEventStatus.PENDING, 'PENDING', null],
-    [OutboxEventStatus.PROCESSING, 'PENDING', null],
-    [OutboxEventStatus.FAILED, 'FAILED_FINAL', 'UNKNOWN'],
+    [OutboxEventStatus.PENDING, 'PENDING'],
+    [OutboxEventStatus.PROCESSING, 'PENDING'],
+    [OutboxEventStatus.FAILED, 'FAILED_FINAL'],
   ])(
     'enabled outbox-only %s projects %s',
-    async (outboxStatus, expectedStatus, safeErrorClass) => {
+    async (outboxStatus, expectedStatus) => {
       await expect(
         projectRepositoryProvisioning({ outboxStatus }),
       ).resolves.toEqual({
         enabled: true,
         jobStatus: expectedStatus,
         updatedAt: outboxCreatedAt,
-        safeErrorClass,
       });
     },
   );
@@ -464,7 +451,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: true,
         jobStatus: 'ANOMALOUS',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: 'UNKNOWN',
       },
     ],
     [
@@ -473,7 +459,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         enabled: false,
         jobStatus: 'DISABLED',
         updatedAt: applicationUpdatedAt,
-        safeErrorClass: null,
       },
     ],
   ])('approved no-artifact enabled=%s', async (enabled, expected) => {
@@ -493,7 +478,6 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
       enabled: false,
       jobStatus: 'ANOMALOUS',
       updatedAt: applicationUpdatedAt,
-      safeErrorClass: 'UNKNOWN',
     });
   });
 

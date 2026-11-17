@@ -14,9 +14,7 @@ interface ReviewRecord {
 export interface SubmissionRevisionFile {
   readonly fileId: string;
   readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
-  readonly expiresAt: string;
   readonly downloadUrl: string;
 }
 export interface SubmissionRevision {

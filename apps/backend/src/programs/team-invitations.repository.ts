@@ -17,14 +17,12 @@ interface TeamInvitationRecord {
   programId: string;
   inviteeId: string;
   invitedById: string;
-  invitedAt: Date;
 }
 
 export interface TeamInvitationInvitee {
   readonly id: string;
   readonly nickname: string;
   readonly name: string | null;
-  readonly avatarUrl: string | null;
 }
 
 export interface SentTeamInvitationRecord extends TeamInvitationRecord {
@@ -77,7 +75,6 @@ export interface InvitationCandidateRecord {
   readonly id: string;
   readonly nickname: string;
   readonly name: string | null;
-  readonly avatarUrl: string | null;
 }
 
 export type StaffAuthorityRow = Prisma.UserGetPayload<{
@@ -109,7 +106,6 @@ type AcceptInvitationOkContext = {
 };
 
 export interface AcceptedInvitationResult {
-  readonly teamId: string;
   readonly programId: string;
 }
 
@@ -117,7 +113,6 @@ const TEAM_INVITEE_SELECT = {
   id: true,
   nickname: true,
   ...USER_PROFILE_NAME_SELECT,
-  avatarUrl: true,
 } satisfies Prisma.UserSelect;
 
 const SENT_TEAM_INVITATION_SELECT = {
@@ -126,7 +121,6 @@ const SENT_TEAM_INVITATION_SELECT = {
   programId: true,
   inviteeId: true,
   invitedById: true,
-  createdAt: true,
   invitee: { select: TEAM_INVITEE_SELECT },
 } satisfies Prisma.TeamInvitationSelect;
 
@@ -143,12 +137,10 @@ function toSentTeamInvitationRecord(
     programId: invitation.programId,
     inviteeId: invitation.inviteeId,
     invitedById: invitation.invitedById,
-    invitedAt: invitation.createdAt,
     invitee: {
       id: invitation.invitee.id,
       nickname: invitation.invitee.nickname,
       name: invitation.invitee.name ?? null,
-      avatarUrl: invitation.invitee.avatarUrl,
     },
   };
 }
@@ -223,7 +215,6 @@ export class TeamInvitationsRepository {
       programId: invitation.programId,
       inviteeId: invitation.inviteeId,
       invitedById: invitation.invitedById,
-      invitedAt: invitation.createdAt,
       teamName: invitation.team.name,
       programName: invitation.team.program.name,
 
@@ -515,7 +506,6 @@ export class TeamInvitationsRepository {
         id: true,
         nickname: true,
         ...USER_PROFILE_NAME_SELECT,
-        avatarUrl: true,
       },
       orderBy: { nickname: 'asc' },
       take: 20,
@@ -524,7 +514,6 @@ export class TeamInvitationsRepository {
       id: user.id,
       nickname: user.nickname,
       name: user.name ?? null,
-      avatarUrl: user.avatarUrl,
     }));
   }
 

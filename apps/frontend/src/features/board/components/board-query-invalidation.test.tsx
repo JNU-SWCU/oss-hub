@@ -85,7 +85,6 @@ const post: BoardPostDetail = {
   body: '처음 합성 본문',
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
-  updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 0,
   canEdit: true,
   canDelete: true,

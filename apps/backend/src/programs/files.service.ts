@@ -755,8 +755,6 @@ export class ProgramAuthoringUploadService {
 
     return {
       id: created.id,
-      fileName: created.originalFileName,
-      contentType: created.mimeType,
       size: created.sizeBytes,
       expiresAt: created.expiresAt.toISOString(),
     };
@@ -1092,7 +1090,6 @@ export class RequirementFilesService {
     return {
       fileId: created.id,
       fileName: created.originalFileName,
-      contentType: created.mimeType,
       size: created.sizeBytes,
       expiresAt: created.expiresAt.toISOString(),
     };

@@ -15,7 +15,6 @@ export interface RequirementCollectionDocument {
 }
 interface RequirementCollectionFile {
   readonly name: string;
-  readonly sizeBytes: number;
 }
 interface RequirementCollectionReview {
   readonly id: string;
@@ -81,7 +80,6 @@ export interface RequirementCollectionQueryInput {
 }
 export interface RequirementCollectionFilterCounts {
   readonly all: number;
-  readonly hasMissing: number;
   readonly zeroSubmission: number;
 }
 export interface RequirementCollectionDocumentTotal {

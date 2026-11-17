@@ -92,7 +92,6 @@ const application: StudentApplication = {
   isManager: true,
   canManage: true,
   canEdit: true,
-  canCancel: true,
 };
 const activity: TeamActivity = {
   teamId: application.id,
@@ -174,7 +173,6 @@ for (const width of [1440, 390]) {
           enabled: true,
           jobStatus: 'FAILED_RETRYABLE',
           updatedAt: application.updatedAt,
-          safeErrorClass: 'UNKNOWN',
         },
       },
       deletionScope: {
@@ -194,7 +192,6 @@ for (const width of [1440, 390]) {
         enabled: true,
         jobStatus: 'FAILED_RETRYABLE',
         updatedAt: application.updatedAt,
-        safeErrorClass: 'UNKNOWN',
       },
       participation: 'TEAM',
       applicant: {

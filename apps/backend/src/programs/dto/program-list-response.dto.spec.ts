@@ -55,11 +55,9 @@ describe('ProgramListResponseDto', () => {
     expect(json.note).toBeUndefined();
     expect(json.viewerApplicationStatus).toBeUndefined();
     expect(json.applicationCount).toBeUndefined();
-    expect(json.pendingApplicationCount).toBeUndefined();
     expect('note' in json).toBe(false);
     expect('viewerApplicationStatus' in json).toBe(false);
     expect('applicationCount' in json).toBe(false);
-    expect('pendingApplicationCount' in json).toBe(false);
   });
 
   it('학생 개인화 필드를 그대로 통과시킨다', () => {
@@ -75,20 +73,17 @@ describe('ProgramListResponseDto', () => {
       text: '지원서 제출됨 · 교직원 승인을 기다립니다',
     });
     expect(dto.applicationCount).toBeUndefined();
-    expect(dto.pendingApplicationCount).toBeUndefined();
   });
 
   it('교직원 집계 필드와 팀 아이콘을 그대로 통과시킨다', () => {
     const dto = ProgramListResponseDto.from(
       baseItem({
         applicationCount: 3,
-        pendingApplicationCount: 1,
         note: { text: '지원 3건 · 승인 대기 1건', icon: 'team' },
       }),
     );
 
     expect(dto.applicationCount).toBe(3);
-    expect(dto.pendingApplicationCount).toBe(1);
     expect(dto.note).toEqual({
       text: '지원 3건 · 승인 대기 1건',
       icon: 'team',

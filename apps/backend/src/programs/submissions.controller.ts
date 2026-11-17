@@ -10,10 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import {
-  SubmissionReviewContextResponseDto,
-  RepositoryPublishResponseDto,
-} from './dto/submission-review-context-response.dto';
+import { SubmissionReviewContextResponseDto } from './dto/submission-review-context-response.dto';
 import { SubmissionsService } from './submissions.service';
 import { Protected } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
@@ -79,20 +76,18 @@ export class SubmissionRepositoryPublishingController {
   constructor(private readonly service: SubmissionsService) {}
 
   @Post(':repositoryId/publish')
-  @HttpCode(200)
+  @HttpCode(204)
   @Roles(STAFF_AUDIENCE, staffApprovalRequired)
   @UseGuards(OriginGuard)
   async publish(
     @Req() request: PublishActorRequest,
     @Param('repositoryId') repositoryId: string,
     @Body() body: ConfirmRepositoryPublishRequestDto,
-  ): Promise<RepositoryPublishResponseDto> {
-    return RepositoryPublishResponseDto.from(
-      await this.service.publishRepositoryFromRequest(
-        repositoryId,
-        request.sessionGithubId,
-        body,
-      ),
+  ): Promise<void> {
+    await this.service.publishRepositoryFromRequest(
+      repositoryId,
+      request.sessionGithubId,
+      body,
     );
   }
 }

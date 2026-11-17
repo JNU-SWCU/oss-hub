@@ -44,7 +44,6 @@ export interface BoardPostDetail {
   readonly body: string;
   readonly pinned: boolean;
   readonly createdAt: string;
-  readonly updatedAt: string;
   readonly commentCount: number;
   readonly comments: readonly BoardComment[];
   readonly canEdit?: boolean;

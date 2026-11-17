@@ -9,28 +9,10 @@ import { PrismaService } from '../platform/prisma.service';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
-interface RepositoryContributorView {
-  readonly githubId: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
-  readonly issueCount: number;
-}
-
-export interface TeamRepositoryContributionsView {
-  readonly repositoryId: string;
-  readonly repositoryUrl: string;
-  readonly window: {
-    readonly from: string;
-    readonly to: string;
-    readonly timeZone: 'Asia/Seoul';
-  };
-  readonly collectionStatus: 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR';
-  readonly lastSuccessAt: string | null;
-  readonly members: readonly (RepositoryContributorView & {
-    readonly userId: string;
-    readonly hasObservations: boolean;
-  })[];
+interface ActivityWindow {
+  readonly from: string;
+  readonly to: string;
+  readonly timeZone: 'Asia/Seoul';
 }
 
 export interface RepositoryUrlHistoryView {
@@ -53,13 +35,6 @@ export interface RepositoryUrlHistoryRows {
   readonly rows: readonly RepositoryUrlHistoryRow[];
   readonly hasMore: boolean;
 }
-
-export type TeamRepositoryContributionsRow = Omit<
-  TeamRepositoryContributionsView,
-  'repositoryUrl'
-> & {
-  readonly nameWithOwner: string;
-};
 
 export type TeamActivityRow = Omit<
   TeamActivityView,
@@ -92,7 +67,7 @@ export interface TeamActivityView {
   readonly repository: { readonly id: string; readonly url: string } | null;
   readonly status: 'NOT_CONNECTED' | 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR';
   readonly lastSuccessAt: string | null;
-  readonly window: TeamRepositoryContributionsView['window'];
+  readonly window: ActivityWindow;
   readonly canEditRepositoryUrl: boolean;
   readonly members: readonly {
     readonly userId: string;
@@ -141,9 +116,6 @@ export interface ProgramTeamView {
 type TeamRepositoryProvisioningJobStatus =
   'NOT_REQUESTED' | 'DISABLED' | RepositoryProvisionJobStatus | 'ANOMALOUS';
 
-export type TeamRepositoryProvisioningSafeErrorClass =
-  'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
-
 export interface TeamApplicationView {
   readonly id: string;
   readonly status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -159,16 +131,10 @@ export interface TeamApplicationView {
     readonly enabled: boolean;
     readonly jobStatus: TeamRepositoryProvisioningJobStatus;
     readonly updatedAt: Date;
-    readonly safeErrorClass: TeamRepositoryProvisioningSafeErrorClass | null;
   };
 }
 
-interface TeamRepositoryEvidenceView {
-  readonly repositoryContributions: TeamRepositoryContributionsView | null;
-  readonly repositoryUrlHistory: RepositoryUrlHistoryPage;
-}
-
-export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
+export interface StaffTeamDetailView {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;
@@ -237,64 +203,6 @@ export class ProgramTeamRepositoryEvidenceRepository {
       ORDER BY h."occurredAt" DESC, h.id DESC LIMIT 21
     `;
     return { rows: rows.slice(0, 20), hasMore: rows.length > 20 };
-  }
-
-  async contributions(
-    application: ApplicationRepositorySource,
-    members: readonly TeamRepositoryMember[],
-  ): Promise<TeamRepositoryContributionsRow | null> {
-    const repository = application.repository;
-    if (!repository) return null;
-    const lastSuccessAt = await this.lastSuccessAt(repository);
-    const window = programWindow(application.program);
-    const bounds = windowDates(window);
-    const rows = await this.prisma.$queryRaw<ContributionTotalRow[]>`
-      SELECT
-        event.author_github_id AS "githubId",
-        COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
-        COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
-        COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
-        COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
-      FROM "contribution" AS event
-      WHERE event.repo_id = ${repository.githubRepositoryId}
-        AND event.author_github_id IS NOT NULL
-        AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
-          >= ${queryDate(bounds.gte)}::date
-        AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
-          <= ${queryDate(bounds.lte)}::date
-      GROUP BY event.author_github_id
-      ORDER BY event.author_github_id
-    `;
-    const contributors = new Map(
-      rows.map((row) => [
-        row.githubId,
-        {
-          githubId: row.githubId.toString(),
-          commitCount: row.commitCount,
-          pullRequestCount: row.pullRequestCount,
-          releaseCount: row.releaseCount,
-          issueCount: row.issueCount,
-        },
-      ]),
-    );
-    return {
-      repositoryId: repository.githubRepositoryId.toString(),
-      nameWithOwner: repository.nameWithOwner,
-      window,
-      collectionStatus: collectionStatus(lastSuccessAt, new Date()),
-      lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
-      members: members.map((member) => ({
-        userId: member.userId,
-        hasObservations: contributors.has(member.user.githubId),
-        ...(contributors.get(member.user.githubId) ?? {
-          githubId: member.user.githubId.toString(),
-          commitCount: 0,
-          pullRequestCount: 0,
-          releaseCount: 0,
-          issueCount: 0,
-        }),
-      })),
-    };
   }
 
   private async lastSuccessAt(repository: {
@@ -391,7 +299,7 @@ const seoulCalendar = new Intl.DateTimeFormat('en-CA', {
 function programWindow(program: {
   readonly startAt: Date;
   readonly endAt: Date;
-}): TeamRepositoryContributionsView['window'] {
+}): ActivityWindow {
   const calendarDate = (value: Date): string => {
     const parts = Object.fromEntries(
       seoulCalendar.formatToParts(value).map((part) => [part.type, part.value]),
@@ -425,14 +333,6 @@ function windowDates(window: { readonly from: string; readonly to: string }) {
 
 function queryDate(value: Date): string {
   return value.toISOString().slice(0, 10);
-}
-
-interface ContributionTotalRow {
-  readonly githubId: bigint;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
-  readonly issueCount: number;
 }
 
 interface ActivityPointRow {

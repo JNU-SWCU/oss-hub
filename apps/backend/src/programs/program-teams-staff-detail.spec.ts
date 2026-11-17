@@ -81,8 +81,6 @@ describe('TeamMembershipService.getForStaff', () => {
     async (status) => {
       const { service } = buildService({
         detail: {
-          repositoryContributions: null,
-          repositoryUrlHistory: { rows: [], hasMore: false },
           id: TEAM_ID,
           name: 'synthetic team',
           leaderId: 'synthetic-leader',
@@ -99,7 +97,6 @@ describe('TeamMembershipService.getForStaff', () => {
               repoId: null,
               status,
               updatedAt: new Date('2026-08-09T00:00:00Z'),
-              lastErrorCode: 'GITHUB_OPERATIONS_RATE_LIMITED',
             },
             outbox: {
               status: 'PROCESSED',
@@ -126,8 +123,6 @@ describe('TeamMembershipService.getForStaff', () => {
         id: TEAM_ID,
         name: '오픈소스팀',
         leaderId: 'user-b',
-        repositoryContributions: null,
-        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [
           { userId: 'user-a', nickname: 'login-a', name: '가나다' },
           { userId: 'user-b', nickname: 'login-b', name: '라마바' },
@@ -157,8 +152,6 @@ describe('TeamMembershipService.getForStaff', () => {
         id: TEAM_ID,
         name: '오픈소스팀',
         leaderId: 'user-a',
-        repositoryContributions: null,
-        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
@@ -181,7 +174,6 @@ describe('TeamMembershipService.getForStaff', () => {
           job: {
             status: 'SUCCEEDED',
             updatedAt: new Date('2026-08-01T00:00:00.000Z'),
-            lastErrorCode: null,
             repoId: 1n,
           },
         },
@@ -205,7 +197,6 @@ describe('TeamMembershipService.getForStaff', () => {
         enabled: true,
         jobStatus: 'SUCCEEDED',
         updatedAt: new Date('2026-08-01T00:00:00.000Z'),
-        safeErrorClass: null,
       },
     });
   });
@@ -227,8 +218,6 @@ describe('TeamMembershipService.getForStaff', () => {
         id: TEAM_ID,
         name: '오픈소스팀',
         leaderId: 'user-a',
-        repositoryContributions: null,
-        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
@@ -260,8 +249,6 @@ describe('TeamMembershipService.getForStaff', () => {
     expect(payload).toEqual({
       teamId: TEAM_ID,
       name: '오픈소스팀',
-      repositoryContributions: null,
-      repositoryUrlHistory: { items: [], nextCursor: null },
       memberCount: 1,
       members: [
         {
@@ -280,7 +267,6 @@ describe('TeamMembershipService.getForStaff', () => {
           enabled: true,
           jobStatus: 'NOT_REQUESTED',
           updatedAt: '2026-08-01T00:00:00.000Z',
-          safeErrorClass: null,
         },
       },
 

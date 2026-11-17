@@ -33,7 +33,6 @@ export function sentInvitationRecord(
     programId: syntheticProgramId,
     inviteeId: syntheticUserId,
     invitedById: syntheticLeaderId,
-    invitedAt: new Date('2026-08-01T00:00:00.000Z'),
     invitee: { ...syntheticInviteeProjection },
     ...overrides,
   };

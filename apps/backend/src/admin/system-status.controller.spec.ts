@@ -17,7 +17,6 @@ describe('SystemStatusController', () => {
         lastSuccessAt: new Date('2026-07-25T11:00:00.000Z'),
         nextCycleAt: new Date('2026-07-25T20:30:00.000Z'),
         currentRunStatus: 'IDLE' as const,
-        safeReason: null,
       },
       provisioning: {
         pending: 1,
@@ -100,14 +99,12 @@ describe('SystemStatusController', () => {
     await testingModule.close();
   });
 
-  it('저장소 발급 재시도를 팀 신청 서비스에 맡기고 새 요청 ID를 돌려준다', async () => {
+  it('저장소 발급 재시도를 팀 신청 서비스에 맡긴다', async () => {
     const retryFailedRepositoryProvision = jest.fn<
       ReturnType<TeamApplicationService['retryFailedRepositoryProvision']>,
       [string]
     >();
-    retryFailedRepositoryProvision.mockResolvedValue({
-      eventId: 'synthetic-event',
-    });
+    retryFailedRepositoryProvision.mockResolvedValue(undefined);
     const testingModule = await Test.createTestingModule({
       controllers: [SystemStatusController],
       providers: [
@@ -123,11 +120,7 @@ describe('SystemStatusController', () => {
 
     await expect(
       controller.retryProvisioning('synthetic-team'),
-    ).resolves.toEqual({
-      teamId: 'synthetic-team',
-      requestId: 'synthetic-event',
-      status: 'PENDING',
-    });
+    ).resolves.toBeUndefined();
     expect(retryFailedRepositoryProvision).toHaveBeenCalledWith(
       'synthetic-team',
     );

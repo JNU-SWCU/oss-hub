@@ -90,7 +90,6 @@ function collection(
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: {
       all: rows.length,
-      hasMissing: rows.length,
       zeroSubmission: rows.length,
     },
     documentTotals: documents.map((item) => ({
@@ -183,7 +182,7 @@ describe('RequirementCollectionView 빈 상태', () => {
             complete: 20,
             noRequiredItems: 5,
           },
-          filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+          filterCounts: { all: 47, zeroSubmission: 5 },
         },
       ),
     });
@@ -237,7 +236,6 @@ describe('RequirementCollectionView 표', () => {
         cell('d1', {
           file: {
             name: '아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf',
-            sizeBytes: 2048,
           },
         }),
         cell('d2', { submittedAt: '2026-07-14T01:00:00.000Z' }),
@@ -410,7 +408,7 @@ describe('RequirementCollectionView 표', () => {
         complete: 20,
         noRequiredItems: 5,
       },
-      filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+      filterCounts: { all: 47, zeroSubmission: 5 },
       documentTotals: [
         { documentId: 'd1', submitted: 30, total: 47 },
         { documentId: 'd2', submitted: 12, total: 47 },
@@ -518,7 +516,7 @@ describe('RequirementCollectionView 표', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+        filterCounts: { all: 47, zeroSubmission: 5 },
       }),
     });
 
@@ -538,7 +536,7 @@ describe('RequirementCollectionView 표', () => {
           complete: 1,
           noRequiredItems: 0,
         },
-        filterCounts: { all: 3, hasMissing: 2, zeroSubmission: 1 },
+        filterCounts: { all: 3, zeroSubmission: 1 },
       });
 
       expect(render({ data, filter })).not.toContain('필수 서류 없음 0');
@@ -561,7 +559,7 @@ describe('RequirementCollectionView 표', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 3, hasMissing: 3, zeroSubmission: 3 },
+        filterCounts: { all: 3, zeroSubmission: 3 },
       }),
       filter: 'ZERO_SUBMISSION',
     });
@@ -581,7 +579,7 @@ describe('RequirementCollectionView 표', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
+        filterCounts: { all: 47, zeroSubmission: 0 },
       }),
       filter: 'ZERO_SUBMISSION',
     });
@@ -686,7 +684,7 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+        filterCounts: { all: 47, zeroSubmission: 5 },
       }),
     });
 
@@ -711,7 +709,7 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
+        filterCounts: { all: 47, zeroSubmission: 0 },
       }),
       filter: 'ZERO_SUBMISSION',
     });
@@ -733,7 +731,7 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
           complete: 27,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 5, zeroSubmission: 0 },
+        filterCounts: { all: 47, zeroSubmission: 0 },
       }),
       filter: 'HAS_MISSING',
     });
@@ -846,7 +844,7 @@ describe('RequirementCollectionView 서류별 내려받기(ZIP)', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 0 },
+        filterCounts: { all: 47, zeroSubmission: 0 },
       }),
       filter: 'ZERO_SUBMISSION',
     });
@@ -877,7 +875,7 @@ describe('RequirementCollectionView 서류별 내려받기(ZIP)', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+        filterCounts: { all: 47, zeroSubmission: 5 },
       }),
     });
 
@@ -909,7 +907,7 @@ describe('RequirementCollectionView 페이지 이동', () => {
         complete: 20,
         noRequiredItems: 5,
       },
-      filterCounts: { all: total, hasMissing: total, zeroSubmission: 0 },
+      filterCounts: { all: total, zeroSubmission: 0 },
     });
   }
 
@@ -958,7 +956,7 @@ describe('RequirementCollectionView 페이지 이동', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 5, zeroSubmission: 0 },
+        filterCounts: { all: 47, zeroSubmission: 0 },
       }),
       filter: 'HAS_MISSING',
     });
@@ -983,7 +981,7 @@ describe('RequirementCollectionView 페이지 이동', () => {
           complete: 20,
           noRequiredItems: 5,
         },
-        filterCounts: { all: 47, hasMissing: 47, zeroSubmission: 0 },
+        filterCounts: { all: 47, zeroSubmission: 0 },
       }),
     });
 

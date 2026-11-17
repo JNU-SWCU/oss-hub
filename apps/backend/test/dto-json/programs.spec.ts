@@ -87,7 +87,6 @@ import {
 import { SubmissionMatrixResponseDto } from '../../src/programs/dto/submission-matrix-response.dto';
 import {
   CreateSubmissionReviewResponseDto,
-  RepositoryPublishResponseDto,
   SubmissionReviewContextResponseDto,
 } from '../../src/programs/dto/submission-review-context-response.dto';
 import { TeamActivityResponseDto } from '../../src/programs/dto/team-activity-response.dto';
@@ -162,7 +161,6 @@ const boardPost: BoardPostSummaryResult = {
 const boardDetail: BoardPostDetailResult = {
   ...boardPost,
   body: 'Hello',
-  updatedAt: at('2026-01-03T03:04:05.000Z'),
   comments: [
     {
       id: 'comment-1',
@@ -186,7 +184,6 @@ const applicationItem: ApplicationListItem = {
     enabled: true,
     jobStatus: 'PENDING',
     updatedAt: at('2026-01-06T00:00:00.000Z'),
-    safeErrorClass: null,
   },
   repositoryConnectionMode: 'NEW',
   repository: { url: 'https://github.com/org/repo', visibility: 'PRIVATE' },
@@ -340,7 +337,7 @@ const collectionResult: RequirementCollectionResult = {
   page: 1,
   pageSize: 20,
   total: 2,
-  filterCounts: { all: 2, hasMissing: 1, zeroSubmission: 1 },
+  filterCounts: { all: 2, zeroSubmission: 1 },
   documentTotals: [
     { documentId: 'document-1', submitted: 1, total: 2 },
     { documentId: 'document-2', submitted: 1, total: 2 },
@@ -382,7 +379,6 @@ const programListItem: ProgramListPageItem = {
   note: { text: 'Team needed', icon: 'team' },
   viewerApplicationStatus: 'SUBMITTED',
   applicationCount: 3,
-  pendingApplicationCount: 1,
 };
 const programDetail: ProgramDetailResult = {
   teamMinSize: 2,
@@ -440,7 +436,6 @@ const overview: ProgramOverviewView = {
   programId: 'program-1',
   name: 'Program A',
   trackType: null,
-  milestoneCount: 2,
   boardPostCount: 3,
   participantCount: 10,
   teamCount: 4,
@@ -548,7 +543,6 @@ const staffTeamDetail: StaffTeamDetailView = {
       enabled: true,
       jobStatus: 'SUCCEEDED',
       updatedAt: at('2026-02-01T00:00:00.000Z'),
-      safeErrorClass: null,
     },
   },
   deletionScope: {
@@ -559,19 +553,6 @@ const staffTeamDetail: StaffTeamDetailView = {
     submissionEvents: 4,
     detachedRepositories: 1,
     scopeFingerprint: 'scope-1',
-  },
-  repositoryContributions: null,
-  repositoryUrlHistory: {
-    items: [
-      {
-        id: 'history-1',
-        occurredAt: '2026-02-02T00:00:00.000Z',
-        actorGithubLogin: 'octo',
-        previousRepositoryUrl: null,
-        newRepositoryUrl: 'https://github.com/org/team-a',
-      },
-    ],
-    nextCursor: 'cursor-1',
   },
 };
 const teamActivity: TeamActivityView = {
@@ -607,12 +588,10 @@ const sentInvitation: SentTeamInvitationRecord = {
   programId: 'program-1',
   inviteeId: 'user-2',
   invitedById: 'user-1',
-  invitedAt: at('2026-01-10T00:00:00.000Z'),
   invitee: {
     id: 'user-2',
     nickname: 'cat',
     name: null,
-    avatarUrl: 'https://avatars.example/cat.png',
   },
 };
 const teamManagementItem: TeamManagementListItem = {
@@ -652,9 +631,7 @@ const reviewContext: SubmissionReviewContext = {
       {
         fileId: 'file-1',
         fileName: 'plan.pdf',
-        contentType: 'application/pdf',
         size: 1024,
-        expiresAt: at('2026-02-09T01:00:00.000Z'),
         downloadUrl: '/api/v1/submission-files/file-1',
       },
     ],
@@ -688,7 +665,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'AcceptTeamInvitationResponseDto',
     () =>
       AcceptTeamInvitationResponseDto.from({
-        teamId: 'team-1',
         programId: 'program-1',
       }),
   ],
@@ -744,7 +720,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
               enabled: false,
               jobStatus: 'FAILED_FINAL',
               updatedAt: at('2026-01-06T00:00:00.000Z'),
-              safeErrorClass: 'AUTH',
             },
             repositoryConnectionMode: 'OWN',
             repository: null,
@@ -874,7 +849,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         id: 'user-2',
         nickname: 'cat',
         name: null,
-        avatarUrl: null,
       }),
   ],
   [
@@ -1234,7 +1208,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         programId: 'program-1',
         inviteeId: 'user-2',
         invitedById: 'user-1',
-        invitedAt: at('2026-01-10T00:00:00.000Z'),
         teamName: 'Team A',
         programName: 'Program A',
         invitedByDisplayName: 'Octo',
@@ -1245,9 +1218,18 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'RepositoryUrlHistoryResponseDto',
     () =>
-      RepositoryUrlHistoryResponseDto.from(
-        staffTeamDetail.repositoryUrlHistory,
-      ),
+      RepositoryUrlHistoryResponseDto.from({
+        items: [
+          {
+            id: 'history-1',
+            occurredAt: '2026-02-02T00:00:00.000Z',
+            actorGithubLogin: 'octo',
+            previousRepositoryUrl: null,
+            newRepositoryUrl: 'https://github.com/org/team-a',
+          },
+        ],
+        nextCursor: 'cursor-1',
+      }),
   ],
   [
     'TeamApplicationResponseDto',
@@ -1330,15 +1312,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         submissionStatus: 'APPROVED',
       }),
   ],
-  [
-    'RepositoryPublishResponseDto',
-    () =>
-      RepositoryPublishResponseDto.from({
-        repositoryId: 'repository-1',
-        visibility: 'PUBLIC',
-        publishedAt: at('2026-07-01T00:00:00.000Z'),
-      }),
-  ],
   ['TeamActivityResponseDto', () => TeamActivityResponseDto.from(teamActivity)],
   [
     'TeamInvitationInviteeResponseDto',
@@ -1381,8 +1354,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       ProgramAuthoringUploadResponseDto.from({
         id: 'upload-1',
-        fileName: 'guide.pdf',
-        contentType: 'application/pdf',
         size: 1024,
         expiresAt: '2026-05-02T00:00:00.000Z',
       }),
@@ -1473,7 +1444,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       UploadedRequirementFileResponseDto.from({
         fileId: 'file-1',
         fileName: 'report.pdf',
-        contentType: 'application/pdf',
         size: 2048,
         expiresAt: '2026-05-03T00:00:00.000Z',
       }),

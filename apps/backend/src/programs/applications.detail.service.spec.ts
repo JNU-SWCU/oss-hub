@@ -269,7 +269,6 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
       enabled: true,
       jobStatus: 'SUCCEEDED',
       updatedAt: UPDATED_AT,
-      safeErrorClass: null,
     });
   });
 

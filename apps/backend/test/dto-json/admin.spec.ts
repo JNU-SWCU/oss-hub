@@ -7,7 +7,6 @@ import {
   IndependentAuthorityMutationResponseDto,
 } from '../../src/admin/dto/admin-access-user-page-response.dto';
 import { CollectionTriggerResponseDto } from '../../src/admin/dto/collection-trigger-response.dto';
-import { ProvisioningRetryResponseDto } from '../../src/admin/dto/provisioning-retry-response.dto';
 import { SystemStatusResponseDto } from '../../src/admin/dto/system-status-response.dto';
 import { AuditLogPageResponseDto } from '../../src/admin/dto/audit-log-page-response.dto';
 import { type SystemStatusResult } from '../../src/admin/system-status.service';
@@ -80,7 +79,6 @@ const systemStatus: SystemStatusResult = {
     lastSuccessAt: at('2026-05-01T00:45:00.000Z'),
     nextCycleAt: at('2026-05-01T02:00:00.000Z'),
     currentRunStatus: 'PROCESSING',
-    safeReason: 'STALE_DATA',
   },
   provisioning: {
     pending: 2,
@@ -196,10 +194,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'CollectionTriggerResponseDto',
     () => CollectionTriggerResponseDto.from('run-1'),
   ],
-  [
-    'ProvisioningRetryResponseDto',
-    () => ProvisioningRetryResponseDto.from('team-1', { eventId: 'event-2' }),
-  ],
   ['SystemStatusResponseDto', () => SystemStatusResponseDto.from(systemStatus)],
   [
     'SystemStatusResponseDto empty',
@@ -214,7 +208,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           lastSuccessAt: null,
           nextCycleAt: null,
           currentRunStatus: 'IDLE',
-          safeReason: 'NO_TRACKED_REPOSITORIES',
         },
         collectionRepositories: [],
         externalCollection: {

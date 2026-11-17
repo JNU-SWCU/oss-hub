@@ -63,7 +63,6 @@ const user: AdminAccessUser = {
 
 const detail: AdminAccessUserDetail = {
   ...user,
-  adminGrant: null,
   memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -205,7 +204,6 @@ const insights: StaffInsightsSummary = {
       dueRequirementCount: 4,
       submittedRequirementCount: 3,
       completionRate: 75,
-      contributionCount: 40,
       activeTeamCount: 1,
       repoTeamCount: 2,
       contributionsPerParticipant: 6.7,

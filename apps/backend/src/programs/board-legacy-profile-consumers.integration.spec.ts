@@ -204,7 +204,6 @@ it('preserves canonical and legacy fallback projections across all three consume
       id: canonicalUserId,
       nickname: 'canonical-login',
       name: 'canonical-person',
-      avatarUrl: null,
     },
   ]);
   expect(staleLegacyCandidates).toEqual([]);
@@ -213,7 +212,6 @@ it('preserves canonical and legacy fallback projections across all three consume
       id: legacyUserId,
       nickname: 'legacy-login',
       name: 'legacy-only-person',
-      avatarUrl: null,
     },
   ]);
   expect(posts.items).toEqual([

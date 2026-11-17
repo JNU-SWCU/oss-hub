@@ -28,8 +28,6 @@ export interface ProgramAuthoringUploadFile {
 
 export interface ProgramAuthoringUploadResponse {
   readonly id: string;
-  readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
 }

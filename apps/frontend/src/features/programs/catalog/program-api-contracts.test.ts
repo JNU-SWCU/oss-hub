@@ -90,7 +90,6 @@ describe('listPrograms', () => {
           description: '설명',
           note: { text: '지원 3건 · 승인 대기 1건', icon: 'team' },
           applicationCount: 3,
-          pendingApplicationCount: 1,
         },
       ],
       page: 1,
@@ -117,7 +116,6 @@ describe('listPrograms', () => {
       icon: 'team',
     });
     expect(result.items[1]?.applicationCount).toBe(3);
-    expect(result.items[1]?.pendingApplicationCount).toBe(1);
   });
 });
 

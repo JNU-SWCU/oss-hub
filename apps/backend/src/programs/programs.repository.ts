@@ -1088,7 +1088,6 @@ export interface ProgramOverviewRecord {
   programId: string;
   name: string;
   trackType: string | null;
-  milestoneCount: number;
   boardPostCount: number;
   participantCount: number;
   teamCount: number;
@@ -1182,7 +1181,7 @@ export class ProgramOverviewRepository {
         id: true,
         name: true,
         trackType: true,
-        _count: { select: { milestones: true, boardPosts: true, teams: true } },
+        _count: { select: { boardPosts: true, teams: true } },
       },
     });
     if (!program) {
@@ -1211,7 +1210,6 @@ export class ProgramOverviewRepository {
       programId: program.id,
       name: program.name,
       trackType: program.trackType,
-      milestoneCount: program._count.milestones,
       boardPostCount: program._count.boardPosts,
       participantCount,
       teamCount: program._count.teams,

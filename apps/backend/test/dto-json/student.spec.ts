@@ -17,8 +17,6 @@ const repository: MyRepositoryResult = {
   provisionStatus: 'SUCCEEDED',
   invitationStatus: 'SUCCEEDED',
   visibility: 'PRIVATE',
-  lastErrorCode: null,
-  updatedAt: at('2026-01-02T03:04:05.000Z'),
 };
 const dashboardItem: StudentDashboardItem = {
   coverImageUrl: '/api/v1/programs/program-1/cover',
@@ -26,7 +24,6 @@ const dashboardItem: StudentDashboardItem = {
   programId: 'program-1',
   programName: 'Program A',
   teamName: 'Team A',
-  teamUrl: '/programs/program-1/team',
   applicationStatus: 'APPROVED',
   nextMilestone: {
     id: 'milestone-1',
@@ -39,7 +36,6 @@ const dashboardItem: StudentDashboardItem = {
   },
   progress: { approvedCount: 1, inReviewCount: 1, totalCount: 3 },
   detailUrl: '/programs/program-1',
-  checklistUrl: '/programs/program-1/submissions',
   repository: {
     repositoryName: 'org/team-a',
     provisionStatus: 'SUCCEEDED',
@@ -130,7 +126,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           provisionStatus: 'FAILED_FINAL',
           invitationStatus: null,
           visibility: null,
-          lastErrorCode: 'AUTH',
         },
       ]),
   ],
@@ -144,7 +139,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           programId: 'program-2',
           programName: 'Program B',
           teamName: 'Solo',
-          teamUrl: '/programs/program-2/team',
           applicationStatus: 'SUBMITTED',
           nextMilestone: {
             id: 'milestone-3',
@@ -157,7 +151,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           },
           progress: null,
           detailUrl: '/programs/program-2',
-          checklistUrl: '/programs/program-2/submissions',
           repository: null,
         },
         {

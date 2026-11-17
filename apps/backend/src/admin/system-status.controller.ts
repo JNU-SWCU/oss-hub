@@ -8,7 +8,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { SystemStatusResponseDto } from './dto/system-status-response.dto';
-import { ProvisioningRetryResponseDto } from './dto/provisioning-retry-response.dto';
 import { SystemStatusService } from './system-status.service';
 import { Protected } from '../auth/auth-route.decorator';
 import { OriginGuard } from '../platform/origin.guard';
@@ -38,12 +37,7 @@ export class SystemStatusController {
   @Protected()
   @Roles(ADMIN_AUDIENCE, adminRequired)
   @UseGuards(OriginGuard)
-  async retryProvisioning(
-    @Param('teamId') teamId: string,
-  ): Promise<ProvisioningRetryResponseDto> {
-    return ProvisioningRetryResponseDto.from(
-      teamId,
-      await this.applications.retryFailedRepositoryProvision(teamId),
-    );
+  async retryProvisioning(@Param('teamId') teamId: string): Promise<void> {
+    await this.applications.retryFailedRepositoryProvision(teamId);
   }
 }

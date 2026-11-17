@@ -83,7 +83,6 @@ async function installProgramRoutes(
           programId,
           name: '활동 이동 확인 프로그램',
           trackType: 'EXTRACURRICULAR',
-          milestoneCount: 1,
           boardPostCount: 0,
           participantCount: activityRows.length,
           teamCount: activityRows.length,

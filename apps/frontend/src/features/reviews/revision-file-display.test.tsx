@@ -39,17 +39,13 @@ describe('RevisionCard file display', () => {
         {
           fileId: 'file-current',
           fileName: 'report.pdf',
-          contentType: 'application/pdf',
           size: 1536,
-          expiresAt: '2026-08-01T00:00:00.000Z',
           downloadUrl: CURRENT_FILE_DOWNLOAD_URL,
         },
         {
           fileId: 'file-extra',
           fileName: 'screenshots.zip',
-          contentType: 'application/zip',
           size: 2_621_440,
-          expiresAt: '2026-08-01T00:00:00.000Z',
           downloadUrl: EXTRA_FILE_DOWNLOAD_URL,
         },
       ],

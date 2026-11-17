@@ -86,18 +86,10 @@ describe('ProgramAuthoringUploadService', () => {
     );
     expect(result).toEqual({
       id: 'upload-id',
-      fileName: 'plan.pdf',
-      contentType: 'application/pdf',
       size: 64,
       expiresAt: EXPIRES_AT.toISOString(),
     });
-    expect(Object.keys(result).sort()).toEqual([
-      'contentType',
-      'expiresAt',
-      'fileName',
-      'id',
-      'size',
-    ]);
+    expect(Object.keys(result).sort()).toEqual(['expiresAt', 'id', 'size']);
   });
 
   it.each(['', ' actor-with-spaces '])(

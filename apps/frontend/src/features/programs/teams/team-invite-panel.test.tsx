@@ -18,9 +18,8 @@ const candidates: InvitationCandidate[] = [
     id: 'user-1',
     nickname: 'synthetic-one',
     name: '합성 후보',
-    avatarUrl: null,
   },
-  { id: 'user-2', nickname: 'synthetic-two', name: null, avatarUrl: null },
+  { id: 'user-2', nickname: 'synthetic-two', name: null },
 ];
 
 function sentInvitation(
@@ -28,9 +27,6 @@ function sentInvitation(
 ): SentTeamInvitation {
   return {
     id: 'inv-1',
-    teamId: 'team-1',
-    programId: 'program-1',
-    invitedAt: '2026-07-01T00:00:00Z',
     invitee: candidates[0],
     ...overrides,
   };

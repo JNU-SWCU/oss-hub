@@ -67,7 +67,6 @@ export class BoardPostDetailResponseDto {
   declare readonly body: string;
   declare readonly pinned: boolean;
   declare readonly createdAt: string;
-  declare readonly updatedAt: string;
   declare readonly commentCount: number;
   declare readonly comments: BoardCommentResponseDto[];
   declare readonly canEdit: boolean;
@@ -83,7 +82,6 @@ export class BoardPostDetailResponseDto {
       body: record.body,
       pinned: record.pinned,
       createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
       commentCount: record.commentCount,
       comments: record.comments.map((comment) =>
         BoardCommentResponseDto.from(comment),

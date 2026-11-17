@@ -173,9 +173,6 @@ export class AdminAccessReadRepository {
     return {
       ...this.toAdminAccessUserRow(user),
       staffNumber: user.staffNumber,
-      adminGrant: user.admin
-        ? { origin: user.admin.origin, grantedAt: user.admin.grantedAt }
-        : null,
       participationMemberships: user.teamMemberships,
     };
   }
@@ -197,7 +194,6 @@ export class AdminAccessReadRepository {
   } as const satisfies Prisma.UserSelect;
   readonly ADMIN_ACCESS_USER_DETAIL_SELECT = {
     ...this.ADMIN_ACCESS_USER_SELECT,
-    admin: { select: { userId: true, origin: true, grantedAt: true } },
     teamMemberships: {
       ...USER_PARTICIPATION_MEMBERSHIPS,
       take: READ_CAP.participationsPerUser + 1,
@@ -288,7 +284,6 @@ export type AdminAccessUserRow = Omit<
 
 export type AdminAccessUserDetailRow = AdminAccessUserRow & {
   readonly staffNumber: string | null;
-  readonly adminGrant: AdminAccessUserDetail['adminGrant'];
   readonly participationMemberships: readonly UserParticipationMembership[];
 };
 

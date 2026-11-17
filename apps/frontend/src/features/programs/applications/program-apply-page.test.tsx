@@ -229,7 +229,6 @@ function rejectedApplication(
     isManager: true,
     canManage: false,
     canEdit: false,
-    canCancel: false,
   };
 }
 

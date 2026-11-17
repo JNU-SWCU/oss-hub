@@ -31,7 +31,6 @@ export type ProgramDeadlineSendResult = Omit<
   ProgramDeadlinePreview,
   'previewedAt' | 'expiresAt' | 'studentPreviews' | 'staffPreview'
 > & {
-  readonly sentAt: string;
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;

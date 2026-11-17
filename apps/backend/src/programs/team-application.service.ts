@@ -5,7 +5,6 @@ import {
   ApplicationDecisionAction,
   ApplicationListItem,
   ApplicationRepositoryProvisioning,
-  RepositoryProvisioningSafeErrorClass,
   ApplicationListAnswers,
   ApplicationsRepository,
   type ApplicationListQuery,
@@ -889,9 +888,7 @@ export class TeamApplicationService {
     }
   }
 
-  async retryFailedRepositoryProvision(
-    teamId: string,
-  ): Promise<{ readonly eventId: string }> {
+  async retryFailedRepositoryProvision(teamId: string): Promise<void> {
     return this.repository.withTransaction(async (store) => {
       const application = await store.findApplicationById(teamId);
       if (!application) {
@@ -909,7 +906,7 @@ export class TeamApplicationService {
         requestedAt,
         this.parseProvisionHistoryPayload,
       );
-      const event = await store.createRepositoryProvisionEvent(
+      await store.createRepositoryProvisionEvent(
         {
           teamId,
           programId: application.programId,
@@ -921,7 +918,6 @@ export class TeamApplicationService {
         },
         this.parseProvisionHistoryPayload,
       );
-      return { eventId: event.id };
     });
   }
 
@@ -1066,7 +1062,6 @@ export class TeamApplicationService {
               enabled: row.program.repositoryProvisioningEnabled,
               jobStatus: 'SUCCEEDED',
               updatedAt: job.updatedAt,
-              safeErrorClass: null,
             }
           : resolveRepositoryProvisioning(
               row.status,
@@ -1127,7 +1122,6 @@ function resolveRepositoryProvisioning(
     enabled,
     jobStatus: 'ANOMALOUS',
     updatedAt: applicationUpdatedAt,
-    safeErrorClass: 'UNKNOWN',
   });
   if (applicationStatus !== ApplicationStatus.APPROVED) {
     if (outbox || job) {
@@ -1137,7 +1131,6 @@ function resolveRepositoryProvisioning(
       enabled,
       jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
       updatedAt: applicationUpdatedAt,
-      safeErrorClass: null,
     };
   }
 
@@ -1155,10 +1148,6 @@ function resolveRepositoryProvisioning(
       enabled,
       jobStatus,
       updatedAt: job.updatedAt,
-      safeErrorClass:
-        jobStatus === 'FAILED_RETRYABLE' || jobStatus === 'FAILED_FINAL'
-          ? normalizeSafeErrorClass(job.lastErrorCode)
-          : null,
     };
   }
 
@@ -1171,7 +1160,6 @@ function resolveRepositoryProvisioning(
         enabled,
         jobStatus: 'PENDING',
         updatedAt: outbox.createdAt,
-        safeErrorClass: null,
       };
     }
     if (outbox.status === OutboxEventStatus.FAILED) {
@@ -1179,7 +1167,6 @@ function resolveRepositoryProvisioning(
         enabled,
         jobStatus: 'FAILED_FINAL',
         updatedAt: outbox.createdAt,
-        safeErrorClass: 'UNKNOWN',
       };
     }
   }
@@ -1189,38 +1176,9 @@ function resolveRepositoryProvisioning(
       enabled,
       jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
       updatedAt: applicationUpdatedAt,
-      safeErrorClass: enabled ? 'UNKNOWN' : null,
     };
   }
   return anomalous();
-}
-
-function normalizeSafeErrorClass(
-  errorCode: string | null,
-): RepositoryProvisioningSafeErrorClass {
-  switch (errorCode) {
-    case 'GITHUB_OPERATIONS_CONFIGURATION':
-    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
-    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
-    case 'GITHUB_OPERATIONS_AUTHENTICATION':
-    case 'GITHUB_OPERATIONS_PERMISSION':
-      return 'AUTH';
-    case 'GITHUB_OPERATIONS_RATE_LIMITED':
-    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
-      return 'RATE_LIMIT';
-    case 'GITHUB_OPERATIONS_INVALID_INPUT':
-    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
-    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
-    case 'REPOSITORY_PROVISION_INVALID_EVENT':
-    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
-      return 'UPSTREAM_REJECTED';
-    case 'GITHUB_OPERATIONS_UPSTREAM':
-    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
-    case 'REPOSITORY_PROVISION_INTERNAL':
-    case null:
-    default:
-      return 'UNKNOWN';
-  }
 }
 
 function parseListAnswers(value: unknown): ApplicationListAnswers {

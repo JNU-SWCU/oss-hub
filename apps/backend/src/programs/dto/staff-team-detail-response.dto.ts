@@ -3,7 +3,6 @@ import type {
   RepositoryUrlHistoryView,
   StaffTeamDetailView,
   TeamApplicationView,
-  TeamRepositoryContributionsView,
 } from '../program-team-repository-evidence.repository';
 import { PublishableRepositoryResponseDto } from './publishable-repository-response.dto';
 import { TeamMemberResponseDto } from './program-team-response.dto';
@@ -42,58 +41,6 @@ export class RepositoryUrlHistoryResponseDto {
   }
 }
 
-class RepositoryContributorResponseDto {
-  declare readonly userId: string;
-  declare readonly githubId: string;
-  declare readonly hasObservations: boolean;
-  declare readonly commitCount: number;
-  declare readonly pullRequestCount: number;
-  declare readonly releaseCount: number;
-  declare readonly issueCount: number;
-
-  static from(
-    member: TeamRepositoryContributionsView['members'][number],
-  ): RepositoryContributorResponseDto {
-    return {
-      userId: member.userId,
-      githubId: member.githubId,
-      hasObservations: member.hasObservations,
-      commitCount: member.commitCount,
-      pullRequestCount: member.pullRequestCount,
-      releaseCount: member.releaseCount,
-      issueCount: member.issueCount,
-    };
-  }
-}
-
-class RepositoryContributionsResponseDto {
-  declare readonly repositoryId: string;
-  declare readonly repositoryUrl: string;
-  declare readonly window: {
-    readonly from: string;
-    readonly to: string;
-    readonly timeZone: TeamRepositoryContributionsView['window']['timeZone'];
-  };
-  declare readonly collectionStatus: TeamRepositoryContributionsView['collectionStatus'];
-  declare readonly lastSuccessAt: string | null;
-  declare readonly members: RepositoryContributorResponseDto[];
-
-  static from(
-    view: TeamRepositoryContributionsView,
-  ): RepositoryContributionsResponseDto {
-    return {
-      repositoryId: view.repositoryId,
-      repositoryUrl: view.repositoryUrl,
-      window: view.window,
-      collectionStatus: view.collectionStatus,
-      lastSuccessAt: view.lastSuccessAt,
-      members: view.members.map((member) =>
-        RepositoryContributorResponseDto.from(member),
-      ),
-    };
-  }
-}
-
 export class TeamApplicationResponseDto {
   declare readonly id: string;
   declare readonly status: TeamApplicationView['status'];
@@ -103,7 +50,6 @@ export class TeamApplicationResponseDto {
     readonly enabled: boolean;
     readonly jobStatus: TeamApplicationView['repositoryProvisioning']['jobStatus'];
     readonly updatedAt: string;
-    readonly safeErrorClass: TeamApplicationView['repositoryProvisioning']['safeErrorClass'];
   };
 
   static from(view: TeamApplicationView): TeamApplicationResponseDto {
@@ -118,7 +64,6 @@ export class TeamApplicationResponseDto {
         enabled: view.repositoryProvisioning.enabled,
         jobStatus: view.repositoryProvisioning.jobStatus,
         updatedAt: view.repositoryProvisioning.updatedAt.toISOString(),
-        safeErrorClass: view.repositoryProvisioning.safeErrorClass,
       },
     };
   }
@@ -130,8 +75,6 @@ export class StaffTeamDetailResponseDto {
   declare readonly memberCount: number;
   declare readonly members: TeamMemberResponseDto[];
   declare readonly application: TeamApplicationResponseDto | null;
-  declare readonly repositoryContributions: RepositoryContributionsResponseDto | null;
-  declare readonly repositoryUrlHistory: RepositoryUrlHistoryResponseDto;
 
   declare readonly deletionScope: {
     readonly teams: number;
@@ -152,12 +95,6 @@ export class StaffTeamDetailResponseDto {
       application: view.application
         ? TeamApplicationResponseDto.from(view.application)
         : null,
-      repositoryContributions: view.repositoryContributions
-        ? RepositoryContributionsResponseDto.from(view.repositoryContributions)
-        : null,
-      repositoryUrlHistory: RepositoryUrlHistoryResponseDto.from(
-        view.repositoryUrlHistory,
-      ),
       deletionScope: view.deletionScope,
     };
   }

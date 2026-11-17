@@ -6,8 +6,6 @@ import {
 import { MyRepositoriesController } from './my-repositories.controller';
 import type { RepositoriesReadService } from '../github/repositories-read.service';
 
-const UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
-
 function handler(): (...args: unknown[]) => unknown {
   const descriptor = Object.getOwnPropertyDescriptor(
     MyRepositoriesController.prototype,
@@ -19,7 +17,7 @@ function handler(): (...args: unknown[]) => unknown {
 }
 
 describe('MyRepositoriesController', () => {
-  it('passes the session github id to the service and serializes timestamps', async () => {
+  it('passes the session github id to the service', async () => {
     const repositoriesService = {
       getMyRepositories: jest.fn().mockResolvedValue([
         {
@@ -33,8 +31,6 @@ describe('MyRepositoriesController', () => {
           provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
           invitationStatus: null,
           visibility: RepositoryVisibility.PRIVATE,
-          lastErrorCode: null,
-          updatedAt: UPDATED_AT,
         },
       ]),
     } as jest.Mocked<Pick<RepositoriesReadService, 'getMyRepositories'>>;
@@ -45,7 +41,7 @@ describe('MyRepositoriesController', () => {
     });
 
     expect(repositoriesService.getMyRepositories).toHaveBeenCalledWith(123n);
-    expect(response.items[0]?.updatedAt).toBe(UPDATED_AT.toISOString());
+    expect(response.items).toHaveLength(1);
   });
 
   it('leaves unauthenticated handling to the global authentication guard', () => {

@@ -246,7 +246,6 @@ function parseProgram(value: unknown): StaffInsightsProgramRow | null {
     !isNonNegativeInteger(value.dueRequirementCount) ||
     !isNonNegativeInteger(value.submittedRequirementCount) ||
     !isNullablePercent(value.completionRate) ||
-    !isNonNegativeInteger(value.contributionCount) ||
     !isNonNegativeInteger(value.activeTeamCount) ||
     !isNonNegativeInteger(value.repoTeamCount) ||
     !isNullableRatio(value.contributionsPerParticipant)
@@ -275,7 +274,6 @@ function parseProgram(value: unknown): StaffInsightsProgramRow | null {
     dueRequirementCount: value.dueRequirementCount,
     submittedRequirementCount: value.submittedRequirementCount,
     completionRate: value.completionRate,
-    contributionCount: value.contributionCount,
     activeTeamCount: value.activeTeamCount,
     repoTeamCount: value.repoTeamCount,
     contributionsPerParticipant: value.contributionsPerParticipant,

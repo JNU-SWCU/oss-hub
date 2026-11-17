@@ -16,7 +16,6 @@ import type {
   AdminAccessUserPage,
   AdminAccessUserHistory,
 } from '../../users/admin-access-read-ordering.repository';
-import { AdminGrantResponseDto } from './admin-grant-response.dto';
 
 class StaffAccessRequestHistoryItemResponseDto {
   declare readonly id: string;
@@ -229,7 +228,6 @@ export class AccessRequestsUserDetailResponseDto {
     readonly isComplete: boolean;
   };
   declare readonly participations: UserParticipationResponseDto[] | null;
-  declare readonly adminGrant: AdminGrantResponseDto | null;
 
   static from(
     user: AdminAccessUserDetail,
@@ -255,9 +253,6 @@ export class AccessRequestsUserDetailResponseDto {
         user.participations?.map((participation) =>
           UserParticipationResponseDto.from(participation),
         ) ?? null,
-      adminGrant: user.adminGrant
-        ? AdminGrantResponseDto.from(user.adminGrant)
-        : null,
     };
   }
 }
