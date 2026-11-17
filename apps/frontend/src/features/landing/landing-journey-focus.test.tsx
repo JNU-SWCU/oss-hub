@@ -13,6 +13,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+import { LandingHeroCopy } from './components/landing-hero-copy';
 import { LandingJourney } from './components/landing-journey';
 
 class FakeIntersectionObserver {
@@ -47,6 +48,7 @@ describe('LandingJourney chapter focus', () => {
     act(() =>
       root.render(
         <LandingJourney
+          heroCopy={<LandingHeroCopy />}
           starPrograms={[]}
           stats={{ items: [], note: null }}
           primaryAction={<a href="/login">GitHub으로 로그인</a>}

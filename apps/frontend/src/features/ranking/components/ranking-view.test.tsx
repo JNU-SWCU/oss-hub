@@ -8,6 +8,7 @@ import {
   type StaffRankingPage,
 } from '../types';
 import { parseRankingPage } from '../api';
+import { RankingPageHeader } from './ranking-page-header';
 import { RankingView } from './ranking-view';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -72,6 +73,7 @@ vi.mock('@/components', async (importOriginal) => {
 });
 
 const handlers = {
+  header: <RankingPageHeader />,
   onPageChange: () => undefined,
   onRetry: () => undefined,
   onExportCsv: () => undefined,

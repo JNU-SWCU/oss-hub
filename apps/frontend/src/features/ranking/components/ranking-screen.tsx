@@ -24,12 +24,14 @@ const PAGE_SIZE = 100;
 interface RankingScreenProps {
   readonly onNextCycleAt: (nextCycleAt: string | null) => void;
 
+  readonly header?: ReactNode;
   readonly filters?: ReactNode;
   readonly viewerGithubLogin?: string | null;
 }
 
 export function RankingScreen({
   onNextCycleAt,
+  header,
   filters,
   viewerGithubLogin = null,
 }: RankingScreenProps) {
@@ -110,6 +112,7 @@ export function RankingScreen({
   return (
     <RankingView
       page={page}
+      header={header}
       filters={filters}
       chart={chart}
       rankChanges={rankingRankChanges(query.data?.items ?? [])}

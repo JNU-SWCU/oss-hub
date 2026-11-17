@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
 import { useNavigationNotices } from '@/lib/navigation-notices';
 import { CurrentProgramSection } from '@/features/landing/components/current-program-section';
@@ -11,7 +11,12 @@ import { SessionError } from './_shell/session-error';
 import { useSessionRole } from './_shell/use-session-role';
 import type { LandingData } from '@/features/landing/server/load-landing-data';
 
-export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
+export function LandingPage({
+  heroCopy,
+  recruiting,
+  starPrograms,
+  stats,
+}: LandingData & { readonly heroCopy: ReactNode }) {
   const session = useSessionRole();
   const { status, isProfileComplete, retry } = session;
   const [serializedSearchParams, setSerializedSearchParams] = useState('');
@@ -39,6 +44,7 @@ export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
     <>
       <main>
         <LandingJourney
+          heroCopy={heroCopy}
           starPrograms={starPrograms}
           stats={stats}
           authErrorMessage={authErrorMessage}

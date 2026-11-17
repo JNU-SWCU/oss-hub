@@ -1,25 +1,8 @@
-import { createContext, useContext, type ReactNode } from 'react';
-import {
-  Download,
-  Hourglass,
-  Info,
-  ListOrdered,
-  RefreshCw,
-} from 'lucide-react';
+import { createContext, Suspense, useContext, type ReactNode } from 'react';
+import { Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-  DataTable,
-  EmptyState,
-  PageHeader,
-  type DataTableColumn,
-} from '@/components';
+import { DataTable, EmptyState, type DataTableColumn } from '@/components';
 import { cn } from '@/lib/utils';
 import {
   RANKING_VIEWER_CLASSES,
@@ -27,6 +10,7 @@ import {
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
+import { RankingCsvExportContext } from './ranking-csv-export';
 import {
   formatRankChange,
   type RankingRankChange,
@@ -40,6 +24,7 @@ export type RankingViewState =
 interface RankingViewProps {
   readonly page: number;
 
+  readonly header?: ReactNode;
   readonly filters?: ReactNode;
   readonly chart?: ReactNode;
   readonly rankChanges?: ReadonlyMap<string, RankingRankChange>;
@@ -52,31 +37,6 @@ interface RankingViewProps {
 }
 
 const EMPTY_CELL = '-';
-
-const RANKING_METRIC_DESCRIPTION = (
-  <span className="inline-flex items-center gap-1">
-    올해 깃허브에 갈아 넣은 만큼 점수가 쌓여요.
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="점수 계산 방법"
-            className="size-6"
-          >
-            <Info className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          커밋·PR·이슈·레포·스타 전부 합산! 스타는 올해 내가 직접 커밋·PR한 공개
-          레포 것만 인정돼요.
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </span>
-);
 
 const NO_RANK_CHANGES: ReadonlyMap<string, RankingRankChange> = new Map();
 const RankChangesContext = createContext(NO_RANK_CHANGES);
@@ -317,6 +277,7 @@ function rankingAsOfAction(ranking: RankingPage): ReactNode {
 
 export function RankingView({
   page,
+  header,
   filters,
   chart,
   rankChanges,
@@ -336,113 +297,103 @@ export function RankingView({
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-      <PageHeader
-        title="랭킹"
-        description={RANKING_METRIC_DESCRIPTION}
-        actions={
-          ranking ? (
-            <>
-              {showStaffFields ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onExportCsv}
-                  disabled={isExportingCsv}
-                >
-                  <Download data-icon="inline-start" />
-                  CSV 다운로드
-                </Button>
-              ) : null}
-            </>
-          ) : null
+      <RankingCsvExportContext.Provider
+        value={
+          showStaffFields
+            ? { onExport: onExportCsv, isExporting: isExportingCsv }
+            : null
         }
-      />
-      {filters}
-      {ranking ? (
-        <div
-          className="flex flex-wrap items-center gap-3 text-sm"
-          aria-live="polite"
-        >
-          {rankingAsOfAction(ranking)}
-          {exportStatus === 'preparing' ? (
-            <span>CSV를 준비하는 중입니다.</span>
-          ) : null}
-          {exportStatus === 'error' ? (
-            <span role="alert">
-              CSV를 준비하지 못했습니다. 다시 시도해 주세요.
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      {state.kind === 'error' ? (
-        <Alert variant="destructive">
-          <AlertTitle>랭킹을 불러오지 못했습니다.</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-3">
-            <span>잠시 후 다시 시도해 주세요.</span>
-            <Button type="button" variant="outline" onClick={onRetry}>
-              <RefreshCw data-icon="inline-start" />
-              다시 시도
+      >
+        {header}
+      </RankingCsvExportContext.Provider>
+      <Suspense fallback={null}>
+        {filters}
+        {ranking ? (
+          <div
+            className="flex flex-wrap items-center gap-3 text-sm"
+            aria-live="polite"
+          >
+            {rankingAsOfAction(ranking)}
+            {exportStatus === 'preparing' ? (
+              <span>CSV를 준비하는 중입니다.</span>
+            ) : null}
+            {exportStatus === 'error' ? (
+              <span role="alert">
+                CSV를 준비하지 못했습니다. 다시 시도해 주세요.
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {state.kind === 'error' ? (
+          <Alert variant="destructive">
+            <AlertTitle>랭킹을 불러오지 못했습니다.</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-3">
+              <span>잠시 후 다시 시도해 주세요.</span>
+              <Button type="button" variant="outline" onClick={onRetry}>
+                <RefreshCw data-icon="inline-start" />
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            {notice ? (
+              <Alert>
+                <Hourglass />
+                <AlertTitle>{notice.title}</AlertTitle>
+                <AlertDescription className="break-keep">
+                  {notice.description}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
+              <EmptyState
+                icon={<ListOrdered className="size-5" />}
+                title="집계된 활동 데이터가 없습니다"
+                description="참여자의 공개 GitHub 활동이 수집되면 이곳에 표시됩니다."
+              />
+            ) : (
+              <>
+                {chart}
+                <RankChangesContext.Provider
+                  value={rankChanges ?? NO_RANK_CHANGES}
+                >
+                  <RankingTable
+                    ranking={ranking}
+                    isLoading={state.kind === 'loading'}
+                  />
+                </RankChangesContext.Provider>
+              </>
+            )}
+          </>
+        )}
+        {ranking && ranking.total > ranking.pageSize ? (
+          <nav
+            className="flex items-center justify-end gap-3"
+            aria-label="랭킹 페이지"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+            >
+              이전
             </Button>
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          {notice ? (
-            <Alert>
-              <Hourglass />
-              <AlertTitle>{notice.title}</AlertTitle>
-              <AlertDescription className="break-keep">
-                {notice.description}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
-            <EmptyState
-              icon={<ListOrdered className="size-5" />}
-              title="집계된 활동 데이터가 없습니다"
-              description="참여자의 공개 GitHub 활동이 수집되면 이곳에 표시됩니다."
-            />
-          ) : (
-            <>
-              {chart}
-              <RankChangesContext.Provider
-                value={rankChanges ?? NO_RANK_CHANGES}
-              >
-                <RankingTable
-                  ranking={ranking}
-                  isLoading={state.kind === 'loading'}
-                />
-              </RankChangesContext.Provider>
-            </>
-          )}
-        </>
-      )}
-      {ranking && ranking.total > ranking.pageSize ? (
-        <nav
-          className="flex items-center justify-end gap-3"
-          aria-label="랭킹 페이지"
-        >
-          <Button
-            type="button"
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-          >
-            이전
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => onPageChange(page + 1)}
-          >
-            다음
-          </Button>
-        </nav>
-      ) : null}
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+            >
+              다음
+            </Button>
+          </nav>
+        ) : null}
+      </Suspense>
     </main>
   );
 }
