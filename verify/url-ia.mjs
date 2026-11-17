@@ -1,12 +1,11 @@
 import { posix } from 'node:path';
 import { PLACEHOLDER, navigationTargets } from './url-ia-links.mjs';
-import { VerifyError, finding, git, showAtRevision } from './tools.mjs';
+import { VerifyError, finding, git } from './tools.mjs';
 
 const APP_DIR = 'apps/frontend/src/app/';
 const SOURCE_ROOTS = ['apps/frontend/src', 'apps/backend/src'];
 const SOURCE_FILE = /\.(tsx?|mjs|js)$/;
 const PAGE_FILE = /(^|\/)page\.(tsx|ts|jsx|js)$/;
-const ALLOWLIST_PATH = 'verify/url-ia-allowlist.json';
 const RULES = {
   'unreachable-page':
     'every page.tsx is the target of an href, router navigation, redirect or menu entry',
@@ -234,74 +233,15 @@ async function readTree(cwd, revision) {
   return files;
 }
 
-function parseAllowlist(text) {
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (error) {
-    throw new VerifyError(
-      `${ALLOWLIST_PATH} is not valid JSON: ${error.message}`,
-    );
-  }
-  if (!Array.isArray(data?.entries)) {
-    throw new VerifyError(`${ALLOWLIST_PATH} must have an "entries" array`);
-  }
-  for (const [index, entry] of data.entries.entries()) {
-    if (!RULES[entry?.rule]) {
-      throw new VerifyError(
-        `${ALLOWLIST_PATH} entry ${index}: unknown rule "${entry?.rule}" (expected ${Object.keys(RULES).join(' or ')})`,
-      );
-    }
-    if (typeof entry.url !== 'string' || !entry.url.startsWith('/')) {
-      throw new VerifyError(
-        `${ALLOWLIST_PATH} entry ${index}: "url" must start with /`,
-      );
-    }
-    if (typeof entry.reason !== 'string' || entry.reason.trim() === '') {
-      throw new VerifyError(
-        `${ALLOWLIST_PATH} entry ${index}: "reason" is required`,
-      );
-    }
-  }
-  return data.entries;
-}
-
-function newViolations(baseViolations, headViolations, allowlist) {
-  const used = new Set();
-  const blocking = [];
-  for (const [key, violation] of headViolations) {
-    if (baseViolations.has(key)) continue;
-    const allowed = allowlist.findIndex(
-      (entry) =>
-        entry.rule === violation.rule && violation.urls.includes(entry.url),
-    );
-    if (allowed >= 0) {
-      used.add(allowed);
-      continue;
-    }
-    blocking.push(violation);
-  }
-  const stale = allowlist.filter(
-    (entry, index) =>
-      !used.has(index) &&
-      ![...headViolations.values()].some(
-        (violation) =>
-          violation.rule === entry.rule && violation.urls.includes(entry.url),
-      ),
-  );
-  return { blocking, stale };
+function newViolations(baseViolations, headViolations) {
+  return [...headViolations]
+    .filter(([key]) => !baseViolations.has(key))
+    .map(([, violation]) => violation);
 }
 
 export async function checkUrlIa({ cwd, ranges, log = console.log }) {
   const findings = [];
   for (const range of ranges) {
-    const allowlistText = await showAtRevision(cwd, range.head, ALLOWLIST_PATH);
-    if (allowlistText === null) {
-      throw new VerifyError(
-        `${ALLOWLIST_PATH} is missing at ${range.head.slice(0, 9)}`,
-      );
-    }
-    const allowlist = parseAllowlist(allowlistText);
     const base = analyzeTree(await readTree(cwd, range.base));
     const head = analyzeTree(await readTree(cwd, range.head));
     if (head.pages.length === 0) {
@@ -318,30 +258,15 @@ export async function checkUrlIa({ cwd, ranges, log = console.log }) {
     for (const violation of existing) {
       log(`  existing [${violation.rule}] ${violation.detail}`);
     }
-    const { blocking, stale } = newViolations(
-      base.violations,
-      head.violations,
-      allowlist,
-    );
-    for (const violation of blocking) {
+    for (const violation of newViolations(base.violations, head.violations)) {
       findings.push(
         finding(
           `url-ia-${violation.rule}`,
-          `new violation since ${range.base.slice(0, 9)}: ${violation.detail}; link it from navigation, remove it, or add an entry with a reason to ${ALLOWLIST_PATH}`,
+          `new violation since ${range.base.slice(0, 9)}: ${violation.detail}; link it from navigation or remove it`,
           violation.rule === 'unreachable-page'
             ? '0 inbound links'
             : `${violation.urls.length} URLs for one screen`,
           RULES[violation.rule],
-        ),
-      );
-    }
-    for (const entry of stale) {
-      findings.push(
-        finding(
-          'url-ia-allowlist-stale',
-          `${ALLOWLIST_PATH} entry ${entry.rule} ${entry.url} matches no current violation; remove it`,
-          'unused allowlist entry',
-          'every allowlist entry matches a violation',
         ),
       );
     }

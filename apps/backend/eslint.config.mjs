@@ -7,8 +7,7 @@ import { controllerExplicitReturn } from './eslint-rules/controller-explicit-ret
 import { fileClassMatch } from './eslint-rules/file-class-match.mjs';
 import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
 import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
-import { noAwaitInLoop } from './eslint-rules/no-await-in-loop.mjs';
-import { awaitInLoopAllowlist } from './eslint-rules/no-await-in-loop.allowlist.mjs';
+import { findManyTake } from './eslint-rules/find-many-take.mjs';
 import { noPassthroughFactory } from './eslint-rules/no-passthrough-factory.mjs';
 import {
   bootstrapFiles,
@@ -132,8 +131,11 @@ export default tseslint.config(
   {
     files: ['src/**/*.ts'],
     ignores: testFiles,
-    plugins: { loops: { rules: { 'no-await-in-loop': noAwaitInLoop } } },
-    rules: { 'loops/no-await-in-loop': ['error', awaitInLoopAllowlist] },
+    plugins: { prisma: { rules: { 'find-many-take': findManyTake } } },
+    rules: {
+      'no-await-in-loop': 'error',
+      'prisma/find-many-take': 'error',
+    },
   },
   {
     files: ['src/*/*.controller.ts'],

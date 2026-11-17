@@ -10,14 +10,12 @@ import { checkUrlIa } from './url-ia.mjs';
 
 const APP = 'apps/frontend/src/app';
 const FEATURES = 'apps/frontend/src/features';
-const ALLOWLIST = 'verify/url-ia-allowlist.json';
 
 const screen = (name) => `export function ${name}() {\n  return <div />;\n}\n`;
 const page = (name, module) =>
   `import { ${name} } from '@/features/${module}';\n\nexport default function Page() {\n  return <${name} />;\n}\n`;
 const menu = (hrefs) =>
   `export const MENU = [\n${hrefs.map((href) => `  { label: 'x', href: '${href}' },`).join('\n')}\n];\n\nconst ICONS = {\n  '/hidden': 'home',\n};\n\nexport const iconFor = (href: string) => ICONS[href];\n`;
-const allowlist = (entries) => `${JSON.stringify({ entries }, null, 2)}\n`;
 
 function fixture(t) {
   const repo = tempRepo(t);
@@ -35,7 +33,6 @@ function fixture(t) {
     [`${FEATURES}/reports/reports-screen.tsx`]: screen('ReportsScreen'),
     [`${FEATURES}/legacy/legacy-screen.tsx`]: screen('LegacyScreen'),
     [`${FEATURES}/stats/stats-screen.tsx`]: screen('StatsScreen'),
-    [ALLOWLIST]: allowlist([]),
   });
   return { repo, base };
 }
@@ -340,54 +337,6 @@ test('a page aliasing another page without feature screens is still a duplicate'
   assert.match(findings[0].message, /re-exports/);
 });
 
-test('an allowlist entry with a reason accepts a new violation; stale or reasonless entries fail', async (t) => {
-  const { repo, base } = fixture(t);
-  const hidden = {
-    [`${APP}/hidden/page.tsx`]: page('StatsScreen', 'stats/stats-screen'),
-  };
-  const allowed = repo.commit('allowlisted hidden page', {
-    ...hidden,
-    [ALLOWLIST]: allowlist([
-      {
-        rule: 'unreachable-page',
-        url: '/hidden',
-        reason: 'email deep link only',
-      },
-    ]),
-  });
-  assert.deepEqual(await verifyHead(repo, base, allowed), []);
-
-  const stale = repo.commit('stale entry', {
-    [`${APP}/hidden/page.tsx`]: null,
-  });
-  const findings = await verifyHead(repo, base, stale);
-  assert.deepEqual(
-    findings.map((item) => item.rule),
-    ['url-ia-allowlist-stale'],
-  );
-
-  const reasonless = repo.commit('reasonless entry', {
-    ...hidden,
-    [ALLOWLIST]: allowlist([
-      { rule: 'unreachable-page', url: '/hidden', reason: ' ' },
-    ]),
-  });
-  await assert.rejects(
-    verifyHead(repo, base, reasonless),
-    (error) =>
-      error instanceof VerifyError &&
-      /"reason" is required/.test(error.message),
-  );
-  const unknownRule = repo.commit('unknown rule', {
-    [ALLOWLIST]: allowlist([{ rule: 'whatever', url: '/hidden', reason: 'x' }]),
-  });
-  await assert.rejects(verifyHead(repo, base, unknownRule), /unknown rule/);
-  const garbage = repo.commit('garbage allowlist', {
-    [ALLOWLIST]: '{not json',
-  });
-  await assert.rejects(verifyHead(repo, base, garbage), /not valid JSON/);
-});
-
 test('a tree without pages fails instead of passing', async (t) => {
   const { repo, base } = fixture(t);
   const head = repo.commit('remove app', {
@@ -447,12 +396,6 @@ test('URL IA negative controls are reported but the url-ia entry still exits 0',
       },
       'url-ia-duplicate-screen',
     ],
-    [
-      {
-        [ALLOWLIST]: `${JSON.stringify({ entries: [{ rule: 'unreachable-page', url: '/gone', reason: 'old' }] })}\n`,
-      },
-      'url-ia-allowlist-stale',
-    ],
   ];
   for (const [files, rule] of cases) {
     const { repo, base } = fixture(t);
@@ -493,11 +436,6 @@ test('url-ia can never fail a push: findings, analyzer errors and crashes leave 
   assert.ok(
     crashed.logs.some((line) => /^NOTICE url-ia: analysis failed/.test(line)),
   );
-
-  const broken = repo.commit('broken allowlist', { [ALLOWLIST]: '{not json' });
-  const invalid = await runEntry(t, repo, base, broken, 'url-ia');
-  assert.equal(invalid.exit, 0);
-  assert.match(invalid.report.error, /not valid JSON/);
 
   const garbage = reportDir(t);
   const silenced = [console.log, console.error];

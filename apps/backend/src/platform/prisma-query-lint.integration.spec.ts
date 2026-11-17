@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -13,46 +10,12 @@ assertIsolatedIntegrationDatabase({
 });
 
 const FILE = 'apps/backend/src/platform/prisma-query-lint.integration.spec.ts';
-const directory = mkdtempSync(join(tmpdir(), 'prisma-query-lint-it-'));
-const allowlistPath = join(directory, 'allowlist.json');
-writeFileSync(
-  allowlistPath,
-  JSON.stringify({
-    [`Repo.findMany@${FILE}#LintProbeRepository.allowlisted`]: {
-      reason: 'synthetic probe',
-    },
-    [`Repo.findMany@${FILE}#LintProbeRepository.allowlistedInTransaction`]: {
-      reason: 'synthetic probe',
-    },
-    [`Repo.findMany@${FILE}#LintProbeRepository.allowlistedInBatch`]: {
-      reason: 'synthetic probe',
-    },
-  }),
-);
 const base = new PrismaClient({
   adapter: new PrismaPg(loadPrismaPoolConfig()),
 });
-const prisma = loadPrismaQueryLintConfig({ allowlistPath }).createLintedClient(
-  base,
-);
+const prisma = loadPrismaQueryLintConfig().createLintedClient(base);
 
 class LintProbeRepository {
-  allowlisted() {
-    return prisma.repo.findMany({ select: { githubRepoId: true } });
-  }
-
-  allowlistedInTransaction() {
-    return prisma.$transaction((tx) =>
-      tx.repo.findMany({ select: { githubRepoId: true } }),
-    );
-  }
-
-  allowlistedInBatch() {
-    return prisma.$transaction([
-      prisma.repo.findMany({ select: { githubRepoId: true } }),
-    ]);
-  }
-
   added() {
     return prisma.repo.findMany({ select: { githubRepoId: true } });
   }
@@ -80,21 +43,10 @@ class LintProbeService {
 
 afterAll(async () => {
   await base.$disconnect();
-  rmSync(directory, { recursive: true, force: true });
 });
 
 describe('Prisma query lint attribution against PostgreSQL', () => {
   const repository = new LintProbeRepository();
-
-  it('lets only the allowlisted methods run in plain, interactive and batch transactions', async () => {
-    await expect(repository.allowlisted()).resolves.toEqual(expect.any(Array));
-    await expect(repository.allowlistedInTransaction()).resolves.toEqual(
-      expect.any(Array),
-    );
-    await expect(repository.allowlistedInBatch()).resolves.toEqual([
-      expect.any(Array),
-    ]);
-  });
 
   it.each([
     ['added', () => repository.added(), 'added'],
