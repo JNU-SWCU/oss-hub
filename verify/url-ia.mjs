@@ -358,7 +358,15 @@ export async function checkUrlIa({ cwd, ranges, log = console.log }) {
 if (isEntry(import.meta.url)) {
   import('./index.mjs')
     .then(({ main }) => main(['url-ia', ...process.argv.slice(2)]))
-    .then((code) => {
-      process.exitCode = code;
-    });
+    .then(
+      (code) => {
+        process.exitCode = code;
+      },
+      (error) => {
+        console.log(
+          `NOTICE url-ia: could not run (${error.message}); report only, the exit code is unaffected`,
+        );
+        process.exitCode = 0;
+      },
+    );
 }

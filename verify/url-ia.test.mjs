@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
+import { main } from './index.mjs';
 import { tempRepo } from './test-support.mjs';
-import { VerifyError } from './tools.mjs';
+import { GITLEAKS, REPO_ROOT, VerifyError, requireTool } from './tools.mjs';
 import { checkUrlIa } from './url-ia.mjs';
 
 const APP = 'apps/frontend/src/app';
@@ -392,4 +396,154 @@ test('a tree without pages fails instead of passing', async (t) => {
     [`${APP}/legacy/page.tsx`]: null,
   });
   await assert.rejects(verifyHead(repo, base, head), /no page files/);
+});
+
+function reportDir(t) {
+  const dir = mkdtempSync(join(tmpdir(), 'verify-url-ia-report-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+async function runEntry(t, repo, base, head, command, options = {}) {
+  const dir = reportDir(t);
+  const logs = [];
+  const original = [console.log, console.error];
+  console.log = (line) => logs.push(String(line));
+  console.error = (line) => logs.push(String(line));
+  try {
+    const exit = await main([command, '--pre-push'], {
+      cwd: repo.dir,
+      env: {},
+      stdin: `refs/heads/main ${head} refs/heads/main ${base}\n`,
+      reportDir: dir,
+      ...options,
+    });
+    const report = JSON.parse(readFileSync(join(dir, 'url-ia.json'), 'utf8'));
+    return { exit, report, logs };
+  } finally {
+    [console.log, console.error] = original;
+  }
+}
+
+test('URL IA negative controls are reported but the url-ia entry still exits 0', async (t) => {
+  const cases = [
+    [
+      { [`${APP}/orphan/page.tsx`]: page('StatsScreen', 'stats/stats-screen') },
+      'url-ia-unreachable-page',
+    ],
+    [
+      {
+        [`${APP}/orphan/page.tsx`]: page('StatsScreen', 'stats/stats-screen'),
+        [`${FEATURES}/stats/example.ts`]:
+          'export const example = `<a href="/orphan">x</a>`;\n',
+      },
+      'url-ia-unreachable-page',
+    ],
+    [
+      {
+        [`${APP}/_shell/menu.ts`]: menu(['/reports', '/duplicate']),
+        [`${APP}/duplicate/page.tsx`]:
+          "export { default } from '../reports/page';\n",
+      },
+      'url-ia-duplicate-screen',
+    ],
+    [
+      {
+        [ALLOWLIST]: `${JSON.stringify({ entries: [{ rule: 'unreachable-page', url: '/gone', reason: 'old' }] })}\n`,
+      },
+      'url-ia-allowlist-stale',
+    ],
+  ];
+  for (const [files, rule] of cases) {
+    const { repo, base } = fixture(t);
+    const head = repo.commit('change', files);
+    const { exit, report, logs } = await runEntry(
+      t,
+      repo,
+      base,
+      head,
+      'url-ia',
+    );
+    assert.equal(exit, 0, rule);
+    assert.ok(
+      report.findings.some((item) => item.rule === rule),
+      rule,
+    );
+    assert.ok(report.findings.every((item) => /^https:\/\//.test(item.source)));
+    assert.ok(
+      logs.some((line) => line.startsWith(`REPORT [${rule}]`)),
+      rule,
+    );
+  }
+});
+
+test('url-ia can never fail a push: findings, analyzer errors and crashes leave the exit code at 0', async (t) => {
+  const crash = async () => {
+    throw new TypeError('analyzer exploded');
+  };
+  const { repo, base } = fixture(t);
+  const orphan = repo.commit('orphan', {
+    [`${APP}/orphan/page.tsx`]: page('StatsScreen', 'stats/stats-screen'),
+  });
+  const crashed = await runEntry(t, repo, base, orphan, 'url-ia', {
+    checks: { 'url-ia': crash },
+  });
+  assert.equal(crashed.exit, 0);
+  assert.equal(crashed.report.error, 'analyzer exploded');
+  assert.ok(
+    crashed.logs.some((line) => /^NOTICE url-ia: analysis failed/.test(line)),
+  );
+
+  const broken = repo.commit('broken allowlist', { [ALLOWLIST]: '{not json' });
+  const invalid = await runEntry(t, repo, base, broken, 'url-ia');
+  assert.equal(invalid.exit, 0);
+  assert.match(invalid.report.error, /not valid JSON/);
+
+  const garbage = reportDir(t);
+  const silenced = [console.log, console.error];
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    assert.equal(
+      await main(['url-ia', '--pre-push'], {
+        cwd: repo.dir,
+        env: {},
+        stdin: 'not a pre-push line\n',
+        reportDir: garbage,
+      }),
+      0,
+    );
+  } finally {
+    [console.log, console.error] = silenced;
+  }
+
+  try {
+    await requireTool(GITLEAKS);
+  } catch {
+    t.skip(
+      `gitleaks ${GITLEAKS.version} not installed; scoped push run not exercised`,
+    );
+    return;
+  }
+  const scopedRepo = fixture(t);
+  const withSafe = scopedRepo.repo.commit('add public-safe', {
+    '.github/check-public-safe.sh': readFileSync(
+      join(REPO_ROOT, '.github/check-public-safe.sh'),
+      'utf8',
+    ),
+  });
+  const pushed = scopedRepo.repo.commit('orphan page', {
+    [`${APP}/orphan/page.tsx`]: page('StatsScreen', 'stats/stats-screen'),
+  });
+  for (const checks of [undefined, { 'url-ia': crash }]) {
+    const scoped = await runEntry(
+      t,
+      scopedRepo.repo,
+      withSafe,
+      pushed,
+      'scoped',
+      checks ? { checks } : {},
+    );
+    assert.equal(scoped.exit, 0, scoped.logs.join('\n'));
+  }
 });

@@ -2,9 +2,7 @@ import { createRequire } from 'node:module';
 import { join, posix } from 'node:path';
 import { REPO_ROOT } from './tools.mjs';
 
-const ts = createRequire(join(REPO_ROOT, 'apps/frontend/package.json'))(
-  'typescript',
-);
+let ts;
 
 export const PLACEHOLDER = '\0';
 
@@ -673,6 +671,9 @@ class ModuleGraph {
 }
 
 export function navigationTargets(files) {
+  ts ??= createRequire(join(REPO_ROOT, 'apps/frontend/package.json'))(
+    'typescript',
+  );
   const graph = new ModuleGraph(
     files.filter((file) => isProductionSource(file.path)),
   );

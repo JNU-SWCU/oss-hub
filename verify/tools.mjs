@@ -77,9 +77,9 @@ export function finding(
   return { rule, message, measured, threshold, source };
 }
 
-export function formatFinding(item) {
+export function formatFinding(item, label = 'FAIL') {
   return [
-    `FAIL [${item.rule}] ${item.message}`,
+    `${label} [${item.rule}] ${item.message}`,
     `  measured:  ${item.measured}`,
     `  threshold: ${item.threshold}`,
     `  source:    ${item.source}`,

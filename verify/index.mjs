@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { checkApi } from './api.mjs';
 import { checkFull } from './full.mjs';
 import { detectSource, resolveScope } from './scope.mjs';
@@ -12,6 +13,18 @@ const CHECKS = {
   api: (context) => checkApi(context),
   cwv: () => checkFull({}),
 };
+
+const REPORT_ONLY = new Set(['url-ia']);
+
+function writeReport(reportDir, name, ranges, payload) {
+  mkdirSync(reportDir, { recursive: true });
+  const file = join(reportDir, `${name}.json`);
+  writeFileSync(
+    file,
+    `${JSON.stringify({ at: new Date().toISOString(), ranges, ...payload }, null, 2)}\n`,
+  );
+  return file;
+}
 
 const COMMANDS = {
   frontend: ['secrets', 'url-ia'],
@@ -33,8 +46,15 @@ function scopedChecks(scope) {
 
 export async function main(
   argv,
-  { cwd = REPO_ROOT, env = process.env, stdin } = {},
+  {
+    cwd = REPO_ROOT,
+    env = process.env,
+    stdin,
+    reportDir = join(REPO_ROOT, 'verify/reports'),
+    checks: overrides = {},
+  } = {},
 ) {
+  const checkImpls = { ...CHECKS, ...overrides };
   const [command] = argv;
   if (!COMMANDS[command] && command !== 'scoped' && command !== 'scope') {
     console.error(USAGE);
@@ -50,6 +70,12 @@ export async function main(
       stdin: source === 'pre-push' ? (stdin ?? readFileSync(0, 'utf8')) : '',
     });
   } catch (error) {
+    if (REPORT_ONLY.has(command)) {
+      console.log(
+        `NOTICE ${command}: scope could not be resolved (${error.message}); report only, the exit code is unaffected`,
+      );
+      return 0;
+    }
     console.error(`ERROR scope (${source}): ${error.message}`);
     return 2;
   }
@@ -68,8 +94,31 @@ export async function main(
   let failed = 0;
   let errored = 0;
   for (const name of checks) {
+    if (REPORT_ONLY.has(name)) {
+      try {
+        const findings = await checkImpls[name]({ cwd, ranges: scope.ranges });
+        for (const item of findings) console.log(formatFinding(item, 'REPORT'));
+        const file = writeReport(reportDir, name, scope.ranges, { findings });
+        console.log(
+          `REPORT ${name}: ${findings.length} finding(s) -> ${file} (report only, does not affect the exit code)`,
+        );
+      } catch (error) {
+        let file = '';
+        try {
+          file = writeReport(reportDir, name, scope.ranges, {
+            error: error.message,
+          });
+        } catch (writeError) {
+          file = `report not written: ${writeError.message}`;
+        }
+        console.log(
+          `NOTICE ${name}: analysis failed (${error.message}); ${file}; report only, the exit code is unaffected`,
+        );
+      }
+      continue;
+    }
     try {
-      const findings = await CHECKS[name]({ cwd, ranges: scope.ranges });
+      const findings = await checkImpls[name]({ cwd, ranges: scope.ranges });
       for (const item of findings) console.error(formatFinding(item));
       console.log(
         `${findings.length === 0 ? 'PASS' : 'FAIL'} ${name}${findings.length ? ` (${findings.length})` : ''}`,
