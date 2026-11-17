@@ -258,6 +258,49 @@ describe('ProgramOrganizerField', () => {
     expect(description()).toBe(PROGRAM_ORGANIZER_MESSAGES.tooMany);
   });
 
+  it('focuses the input when the box around the labels is clicked, but not from a remove button', async () => {
+    await render(['학과', '센터']);
+    const box = input().parentElement;
+    if (box === null) throw new TypeError('Missing organizer box.');
+    expect(document.activeElement).not.toBe(input());
+
+    await act(async () => box.click());
+    expect(document.activeElement).toBe(input());
+
+    await act(async () => input().blur());
+    await act(async () =>
+      container.querySelector<HTMLElement>('li > span')?.click(),
+    );
+    expect(document.activeElement).toBe(input());
+
+    await act(async () => input().blur());
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="센터 삭제"]')
+        ?.click(),
+    );
+    expect(chips()).toEqual(['학과']);
+    expect(document.activeElement).not.toBe(input());
+  });
+
+  it('shows the add hint only to screen readers, then shows the limit message and stops inviting more labels', async () => {
+    const nine = Array.from({ length: 9 }, (_, index) => `기관 ${index + 1}`);
+    await render(nine);
+    const hint = container.querySelector('#organizers-description');
+    expect(hint?.classList.contains('sr-only')).toBe(true);
+    expect(description()).not.toBe('');
+    expect(description()).not.toBe(PROGRAM_ORGANIZER_MESSAGES.tooMany);
+    expect(input().placeholder).not.toBe('');
+
+    await type('열 번째');
+    await press('Enter');
+
+    const limit = container.querySelector('#organizers-description');
+    expect(limit?.classList.contains('sr-only')).toBe(false);
+    expect(description()).toBe(PROGRAM_ORGANIZER_MESSAGES.tooMany);
+    expect(input().placeholder).toBe('');
+  });
+
   it('marks the input invalid and announces the error next to it', async () => {
     await act(async () =>
       root.render(

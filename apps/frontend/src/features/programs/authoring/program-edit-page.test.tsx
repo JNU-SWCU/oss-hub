@@ -350,6 +350,54 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
   }
 
+  function trackOption(name: string): HTMLInputElement {
+    const option = Array.from(
+      container.querySelectorAll<HTMLInputElement>(
+        '[role="radiogroup"] input[type="radio"]',
+      ),
+    ).find((candidate) => candidate.closest('label')?.textContent === name);
+    if (option === undefined) {
+      throw new TypeError(`Track option not found: ${name}`);
+    }
+    return option;
+  }
+
+  function labelledButton(name: string): HTMLButtonElement {
+    const button = container.querySelector<HTMLButtonElement>(
+      `button[aria-label="${name}"]`,
+    );
+    if (button === null) throw new TypeError(`Button not found: ${name}`);
+    return button;
+  }
+
+  function teamSizeInput(bound: 'min' | 'max'): HTMLInputElement {
+    const input = container.querySelector<HTMLInputElement>(
+      `#program-team-${bound}-size`,
+    );
+    if (input === null) throw new TypeError(`Missing team ${bound} size.`);
+    return input;
+  }
+
+  async function renderLoadedPage() {
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  async function saveProgram() {
+    await act(async () => {
+      getButton('프로그램 정보 저장').click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
@@ -808,6 +856,90 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(container.textContent).toContain(
       '저장에 실패했습니다. 다시 시도해 주세요.',
     );
+  });
+
+  it('페이지 제목 아래에 프로그램 이름을 다시 보여 주지 않는다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      ...editableProgram,
+      name: '제목에 반복되면 안 되는 이름',
+    });
+
+    await renderLoadedPage();
+
+    expect(
+      container.querySelector('[data-slot="page-header"]')?.textContent,
+    ).toBe('프로그램 편집');
+    expect(
+      container.querySelector<HTMLInputElement>('#program-name')?.value,
+    ).toBe('제목에 반복되면 안 되는 이름');
+  });
+
+  it('비교과를 누르면 선택이 바뀌고 그 값으로 저장한다', async () => {
+    const curricular = { ...editableProgram, trackType: 'CURRICULAR' as const };
+    getEditableProgramMock.mockResolvedValue(curricular);
+    updateProgramMock.mockResolvedValue({
+      ...curricular,
+      trackType: 'EXTRACURRICULAR',
+    });
+
+    await renderLoadedPage();
+    expect(trackOption('교과').checked).toBe(true);
+    expect(trackOption('비교과').checked).toBe(false);
+
+    await act(async () => trackOption('비교과').click());
+    expect(trackOption('비교과').checked).toBe(true);
+    expect(trackOption('교과').checked).toBe(false);
+
+    await saveProgram();
+    expect(updateProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      expect.objectContaining({ trackType: 'EXTRACURRICULAR' }),
+    );
+  });
+
+  it('늘리기·줄이기 버튼으로 인원을 바꾸고 최소 인원은 1 아래로 내려가지 않는다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    updateProgramMock.mockResolvedValue(editableProgram);
+
+    await renderLoadedPage();
+    expect(teamSizeInput('min').value).toBe('2');
+    expect(labelledButton('최소 인원 줄이기').disabled).toBe(false);
+
+    await act(async () => labelledButton('최소 인원 줄이기').click());
+    expect(teamSizeInput('min').value).toBe('1');
+    expect(labelledButton('최소 인원 줄이기').disabled).toBe(true);
+    await act(async () => labelledButton('최소 인원 줄이기').click());
+    expect(teamSizeInput('min').value).toBe('1');
+
+    await act(async () => labelledButton('최대 인원 늘리기').click());
+    await act(async () => labelledButton('최대 인원 늘리기').click());
+    await act(async () => labelledButton('최대 인원 줄이기').click());
+    expect(teamSizeInput('max').value).toBe('5');
+
+    await saveProgram();
+    expect(updateProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      expect.objectContaining({ teamMinSize: 1, teamMaxSize: 5 }),
+    );
+  });
+
+  it('빈 인원 칸에서는 줄일 수 없고 늘리면 1부터 다시 시작한다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+
+    await renderLoadedPage();
+    const maximum = teamSizeInput('max');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(maximum, '');
+      maximum.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(teamSizeInput('max').value).toBe('');
+    expect(labelledButton('최대 인원 줄이기').disabled).toBe(true);
+
+    await act(async () => labelledButton('최대 인원 늘리기').click());
+    expect(teamSizeInput('max').value).toBe('1');
   });
 
   it('마일스톤 편집기에 저장 안 한 입력이 있으면 나가기가 확인창을 거친다', async () => {

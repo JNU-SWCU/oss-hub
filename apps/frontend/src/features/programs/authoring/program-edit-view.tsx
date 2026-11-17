@@ -172,7 +172,7 @@ export function ProgramEditView({
         </Button>
         <div className="grid items-start gap-6">
           <div className="grid min-w-0 gap-6">
-            <PageHeader title="프로그램 편집" description={program.name} />
+            <PageHeader title="프로그램 편집" />
           </div>
         </div>
       </div>
