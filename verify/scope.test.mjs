@@ -168,6 +168,19 @@ test('CI pull_request uses base.sha and push uses before', async (t) => {
     },
   });
   assert.deepEqual([pr[0].base, pr[0].head], [root, feature]);
+  const review = await resolveRanges({
+    cwd: repo.dir,
+    source: 'ci',
+    env: {
+      GITHUB_EVENT_NAME: 'pull_request_review',
+      GITHUB_EVENT_PATH: eventFile(t, {
+        review: { state: 'approved' },
+        pull_request: { base: { sha: root } },
+      }),
+      GITHUB_SHA: feature,
+    },
+  });
+  assert.deepEqual([review[0].base, review[0].head], [root, feature]);
   const push = await resolveRanges({
     cwd: repo.dir,
     source: 'ci',
