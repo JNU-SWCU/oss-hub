@@ -33,6 +33,7 @@ describe('AuditLogController', () => {
       page: 1,
       limit: 20,
       total: 0,
+      counts: { ACCOUNT: 0, OPERATION: 0, SUBMISSION: 0, LOGIN: 0, SYSTEM: 0 },
     });
     const controller = new AuditLogController(
       Object.assign(Object.create(AuditLogReadService.prototype) as object, {
@@ -40,13 +41,15 @@ describe('AuditLogController', () => {
       }) as unknown as AuditLogReadService,
     );
     const query = Object.assign(new AuditLogListRequestDto(), {
-      actor: 'synthetic-admin',
+      q: 'synthetic-admin',
+      category: 'ACCOUNT',
     });
 
     await controller.list(query);
 
     expect(list).toHaveBeenCalledWith({
-      actor: 'synthetic-admin',
+      q: 'synthetic-admin',
+      category: 'ACCOUNT',
       page: 1,
       limit: 20,
     });

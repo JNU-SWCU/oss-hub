@@ -1,13 +1,15 @@
+import type { AuditLogPage } from '../../platform/audit-log-read.service';
 import type {
-  AuditLogPage,
-  AuditLogRecord,
-} from '../../platform/audit-log-read.service';
+  AuditCategoryCounts,
+  AuditEntry,
+} from '../../platform/audit-entry.types';
 
 export class AuditLogPageResponseDto {
-  declare readonly items: readonly AuditLogRecord[];
+  declare readonly items: readonly AuditEntry[];
   declare readonly total: number;
   declare readonly page: number;
   declare readonly limit: number;
+  declare readonly counts: AuditCategoryCounts;
 
   static from(page: AuditLogPage): AuditLogPageResponseDto {
     return {
@@ -15,6 +17,7 @@ export class AuditLogPageResponseDto {
       total: page.total,
       page: page.page,
       limit: page.limit,
+      counts: page.counts,
     };
   }
 }

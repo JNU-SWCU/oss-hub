@@ -1,7 +1,10 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
 import { AuditLogReadRepository } from './audit-log-read.repository';
-import { AuditLogReadService } from './audit-log-read.service';
+import {
+  createAuditLogReadService,
+  EMPTY_COUNTS,
+} from './audit-log-mapping.fixture';
 import {
   HISTORY_FEED_DAY,
   HISTORY_FEED_PREFIX,
@@ -15,7 +18,7 @@ assertIsolatedIntegrationDatabase({
 
 describe('Combined owned audit feed', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogReadService(new AuditLogReadRepository(prisma));
+  const service = createAuditLogReadService(new AuditLogReadRepository(prisma));
   const query = {
     from: HISTORY_FEED_DAY,
     to: HISTORY_FEED_DAY,
@@ -54,13 +57,19 @@ describe('Combined owned audit feed', () => {
   it('keeps the total on an out-of-range page', async () => {
     const result = await service.list({ ...query, page: 4, limit: 4 });
 
-    expect(result).toEqual({ items: [], total: 9, page: 4, limit: 4 });
+    expect(result).toEqual({
+      items: [],
+      total: 9,
+      page: 4,
+      limit: 4,
+      counts: { ...EMPTY_COUNTS, ACCOUNT: 8, OPERATION: 1 },
+    });
   });
 
   it('applies actor action and dates to the canonical feed rather than individual projections', async () => {
     const result = await service.list({
       ...query,
-      actor: 'HISTORY-ACTOR',
+      q: 'ORIGINAL-ACTOR',
       action: 'USER_ROLE_CHANGED',
       limit: 1,
     });
@@ -68,10 +77,9 @@ describe('Combined owned audit feed', () => {
     expect(result.total).toBe(1);
     expect(result.items[0]).toMatchObject({
       id: `${HISTORY_FEED_PREFIX}audit:3`,
-      actor: 'Original actor',
-      actorHandle: 'original-actor',
-      target: 'Original target',
-      targetHandle: 'original-target',
+      actor: { name: 'Original actor', login: 'original-actor' },
+      target: { name: 'Original target', login: 'original-target' },
+      change: { field: 'role', before: 'STAFF', after: 'ADMIN' },
     });
   });
 
@@ -87,8 +95,7 @@ describe('Combined owned audit feed', () => {
       [`${HISTORY_FEED_PREFIX}audit:2`, true],
     ]);
     expect(result.items[1]).toMatchObject({
-      targetId: 'unresolved-user',
-      target: 'USER / unresolved-user',
+      target: { id: 'unresolved-user', name: null },
       metadata: null,
     });
   });
@@ -115,8 +122,8 @@ describe('Combined owned audit feed', () => {
 
     expect(result.total).toBe(1);
     expect(result.items[0]).toMatchObject({
-      targetType: 'ROLE_REQUEST',
-      targetId: `${HISTORY_FEED_PREFIX}request`,
+      target: { type: 'ROLE_REQUEST', id: `${HISTORY_FEED_PREFIX}request` },
+      requestId: `${HISTORY_FEED_PREFIX}request`,
       legacy: false,
       metadata: {
         recordKind: 'REQUEST_TRANSITION',
@@ -147,7 +154,7 @@ describe('Combined owned audit feed', () => {
         ${occurredAt}, ${occurredAt}, 'APPLICATION', ${JSON.stringify(data)}::jsonb)`;
 
     const result = await service.list({
-      actor: 'audit-history-actor',
+      q: 'audit-history-actor',
       action: 'USER_ROLE_CHANGED',
       from: '2026-11-02',
       to: '2026-11-02',
@@ -159,14 +166,27 @@ describe('Combined owned audit feed', () => {
     expect(result.items).toEqual([
       {
         id,
-        actor: 'audit-history-actor',
-        actorHandle: 'audit-history-actor',
-        action: 'USER_ROLE_CHANGED',
-        targetType: 'USER',
-        targetId: userId,
-        target: `USER / ${userId}`,
-        targetHandle: null,
         occurredAt,
+        action: 'USER_ROLE_CHANGED',
+        category: 'ACCOUNT',
+        actor: {
+          id: actorId,
+          name: null,
+          login: 'audit-history-actor',
+          role: 'UNSELECTED',
+        },
+        target: {
+          type: 'USER',
+          id: userId,
+          name: null,
+          login: 'audit-history-target',
+          role: 'UNSELECTED',
+          programName: null,
+          teamName: null,
+        },
+        change: { field: 'userType', before: 'UNSELECTED', after: 'STUDENT' },
+        requestId: null,
+        teamMembership: null,
         legacy: false,
         metadata: data,
       },

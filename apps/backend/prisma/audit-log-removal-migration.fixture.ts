@@ -51,9 +51,25 @@ const SOURCE_STRUCTURE = `
     .filter((event) => !EVENTS_ADDED_BY_PREPARE.includes(event))
     .map((event) => `'${event}'`)
     .join(',')});
-  CREATE TABLE "User" (id TEXT PRIMARY KEY, login TEXT NOT NULL);
+  CREATE TABLE "User" (
+    id TEXT PRIMARY KEY, login TEXT NOT NULL, name TEXT, type TEXT NOT NULL DEFAULT 'UNSELECTED'
+  );
+  CREATE TABLE "Admin" ("userId" TEXT PRIMARY KEY);
   CREATE TABLE "Program" (id TEXT PRIMARY KEY, name TEXT NOT NULL);
-  CREATE TABLE "Team" (id TEXT PRIMARY KEY, "programId" TEXT NOT NULL, name TEXT NOT NULL);
+  CREATE TABLE "Team" (
+    id TEXT PRIMARY KEY, "programId" TEXT NOT NULL, name TEXT NOT NULL, "applicantId" TEXT
+  );
+  CREATE TABLE "Milestone" (id TEXT PRIMARY KEY, "programId" TEXT NOT NULL);
+  CREATE TABLE "Requirement" (id TEXT PRIMARY KEY, "milestoneId" TEXT NOT NULL, name TEXT NOT NULL);
+  CREATE TABLE "Submission" (id TEXT PRIMARY KEY, "requirementId" TEXT NOT NULL, "teamId" TEXT NOT NULL);
+  CREATE TABLE "SubmissionHistory" (
+    id TEXT PRIMARY KEY, "submissionId" TEXT NOT NULL, event TEXT NOT NULL, revision INTEGER,
+    "actorId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL
+  );
+  CREATE TABLE "LoginHistory" (
+    id TEXT PRIMARY KEY, "userId" TEXT NOT NULL, event TEXT NOT NULL, provider TEXT NOT NULL,
+    success BOOLEAN NOT NULL, "loginAt" TIMESTAMP(3) NOT NULL
+  );
   CREATE TABLE "GithubRepository" (id TEXT PRIMARY KEY, "teamId" TEXT, "nameWithOwner" TEXT);
   CREATE TABLE "repo" (github_repo_id BIGINT PRIMARY KEY, owner_name TEXT NOT NULL);
   CREATE TABLE "AuditLog" (

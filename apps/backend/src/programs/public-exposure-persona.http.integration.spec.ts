@@ -888,37 +888,38 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
 
     const admin = await harness.request(
       'GET',
-      `/audit-logs?limit=100&actor=${encodeURIComponent(OWN_AUDIT_ACTOR_FILTER)}`,
+      `/audit-logs?limit=100&q=${encodeURIComponent(OWN_AUDIT_ACTOR_FILTER)}`,
       adminPersona.githubId,
     );
     expect(admin.status).toBe(200);
     const adminBody = (await admin.json()) as {
-      items: readonly Record<string, unknown>[];
+      items: readonly {
+        readonly action: string;
+        readonly actor: { readonly login: string | null } | null;
+        readonly target: { readonly type: string; readonly id: string };
+      }[];
       total: number;
     };
 
     expect(adminBody.total).toBe(2);
-    expect([...adminBody.items].map((item) => item.targetId).sort()).toEqual(
+    expect([...adminBody.items].map((item) => item.target.id).sort()).toEqual(
       [gateRepoForAdmin.repositoryId, gateRepoForStaff.repositoryId].sort(),
     );
 
     const published = adminBody.items.filter(
       (item) =>
         item.action === 'REPOSITORY_PUBLISHED' &&
-        (item.targetId === gateRepoForStaff.repositoryId ||
-          item.targetId === gateRepoForAdmin.repositoryId),
+        (item.target.id === gateRepoForStaff.repositoryId ||
+          item.target.id === gateRepoForAdmin.repositoryId),
     );
     expect(published).toHaveLength(2);
     for (const item of published) {
-      expect(item.targetType).toBe('REPOSITORY');
-      expect(typeof item.actor).toBe('string');
-      expect(item.actor).not.toBe(staffPersona.id);
-      expect(item.actor).not.toBe(adminPersona.id);
+      expect(item.target.type).toBe('REPOSITORY');
+      expect(item.actor?.login).toContain(OWN_AUDIT_ACTOR_FILTER);
     }
 
     const serialized = JSON.stringify(adminBody);
     for (const forbiddenKey of [
-      '"name"',
       '"studentId"',
       '"department"',
       '"email"',

@@ -30,7 +30,7 @@ const happyDomTests = [
   'src/components/{data-table.test.tsx,nav-bar-active.test.tsx,dialog-shell.test.tsx,filter-chip.test.tsx,list-card.test.tsx,nav-bar-escape.test.tsx,table-scroll-region.test.tsx}',
   'src/components/program/{program-countdown.interaction.test.tsx,program-cover.test.tsx}',
   'src/components/ui/dialog.test.tsx',
-  'src/features/audit-log/audit-log-screen.test.tsx',
+  'src/features/audit-log/{audit-log-screen.test.tsx,audit-log-table.test.tsx,audit-log-view.interaction.test.tsx}',
   'src/features/staff-insights/leaderboard-panel.test.tsx',
   'src/features/staff-insights/groups-panel.test.tsx',
   'src/features/staff-insights/program-scorecard.test.tsx',

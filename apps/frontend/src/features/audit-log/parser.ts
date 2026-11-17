@@ -1,11 +1,16 @@
 import { isRecord } from '@/lib/is-record';
-import type {
-  AuditLogPage,
-  AuditLogRecord,
-  AuditUserType,
-  TeamMembershipChangeSummary,
-  TeamMembershipOperation,
-  UserPhoneAuditTransition,
+import {
+  AUDIT_LOG_CATEGORIES,
+  type AuditLogCategory,
+  type AuditLogCategoryCounts,
+  type AuditLogChange,
+  type AuditLogChangeValue,
+  type AuditLogPage,
+  type AuditLogPerson,
+  type AuditLogRecord,
+  type AuditLogTarget,
+  type TeamMembershipChange,
+  type TeamMembershipOperation,
 } from './types';
 
 const INVALID_RESPONSE_MESSAGE = '감사 로그 응답 형식이 올바르지 않습니다';
@@ -21,38 +26,28 @@ function invalidResponse(): never {
   throw new AuditLogResponseError();
 }
 
-function hasExactKeys(
-  value: Record<string, unknown>,
+function exactRecord(
+  value: unknown,
   keys: readonly string[],
-): boolean {
+): Record<string, unknown> {
+  if (!isRecord(value)) return invalidResponse();
   const actualKeys = Object.keys(value);
-  return (
-    actualKeys.length === keys.length &&
-    keys.every((key) => Object.hasOwn(value, key))
-  );
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isUserType(value: unknown): value is AuditUserType {
-  return value === 'UNSELECTED' || value === 'STUDENT' || value === 'STAFF';
+  if (
+    actualKeys.length !== keys.length ||
+    !keys.every((key) => Object.hasOwn(value, key))
+  ) {
+    return invalidResponse();
+  }
+  return value;
 }
 
 function nonEmptyString(value: unknown): string {
-  if (isNonEmptyString(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) return value;
   return invalidResponse();
 }
 
-function nullableHandle(value: unknown): string | null {
-  if (value === null) return null;
-  return nonEmptyString(value);
-}
-
-function userPhoneAuditTransition(value: unknown): UserPhoneAuditTransition {
-  if (value === 'SET' || value === 'REPLACED') return value;
-  return invalidResponse();
+function nullableString(value: unknown): string | null {
+  return value === null ? null : nonEmptyString(value);
 }
 
 function nonNegativeInteger(value: unknown): number {
@@ -81,148 +76,160 @@ function isoTimestamp(value: unknown): string {
   return invalidResponse();
 }
 
-function phoneTransition(
-  action: string,
-  metadata: Record<string, unknown>,
-): UserPhoneAuditTransition | undefined {
-  if (action !== 'USER_PHONE_UPDATED') return undefined;
-  return userPhoneAuditTransition(metadata.transition);
+function category(value: unknown): AuditLogCategory {
+  return (
+    AUDIT_LOG_CATEGORIES.find((candidate) => candidate === value) ??
+    invalidResponse()
+  );
 }
 
-const TEAM_MEMBERSHIP_ACTION = 'TEAM_MEMBERSHIP_CHANGED';
-const TEAM_MEMBERSHIP_SCHEMA_VERSION = 1;
-const TEAM_MEMBERSHIP_OPERATIONS: readonly TeamMembershipOperation[] = [
-  'LEAVE',
-  'REMOVE',
-];
-
-function isTeamMembershipOperation(
-  value: unknown,
-): value is TeamMembershipOperation {
-  return TEAM_MEMBERSHIP_OPERATIONS.some((operation) => operation === value);
-}
-
-function teamMembershipSummary(
-  action: string,
-  metadata: unknown,
-): TeamMembershipChangeSummary | undefined {
-  if (action !== TEAM_MEMBERSHIP_ACTION || !isRecord(metadata)) {
-    return undefined;
-  }
-  const { operation, previousLeaderId, nextLeaderId } = metadata;
-  if (
-    metadata.schemaVersion !== TEAM_MEMBERSHIP_SCHEMA_VERSION ||
-    !isNonEmptyString(metadata.programName) ||
-    !isNonEmptyString(metadata.teamName) ||
-    !isTeamMembershipOperation(operation) ||
-    !isNonEmptyString(metadata.removedUserId) ||
-    !isNonEmptyString(previousLeaderId) ||
-    !(nextLeaderId === null || isNonEmptyString(nextLeaderId))
-  ) {
-    return undefined;
-  }
-
+function person(value: unknown): AuditLogPerson | null {
+  if (value === null) return null;
+  const record = exactRecord(value, ['id', 'name', 'login', 'role']);
   return {
-    operation,
-    leaderChanged: nextLeaderId !== null && nextLeaderId !== previousLeaderId,
-    teamDeleted: nextLeaderId === null,
+    id: nullableString(record.id),
+    name: nullableString(record.name),
+    login: nullableString(record.login),
+    role: nullableString(record.role),
   };
 }
 
-const TEAM_RENAMED_ACTION = 'TEAM_RENAMED';
-const TEAM_RENAMED_SCHEMA_VERSION = 1;
+const TARGET_KEYS = [
+  'type',
+  'id',
+  'name',
+  'login',
+  'role',
+  'programName',
+  'teamName',
+] as const;
 
-function teamPreviousName(
+function target(value: unknown): AuditLogTarget {
+  const record = exactRecord(value, TARGET_KEYS);
+  return {
+    type: nonEmptyString(record.type),
+    id: nonEmptyString(record.id),
+    name: nullableString(record.name),
+    login: nullableString(record.login),
+    role: nullableString(record.role),
+    programName: nullableString(record.programName),
+    teamName: nullableString(record.teamName),
+  };
+}
+
+function changeValue(value: unknown): AuditLogChangeValue {
+  return typeof value === 'boolean' ? value : nullableString(value);
+}
+
+function change(value: unknown): AuditLogChange | null {
+  if (value === null) return null;
+  const record = exactRecord(value, ['field', 'before', 'after']);
+  return {
+    field: nonEmptyString(record.field),
+    before: changeValue(record.before),
+    after: changeValue(record.after),
+  };
+}
+
+const TEAM_MEMBERSHIP_OPERATIONS: readonly TeamMembershipOperation[] = [
+  'LEAVE',
+  'REMOVE',
+  'TRANSFER_LEADER',
+];
+
+function teamMembership(value: unknown): TeamMembershipChange | null {
+  if (value === null) return null;
+  const record = exactRecord(value, [
+    'operation',
+    'leaderChanged',
+    'teamDeleted',
+  ]);
+  const operation =
+    TEAM_MEMBERSHIP_OPERATIONS.find((item) => item === record.operation) ??
+    invalidResponse();
+  if (
+    typeof record.leaderChanged !== 'boolean' ||
+    typeof record.teamDeleted !== 'boolean'
+  ) {
+    return invalidResponse();
+  }
+  return {
+    operation,
+    leaderChanged: record.leaderChanged,
+    teamDeleted: record.teamDeleted,
+  };
+}
+
+function phoneTransition(
   action: string,
   metadata: unknown,
-): string | undefined {
-  if (action !== TEAM_RENAMED_ACTION || !isRecord(metadata)) return undefined;
-  return metadata.schemaVersion === TEAM_RENAMED_SCHEMA_VERSION &&
-    isNonEmptyString(metadata.previousName)
-    ? metadata.previousName
-    : undefined;
+): AuditLogRecord['phoneTransition'] {
+  if (action !== 'USER_PHONE_UPDATED' || !isRecord(metadata)) return null;
+  return metadata.transition === 'SET' || metadata.transition === 'REPLACED'
+    ? metadata.transition
+    : null;
 }
 
 const RECORD_KEYS = [
   'id',
-  'actor',
-  'actorHandle',
-  'action',
-  'targetType',
-  'targetId',
-  'target',
-  'targetHandle',
   'occurredAt',
+  'action',
+  'category',
+  'actor',
+  'target',
+  'change',
+  'requestId',
+  'teamMembership',
   'legacy',
   'metadata',
 ] as const;
 
 function auditLogRecord(value: unknown): AuditLogRecord {
-  if (!isRecord(value) || !hasExactKeys(value, RECORD_KEYS)) {
+  const record = exactRecord(value, RECORD_KEYS);
+  if (typeof record.legacy !== 'boolean') return invalidResponse();
+  if (record.legacy ? record.metadata !== null : !isRecord(record.metadata)) {
     return invalidResponse();
   }
-  if (typeof value.legacy !== 'boolean') {
-    return invalidResponse();
-  }
-  const wireMetadata = value.metadata;
-  if (value.legacy ? wireMetadata !== null : !isRecord(wireMetadata)) {
-    return invalidResponse();
-  }
-
-  const action = nonEmptyString(value.action);
-  const teamMembership = teamMembershipSummary(action, wireMetadata);
-  const previousName = teamPreviousName(action, wireMetadata);
-  const parsedPhoneTransition = isRecord(wireMetadata)
-    ? phoneTransition(action, wireMetadata)
-    : undefined;
-  let typeSelection: AuditLogRecord['typeSelection'];
-  if (isRecord(wireMetadata) && wireMetadata.recordKind === 'TYPE_SELECTION') {
-    if (
-      action !== 'USER_ROLE_CHANGED' ||
-      wireMetadata.schemaVersion !== 1 ||
-      !isUserType(wireMetadata.before) ||
-      !isUserType(wireMetadata.after)
-    ) {
-      return invalidResponse();
-    }
-    typeSelection = { before: wireMetadata.before, after: wireMetadata.after };
-  }
-
+  const action = nonEmptyString(record.action);
   return {
-    id: nonEmptyString(value.id),
-    actor: nonEmptyString(value.actor),
-    actorHandle: nullableHandle(value.actorHandle),
+    id: nonEmptyString(record.id),
+    occurredAt: isoTimestamp(record.occurredAt),
     action,
-    targetType: nonEmptyString(value.targetType),
-    targetId: nonEmptyString(value.targetId),
-    target: nonEmptyString(value.target),
-    targetHandle: nullableHandle(value.targetHandle),
-
-    ...(teamMembership === undefined ? {} : { teamMembership }),
-    ...(previousName === undefined ? {} : { teamPreviousName: previousName }),
-    occurredAt: isoTimestamp(value.occurredAt),
-    ...(parsedPhoneTransition
-      ? { phoneTransition: parsedPhoneTransition }
-      : {}),
-    ...(typeSelection ? { typeSelection } : {}),
+    category: category(record.category),
+    actor: person(record.actor),
+    target: target(record.target),
+    change: change(record.change),
+    requestId: nullableString(record.requestId),
+    teamMembership: teamMembership(record.teamMembership),
+    phoneTransition: phoneTransition(action, record.metadata),
   };
 }
 
-const PAGE_KEYS = ['items', 'total', 'page', 'limit'] as const;
+function counts(value: unknown): AuditLogCategoryCounts {
+  const record = exactRecord(value, AUDIT_LOG_CATEGORIES);
+  return {
+    ACCOUNT: nonNegativeInteger(record.ACCOUNT),
+    OPERATION: nonNegativeInteger(record.OPERATION),
+    SUBMISSION: nonNegativeInteger(record.SUBMISSION),
+    LOGIN: nonNegativeInteger(record.LOGIN),
+    SYSTEM: nonNegativeInteger(record.SYSTEM),
+  };
+}
 
 export function parseAuditLogPage(value: unknown): AuditLogPage {
-  if (
-    !isRecord(value) ||
-    !hasExactKeys(value, PAGE_KEYS) ||
-    !Array.isArray(value.items)
-  ) {
-    return invalidResponse();
-  }
-
+  const page = exactRecord(value, [
+    'items',
+    'total',
+    'page',
+    'limit',
+    'counts',
+  ]);
+  if (!Array.isArray(page.items)) return invalidResponse();
   return {
-    items: value.items.map(auditLogRecord),
-    total: nonNegativeInteger(value.total),
-    page: positiveInteger(value.page),
-    limit: positiveInteger(value.limit),
+    items: page.items.map(auditLogRecord),
+    total: nonNegativeInteger(page.total),
+    page: positiveInteger(page.page),
+    limit: positiveInteger(page.limit),
+    counts: counts(page.counts),
   };
 }
