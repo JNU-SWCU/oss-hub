@@ -596,3 +596,39 @@ test('a crashing url-ia report never hides a blocking secrets or API failure in 
   assert.match(broken.logs, /FAIL \[api-breaking\]/);
   assert.match(broken.logs, /NOTICE url-ia: analysis failed/);
 });
+
+test('in CI an approved break also needs CODEOWNERS approval of the baseline change', async (t) => {
+  const { repo, base } = apiRepo(t);
+  const changed = withoutResponseName();
+  const head = repo.commit(
+    'feat: drop item name\n\nAPI-Break-Approved: #1234',
+    {
+      [BASELINE]: json(changed),
+    },
+  );
+  const run = (review) =>
+    checkApi({
+      lint: noLint,
+      cwd: repo.dir,
+      ranges: [{ base, head, ref: 'main' }],
+      dump: dumpOf(changed),
+      tool: stubOasdiff(t),
+      approval: async () => review,
+    });
+  const denied = await run({
+    ok: false,
+    detail: 'no approval from CODEOWNERS (@owner) on PR #5',
+  });
+  assert.deepEqual(
+    denied.map((item) => item.rule),
+    ['api-break-unapproved'],
+  );
+  assert.equal(
+    denied[0].measured,
+    'no approval from CODEOWNERS (@owner) on PR #5',
+  );
+  assert.deepEqual(
+    await run({ ok: true, detail: '#5 approved by @owner' }),
+    [],
+  );
+});

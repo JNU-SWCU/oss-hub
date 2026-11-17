@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkApi } from './api.mjs';
+import { createCiApproval } from './approval.mjs';
 import { checkFull } from './full.mjs';
 import { detectSource, resolveScope } from './scope.mjs';
 import { checkSecrets } from './secrets.mjs';
@@ -118,7 +119,13 @@ export async function main(
       continue;
     }
     try {
-      const findings = await checkImpls[name]({ cwd, ranges: scope.ranges });
+      const findings = await checkImpls[name]({
+        cwd,
+        ranges: scope.ranges,
+        ...(source === 'ci'
+          ? { approval: createCiApproval({ env, cwd }) }
+          : {}),
+      });
       for (const item of findings) console.error(formatFinding(item));
       console.log(
         `${findings.length === 0 ? 'PASS' : 'FAIL'} ${name}${findings.length ? ` (${findings.length})` : ''}`,

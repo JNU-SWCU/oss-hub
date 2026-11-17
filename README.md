@@ -295,7 +295,7 @@ Run these from the repository root. The [CI workflow](.github/workflows/ci.yml) 
 BACKEND_ORIGIN=https://backend.example.test pnpm build
 ```
 
-Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files, and run `pnpm format:check` before a push.
+Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files. Before a push they run `pnpm format:check` and then `node verify/index.mjs scoped --pre-push` on the pushed range: secrets (gitleaks and `.github/check-public-safe.sh`) always, the URL IA report for frontend changes (report only, never blocks), and the OpenAPI contract check (oasdiff 1.38.0) for backend changes. Changes under `verify/`, `.githooks/`, the root `package.json`, `pnpm-lock.yaml`, `compose*.yml` or `.github/workflows/` run both sides; a docs-only push runs only the secrets check. CI runs the same command in the `verify` job. `pnpm verify:frontend`, `pnpm verify:backend` and `pnpm verify:full` run the checks by hand; `verify:full` also measures production Core Web Vitals goals. An intentional API break needs an `API-Break-Approved: #<issue>` commit trailer and, in CI, a CODEOWNERS approval of the `verify/openapi.baseline.json` change.
 
 </details>
 

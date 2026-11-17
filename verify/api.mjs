@@ -257,6 +257,7 @@ export async function checkApi({
   dump = (outFile) => runDumpCommand(cwd, outFile),
   tool = OASDIFF,
   lint = (specFile) => writeApiLintReports(specFile),
+  approval = null,
 }) {
   await requireTool(tool);
   const head = await git(cwd, ['rev-parse', 'HEAD']);
@@ -346,8 +347,20 @@ export async function checkApi({
         )
         .join('\n  ');
       if (approvals.length > 0) {
+        const review = approval ? await approval(range) : null;
+        if (review && !review.ok) {
+          findings.push(
+            finding(
+              'api-break-unapproved',
+              `${TRAILER}: ${approvals.join(', ')} is present but the baseline change lacks CODEOWNERS approval (${review.detail}):\n  ${summary}`,
+              review.detail,
+              `${TRAILER} trailer and a CODEOWNERS approval in CI`,
+            ),
+          );
+          continue;
+        }
         console.log(
-          `NOTICE [api-breaking] approved by ${TRAILER}: ${approvals.join(', ')}\n  ${summary}`,
+          `NOTICE [api-breaking] approved by ${TRAILER}: ${approvals.join(', ')}${review ? `, ${review.detail}` : ''}\n  ${summary}`,
         );
         continue;
       }

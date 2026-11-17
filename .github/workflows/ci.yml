@@ -34,17 +34,21 @@ jobs:
             frontend:
               - 'apps/frontend/**'
               - '.design-sync/**'
+              - 'verify/**'
+              - '.githooks/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
-              - 'compose.dev.yml'
+              - 'compose*.yml'
               - '.github/workflows/**'
             backend:
               - 'apps/backend/**'
+              - 'verify/**'
+              - '.githooks/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
-              - 'compose.dev.yml'
+              - 'compose*.yml'
               - '.github/workflows/**'
             nginx:
               - 'deploy/nginx/**'
@@ -72,6 +76,7 @@ jobs:
             node_scripts:
               - 'deploy/**/*.mjs'
               - '.design-sync/**/*.mjs'
+              - 'verify/**/*.mjs'
               - '.github/workflows/**'
             rails:
               - 'apps/backend/**'
@@ -156,10 +161,14 @@ jobs:
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash .githooks/pre-commit.test.sh
 
+      - name: pre-push 훅 회귀 테스트
+        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
+        run: bash .githooks/pre-push.test.sh
+
       - name: Node script 문법 검사
         if: ${{ steps.scope.outputs.node_scripts == 'true' }}
         run: |
-          find deploy .design-sync -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+          find deploy .design-sync verify -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
 
       - name: nginx ingress 계약 검사
         if: ${{ steps.scope.outputs.nginx == 'true' }}
@@ -247,6 +256,81 @@ jobs:
       - name: backend build
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
+
+  verify:
+    name: verify
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: push 기준 커밋 확보
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BEFORE//0/}" ] && ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$BEFORE"
+          fi
+
+      - name: Node 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 검증 스코프 결정
+        id: scope
+        run: |
+          set -euo pipefail
+          node verify/index.mjs scope > "$RUNNER_TEMP/verify-scope.json"
+          jq -r '"frontend=\(.frontend)", "backend=\(.backend)"' "$RUNNER_TEMP/verify-scope.json" >> "$GITHUB_OUTPUT"
+
+      - name: gitleaks 설치
+        run: |
+          set -euo pipefail
+          curl -sSL -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/bin" gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: oasdiff 설치
+        run: |
+          set -euo pipefail
+          curl -sSL -o "$RUNNER_TEMP/oasdiff.tar.gz" https://github.com/oasdiff/oasdiff/releases/download/v1.38.0/oasdiff_1.38.0_linux_amd64.tar.gz
+          echo "613037fd6a1d3362a1b742d6d86c338c0eb5ab3511f4942ce3948e78720ea2da  $RUNNER_TEMP/oasdiff.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/oasdiff.tar.gz" -C "$RUNNER_TEMP/bin" oasdiff
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: pnpm 설정
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
+        uses: pnpm/action-setup@v4
+
+      - name: pnpm 캐시 설정
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 의존성 설치
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: verify 스크립트 테스트
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
+        run: pnpm test:verify
+
+      - name: 스코프별 verify (secrets, URL IA 보고, API 계약)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node verify/index.mjs scoped
 
   commitlint:
     name: commitlint

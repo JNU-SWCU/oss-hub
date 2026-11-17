@@ -29,6 +29,7 @@ export const RULE_SOURCES = {
   'api-breaking':
     'https://github.com/oasdiff/oasdiff/blob/main/docs/BREAKING-CHANGES.md',
   'api-baseline-stale': VERIFY_ISSUE,
+  'api-break-unapproved': VERIFY_ISSUE,
   'api-route-reconciliation': VERIFY_ISSUE,
   'api-route-unresolved': VERIFY_ISSUE,
   'url-ia-unreachable-page':
