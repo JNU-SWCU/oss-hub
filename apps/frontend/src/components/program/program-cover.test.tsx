@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { apiPath } from '@/lib/api-client';
 import { ProgramCover } from './program-cover';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -21,13 +22,18 @@ afterEach(async () => {
 
 describe('program cover', () => {
   it('AC6 shows the whole card image and recovers from failed loads', async () => {
-    await act(async () => root.render(<ProgramCover src="/cover-one" />));
+    await act(async () =>
+      root.render(<ProgramCover src="/cover-one" sizes="88px" />),
+    );
     const image = container.querySelector('img');
     expect(image?.className).toContain('object-contain');
     expect(image?.className).not.toContain('object-cover');
     expect(image?.className).not.toContain('object-top');
     expect(image?.alt).toBe('');
     await act(async () => image?.dispatchEvent(new Event('error')));
+    const original = container.querySelector('img');
+    expect(original?.getAttribute('src')).toMatch(/\/cover-one$/);
+    await act(async () => original?.dispatchEvent(new Event('error')));
     expect(
       container.querySelector('[data-cover-state="error"]'),
     ).not.toBeNull();
@@ -35,9 +41,23 @@ describe('program cover', () => {
     expect(
       container.querySelector('svg[aria-hidden="true"]')?.textContent,
     ).toBe('OSS Hub');
-    await act(async () => root.render(<ProgramCover src="/cover-two" />));
-    expect(container.querySelector('img')?.getAttribute('src')).toBe(
-      '/cover-two',
+    await act(async () =>
+      root.render(<ProgramCover src="/cover-two" sizes="88px" />),
+    );
+    expect(container.querySelector('img')?.getAttribute('src')).toContain(
+      `url=${encodeURIComponent('/cover-two')}`,
+    );
+  });
+
+  it('requests an optimized image at the stated width for a same-origin cover', async () => {
+    const cover = apiPath('programs/program/cover/current');
+    await act(async () =>
+      root.render(<ProgramCover src={cover} sizes="88px" />),
+    );
+    const image = container.querySelector('img');
+    expect(image?.getAttribute('sizes')).toBe('88px');
+    expect(image?.getAttribute('srcset')).toContain(
+      `/_next/image?url=${encodeURIComponent(cover)}&w=96&`,
     );
   });
 
@@ -68,7 +88,9 @@ describe('program cover', () => {
   });
 
   it('AC6 reserves an A4 frame and shows the empty graphic uncropped', async () => {
-    await act(async () => root.render(<ProgramCover src={null} />));
+    await act(async () =>
+      root.render(<ProgramCover src={null} sizes="88px" />),
+    );
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.getAttribute('data-cover-state')).toBe('empty');
     expect(cover?.className).toContain('aspect-[1/1.414]');
@@ -82,7 +104,9 @@ describe('program cover', () => {
       'OSS Hub',
     );
 
-    await act(async () => root.render(<ProgramCover src="/poster" />));
+    await act(async () =>
+      root.render(<ProgramCover src="/poster" sizes="88px" />),
+    );
     expect(
       container.querySelector('[data-slot="program-cover"]')?.className,
     ).toContain('aspect-[1/1.414]');

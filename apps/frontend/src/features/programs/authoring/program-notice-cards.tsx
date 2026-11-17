@@ -37,7 +37,10 @@ export function ProgramNoticeCards({
               )}
             >
               {notice.thumbnailUrl ? (
-                <ProgramCover src={notice.thumbnailUrl} />
+                <ProgramCover
+                  src={notice.thumbnailUrl}
+                  sizes="(min-width: 640px) 96px, 50vw"
+                />
               ) : (
                 <span
                   className={cn(

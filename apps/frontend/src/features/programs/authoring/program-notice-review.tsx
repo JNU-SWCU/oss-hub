@@ -108,7 +108,7 @@ export function ProgramNoticeReview({
                     : 'border-transparent opacity-60',
                 )}
               >
-                <ProgramCover src={image} />
+                <ProgramCover src={image} sizes="60px" />
               </Button>
             ))}
           </div>

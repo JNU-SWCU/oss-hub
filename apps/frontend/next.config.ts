@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingIncludes: { '/': ['./backend-origin.allowlist'] },
   poweredByHeader: false,
+  images: {
+    localPatterns: [{ pathname: '/api/v1/programs/*/cover/*', search: '' }],
+  },
 
   eslint: { ignoreDuringBuilds: true },
 

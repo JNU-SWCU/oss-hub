@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { hasLocalMatch } from 'next/dist/shared/lib/match-local-pattern';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import nextConfig from './next.config';
 
@@ -139,6 +140,20 @@ describe('nextConfig rewrites', () => {
 describe('nextConfig poweredByHeader', () => {
   it('X-Powered-By 배너를 끈다', () => {
     expect(nextConfig.poweredByHeader).toBe(false);
+  });
+});
+
+describe('nextConfig image optimizer', () => {
+  it('공개 프로그램 표지 경로만 최적화 대상으로 받는다', () => {
+    const patterns = nextConfig.images?.localPatterns ?? [];
+
+    expect(hasLocalMatch(patterns, '/api/v1/programs/p1/cover/c1')).toBe(true);
+    expect(hasLocalMatch(patterns, '/api/v1/programs/p1/cover/c1?v=2')).toBe(
+      false,
+    );
+    expect(hasLocalMatch(patterns, '/api/v1/submissions/s1/files/f1')).toBe(
+      false,
+    );
   });
 });
 

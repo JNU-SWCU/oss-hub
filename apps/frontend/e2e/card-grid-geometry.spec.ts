@@ -40,12 +40,20 @@ async function installGeometryRoutes(page: Page, spec: Fixture = {}) {
     coverImageUrl:
       spec.image === 'none'
         ? null
-        : `/programs/geometry-program-${index}/cover`,
+        : `/programs/geometry-program-${index}/cover/geometry-cover-${index}`,
     note:
       spec.notes === 'all' || (spec.notes !== 'none' && index % 2 === 0)
         ? { text: '합성 팀 안내', icon: 'team' }
         : undefined,
   }));
+  await page.route('**/_next/image?*', async (route) => {
+    await spec.imageGate;
+    await route.fulfill({
+      status: spec.image === 'error' ? 404 : 200,
+      contentType: 'image/png',
+      body: spec.image === 'error' ? Buffer.alloc(0) : COVER_PNG,
+    });
+  });
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -67,12 +75,13 @@ async function installGeometryRoutes(page: Page, spec: Fixture = {}) {
         });
         return;
       }
-      if (/^\/api\/v1\/programs\/geometry-program-\d+\/cover$/.test(path)) {
-        await spec.imageGate;
+      if (
+        /^\/api\/v1\/programs\/geometry-program-\d+\/cover\/[^/]+$/.test(path)
+      ) {
         await route.fulfill({
-          status: spec.image === 'error' ? 404 : 200,
+          status: 404,
           contentType: 'image/png',
-          body: spec.image === 'error' ? Buffer.alloc(0) : COVER_PNG,
+          body: Buffer.alloc(0),
         });
         return;
       }
@@ -584,10 +593,13 @@ for (const state of ['load', 'error', 'none'] as const) {
     }
     audit.assertClean(
       state === 'error'
-        ? [0, 1, 2].map((index) => ({
-            status: 404,
-            path: `/api/v1/programs/geometry-program-${index}/cover`,
-          }))
+        ? [
+            { status: 404, path: '/_next/image' },
+            ...[0, 1, 2].map((index) => ({
+              status: 404,
+              path: `/api/v1/programs/geometry-program-${index}/cover/geometry-cover-${index}`,
+            })),
+          ]
         : [],
     );
   });

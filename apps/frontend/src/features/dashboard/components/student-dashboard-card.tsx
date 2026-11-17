@@ -214,6 +214,7 @@ export function ActiveProgramCard({
         <ProgramCover
           size="thumbnail"
           src={programCoverSource(item.coverImageUrl)}
+          sizes="(min-width: 640px) 176px, 96px"
           className="sm:row-span-2 sm:w-44"
         />
         <div className="grid min-w-0 content-start gap-1">
