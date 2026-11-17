@@ -10,6 +10,10 @@ import { MaintenanceConfig } from '../src/github/maintenance.config';
 import { AuthSessionService } from '../src/platform/auth-session.service';
 import { PrismaService } from '../src/platform/prisma.service';
 import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
+import {
+  PrismaQueryLintError,
+  loadPrismaQueryLintConfig,
+} from '../src/platform/prisma-query-lint.config';
 import { RUNTIME_CONFIG } from '../src/platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../src/platform/runtime-config.config';
 
@@ -21,12 +25,14 @@ export interface RecordedQueries {
   readonly count: number;
   readonly durationMs: number;
   readonly statements: readonly string[];
+  readonly lintErrors: readonly string[];
 }
 
 interface Recording {
   count: number;
   durationMs: number;
   statements: string[];
+  lintErrors: string[];
 }
 
 export class QueryRecordingPrisma extends PrismaClient<
@@ -61,11 +67,36 @@ export class QueryRecordingPrisma extends PrismaClient<
     await this.$disconnect();
   }
 
+  linted(): PrismaClient {
+    const recorder = this.$extends({
+      name: 'query-growth-lint-recorder',
+      query: {
+        $allModels: {
+          $allOperations: async ({ args, query }) => {
+            try {
+              return await query(args);
+            } catch (error) {
+              if (error instanceof PrismaQueryLintError)
+                this.recording?.lintErrors.push(error.message);
+              throw error;
+            }
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    return loadPrismaQueryLintConfig().createLintedClient(recorder);
+  }
+
   async record<T>(
     action: () => Promise<T>,
   ): Promise<{ readonly result: T; readonly queries: RecordedQueries }> {
     await this.flush();
-    const recording: Recording = { count: 0, durationMs: 0, statements: [] };
+    const recording: Recording = {
+      count: 0,
+      durationMs: 0,
+      statements: [],
+      lintErrors: [],
+    };
     this.recording = recording;
     try {
       const result = await action();
@@ -106,7 +137,7 @@ export async function startQueryGrowthApp(
   const sessionSecret = randomBytes(32);
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(PrismaService)
-    .useValue(prisma)
+    .useValue(prisma.linted())
     .overrideProvider(RUNTIME_CONFIG)
     .useValue(
       loadRuntimeConfig({
@@ -180,6 +211,11 @@ export async function measureEndpoint(
       body: (await response.json()) as unknown,
     };
   });
+  if (queries.lintErrors.length > 0) {
+    throw new Error(
+      `query-growth: ${path} violated the query lint\n${queries.lintErrors.join('\n')}`,
+    );
+  }
   return {
     status: result.status,
     itemCount: largestArrayLength(result.body),

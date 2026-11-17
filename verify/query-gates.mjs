@@ -43,13 +43,28 @@ export async function checkQueryGates({ cwd, runCommand = run }) {
     },
   );
   if (growth.code !== 0) {
-    findings.push(
-      finding(
-        'query-growth',
-        `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${tail(growth)}`,
-        `exit ${growth.code}`,
-        'exit 0',
+    const lint = [
+      ...new Set(
+        `${growth.stdout}\n${growth.stderr}`
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => /^\[LINT\.[A-Z_]+\]/.test(line)),
       ),
+    ];
+    findings.push(
+      lint.length > 0
+        ? finding(
+            'query-lint',
+            `a query on a measured route violated the query lint\n${lint.join('\n')}`,
+            `${lint.length} violation(s)`,
+            '0 violations',
+          )
+        : finding(
+            'query-growth',
+            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${tail(growth)}`,
+            `exit ${growth.code}`,
+            'exit 0',
+          ),
     );
   }
   return findings;

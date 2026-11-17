@@ -70,6 +70,26 @@ test('verify backend skips the query gates for a docs-only change', async (t) =>
   assert.ok(result.logs.some((line) => /^SKIP query-gates:/.test(line)));
 });
 
+test('a lint violation inside the integration run is reported as query-lint', async () => {
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    runCommand: async (command) =>
+      command === 'pnpm'
+        ? { code: 0, stdout: '', stderr: '' }
+        : {
+            code: 1,
+            stdout: '',
+            stderr:
+              '    query-growth: /projects violated the query lint\n    [LINT.NO_LIMIT] Repo.findMany@apps/backend/src/x.repository.ts#X.list: no limit\n',
+          },
+  });
+  assert.deepEqual(
+    findings.map((item) => item.rule),
+    ['query-lint'],
+  );
+  assert.match(findings[0].message, /\[LINT\.NO_LIMIT\] Repo\.findMany/);
+});
+
 test('query gate failures block with rule ids and https sources', async () => {
   const calls = [];
   const findings = await checkQueryGates({
