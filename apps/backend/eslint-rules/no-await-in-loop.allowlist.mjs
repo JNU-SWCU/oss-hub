@@ -31,7 +31,8 @@ export const awaitInLoopAllowlist = {
   'src/github/github-app.client.ts': {
     'GithubAppClient.revokeCollaborator':
       '같은 로그인으로 남은 초대만 골라 GitHub에서 취소한다. 초대 목록은 페이지 한도로 묶이며 HTTP 읽기 경로가 아니다.',
-    'GithubAppClient.listInvitations': githubPaging,
+    'GithubAppClient.listInvitations':
+      '초대 목록을 페이지 번호 순서로 읽고, 응답이 페이지 크기보다 짧으면 마지막 페이지로 보고 멈춘다. 다음 요청 여부가 앞 응답 길이에 달려 있으며 페이지 한도로 묶인다. HTTP 읽기 경로가 아니다.',
   },
   'src/github/repository-outbox-consumer.service.ts': {
     'RepositoryOutboxConsumerService.runBatch':
