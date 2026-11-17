@@ -101,6 +101,7 @@ const team: ProgramTeam = {
   minMembers: 2,
   maxMembers: 4,
   status: 'SUBMITTED',
+  repositoryProvisioningStatus: 'NOT_REQUESTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: true,
@@ -526,6 +527,41 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       'program-1',
       'team-1',
     );
+  });
+
+  it.each([
+    ['PROCESSING', '저장소 생성생성 중'],
+    ['FAILED_FINAL', '저장소 생성생성 실패'],
+  ] as const)(
+    '승인된 팀의 저장소 카드에 발급 상태 %s를 단계로 낸다',
+    async (repositoryProvisioningStatus, current) => {
+      vi.mocked(getMyTeam).mockResolvedValue({
+        ...team,
+        repositoryProvisioningStatus,
+      });
+      vi.mocked(getMyApplication).mockResolvedValue({
+        ...application,
+        status: 'APPROVED',
+      });
+      await renderPage();
+
+      const card = host.querySelector('section[aria-label="프로젝트 저장소"]');
+      expect(
+        card?.querySelector('[aria-label="저장소 발급 단계"] [aria-current]')
+          ?.textContent,
+      ).toBe(current);
+    },
+  );
+
+  it('승인 전 팀에는 발급 단계를 보이지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({
+      ...team,
+      repositoryProvisioningStatus: 'PROCESSING',
+    });
+    vi.mocked(getMyApplication).mockResolvedValue(application);
+    await renderPage();
+
+    expect(host.querySelector('[aria-label="저장소 발급 단계"]')).toBeNull();
   });
 
   it('아직 모으지 않은 활동을 0으로 그리지 않는다', async () => {

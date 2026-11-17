@@ -28,6 +28,7 @@ import {
   type StaffTeamDetailRecord,
   type StaffTeamRecord,
   type TeamDetailRecord,
+  type TeamProvisioningSource,
   type TeamMembershipAuditEvent,
   type TeamMembershipAuditStore,
   type TeamRenameAuditEvent,
@@ -489,24 +490,15 @@ export class TeamMembershipService {
               blockedReasons,
             }
           : null,
-      repositoryProvisioning:
-        repository &&
-        row.repositoryConnectionMode === RepositoryConnectionMode.OWN &&
-        job?.repoId === repository.githubRepositoryId &&
-        job.status === RepositoryProvisionJobStatus.SUCCEEDED
-          ? {
-              enabled: row.program.repositoryProvisioningEnabled,
-              jobStatus: 'SUCCEEDED',
-              updatedAt: job.updatedAt,
-              safeErrorClass: null,
-            }
-          : resolveTeamRepositoryProvisioning(
-              row.status,
-              row.program.repositoryProvisioningEnabled,
-              row.updatedAt,
-              row.outbox ?? undefined,
-              job ?? undefined,
-            ),
+      repositoryProvisioning: resolveRepositoryProvisioning({
+        status: row.status,
+        repositoryConnectionMode: row.repositoryConnectionMode,
+        updatedAt: row.updatedAt,
+        enabled: row.program.repositoryProvisioningEnabled,
+        repositoryId: repository?.githubRepositoryId ?? null,
+        outbox: row.outbox,
+        job,
+      }),
     };
   }
 
@@ -709,6 +701,9 @@ export class TeamMembershipService {
       minMembers: detail.teamMinSize,
       maxMembers: detail.teamMaxSize,
       status: detail.status,
+      repositoryProvisioningStatus: resolveRepositoryProvisioning(
+        detail.provisioning,
+      ).jobStatus,
       isLeader,
       canInvite: isLeader,
       canRemoveMembers: isLeader && memberCount > 1,
@@ -739,6 +734,29 @@ interface TeamProvisionJob {
   readonly status: RepositoryProvisionJobStatus;
   readonly updatedAt: Date;
   readonly lastErrorCode: string | null;
+}
+
+function resolveRepositoryProvisioning(
+  source: TeamProvisioningSource,
+): TeamApplicationView['repositoryProvisioning'] {
+  const { repositoryId, job } = source;
+  return repositoryId !== null &&
+    source.repositoryConnectionMode === RepositoryConnectionMode.OWN &&
+    job?.repoId === repositoryId &&
+    job.status === RepositoryProvisionJobStatus.SUCCEEDED
+    ? {
+        enabled: source.enabled,
+        jobStatus: 'SUCCEEDED',
+        updatedAt: job.updatedAt,
+        safeErrorClass: null,
+      }
+    : resolveTeamRepositoryProvisioning(
+        source.status,
+        source.enabled,
+        source.updatedAt,
+        source.outbox ?? undefined,
+        job ?? undefined,
+      );
 }
 
 function resolveTeamRepositoryProvisioning(

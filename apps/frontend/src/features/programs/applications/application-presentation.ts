@@ -36,6 +36,12 @@ export const PROVISIONING_LABELS: Readonly<
   ANOMALOUS: '확인 필요',
 };
 
+export function isProvisioningJobStatus(
+  value: unknown,
+): value is RepositoryProvisioning['jobStatus'] {
+  return typeof value === 'string' && Object.hasOwn(PROVISIONING_LABELS, value);
+}
+
 export function formatSubmittedAt(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric',

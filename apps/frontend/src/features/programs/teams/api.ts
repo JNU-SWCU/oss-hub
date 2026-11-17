@@ -11,6 +11,7 @@ import type {
 import { apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
 import { listTeamManagementApplications } from '../applications/api';
+import { isProvisioningJobStatus } from '../applications/application-presentation';
 
 export function searchApplicationInvitationCandidates(
   programId: string,
@@ -70,6 +71,11 @@ function parseProgramTeam(value: unknown): ProgramTeam {
     minMembers: value.minMembers,
     maxMembers: value.maxMembers,
     status: value.status,
+    repositoryProvisioningStatus: isProvisioningJobStatus(
+      value.repositoryProvisioningStatus,
+    )
+      ? value.repositoryProvisioningStatus
+      : 'ANOMALOUS',
     canInvite: value.canInvite,
     canRemoveMembers: value.canRemoveMembers,
     canLeave: value.canLeave,

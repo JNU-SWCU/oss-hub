@@ -159,6 +159,7 @@ function readyContext(
             minMembers: 1,
             maxMembers: 4,
             status: 'SUBMITTED',
+            repositoryProvisioningStatus: 'NOT_REQUESTED',
 
             canInvite: isLeader,
             canRemoveMembers: isLeader,

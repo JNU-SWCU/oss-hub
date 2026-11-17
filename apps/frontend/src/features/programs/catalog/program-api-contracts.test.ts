@@ -345,6 +345,7 @@ describe('getMyTeam', () => {
     minMembers: 2,
     maxMembers: 4,
     status: 'SUBMITTED',
+    repositoryProvisioningStatus: 'NOT_REQUESTED',
     canInvite: true,
     canRemoveMembers: true,
     canLeave: false,
@@ -418,9 +419,36 @@ describe('getMyTeam', () => {
       'members',
       'minMembers',
       'name',
+      'repositoryProvisioningStatus',
       'status',
     ]);
   });
+
+  it.each(['PENDING', 'PROCESSING', 'FAILED_RETRYABLE', 'SUCCEEDED'])(
+    '발급 상태 %s를 그대로 읽는다',
+    async (repositoryProvisioningStatus) => {
+      vi.mocked(apiClient).mockResolvedValue(
+        leaderOf({ ...backendTeam, repositoryProvisioningStatus }),
+      );
+
+      await expect(getMyTeam('program-1')).resolves.toMatchObject({
+        repositoryProvisioningStatus,
+      });
+    },
+  );
+
+  it.each([['MYSTERY'], [null], [undefined], [42]])(
+    '알 수 없거나 없는 발급 상태 %s는 완료로 읽지 않고 확인 필요로 둔다',
+    async (repositoryProvisioningStatus) => {
+      vi.mocked(apiClient).mockResolvedValue(
+        leaderOf({ ...backendTeam, repositoryProvisioningStatus }),
+      );
+
+      await expect(getMyTeam('program-1')).resolves.toMatchObject({
+        repositoryProvisioningStatus: 'ANOMALOUS',
+      });
+    },
+  );
 
   it.each(['canInvite', 'canRemoveMembers', 'canLeave', 'isLeader'])(
     '능력 플래그 %s 가 빠지면 기본값 대신 응답 오류로 끊는다',
