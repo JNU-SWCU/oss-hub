@@ -43,6 +43,7 @@ interface StepContext {
 interface StepCells {
   readonly state: ReactNode;
   readonly action: ReactNode;
+  readonly breakdown?: string;
 }
 
 const UNCHANGED_NOTICE = '신청 승인 후 제출 상태를 확인할 수 있습니다.';
@@ -89,6 +90,10 @@ const STATE_CLASS = cn(
   '@3xl:min-h-14 @3xl:flex-wrap @3xl:content-center @3xl:items-center',
   '@3xl:gap-x-2 @3xl:gap-y-0.5',
 );
+const STAFF_COUNT_CLASS =
+  'flex min-w-0 flex-auto items-center gap-2 @3xl:flex-none';
+const STAFF_BAR_CLASS =
+  'max-w-16 min-w-0 flex-1 bg-background @3xl:w-16 @3xl:flex-none';
 const ACTION_CLASS = cn(
   'col-start-3 row-start-1 flex min-h-12 items-center justify-self-end',
   '@3xl:col-start-5 @3xl:min-h-14',
@@ -138,59 +143,51 @@ function staffCells({
   if (milestone.submissionItemCount === 0) {
     return { state: <NoSubmission />, action: null };
   }
+  const action = (
+    <Button asChild variant="outline" size="sm">
+      <Link
+        href={programRequirementsHref(programId, milestone.id)}
+        aria-describedby={nameId}
+      >
+        서류 수합
+      </Link>
+    </Button>
+  );
   const summary = milestone.applicationSubmissionSummary;
+  if (summary === null) return { state: null, action };
+  if (summary.total === 0) return { state: <NoSubmission />, action };
   const submitted =
-    summary === null
-      ? 0
-      : summary.submitted +
-        summary.approved +
-        summary.changesRequested +
-        summary.rejected;
+    summary.submitted +
+    summary.approved +
+    summary.changesRequested +
+    summary.rejected;
   const countId = `${nameId}-count`;
   return {
-    state:
-      summary === null ? null : summary.total === 0 ? (
-        <NoSubmission />
-      ) : (
-        <>
-          <div className="inline-flex items-center gap-2">
-            <span id={countId}>
-              제출{' '}
-              <b className="font-bold">{`${submitted}/${summary.total}`}</b>
-            </span>
-            {phase === 'current' ? (
-              <Progress
-                value={submitted}
-                max={summary.total}
-                aria-labelledby={countId}
-                className="w-16 bg-background"
-              />
-            ) : null}
-          </div>
-          <span className="text-xs text-muted-foreground @3xl:basis-full">
-            <span
-              className={cn(
-                phase === 'done' &&
-                  summary.notSubmitted > 0 &&
-                  'font-semibold text-destructive-on-tint',
-              )}
-            >
-              {`미제출 ${summary.notSubmitted}`}
-            </span>
-            {` · 승인 ${summary.approved} · 보완 ${summary.changesRequested} · 반려 ${summary.rejected}`}
-          </span>
-        </>
-      ),
-    action: (
-      <Button asChild variant="outline" size="sm">
-        <Link
-          href={programRequirementsHref(programId, milestone.id)}
-          aria-describedby={nameId}
-        >
-          서류 수합
-        </Link>
-      </Button>
+    state: (
+      <div className={STAFF_COUNT_CLASS}>
+        <span id={countId} className="shrink-0 whitespace-nowrap">
+          제출{' '}
+          <b
+            className={cn(
+              'font-bold',
+              phase === 'done' &&
+                summary.notSubmitted > 0 &&
+                'text-destructive-on-tint',
+            )}
+          >{`${submitted}/${summary.total}`}</b>
+        </span>
+        {phase === 'current' ? (
+          <Progress
+            value={submitted}
+            max={summary.total}
+            aria-labelledby={countId}
+            className={STAFF_BAR_CLASS}
+          />
+        ) : null}
+      </div>
     ),
+    action,
+    breakdown: `미제출 ${summary.notSubmitted} · 승인 ${summary.approved} · 보완 ${summary.changesRequested} · 반려 ${summary.rejected}`,
   };
 }
 
@@ -207,7 +204,7 @@ function studentCells(
     return {
       state: (
         <span className="break-keep text-muted-foreground">
-          제출 상태를 확인할 수 없습니다.
+          제출 상태 확인 불가
         </span>
       ),
       action: null,
@@ -401,6 +398,7 @@ function MilestoneGroup({
               closed={phase === 'done'}
               dueAt={milestone.dueAt}
               submissionAccess={submissionAccess}
+              summary={cells.breakdown}
               className="p-0"
             />
           ) : null}

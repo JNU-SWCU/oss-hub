@@ -628,6 +628,34 @@ describe('RequirementSectionBody', () => {
     expect(html).not.toContain('type="file"');
   });
 
+  it('교직원 머리줄에는 넘겨받은 제출 현황을 한 번 적는다', () => {
+    const html = renderToStaticMarkup(
+      <RequirementSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
+        state={{
+          kind: 'ready',
+          documents: [
+            buildDocument({ teamSubmissionCount: { submitted: 2, total: 4 } }),
+          ],
+          fileUpload: requirementUploadPolicy(),
+        }}
+        viewerRole="STAFF"
+        closed={false}
+        submissionAccess={access('STAFF')}
+        summary="미제출 2 · 승인 1 · 보완 1 · 반려 0"
+        conflictNotice={null}
+        onRetry={vi.fn()}
+        onDocumentChange={vi.fn()}
+        onSubmitConflict={vi.fn()}
+      />,
+    );
+
+    const text = html.replace(/<[^>]+>/g, '');
+    expect(text.split('미제출 2 · 승인 1 · 보완 1 · 반려 0')).toHaveLength(2);
+    expect(text).toContain('제출 항목미제출 2 · 승인 1 · 보완 1 · 반려 0');
+  });
+
   it('항목이 하나뿐이면 마일스톤 줄의 제출 수를 항목에서 되풀이하지 않는다', () => {
     const html = renderToStaticMarkup(
       <RequirementSectionBody

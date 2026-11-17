@@ -2,8 +2,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestQueryClient } from '../../../../../test-support/render-with-query';
+import { requirementUploadPolicy } from '../../../../../test-support/requirement-upload-policy';
+import { requirementsKey } from '@/lib/query-keys';
 import { ProgramMilestones } from '../../catalog/program-detail-view';
 import type { ProgramDetail, ProgramMilestone } from '../../catalog/dto';
+import type { Requirement, RequirementList } from '../requirement-dto';
 
 const NOW = new Date('2026-11-17T15:00:00+09:00');
 
@@ -112,10 +115,40 @@ const APPROVED_STUDENT = {
   applicationStatus: 'APPROVED',
 } as const;
 
-function renderSection(program: ProgramDetail): HTMLElement {
+function staffDocument(
+  milestoneId: string,
+  order: number,
+  submittedTeams: number,
+  teams: number,
+): Requirement {
+  return {
+    id: `${milestoneId}-document-${order}`,
+    milestoneId,
+    name: `${milestoneId} 서류 ${order}`,
+    required: order === 1,
+    sortOrder: order,
+    submissionType: 'FILE_OR_TEXT',
+    hasTemplateFile: false,
+    templateFileName: null,
+    teamSubmissionCount: { submitted: submittedTeams, total: teams },
+  };
+}
+
+function renderSection(
+  program: ProgramDetail,
+  loadedRequirements: Readonly<Record<string, readonly Requirement[]>> = {},
+): HTMLElement {
+  const client = createTestQueryClient();
+  const scope = program.viewer.role === 'STAFF' ? undefined : 'all';
+  for (const [milestoneId, documents] of Object.entries(loadedRequirements)) {
+    client.setQueryData<RequirementList>(
+      requirementsKey(program.id, milestoneId, scope),
+      { documents, fileUpload: requirementUploadPolicy() },
+    );
+  }
   const host = document.createElement('div');
   host.innerHTML = renderToStaticMarkup(
-    <QueryClientProvider client={createTestQueryClient()}>
+    <QueryClientProvider client={client}>
       <ProgramMilestones program={program} />
     </QueryClientProvider>,
   );
@@ -219,10 +252,10 @@ describe('마일스톤 진행 타임라인', () => {
     const section = renderSection(programWith(STAFF_MILESTONES, STAFF));
 
     expect(rowsOf(section).map((row) => row.textContent)).toEqual([
-      '1팀 구성·주제 확정11.06 18:00 · 마감제출 6/6미제출 0 · 승인 4 · 보완 1 · 반려 0서류 수합',
-      '2설계 문서11.13 18:00 · 마감제출 5/6미제출 1 · 승인 0 · 보완 0 · 반려 0서류 수합',
-      '3중간 발표 자료11.27 18:00 · D-10제출 2/6미제출 4 · 승인 0 · 보완 0 · 반려 0서류 수합',
-      '4최종 보고서12.11 18:00 · D-24제출 0/6미제출 6 · 승인 0 · 보완 0 · 반려 0서류 수합',
+      '1팀 구성·주제 확정11.06 18:00 · 마감제출 6/6서류 수합',
+      '2설계 문서11.13 18:00 · 마감제출 5/6서류 수합',
+      '3중간 발표 자료11.27 18:00 · D-10제출 2/6서류 수합',
+      '4최종 보고서12.11 18:00 · D-24제출 0/6서류 수합',
       '5최종 발표회12.18 14:00 · D-31제출 없음',
     ]);
   });
@@ -261,16 +294,37 @@ describe('마일스톤 진행 타임라인', () => {
     ]);
   });
 
-  it('지난 단계에 남은 미제출만 눈에 띄게 적는다', () => {
+  it('지난 단계에서 덜 걷힌 제출 수만 눈에 띄게 적는다', () => {
     const section = renderSection(programWith(STAFF_MILESTONES, STAFF));
 
     expect(
-      stepsOf(section).map(
-        (step) =>
-          step.querySelector('.text-destructive-on-tint')?.textContent ?? null,
+      rowsOf(section).map(
+        (row) =>
+          row.querySelector('.text-destructive-on-tint')?.textContent ?? null,
       ),
-    ).toEqual([null, '미제출 1', null, null, null]);
+    ).toEqual([null, '5/6', null, null, null]);
     expect(section.textContent).not.toMatch(/\d\/\d+\s*팀/);
+  });
+
+  it('교직원의 제출 현황 분해는 줄이 아니라 펼친 제출 항목 머리줄에 한 번만 적는다', () => {
+    const section = renderSection(programWith(STAFF_MILESTONES, STAFF), {
+      m1: [staffDocument('m1', 1, 6, 6)],
+      m3: [staffDocument('m3', 1, 2, 6)],
+    });
+    const steps = stepsOf(section);
+
+    expect(
+      rowsOf(section).map((row) =>
+        /미제출|승인|보완|반려/.test(row.textContent ?? ''),
+      ),
+    ).toEqual([false, false, false, false, false]);
+    expect(detailOf(steps[0])?.textContent).toContain(
+      '제출 항목미제출 0 · 승인 4 · 보완 1 · 반려 0',
+    );
+    expect(detailOf(steps[2])?.textContent).toContain(
+      '제출 항목미제출 4 · 승인 0 · 보완 0 · 반려 0',
+    );
+    expect(occurrences(section, '미제출 4')).toBe(1);
   });
 
   it('제출 진행 막대는 지금 단계에만 두고 제출 수와 이어 읽힌다', () => {
@@ -457,12 +511,12 @@ describe('마일스톤 진행 타임라인', () => {
     expect(section.textContent).not.toContain('가입 후');
   });
 
-  it('승인됐는데 제출 상태만 비어 온 단계는 확인할 수 없다고 적는다', () => {
+  it('승인됐는데 제출 상태만 비어 온 단계는 줄에 들어가는 짧은 말로 확인 불가라고 적는다', () => {
     const [step] = stepsOf(
       renderSection(programWith([MILESTONES[3]], APPROVED_STUDENT)),
     );
 
-    expect(step.textContent).toContain('제출 상태를 확인할 수 없습니다.');
+    expect(step.textContent).toContain('제출 상태 확인 불가');
     expect(linksOf(step)).toEqual([]);
   });
 

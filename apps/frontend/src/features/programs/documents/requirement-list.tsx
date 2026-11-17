@@ -161,10 +161,12 @@ export function RequirementSectionBody({
   onRefresh = () => Promise.resolve(true),
   onSubmitConflict,
   onSubmitted,
+  summary,
   className,
 }: {
   readonly programId: string;
   readonly state: RequirementSectionState;
+  readonly summary?: string;
   readonly className?: string;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
@@ -215,11 +217,17 @@ export function RequirementSectionBody({
 
   return (
     <div className={cn(REQUIREMENT_BLOCK_CLASS, 'gap-2', className)}>
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
         <h3 className="text-small font-bold text-muted-foreground">
           제출 항목
         </h3>
-        {staff ? null : (
+        {staff ? (
+          summary === undefined ? null : (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {summary}
+            </span>
+          )
+        ) : (
           <span className="text-small text-muted-foreground tabular-nums">
             제출{' '}
             <b className="font-bold text-foreground">{`${completed}/${total}`}</b>
@@ -265,10 +273,12 @@ export function RequirementSection({
   dueAt,
   submissionAccess,
   onBusyChange,
+  summary,
   className,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
+  readonly summary?: string;
   readonly className?: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
@@ -338,6 +348,7 @@ export function RequirementSection({
       dueAt={dueAt}
       submissionAccess={submissionAccess}
       onBusyChange={onBusyChange}
+      summary={summary}
       className={className}
       conflictNotice={conflictNotice}
       onRetry={() => {
