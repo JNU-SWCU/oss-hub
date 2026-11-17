@@ -1,4 +1,5 @@
 import { posix } from 'node:path';
+import { PLACEHOLDER, navigationTargets } from './url-ia-links.mjs';
 import {
   VerifyError,
   finding,
@@ -15,21 +16,10 @@ const TEST_FILE =
 const PAGE_FILE = /(^|\/)page\.(tsx|ts|jsx|js)$/;
 const ALLOWLIST_PATH = 'verify/url-ia-allowlist.json';
 const RULES = {
-  'unreachable-page': {
-    threshold: 'every page.tsx has an in-app link, redirect or menu entry',
-    source:
-      'https://developers.google.com/search/docs/crawling-indexing/links-crawlable',
-  },
-  'duplicate-screen': {
-    threshold: 'one canonical URL per screen component',
-    source:
-      'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
-  },
+  'unreachable-page':
+    'every page.tsx is the target of an href, router navigation, redirect or menu entry',
+  'duplicate-screen': 'one canonical URL per screen component or page module',
 };
-const PLACEHOLDER = '\0';
-const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
-const INTERPOLATION = /\$\{(?:[^{}]|\{[^{}]*\})*\}/g;
-
 export function routeOfPage(path) {
   const relative = path.slice(APP_DIR.length).replace(PAGE_FILE, '');
   const raw = relative.split('/').filter(Boolean);
@@ -55,131 +45,6 @@ function routeMatcher(segments) {
     return `/${segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
   });
   return new RegExp(`^${parts.join('') || '/'}${PLACEHOLDER}?$`);
-}
-
-function normalizeLiteral(text) {
-  return text.replace(INTERPOLATION, PLACEHOLDER).split(/[?#]/)[0];
-}
-
-function isObjectKey(source, start, end) {
-  const before = source.slice(0, start).trimEnd();
-  const after = source.slice(end).trimStart();
-  return after.startsWith(':') && /[{,]$/.test(before);
-}
-
-function topLevelArgs(source, openIndex) {
-  let depth = 0;
-  let current = '';
-  const args = [];
-  for (let index = openIndex; index < source.length; index += 1) {
-    const char = source[index];
-    if ('([{'.includes(char)) depth += 1;
-    if (')]}'.includes(char)) depth -= 1;
-    if (depth === 0) {
-      args.push(current.trim());
-      return args.filter(Boolean);
-    }
-    if (char === ',' && depth === 1) {
-      args.push(current.trim());
-      current = '';
-    } else if (index > openIndex) {
-      current += char;
-    }
-  }
-  return [];
-}
-
-function suffixComposers(files) {
-  const composers = new Map();
-  const declaration =
-    /(?:function\s+(\w+)\s*\(([^)]*)\)[^{]*\{\s*return\s+|const\s+(\w+)\s*=\s*\(([^)]*)\)[^=]*=>\s*)`([^`]*)\$\{\s*(\w+)\s*\}`/g;
-  for (const { source } of files) {
-    for (const match of source.matchAll(declaration)) {
-      const name = match[1] ?? match[3];
-      const params = (match[2] ?? match[4])
-        .split(',')
-        .map((param) => param.trim().split(/[\s:=?]/)[0]);
-      if (params.at(-1) === match[6]) {
-        composers.set(name, normalizeLiteral(match[5]));
-      }
-    }
-  }
-  return composers;
-}
-
-function addSymbol(symbols, name, value) {
-  symbols.set(name, [...(symbols.get(name) ?? []), value]);
-}
-
-function pathSymbols(files) {
-  const symbols = new Map();
-  const pathLiteral = String.raw`(?<quote>['"\x60])(?<value>(?:\$\{[^\x60]*?\}|\/)[^'"\x60]*)\k<quote>`;
-  const functionReturn = new RegExp(
-    String.raw`(?:function\s+(\w+)\s*\([^)]*\)[^{]*\{\s*return\s+|const\s+(\w+)\s*=\s*\([^)]*\)[^=]*=>\s*)` +
-      pathLiteral,
-    'g',
-  );
-  const constant = new RegExp(
-    String.raw`const\s+(\w+)\s*(?::[^=]+)?=\s*` + pathLiteral,
-    'g',
-  );
-  const objectConstant = /const\s+(\w+)\s*(?::[^=]+)?=\s*\{([^{}]*)\}/g;
-  for (const { source } of files) {
-    for (const match of source.matchAll(functionReturn)) {
-      addSymbol(symbols, match[1] ?? match[2], match.groups.value);
-    }
-    for (const match of source.matchAll(constant)) {
-      addSymbol(symbols, match[1], match.groups.value);
-    }
-    for (const match of source.matchAll(objectConstant)) {
-      for (const value of match[2].matchAll(/:\s*(['"`])(\/[^'"`]*)\1/g)) {
-        addSymbol(symbols, match[1], value[2]);
-      }
-    }
-  }
-  return symbols;
-}
-
-function expandTemplate(raw, symbols, depth = 0) {
-  const head = /^\$\{\s*(\w+)\s*([([.]?)(?:[^{}]|\{[^{}]*\})*\}/.exec(raw);
-  if (!head || depth > 3) return [raw];
-  const expansions = symbols.get(head[1]);
-  if (!expansions) return [raw];
-  const rest = raw.slice(head[0].length);
-  return expansions.flatMap((value) =>
-    expandTemplate(value, symbols, depth + 1).map(
-      (expanded) => expanded + rest,
-    ),
-  );
-}
-
-export function linkCandidates(files) {
-  const composers = suffixComposers(files);
-  const symbols = pathSymbols(files);
-  const candidates = [];
-  for (const { path, source } of files) {
-    for (const match of source.matchAll(LITERAL)) {
-      if (isObjectKey(source, match.index, match.index + match[0].length)) {
-        continue;
-      }
-      for (const raw of expandTemplate(match[0].slice(1, -1), symbols)) {
-        const value = normalizeLiteral(raw);
-        if (value.startsWith('/')) candidates.push({ path, value });
-      }
-    }
-    for (const [name, prefix] of composers) {
-      for (const call of source.matchAll(
-        new RegExp(`\\b${name}\\s*\\(`, 'g'),
-      )) {
-        const args = topLevelArgs(source, call.index + call[0].length - 1);
-        const last = /^(['"`])(\/[^'"`]*)\1$/.exec(args.at(-1) ?? '');
-        if (args.length > 1 && last) {
-          candidates.push({ path, value: normalizeLiteral(prefix + last[2]) });
-        }
-      }
-    }
-  }
-  return candidates;
 }
 
 function resolveImport(fromFile, specifier, fileSet) {
@@ -220,16 +85,40 @@ function importsOf(source) {
   return imports;
 }
 
+function renderedImports(source, imports) {
+  const rendered = [];
+  for (const [, tag] of source.matchAll(/<([A-Z][\w$]*)[\s/>]/g)) {
+    if (imports.has(tag)) rendered.push(imports.get(tag));
+  }
+  const reExport = /export\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+  for (const [, clause, specifier] of source.matchAll(reExport)) {
+    for (const part of clause.split(',')) {
+      const [original, exported] = part
+        .split(/\s+as\s+/)
+        .map((name) => name.trim());
+      if ((exported ?? original) === 'default') {
+        rendered.push({ original, specifier });
+      }
+    }
+  }
+  const defaultAlias = /export\s+default\s+([A-Za-z_$][\w$]*)\s*;/g;
+  for (const [, name] of source.matchAll(defaultAlias)) {
+    if (imports.has(name)) rendered.push(imports.get(name));
+  }
+  return rendered;
+}
+
 function screenComponents(file, byPath, depth = 0, seen = new Set()) {
   const source = byPath.get(file);
   if (source === undefined || depth > 3 || seen.has(file)) return new Set();
   seen.add(file);
   const imports = importsOf(source);
   const screens = new Set();
-  for (const [, tag] of source.matchAll(/<([A-Z][\w$]*)[\s/>]/g)) {
-    const imported = imports.get(tag);
-    if (!imported) continue;
+  for (const imported of renderedImports(source, imports)) {
     const resolved = resolveImport(file, imported.specifier, byPath);
+    if (resolved?.startsWith(APP_DIR) && PAGE_FILE.test(resolved)) {
+      screens.add(`page:${resolved}`);
+    }
     if (
       imported.specifier.startsWith('@/features/') ||
       resolved?.startsWith('apps/frontend/src/features/')
@@ -265,7 +154,7 @@ export function analyzeTree(files) {
     .map((file) => routeOfPage(file.path))
     .filter(Boolean);
   const linkSources = files.filter((file) => !TEST_FILE.test(file.path));
-  const candidates = linkCandidates(linkSources);
+  const candidates = navigationTargets(linkSources);
   const violations = new Map();
 
   for (const page of pages) {
@@ -289,14 +178,19 @@ export function analyzeTree(files) {
   for (const [index, left] of screens.entries()) {
     for (const right of screens.slice(index + 1)) {
       if (left.page.url === right.page.url) continue;
+      const aliased =
+        left.screens.has(`page:${right.page.file}`) ||
+        right.screens.has(`page:${left.page.file}`);
       const [smaller, larger] =
         left.screens.size <= right.screens.size
           ? [left.screens, right.screens]
           : [right.screens, left.screens];
-      const shared = [...smaller];
+      const shared = [...smaller].filter(
+        (screen) => !screen.startsWith('page:'),
+      );
       if (
-        shared.length === 0 ||
-        !shared.every((screen) => larger.has(screen))
+        !aliased &&
+        (shared.length === 0 || !shared.every((screen) => larger.has(screen)))
       ) {
         continue;
       }
@@ -304,7 +198,7 @@ export function analyzeTree(files) {
       violations.set(`duplicate-screen ${urls.join(' ')}`, {
         rule: 'duplicate-screen',
         urls,
-        detail: `${urls.join(' and ')} render the same screen (${shared.join(', ')})`,
+        detail: `${urls.join(' and ')} render the same screen (${aliased ? 'one page module re-exports the other' : shared.join(', ')})`,
       });
     }
   }
@@ -446,8 +340,7 @@ export async function checkUrlIa({ cwd, ranges, log = console.log }) {
           violation.rule === 'unreachable-page'
             ? '0 inbound links'
             : `${violation.urls.length} URLs for one screen`,
-          RULES[violation.rule].threshold,
-          RULES[violation.rule].source,
+          RULES[violation.rule],
         ),
       );
     }
@@ -458,7 +351,6 @@ export async function checkUrlIa({ cwd, ranges, log = console.log }) {
           `${ALLOWLIST_PATH} entry ${entry.rule} ${entry.url} matches no current violation; remove it`,
           'unused allowlist entry',
           'every allowlist entry matches a violation',
-          ALLOWLIST_PATH,
         ),
       );
     }

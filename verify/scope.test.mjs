@@ -76,6 +76,29 @@ test('pre-push reads every ref line, skips deletions, and merge-bases new branch
   assert.equal(scope.frontend && scope.backend && !scope.both, true);
 });
 
+test('a new branch that is not HEAD uses the merge-base of its own SHA', async (t) => {
+  const repo = tempRepo(t);
+  const root = repo.commit('root', { 'docs/a.md': 'a\n' });
+  repo.git('checkout', '-q', '-b', 'feature');
+  repo.commit('feature', { 'docs/feature.md': 'f\n' });
+  repo.git('checkout', '-q', 'main');
+  const newerMain = repo.commit('main moves', { 'docs/main.md': 'm\n' });
+  repo.markRemoteMain(newerMain);
+  repo.git('checkout', '-q', '-b', 'other');
+  const other = repo.commit('other', { 'docs/other.md': 'o\n' });
+  repo.git('checkout', '-q', 'feature');
+  const ranges = await resolveRanges({
+    cwd: repo.dir,
+    source: 'pre-push',
+    stdin: `refs/heads/other ${other} refs/heads/other ${ZERO}\n`,
+  });
+  assert.notEqual(newerMain, root);
+  assert.deepEqual(
+    ranges.map(({ base, head }) => ({ base, head })),
+    [{ base: newerMain, head: other }],
+  );
+});
+
 test('pre-push with only a deletion line yields no ranges', async (t) => {
   const { repo, root } = branchedRepo(t);
   const ranges = await resolveRanges({

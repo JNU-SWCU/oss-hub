@@ -19,7 +19,7 @@ function fixture(t) {
   const repo = tempRepo(t);
   const base = repo.commit('base', {
     [`${APP}/layout.tsx`]:
-      'import { MENU } from \'./_shell/menu\';\n\nexport default function Layout() {\n  return <a href="/">{MENU.length}</a>;\n}\n',
+      'import { MENU } from \'./_shell/menu\';\n\nexport default function Layout() {\n  return (\n    <nav>\n      <a href="/">home</a>\n      {MENU.map((item) => (\n        <a key={item.href} href={item.href}>\n          {item.label}\n        </a>\n      ))}\n    </nav>\n  );\n}\n',
     [`${APP}/_shell/menu.ts`]: menu(['/reports']),
     [`${APP}/page.tsx`]: page('LandingScreen', 'landing/landing-screen'),
     [`${APP}/reports/page.tsx`]: page(
@@ -114,7 +114,7 @@ test('an existing page whose last link is removed becomes a new violation', asyn
   );
 });
 
-test('dynamic links built by path helpers, constant prefixes and intercepting modals count as reachable', async (t) => {
+test('dynamic links built by path helpers, constant prefixes, forwarded href params and intercepting modals count as reachable', async (t) => {
   const { repo, base } = fixture(t);
   const head = repo.commit('dynamic routes', {
     [`${FEATURES}/reports/report-paths.ts`]: [
@@ -123,13 +123,29 @@ test('dynamic links built by path helpers, constant prefixes and intercepting mo
       '}',
       "const DETAIL_BASES = { team: '/teams' } as const;",
       'export const teamHref = (id: string) => `${DETAIL_BASES.team}/${id}`;',
-      "export const links = (id: string) => [reportHref(id), reportHref(id, '/files'), teamHref(id)];",
+      'export const entry = (label: string, href: string) => ({ label, href });',
+      '',
+    ].join('\n'),
+    [`${FEATURES}/reports/report-links.tsx`]: [
+      "import { entry, reportHref, teamHref } from './report-paths';",
+      '',
+      'export function ReportLinks({ id, router }) {',
+      "  const archive = entry('archive', '/archive');",
+      '  return (',
+      '    <div>',
+      '      <a href={reportHref(id)}>detail</a>',
+      "      <button onClick={() => router.push(reportHref(id, '/files'))}>files</button>",
+      '      <a href={teamHref(id)}>team</a>',
+      '      <a href={archive.href}>{archive.label}</a>',
+      '    </div>',
+      '  );',
+      '}',
       '',
     ].join('\n'),
     [`${APP}/reports/[id]/page.tsx`]: page(
-      'ReportsScreen',
-      'reports/reports-screen',
-    ).replace(/ReportsScreen/g, 'ReportDetail'),
+      'ReportDetail',
+      'reports/report-detail',
+    ),
     [`${APP}/reports/@modal/(.)[id]/page.tsx`]: page(
       'ReportOverlay',
       'reports/report-overlay',
@@ -142,8 +158,74 @@ test('dynamic links built by path helpers, constant prefixes and intercepting mo
       'TeamDetail',
       'teams/team-detail',
     ),
+    [`${APP}/archive/page.tsx`]: page(
+      'ArchiveScreen',
+      'archive/archive-screen',
+    ),
   });
   assert.deepEqual(await verifyHead(repo, base, head), []);
+});
+
+test('a route named only in a comment or an unused string is still unreachable', async (t) => {
+  const { repo, base } = fixture(t);
+  const orphan = {
+    [`${APP}/orphan/page.tsx`]: page('StatsScreen', 'stats/stats-screen'),
+  };
+  for (const unrelated of [
+    '// Reserved route: "/orphan"\nexport const value = 1;\n',
+    '/* see /orphan */\nexport const value = 1;\n',
+    'export const unused = "/orphan";\n',
+    "export const label = `/orphan`;\nexport const title = '/orphan page';\n",
+  ]) {
+    const head = repo.commit('mention orphan', {
+      ...orphan,
+      'apps/frontend/src/unrelated.ts': unrelated,
+    });
+    const findings = await verifyHead(repo, base, head);
+    assert.deepEqual(
+      findings.map((item) => item.rule),
+      ['url-ia-unreachable-page'],
+      unrelated,
+    );
+  }
+});
+
+test('a linked page that re-exports or aliases an existing page is a duplicate', async (t) => {
+  for (const source of [
+    "export { default } from '../reports/page';\n",
+    "import Reports from '../reports/page';\n\nexport default Reports;\n",
+    "export { default as default } from '@/app/reports/page';\n",
+  ]) {
+    const { repo, base } = fixture(t);
+    const head = repo.commit('alias reports', {
+      [`${APP}/_shell/menu.ts`]: menu(['/reports', '/duplicate']),
+      [`${APP}/duplicate/page.tsx`]: source,
+    });
+    const findings = await verifyHead(repo, base, head);
+    assert.deepEqual(
+      findings.map((item) => item.rule),
+      ['url-ia-duplicate-screen'],
+      source,
+    );
+    assert.match(findings[0].message, /\/duplicate and \/reports/);
+  }
+});
+
+test('a page aliasing another page without feature screens is still a duplicate', async (t) => {
+  const { repo, base } = fixture(t);
+  const head = repo.commit('plain alias', {
+    [`${APP}/_shell/menu.ts`]: menu(['/reports', '/plain', '/plain-copy']),
+    [`${APP}/plain/page.tsx`]:
+      'export default function Plain() {\n  return <div>plain</div>;\n}\n',
+    [`${APP}/plain-copy/page.tsx`]:
+      "export { default } from '../plain/page';\n",
+  });
+  const findings = await verifyHead(repo, base, head);
+  assert.deepEqual(
+    findings.map((item) => item.rule),
+    ['url-ia-duplicate-screen'],
+  );
+  assert.match(findings[0].message, /re-exports/);
 });
 
 test('an allowlist entry with a reason accepts a new violation; stale or reasonless entries fail', async (t) => {

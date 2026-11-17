@@ -16,6 +16,29 @@ export const OPENAPI_DUMP_COMMAND = [
   '{out}',
 ];
 export const LIGHTHOUSE_PACKAGE = 'lighthouse@12.8.2';
+export const SPECTRAL_PACKAGE = '@stoplight/spectral-cli@6.17.1';
+export const REDOCLY_PACKAGE = '@redocly/cli@2.79.0';
+
+const VERIFY_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1907';
+const URL_RULES_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1859';
+
+export const RULE_SOURCES = {
+  'secrets-gitleaks': 'https://github.com/gitleaks/gitleaks',
+  'public-safe':
+    'https://github.com/JNU-SWCU/oss-hub/blob/main/.github/check-public-safe.sh',
+  'api-breaking':
+    'https://github.com/oasdiff/oasdiff/blob/main/docs/BREAKING-CHANGES.md',
+  'api-baseline-stale': VERIFY_ISSUE,
+  'api-route-reconciliation': VERIFY_ISSUE,
+  'api-route-unresolved': VERIFY_ISSUE,
+  'url-ia-unreachable-page':
+    'https://developers.google.com/search/docs/crawling-indexing/links-crawlable',
+  'url-ia-duplicate-screen':
+    'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
+  'url-ia-allowlist-stale': URL_RULES_ISSUE,
+  'cwv-run-failed':
+    'https://github.com/GoogleChrome/lighthouse/blob/main/docs/variability.md',
+};
 
 export const GITLEAKS = {
   name: 'gitleaks',
@@ -41,7 +64,16 @@ export function isZeroSha(sha) {
   return /^0+$/.test(sha);
 }
 
-export function finding(rule, message, measured, threshold, source) {
+export function finding(
+  rule,
+  message,
+  measured,
+  threshold,
+  source = RULE_SOURCES[rule],
+) {
+  if (typeof source !== 'string' || !/^https:\/\/\S+$/.test(source)) {
+    throw new Error(`rule ${rule} has no https source URL`);
+  }
   return { rule, message, measured, threshold, source };
 }
 

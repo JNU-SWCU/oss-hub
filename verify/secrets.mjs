@@ -10,9 +10,6 @@ import {
   run,
 } from './tools.mjs';
 
-const GITLEAKS_SOURCE = 'https://github.com/gitleaks/gitleaks';
-const PUBLIC_SAFE_SOURCE = '.github/check-public-safe.sh';
-
 async function scanRange(cwd, range, tool) {
   const reportDir = mkdtempSync(join(tmpdir(), 'verify-gitleaks-'));
   const reportPath = join(reportDir, 'report.json');
@@ -53,7 +50,6 @@ async function scanRange(cwd, range, tool) {
         `secrets found in ${range.base.slice(0, 9)}..${range.head.slice(0, 9)}: ${where}`,
         `${leaks.length} leak(s)`,
         '0 leaks',
-        GITLEAKS_SOURCE,
       ),
     ];
   } finally {
@@ -82,7 +78,6 @@ async function publicSafe(cwd, range) {
       `deny-list match in ${range.base.slice(0, 9)}...HEAD:\n${result.stdout.trim()}`,
       'deny-list match',
       '0 matches',
-      PUBLIC_SAFE_SOURCE,
     ),
   ];
 }

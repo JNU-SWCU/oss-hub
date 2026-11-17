@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
+import { writeApiLintReports } from './api-lint.mjs';
 import { checkApi, reconcileRoutes } from './api.mjs';
 import { resolveRanges } from './scope.mjs';
 import { eventFile, tempRepo, writeExecutable } from './test-support.mjs';
@@ -89,6 +98,7 @@ function baseSpec() {
   };
 }
 
+const noLint = async () => {};
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const dumpOf = (spec) => (outFile) => writeFileSync(outFile, json(spec));
 
@@ -174,6 +184,7 @@ for (const [name, input] of Object.entries(inputs)) {
       ...input(t, base, head),
     });
     const findings = await checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges,
       dump: dumpOf(changed),
@@ -199,6 +210,7 @@ for (const [name, input] of Object.entries(inputs)) {
       ...input(t, base, head),
     });
     const findings = await checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges,
       dump: dumpOf(changed),
@@ -215,6 +227,7 @@ test('a trailer without an issue number does not approve a break', async (t) => 
     [BASELINE]: json(changed),
   });
   const findings = await checkApi({
+    lint: noLint,
     cwd: repo.dir,
     ranges: [{ base, head, ref: 'main' }],
     dump: dumpOf(changed),
@@ -230,6 +243,7 @@ test('an API change without a baseline update is reported as stale', async (t) =
   const { repo, base } = apiRepo(t);
   const head = repo.commit('chore: unrelated', { 'docs/x.md': 'x\n' });
   const findings = await checkApi({
+    lint: noLint,
     cwd: repo.dir,
     ranges: [{ base, head, ref: 'main' }],
     dump: dumpOf(withoutResponseName()),
@@ -246,6 +260,7 @@ test('fails closed when the trusted base has no baseline', async (t) => {
   const head = repo.commit('add baseline', { [BASELINE]: json(baseSpec()) });
   await assert.rejects(
     checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges: [{ base, head, ref: 'main' }],
       dump: dumpOf(baseSpec()),
@@ -270,6 +285,7 @@ test('an empty, missing or unparseable dump fails instead of passing', async (t)
   for (const [dump, message] of cases) {
     await assert.rejects(
       checkApi({
+        lint: noLint,
         cwd: repo.dir,
         ranges: [{ base, head, ref: 'main' }],
         dump,
@@ -285,6 +301,7 @@ test('a missing or wrong-version oasdiff binary fails with install guidance', as
   const ranges = [{ base, head: base, ref: 'main' }];
   await assert.rejects(
     checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges,
       dump: dumpOf(baseSpec()),
@@ -299,6 +316,7 @@ test('a missing or wrong-version oasdiff binary fails with install guidance', as
   );
   await assert.rejects(
     checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges,
       dump: dumpOf(baseSpec()),
@@ -314,6 +332,7 @@ test('refuses to dump when backend files are uncommitted or HEAD is not the push
   repo.write('apps/backend/src/extra.ts', 'export {};\n');
   await assert.rejects(
     checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges: [{ base, head, ref: 'main' }],
       dump: dumpOf(baseSpec()),
@@ -323,6 +342,7 @@ test('refuses to dump when backend files are uncommitted or HEAD is not the push
   );
   await assert.rejects(
     checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges: [{ base, head: base, ref: 'old' }],
       dump: dumpOf(baseSpec()),
@@ -408,6 +428,7 @@ for (const control of shapeControls) {
       ...(control.controller ? { [CONTROLLER]: control.controller } : {}),
     });
     const findings = await checkApi({
+      lint: noLint,
       cwd: repo.dir,
       ranges: [{ base, head, ref: 'main' }],
       dump: dumpOf(changed),
@@ -420,3 +441,70 @@ for (const control of shapeControls) {
     assert.match(findings[0].message, new RegExp(control.id));
   });
 }
+
+test('API lint reports are written but never change the result', async (t) => {
+  const reportDir = mkdtempSync(join(tmpdir(), 'verify-api-lint-'));
+  t.after(() => rmSync(reportDir, { recursive: true, force: true }));
+  const logs = [];
+  const calls = [];
+  await writeApiLintReports('/spec.json', {
+    reportDir,
+    log: (line) => logs.push(line),
+    runner: async (command, args) => {
+      calls.push(args.slice(0, 3).join(' '));
+      if (args.includes('--output')) {
+        writeFileSync(args[args.indexOf('--output') + 1], '[{"code":"x"}]');
+        return { code: 1, stdout: '', stderr: '' };
+      }
+      return {
+        code: 1,
+        stdout: '{"totals":{"errors":2,"warnings":1}}',
+        stderr: '',
+      };
+    },
+  });
+  assert.deepEqual(calls, [
+    '-y @stoplight/spectral-cli@6.17.1 lint',
+    '-y @redocly/cli@2.79.0 lint',
+  ]);
+  assert.equal(readdirSync(reportDir).length, 2);
+  assert.match(logs.join('\n'), /spectral 1 finding\(s\).*report only/);
+  assert.match(logs.join('\n'), /redocly 2 error\(s\), 1 warning\(s\)/);
+  const redocly = readdirSync(reportDir).find((name) =>
+    name.includes('redocly'),
+  );
+  assert.equal(
+    JSON.parse(readFileSync(join(reportDir, redocly), 'utf8')).totals.errors,
+    2,
+  );
+
+  const skipped = [];
+  await writeApiLintReports('/spec.json', {
+    reportDir,
+    log: (line) => skipped.push(line),
+    runner: async () => {
+      throw new Error('command not found: npx');
+    },
+  });
+  assert.equal(skipped.length, 2);
+  assert.ok(
+    skipped.every((line) =>
+      /report skipped \(command not found: npx\)/.test(line),
+    ),
+  );
+});
+
+test('a crashing API lint step does not change the API check result', async (t) => {
+  const { repo, base } = apiRepo(t);
+  const head = repo.commit('noop', { 'docs/x.md': 'x\n' });
+  const findings = await checkApi({
+    lint: async () => {
+      throw new Error('lint exploded');
+    },
+    cwd: repo.dir,
+    ranges: [{ base, head, ref: 'main' }],
+    dump: dumpOf(baseSpec()),
+    tool: stubOasdiff(t),
+  });
+  assert.deepEqual(findings, []);
+});

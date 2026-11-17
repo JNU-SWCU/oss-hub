@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { writeApiLintReports } from './api-lint.mjs';
 import {
   API_BASELINE_PATH,
   API_GLOBAL_PREFIX,
@@ -14,8 +15,6 @@ import {
   showAtRevision,
 } from './tools.mjs';
 
-const OASDIFF_SOURCE =
-  'https://github.com/oasdiff/oasdiff/blob/main/docs/BREAKING-CHANGES.md';
 const TRAILER = 'API-Break-Approved';
 const HTTP_METHODS = [
   'get',
@@ -166,7 +165,6 @@ export function reconcileRoutes(spec, controllers) {
         `route decorators with non-literal paths cannot be reconciled:\n  ${unresolved.join('\n  ')}`,
         `${unresolved.length} decorator(s)`,
         '0',
-        'verify/api.mjs (route/decorator reconciliation)',
       ),
     );
   }
@@ -183,7 +181,6 @@ export function reconcileRoutes(spec, controllers) {
         ].join('\n  '),
         `${missing.length} missing, ${undeclared.length} undeclared`,
         '0 differences between @Controller routes and spec operations',
-        'verify/api.mjs (route/decorator reconciliation)',
       ),
     );
   }
@@ -259,6 +256,7 @@ export async function checkApi({
   ranges,
   dump = (outFile) => runDumpCommand(cwd, outFile),
   tool = OASDIFF,
+  lint = (specFile) => writeApiLintReports(specFile),
 }) {
   await requireTool(tool);
   const head = await git(cwd, ['rev-parse', 'HEAD']);
@@ -295,6 +293,13 @@ export async function checkApi({
       );
     }
     const fresh = parseSpec(freshText, 'fresh OpenAPI dump');
+    try {
+      await lint(freshFile);
+    } catch (error) {
+      console.log(
+        `api-lint: report skipped (${error.message}); report only, the exit code is unaffected`,
+      );
+    }
     const findings = reconcileRoutes(fresh, await readControllers(cwd));
 
     const committedText = await showAtRevision(cwd, head, API_BASELINE_PATH);
@@ -313,7 +318,6 @@ export async function checkApi({
           `${API_BASELINE_PATH} does not match the fresh dump; regenerate it with: ${OPENAPI_DUMP_COMMAND.join(' ').replace('{out}', API_BASELINE_PATH)}`,
           'committed baseline != fresh dump',
           'committed baseline == fresh dump',
-          'plan verification-loop "Baseline provenance"',
         ),
       );
     }
@@ -353,7 +357,6 @@ export async function checkApi({
           `breaking API changes vs trusted base ${range.base.slice(0, 9)}:\n  ${summary}\n  intentional? add a commit trailer "${TRAILER}: #<issue>"`,
           `${breaking.length} breaking change(s) at level >= WARN`,
           '0 breaking changes without approval',
-          OASDIFF_SOURCE,
         ),
       );
     }
