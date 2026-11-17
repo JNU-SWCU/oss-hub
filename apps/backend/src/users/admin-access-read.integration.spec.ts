@@ -17,6 +17,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -235,14 +236,15 @@ type QueryPlanRow = {
 async function historyQueryPlans(
   userId: string,
 ): Promise<readonly [readonly QueryPlanRow[], readonly QueryPlanRow[]]> {
-  const reader = new PrismaClient({
+  const queryLogClient = new PrismaClient({
     adapter: new PrismaPg(loadPrismaPoolConfig()),
     log: [{ emit: 'event', level: 'query' }],
   });
   const queries: Prisma.QueryEvent[] = [];
-  reader.$on('query', (event) => {
+  queryLogClient.$on('query', (event) => {
     if (event.query.startsWith('SELECT')) queries.push(event);
   });
+  const reader = loadPrismaQueryLintConfig().createLintedClient(queryLogClient);
   try {
     const repository = new AdminAccessHistoryRepository();
     await repository.listAdminAccessStaffAccessRequestHistory(reader, userId, {

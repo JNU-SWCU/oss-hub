@@ -1,6 +1,7 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Prisma, ProgramCategory, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
@@ -44,9 +45,11 @@ const KEYS = {
   dbFailure: `submission-files/${FIXTURE_PREFIX}-db-failure`,
   concurrent: `submission-files/${FIXTURE_PREFIX}-concurrent`,
 } as const;
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(loadPrismaPoolConfig()),
-});
+const prisma = loadPrismaQueryLintConfig().createLintedClient(
+  new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+  }),
+);
 const config = new ObjectStorageConfig();
 const objects = new S3ObjectStorageClient(config);
 const inventory = new S3ObjectInventoryClient(config);
@@ -393,9 +396,11 @@ describe('storage orphan reconciliation integration', () => {
       await transferMayCommit;
     });
     await transferReady;
-    const snapshotReaderBase = new PrismaClient({
-      adapter: new PrismaPg(loadPrismaPoolConfig()),
-    });
+    const snapshotReaderBase = loadPrismaQueryLintConfig().createLintedClient(
+      new PrismaClient({
+        adapter: new PrismaPg(loadPrismaPoolConfig()),
+      }),
+    );
     let signalTemplateSnapshotRead: (() => void) | undefined;
     const templateSnapshotRead = new Promise<void>((resolve) => {
       signalTemplateSnapshotRead = resolve;
@@ -472,13 +477,15 @@ describe('storage orphan reconciliation integration', () => {
   });
   it('DB 연결 실패 시 실제 스토리지 객체를 삭제하지 않는다', async () => {
     await putObject(KEYS.dbFailure);
-    const unavailable = new PrismaClient({
-      adapter: new PrismaPg(
-        loadPrismaPoolConfig(
-          'postgresql://synthetic:synthetic@127.0.0.1:1/synthetic?connect_timeout=1',
+    const unavailable = loadPrismaQueryLintConfig().createLintedClient(
+      new PrismaClient({
+        adapter: new PrismaPg(
+          loadPrismaPoolConfig(
+            'postgresql://synthetic:synthetic@127.0.0.1:1/synthetic?connect_timeout=1',
+          ),
         ),
-      ),
-    });
+      }),
+    );
     const service = new StorageOrphanReconciliationService(
       new PrismaStorageReferenceRepository(unavailable),
       storage,

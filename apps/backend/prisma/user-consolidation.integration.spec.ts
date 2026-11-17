@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
@@ -33,12 +34,13 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-const prisma = new PrismaClient({
+const queryLogClient = new PrismaClient({
   adapter: new PrismaPg(loadPrismaPoolConfig(legacyDatabaseUrl)),
   log: [{ emit: 'event', level: 'query' }],
 });
 const queries: string[] = [];
-prisma.$on('query', (event) => queries.push(event.query));
+queryLogClient.$on('query', (event) => queries.push(event.query));
+const prisma = loadPrismaQueryLintConfig().createLintedClient(queryLogClient);
 const read = legacyRead;
 const history = legacyRead;
 const profiles = new UserProfileService();

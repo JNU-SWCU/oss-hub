@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { CollectionUserActivityRepository } from '../src/github/collection-user-activity.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 
 type ProbeMode = 'pkey' | 'same-count' | 'logical';
@@ -14,9 +15,11 @@ const readMode = (argv: readonly string[]): ProbeMode => {
   throw new Error('mode must be pkey, same-count, or logical');
 };
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(loadPrismaPoolConfig()),
-});
+const prisma = loadPrismaQueryLintConfig().createLintedClient(
+  new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+  }),
+);
 const repository = new CollectionUserActivityRepository(
   prisma as unknown as PrismaService,
 );

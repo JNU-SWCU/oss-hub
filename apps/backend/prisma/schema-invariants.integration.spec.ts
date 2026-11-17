@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,9 +23,11 @@ const USER_C_ID = `${TEST_PREFIX}user:c`;
 const TEAM_A_ID = `${TEST_PREFIX}team:a`;
 const TEAM_B_ID = `${TEST_PREFIX}team:b`;
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(loadPrismaPoolConfig()),
-});
+const prisma = loadPrismaQueryLintConfig().createLintedClient(
+  new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+  }),
+);
 
 async function createUsers(): Promise<void> {
   await prisma.user.createMany({

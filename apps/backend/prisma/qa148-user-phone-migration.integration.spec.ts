@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
 import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
@@ -14,9 +15,11 @@ const TEST_PREFIX = 'test:qa148:phone-migration:';
 const USER_ID = `${TEST_PREFIX}user`;
 const CONSTRAINT_NAME = 'User_phone_digits_check';
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(loadPrismaPoolConfig()),
-});
+const prisma = loadPrismaQueryLintConfig().createLintedClient(
+  new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+  }),
+);
 
 async function cleanFixtures(): Promise<void> {
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });

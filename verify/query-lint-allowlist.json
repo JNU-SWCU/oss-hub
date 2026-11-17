@@ -1,0 +1,401 @@
+{
+  "BoardComment.findMany@apps/backend/src/programs/program-deleted-write.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "BoardPost.findMany@apps/backend/src/programs/program-deleted-write.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "ContributionEvent.findMany@apps/backend/src/github/collection-sync.probe.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "ContributionEvent.findMany@apps/backend/src/programs/relink-collection.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/prisma/seeds/demo.ts": {
+    "reason": "Demo seed teardown collects the storage keys of its own seed-prefixed files before deleting them; bounded by the seed fixture."
+  },
+  "File.findMany@apps/backend/src/programs/files.repository.ts": {
+    "reason": "Cleanup monitor lists every exhausted DELETE_PENDING file, and storage-orphan reconciliation snapshots every live storageKey in one RepeatableRead read; both need the complete set."
+  },
+  "File.findMany@apps/backend/src/programs/program-authoring.integration-support.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/src/programs/program-external-cover.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/src/programs/program-purge.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/src/programs/requirement-archive.integration-fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/src/programs/requirement-flow.integration-fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/src/programs/submission-file-lifecycle.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/src/programs/submissions.repository.ts": {
+    "reason": "Reads the attached files of one submission history row; bounded by the per-submission file limit."
+  },
+  "File.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-graph-cleanup.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "File.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-state.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "GithubUserActivityObservation.findMany@apps/backend/src/github/collection-user-activity.integration-support.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "GithubUserActivityObservation.findMany@apps/backend/src/github/collection-user-activity.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "GithubUserActivityObservation.findMany@apps/backend/src/github/collection-user-activity.qa.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "LoginHistory.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "LoginHistory.findMany@apps/backend/src/auth/login-history.repository.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Milestone.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Milestone.findMany@apps/backend/prisma/seeds/oss-hub.ts": {
+    "reason": "Seed finds the stale milestones of the one seeded program in order to delete them."
+  },
+  "Milestone.findMany@apps/backend/src/programs/program-editor.integration-fixtures.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "Milestone.findMany@apps/backend/src/programs/program-editor.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Milestone.findMany@apps/backend/src/programs/programs.repository.ts": {
+    "reason": "Program overview and schedule read every milestone of one program; per-program milestone count is small."
+  },
+  "Milestone.findMany@apps/backend/src/programs/submissions.repository.ts": {
+    "reason": "Staff dashboard and submission matrix read every milestone of the selected programs; the matrix needs every milestone column."
+  },
+  "Notification.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Notification.findMany@apps/backend/src/notifications/deadline-digest-delivery.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Notification.findMany@apps/backend/src/notifications/deadline-digest.repository.ts": {
+    "reason": "Digest retry lists every FAILED deadline digest notification; retry must see the whole failed set."
+  },
+  "Notification.findMany@apps/backend/src/programs/program-team-deletion.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Notification.findMany@apps/backend/src/programs/team.repository.ts": {
+    "reason": "Team deletion finds every APPLICATION_DECISION notification of one team to delete them in the same transaction."
+  },
+  "Notification.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-deadline-reset.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Notification.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-notification-cleanup.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "OutboxEvent.findMany@apps/backend/src/programs/student-repository-url.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "OutboxEvent.findMany@apps/backend/src/programs/team-invitations.repository.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Program.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Program.findMany@apps/backend/src/notifications/deadline-digest.repository.ts": {
+    "reason": "Deadline digest job selects every program with a deadline inside the window; the job must cover all of them."
+  },
+  "Program.findMany@apps/backend/src/programs/team.repository.ts": {
+    "reason": "Staff dashboard summary lists every non-deleted program; complete by design."
+  },
+  "Program.findMany@apps/backend/src/staff/staff-insights.repository.ts": {
+    "reason": "Staff insights scorecard aggregates every published program."
+  },
+  "Repo.findMany@apps/backend/src/admin/system-status.repository.ts": {
+    "reason": "System status lists every org-provisioned collection target repository."
+  },
+  "Repo.findMany@apps/backend/src/github/collection-incremental.repository.ts": {
+    "reason": "Collector must visit every present collection target repository of one source."
+  },
+  "Repo.findMany@apps/backend/src/github/repository-provision-worker.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Repo.findMany@apps/backend/src/programs/own-repository-provision-chain.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Repo.findMany@apps/backend/src/programs/program-purge.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Repo.findMany@apps/backend/src/programs/public-projects.repository.ts": {
+    "reason": "listForUser returns every public repository linked to one user's teams; bounded by that user's memberships."
+  },
+  "Repo.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-fixture.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Repo.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "Repo.findMany@apps/backend/test/e2e-program-authoring/e2e-repository-evidence.fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "RepositoryInvitation.findMany@apps/backend/src/github/repository-provision-state.repository.ts": {
+    "reason": "Provisioning reconciles every invitation of one repository; bounded by team size."
+  },
+  "RepositoryInvitation.findMany@apps/backend/src/github/repository-provision-worker.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "RepositoryIssuanceHistory.findMany@apps/backend/src/github/repository-provision-worker.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "RepositoryIssuanceHistory.findMany@apps/backend/src/programs/own-repository-provision-chain.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "RepositoryProvisionJob.findMany@apps/backend/src/github/repositories.repository.ts": {
+    "reason": "Lists the provisioning jobs of the approved teams one GitHub user belongs to."
+  },
+  "Requirement.findMany@apps/backend/src/programs/program-editor-milestone-aggregate.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Requirement.findMany@apps/backend/src/programs/program-editor.integration-fixtures.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "Requirement.findMany@apps/backend/src/programs/program-editor.repository.ts": {
+    "reason": "Program editor reads every document of one milestone to diff and reorder them."
+  },
+  "Requirement.findMany@apps/backend/src/programs/requirement-order.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Requirement.findMany@apps/backend/src/programs/requirements.repository.ts": {
+    "reason": "Reads every requirement document of one milestone for ordering and collection; small per milestone."
+  },
+  "Requirement.findMany@apps/backend/src/programs/submissions.repository.ts": {
+    "reason": "Staff dashboard counts the required documents of the selected programs."
+  },
+  "Submission.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Submission.findMany@apps/backend/src/programs/program-editor.integration-fixtures.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "Submission.findMany@apps/backend/src/programs/requirements.repository.ts": {
+    "reason": "Collection, archive and change-request reads cover the submissions of a bounded document id list of one program."
+  },
+  "Submission.findMany@apps/backend/src/programs/submission-axis-compatibility.http.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Submission.findMany@apps/backend/src/programs/submissions.repository.ts": {
+    "reason": "Matrix and staff dashboard read the submissions of the current page's teams or of the selected programs' approved teams."
+  },
+  "Submission.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-graph-cleanup.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "SubmissionHistory.findMany@apps/backend/src/programs/program-editor.integration-fixtures.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "SubmissionHistory.findMany@apps/backend/src/programs/requirement-files.http.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "SubmissionHistory.findMany@apps/backend/src/programs/requirement-resubmission.http.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "SubmissionHistory.findMany@apps/backend/src/programs/submission-review-write-only.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "SubmissionHistory.findMany@apps/backend/src/student/requirement-feedback.repository.ts": {
+    "reason": "Student feedback lists review events of one student's approved teams since a cutoff date."
+  },
+  "SubmissionHistory.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-graph-cleanup.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/applications.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/program-activity.repository.ts": {
+    "reason": "Program activity lists every live team of one program."
+  },
+  "Team.findMany@apps/backend/src/programs/program-deleted-write.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/program-purge.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/program-team-deletion.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/programs.repository.ts": {
+    "reason": "Program reads (approved, eligible and public teams, one student's applications) are scoped to one program or one user."
+  },
+  "Team.findMany@apps/backend/src/programs/public-exposure-matrix.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/public-exposure-persona.http.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/public-projects.repository.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/requirements.repository.ts": {
+    "reason": "Collection and archive need every approved team of one program."
+  },
+  "Team.findMany@apps/backend/src/programs/submission-reviews.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/src/programs/submissions.repository.ts": {
+    "reason": "Staff dashboard reads the approved teams of the selected programs; the matrix page read uses take."
+  },
+  "Team.findMany@apps/backend/src/programs/team.repository.ts": {
+    "reason": "Team list view reads every live team of one program."
+  },
+  "Team.findMany@apps/backend/src/staff/staff-insights.repository.ts": {
+    "reason": "Staff insights aggregates every approved participation across programs."
+  },
+  "Team.findMany@apps/backend/src/student/student-dashboard.repository.ts": {
+    "reason": "Student dashboard lists every application of one student."
+  },
+  "Team.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "Team.findMany@apps/backend/test/e2e-program-authoring/e2e-program-authoring-graph-cleanup.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/github/repository-provision-worker.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/applications.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/program-purge.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/program-team-deletion.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/program-team-membership.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/program-teams.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/public-exposure-matrix.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/review-history-writer.repository.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/student-application-management.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/student-repository-url.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/submission-reviews.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/team-invitations.acceptance-race.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamHistory.findMany@apps/backend/src/programs/team-invitations.repository.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamInvitation.findMany@apps/backend/src/programs/applications-named-invitees.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamInvitation.findMany@apps/backend/src/programs/program-deleted-write.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamInvitation.findMany@apps/backend/src/programs/team-history.repository.ts": {
+    "reason": "Team deletion records closure for every invitation of one team."
+  },
+  "TeamInvitation.findMany@apps/backend/src/programs/team-invitations.acceptance-race.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamInvitation.findMany@apps/backend/src/programs/team-invitations.repository.ts": {
+    "reason": "Invitation lists are scoped to one invitee or one team; acceptance closes the invitee's other invitations in the program."
+  },
+  "TeamMember.findMany@apps/backend/src/github/repository-provision-state.repository.ts": {
+    "reason": "Provisioning reads the member logins of one team."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/applications-named-invitees.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/program-deleted-write.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/program-team-create-removed.http.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/program-team-membership.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/programs.repository.ts": {
+    "reason": "Program overview counts the distinct participants of one program."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/team-invitations.acceptance-race.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "TeamMember.findMany@apps/backend/src/programs/team.repository.ts": {
+    "reason": "Team deletion notifies every member of one team."
+  },
+  "TeamRepo.findMany@apps/backend/src/programs/program-activity.repository.ts": {
+    "reason": "Reads the current repository links of the given program ids."
+  },
+  "User.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "User.findMany@apps/backend/src/github/collection-user-activity.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "User.findMany@apps/backend/src/github/collection-user-activity.repository.ts": {
+    "reason": "Activity collector sweeps every active user."
+  },
+  "User.findMany@apps/backend/src/notifications/deadline-digest.repository.ts": {
+    "reason": "Deadline digest sends to every notifiable recipient."
+  },
+  "User.findMany@apps/backend/src/ranking/ranking.repository.ts": {
+    "reason": "Ranking loads every ranking-eligible member to merge with activity rows; the githubId in-list lookup in this file passes on its own."
+  },
+  "User.findMany@apps/backend/src/staff/staff-insights.repository.ts": {
+    "reason": "Staff insights ranks every active student."
+  },
+  "User.findMany@apps/backend/src/users/account-deactivation.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "UserHistory.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "UserHistory.findMany@apps/backend/src/users/admin-access-history.repository.ts": {
+    "reason": "Staff access request history rebuilds request snapshots from every history row of one user before paginating in memory."
+  },
+  "UserHistory.findMany@apps/backend/src/users/admin-access-revocation.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "UserHistory.findMany@apps/backend/src/users/admin-profile-p2034.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "UserHistory.findMany@apps/backend/src/users/member-registration-reset.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "UserHistory.findMany@apps/backend/src/users/user-history.integration-fixture.ts": {
+    "reason": "Integration test helper reads or cleans rows of its own synthetic graph in the isolated test database; bounded by the fixture."
+  },
+  "UserPolicy.findMany@apps/backend/prisma/seed.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  },
+  "UserPolicy.findMany@apps/backend/src/users/consents.service.integration.spec.ts": {
+    "reason": "Integration spec asserts on rows of its own synthetic fixture in the isolated test database; bounded by the fixture."
+  }
+}
