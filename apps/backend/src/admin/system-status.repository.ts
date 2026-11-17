@@ -20,7 +20,7 @@ export interface CollectionExternalCollectionStatusDto {
   readonly lastSuccessAt: Date | null;
 }
 
-export interface ProvisioningFailedTeamDto {
+interface ProvisioningFailedTeamDto {
   readonly teamId: string;
   readonly teamName: string;
   readonly programName: string;

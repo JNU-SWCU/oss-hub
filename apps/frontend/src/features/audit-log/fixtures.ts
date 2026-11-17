@@ -32,7 +32,7 @@ export const AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE = {
   metadata: { schemaVersion: 2, eventKind: 'DIRECT_ROLE_CHANGED' },
 } as const;
 
-export const AUDIT_LOG_APPLICATION_RECORD_FIXTURE = {
+const AUDIT_LOG_APPLICATION_RECORD_FIXTURE = {
   id: 'audit-application-approved',
   occurredAt: '2026-11-17T04:10:00.000Z',
   action: 'APPLICATION_APPROVED',
@@ -58,7 +58,7 @@ export const AUDIT_LOG_APPLICATION_RECORD_FIXTURE = {
   metadata: { schemaVersion: 2 },
 } as const;
 
-export const AUDIT_LOG_SUBMISSION_RECORD_FIXTURE = {
+const AUDIT_LOG_SUBMISSION_RECORD_FIXTURE = {
   id: 'audit-submission',
   occurredAt: '2026-11-17T03:40:00.000Z',
   action: 'SUBMISSION_RESUBMITTED',
@@ -84,7 +84,7 @@ export const AUDIT_LOG_SUBMISSION_RECORD_FIXTURE = {
   metadata: { schemaVersion: 1, requirementName: '중간보고서', revision: 2 },
 } as const;
 
-export const AUDIT_LOG_SYSTEM_RECORD_FIXTURE = {
+const AUDIT_LOG_SYSTEM_RECORD_FIXTURE = {
   id: 'audit-system',
   occurredAt: '2026-11-16T09:02:00.000Z',
   action: 'GRANT_ADMIN_ACCESS',
@@ -104,7 +104,7 @@ export const AUDIT_LOG_SYSTEM_RECORD_FIXTURE = {
   metadata: { schemaVersion: 1, recordKind: 'BOOTSTRAP' },
 } as const;
 
-export const AUDIT_LOG_UNKNOWN_ACTOR_RECORD_FIXTURE = {
+const AUDIT_LOG_UNKNOWN_ACTOR_RECORD_FIXTURE = {
   id: 'audit-unknown-actor',
   occurredAt: '2026-11-16T08:00:00.000Z',
   action: 'LOGIN',

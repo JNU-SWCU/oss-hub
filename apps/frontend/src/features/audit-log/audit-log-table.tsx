@@ -22,10 +22,10 @@ import {
 } from './audit-log-parts';
 import type { AuditLogRecord } from './types';
 
-export type AuditLogSortKey =
+type AuditLogSortKey =
   'occurredAt' | 'actor' | 'role' | 'action' | 'target';
 
-export interface AuditLogSort {
+interface AuditLogSort {
   readonly key: AuditLogSortKey;
   readonly direction: 'asc' | 'desc';
 }
@@ -53,7 +53,7 @@ function sortValue(record: AuditLogRecord, key: AuditLogSortKey): string {
   }
 }
 
-export function sortAuditLogRecords(
+function sortAuditLogRecords(
   records: readonly AuditLogRecord[],
   sort: AuditLogSort,
 ): readonly AuditLogRecord[] {
