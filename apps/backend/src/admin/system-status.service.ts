@@ -35,7 +35,7 @@ export type SystemStatusAnomalyRule =
 
 export type SystemStatusAnomalySeverity = 'HIGH' | 'MEDIUM';
 
-export interface SystemStatusAnomalyResult {
+interface SystemStatusAnomalyResult {
   readonly rule: SystemStatusAnomalyRule;
   readonly severity: SystemStatusAnomalySeverity;
   readonly count: number;

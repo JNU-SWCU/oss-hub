@@ -1,6 +1,6 @@
 import type { AuditCategory, AuditSourceKey } from './audit-source.config';
 
-export type AuditPerson = {
+type AuditPerson = {
   readonly id: string | null;
   readonly name: string | null;
   readonly login: string | null;
@@ -17,7 +17,7 @@ export type AuditTarget = {
   readonly teamName: string | null;
 };
 
-export type AuditChangeValue = string | boolean | null;
+type AuditChangeValue = string | boolean | null;
 
 export type AuditChange = {
   readonly field: string;
@@ -51,7 +51,7 @@ export type AuditEntry = AuditEntryBase &
     | { readonly legacy: false; readonly metadata: AuditMetadataEvidence }
   );
 
-export type AuditTargetPerson = {
+type AuditTargetPerson = {
   readonly name: string | null;
   readonly login: string | null;
   readonly role: string | null;

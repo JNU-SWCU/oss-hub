@@ -138,7 +138,7 @@ export interface ProgramTeamView {
   readonly members: readonly TeamMemberView[];
 }
 
-export type TeamRepositoryProvisioningJobStatus =
+type TeamRepositoryProvisioningJobStatus =
   'NOT_REQUESTED' | 'DISABLED' | RepositoryProvisionJobStatus | 'ANOMALOUS';
 
 export type TeamRepositoryProvisioningSafeErrorClass =
