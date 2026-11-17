@@ -101,7 +101,7 @@ describe('ProgramOverviewRepository', () => {
         await repository.findMilestoneSchedules(syntheticProgramId);
 
       expect(milestoneFindMany).toHaveBeenCalledWith({
-        take: 21,
+        take: 51,
         where: { programId: syntheticProgramId },
         orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
         select: { id: true, name: true, dueAt: true },

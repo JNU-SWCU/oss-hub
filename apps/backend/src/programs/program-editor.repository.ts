@@ -294,10 +294,18 @@ export class ProgramEditorRepository {
     programId: string,
   ): Promise<EditableProgramRow | null> {
     const [program, deletionScopeCounts] = await Promise.all([
-      transaction.program.findUnique({
-        where: { id: programId, lifecycle: { not: 'DELETED' } },
-        include: editableProgramInclude,
-      }),
+      transaction.program
+        .findUnique({
+          where: { id: programId, lifecycle: { not: 'DELETED' } },
+          include: editableProgramInclude,
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { milestones: READ_CAP.milestonesPerProgram },
+            'Program.findUnique',
+          ),
+        ),
       this.readDeletionScopeCountsIn(transaction, programId),
     ]);
     return program ? toEditableProgramView(program, deletionScopeCounts) : null;
@@ -802,7 +810,10 @@ export class ProgramEditorRepository {
 }
 const editableProgramInclude = {
   _count: { select: { teams: true, boardPosts: true } },
-  milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
+  milestones: {
+    take: READ_CAP.milestonesPerProgram + 1,
+    orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+  },
 } satisfies PrismaTypes.ProgramInclude;
 function toEditableProgramView(
   program: ProgramRecord,

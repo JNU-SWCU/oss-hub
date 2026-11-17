@@ -407,47 +407,58 @@ export class RepositoryProvisionStateRepository {
         workerId,
         requestId,
       );
-      const job = await transaction.repositoryProvisionJob.findFirst({
-        where: this.repositoryProvisionJobRepository.claimedJobWhere(
-          jobId,
-          workerId,
-        ),
-        select: {
-          currentEventId: true,
-          repoId: true,
-          team: {
-            select: {
-              id: true,
-              status: true,
-              programId: true,
-              applicant: { select: { githubId: true, nickname: true } },
-              program: {
-                select: {
-                  name: true,
-                  repositoryProvisioningEnabled: true,
+      const job = await transaction.repositoryProvisionJob
+        .findFirst({
+          where: this.repositoryProvisionJobRepository.claimedJobWhere(
+            jobId,
+            workerId,
+          ),
+          select: {
+            currentEventId: true,
+            repoId: true,
+            team: {
+              select: {
+                id: true,
+                status: true,
+                programId: true,
+                applicant: { select: { githubId: true, nickname: true } },
+                program: {
+                  select: {
+                    name: true,
+                    repositoryProvisioningEnabled: true,
+                  },
                 },
-              },
 
-              name: true,
-              members: { select: this.teamMemberLoginSelection },
-              teamRepos: {
-                where: { validTo: null },
-                take: 1,
-                select: {
-                  repo: {
-                    select: {
-                      githubRepoId: true,
-                      ownerName: true,
-                      visibility: true,
-                      source: true,
+                name: true,
+                members: {
+                  take: READ_CAP.membersPerTeam + 1,
+                  select: this.teamMemberLoginSelection,
+                },
+                teamRepos: {
+                  where: { validTo: null },
+                  take: 1,
+                  select: {
+                    repo: {
+                      select: {
+                        githubRepoId: true,
+                        ownerName: true,
+                        visibility: true,
+                        source: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      });
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { team: { nested: { members: READ_CAP.membersPerTeam } } },
+            'RepositoryProvisionJob.findFirst',
+          ),
+        );
       if (job === null) {
         throw new RepositoryProvisionLeaseLostError();
       }

@@ -1,3 +1,4 @@
+import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
@@ -100,43 +101,68 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findDeadlineProgram(
     programId: string,
   ): Promise<DeadlineProgramSource | null> {
-    const program = await this.prisma.program.findUnique({
-      where: { id: programId, lifecycle: { not: 'DELETED' } },
-      select: {
-        id: true,
-        name: true,
-        notifyOnDeadline: true,
-        milestones: {
-          select: {
-            id: true,
-            name: true,
-            dueAt: true,
-            requirements: {
-              where: {},
-              select: { id: true, required: true },
-              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    const program = await this.prisma.program
+      .findUnique({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+        select: {
+          id: true,
+          name: true,
+          notifyOnDeadline: true,
+          milestones: {
+            take: READ_CAP.milestonesPerProgram + 1,
+            select: {
+              id: true,
+              name: true,
+              dueAt: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {},
+                select: { id: true, required: true },
+                orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+              },
+            },
+            orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+          },
+          teams: {
+            take: READ_CAP.teamsPerProgram + 1,
+            where: { status: ApplicationStatus.APPROVED, archivedAt: null },
+            select: {
+              id: true,
+              applicant: { select: deadlineRecipientSelect },
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                select: { user: { select: deadlineRecipientSelect } },
+                orderBy: { userId: 'asc' },
+              },
+              submissions: {
+                take: READ_CAP.requirementsPerProgram + 1,
+                select: { requirementId: true },
+                orderBy: { requirementId: 'asc' },
+              },
+            },
+            orderBy: { id: 'asc' },
+          },
+        },
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            milestones: {
+              cap: READ_CAP.milestonesPerProgram,
+              nested: { requirements: READ_CAP.requirementsPerMilestone },
+            },
+            teams: {
+              cap: READ_CAP.teamsPerProgram,
+              nested: {
+                members: READ_CAP.membersPerTeam,
+                submissions: READ_CAP.requirementsPerProgram,
+              },
             },
           },
-          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-        },
-        teams: {
-          where: { status: ApplicationStatus.APPROVED, archivedAt: null },
-          select: {
-            id: true,
-            applicant: { select: deadlineRecipientSelect },
-            members: {
-              select: { user: { select: deadlineRecipientSelect } },
-              orderBy: { userId: 'asc' },
-            },
-            submissions: {
-              select: { requirementId: true },
-              orderBy: { requirementId: 'asc' },
-            },
-          },
-          orderBy: { id: 'asc' },
-        },
-      },
-    });
+          'Program.findUnique',
+        ),
+      );
     if (program === null) return null;
     return {
       id: program.id,

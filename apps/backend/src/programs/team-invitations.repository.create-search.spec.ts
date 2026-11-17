@@ -112,7 +112,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
     const result = await repository.findByTeamId(syntheticTeamId);
 
     expect(findMany).toHaveBeenCalledWith({
-      take: 26,
+      take: 101,
       where: { teamId: syntheticTeamId },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,

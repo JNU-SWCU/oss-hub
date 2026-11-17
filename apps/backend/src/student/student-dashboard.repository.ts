@@ -38,12 +38,14 @@ const studentDashboardApplicationSelect = {
       id: true,
       name: true,
       milestones: {
+        take: READ_CAP.milestonesPerProgram + 1,
         orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
         select: {
           id: true,
           name: true,
           dueAt: true,
           requirements: {
+            take: READ_CAP.requirementsPerMilestone + 1,
             where: { required: true },
             select: { id: true, graceDueAt: true },
           },
@@ -52,6 +54,7 @@ const studentDashboardApplicationSelect = {
     },
   },
   submissions: {
+    take: READ_CAP.requirementsPerProgram + 1,
     select: {
       status: true,
       requirement: { select: { id: true, milestoneId: true } },
@@ -79,14 +82,34 @@ export class StudentDashboardRepository {
       READ_CAP.teamsPerUser,
       'Team per user',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: this.platformRepository.programApplicationParticipantWhere(
-            user.id,
+        this.prisma.team
+          .findMany({
+            take,
+            where: this.platformRepository.programApplicationParticipantWhere(
+              user.id,
+            ),
+            orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+            select: studentDashboardApplicationSelect,
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              {
+                program: {
+                  nested: {
+                    milestones: {
+                      cap: READ_CAP.milestonesPerProgram,
+                      nested: {
+                        requirements: READ_CAP.requirementsPerMilestone,
+                      },
+                    },
+                  },
+                },
+                submissions: READ_CAP.requirementsPerProgram,
+              },
+              'Team.findMany',
+            ),
           ),
-          orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
-          select: studentDashboardApplicationSelect,
-        }),
     );
   }
 }

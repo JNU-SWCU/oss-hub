@@ -402,89 +402,122 @@ export class ProgramsRepository {
     };
   }
   findProgramDetail(programId: string) {
-    return this.prisma.program.findUnique({
-      where: { id: programId, lifecycle: { not: 'DELETED' } },
-      select: {
-        coverFileId: true,
-        coverImageUrl: true,
-        id: true,
-        name: true,
-        organizers: true,
-        trackType: true,
-        applicationTemplateKey: true,
-        teamMinSize: true,
-        teamMaxSize: true,
-        description: true,
-        repositoryProvisioningEnabled: true,
-        applicationStartAt: true,
-        applicationEndAt: true,
-        startAt: true,
-        endAt: true,
-        milestones: {
-          orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
-          select: {
-            id: true,
-            name: true,
-            startAt: true,
-            dueAt: true,
-            instructions: true,
-            _count: {
-              select: {
-                requirements: {
-                  where: {},
+    return this.prisma.program
+      .findUnique({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+        select: {
+          coverFileId: true,
+          coverImageUrl: true,
+          id: true,
+          name: true,
+          organizers: true,
+          trackType: true,
+          applicationTemplateKey: true,
+          teamMinSize: true,
+          teamMaxSize: true,
+          description: true,
+          repositoryProvisioningEnabled: true,
+          applicationStartAt: true,
+          applicationEndAt: true,
+          startAt: true,
+          endAt: true,
+          milestones: {
+            take: READ_CAP.milestonesPerProgram + 1,
+            orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
+            select: {
+              id: true,
+              name: true,
+              startAt: true,
+              dueAt: true,
+              instructions: true,
+              _count: {
+                select: {
+                  requirements: {
+                    where: {},
+                  },
                 },
               },
-            },
-            requirements: {
-              where: {
-                required: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {
+                  required: true,
+                },
+                select: { id: true },
               },
-              select: { id: true },
             },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            milestones: {
+              cap: READ_CAP.milestonesPerProgram,
+              nested: { requirements: READ_CAP.requirementsPerMilestone },
+            },
+          },
+          'Program.findUnique',
+        ),
+      );
   }
   async findStudentApplication(programId: string, userId: string) {
-    return this.prisma.team.findFirst({
-      where: {
-        programId,
-        ...this.platformRepository.programApplicationParticipantWhere(userId),
-      },
-      select: {
-        id: true,
-        status: true,
-        submissions: {
-          select: {
-            status: true,
-            requirement: { select: { id: true, milestoneId: true } },
-          } satisfies Prisma.SubmissionSelect,
+    return this.prisma.team
+      .findFirst({
+        where: {
+          programId,
+          ...this.platformRepository.programApplicationParticipantWhere(userId),
         },
-      },
-    });
+        select: {
+          id: true,
+          status: true,
+          submissions: {
+            take: READ_CAP.requirementsPerProgram + 1,
+            select: {
+              status: true,
+              requirement: { select: { id: true, milestoneId: true } },
+            } satisfies Prisma.SubmissionSelect,
+          },
+        },
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { submissions: READ_CAP.requirementsPerProgram },
+          'Team.findFirst',
+        ),
+      );
   }
   async findApprovedApplications(programId: string) {
     return this.boundedReads.readCapped(
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: {
-            programId,
-            status: ApplicationStatus.APPROVED,
-            archivedAt: null,
-          },
-          select: {
-            submissions: {
-              select: {
-                status: true,
-                requirement: { select: { id: true, milestoneId: true } },
-              } satisfies Prisma.SubmissionSelect,
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
             },
-          },
-        }),
+            select: {
+              submissions: {
+                take: READ_CAP.requirementsPerProgram + 1,
+                select: {
+                  status: true,
+                  requirement: { select: { id: true, milestoneId: true } },
+                } satisfies Prisma.SubmissionSelect,
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { submissions: READ_CAP.requirementsPerProgram },
+              'Team.findMany',
+            ),
+          ),
     );
   }
   async findViewerApplicationStatuses(
@@ -1097,6 +1130,7 @@ export interface RequirementCatalogEntry {
 const CURRENT_MILESTONE_SELECT = {
   id: true,
   requirements: {
+    take: READ_CAP.requirementsPerMilestone + 1,
     where: {},
     select: { id: true, required: true },
     orderBy: { sortOrder: 'asc' as const },
@@ -1211,25 +1245,41 @@ export class ProgramOverviewRepository {
     programId: string,
     now: Date,
   ): Promise<CurrentSubmissionMilestone | null> {
-    const upcoming = await this.prisma.milestone.findFirst({
-      where: {
-        programId,
-        dueAt: { gte: now },
-        requirements: { some: {} },
-      },
-      orderBy: { dueAt: 'asc' },
-      select: CURRENT_MILESTONE_SELECT,
-    });
-    const milestone =
-      upcoming ??
-      (await this.prisma.milestone.findFirst({
+    const upcoming = await this.prisma.milestone
+      .findFirst({
         where: {
           programId,
+          dueAt: { gte: now },
           requirements: { some: {} },
         },
-        orderBy: { dueAt: 'desc' },
+        orderBy: { dueAt: 'asc' },
         select: CURRENT_MILESTONE_SELECT,
-      }));
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { requirements: READ_CAP.requirementsPerMilestone },
+          'Milestone.findFirst',
+        ),
+      );
+    const milestone =
+      upcoming ??
+      (await this.prisma.milestone
+        .findFirst({
+          where: {
+            programId,
+            requirements: { some: {} },
+          },
+          orderBy: { dueAt: 'desc' },
+          select: CURRENT_MILESTONE_SELECT,
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { requirements: READ_CAP.requirementsPerMilestone },
+            'Milestone.findFirst',
+          ),
+        ));
     return milestone ? toCurrentSubmissionMilestone(milestone) : null;
   }
   async findMilestoneSchedules(
@@ -1259,20 +1309,29 @@ export class ProgramOverviewRepository {
       READ_CAP.milestonesPerProgram,
       'Milestone per program',
       (take) =>
-        this.prisma.milestone.findMany({
-          take,
-          where: { programId },
-          orderBy: { dueAt: 'asc' },
-          select: {
-            id: true,
-            name: true,
-            requirements: {
-              where: {},
-              select: { id: true, required: true },
-              orderBy: { sortOrder: 'asc' },
+        this.prisma.milestone
+          .findMany({
+            take,
+            where: { programId },
+            orderBy: { dueAt: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {},
+                select: { id: true, required: true },
+                orderBy: { sortOrder: 'asc' },
+              },
             },
-          },
-        }),
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { requirements: READ_CAP.requirementsPerMilestone },
+              'Milestone.findMany',
+            ),
+          ),
     );
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
@@ -1419,21 +1478,29 @@ export class ProgramOverviewRepository {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: { programId, archivedAt: null },
-          orderBy: { createdAt: 'asc' },
-          select: {
-            id: true,
-            name: true,
-            leaderId: true,
-            members: {
-              take: READ_CAP.membersPerTeam,
-              select: { userId: true, user: { select: { nickname: true } } },
-              orderBy: { createdAt: 'asc' },
+        this.prisma.team
+          .findMany({
+            take,
+            where: { programId, archivedAt: null },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                select: { userId: true, user: { select: { nickname: true } } },
+                orderBy: { createdAt: 'asc' },
+              },
             },
-          },
-        }),
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     return teams.map((team) => ({
       teamId: team.id,

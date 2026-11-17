@@ -1,26 +1,33 @@
 const TEAMS_PER_PROGRAM = 50;
-const MILESTONES_PER_PROGRAM = 20;
+const MEMBERS_PER_TEAM = 100;
+const MILESTONES_PER_PROGRAM = 50;
 const REQUIREMENTS_PER_MILESTONE = 20;
-const REQUIREMENTS_PER_PROGRAM =
-  MILESTONES_PER_PROGRAM * REQUIREMENTS_PER_MILESTONE;
+const REQUIREMENTS_PER_PROGRAM = 100;
 
 export const READ_CAP = {
   teamsPerProgram: TEAMS_PER_PROGRAM,
-  membersPerTeam: 25,
+  membersPerTeam: MEMBERS_PER_TEAM,
+  membersPerProgram: TEAMS_PER_PROGRAM * MEMBERS_PER_TEAM,
   milestonesPerProgram: MILESTONES_PER_PROGRAM,
   requirementsPerMilestone: REQUIREMENTS_PER_MILESTONE,
   requirementsPerProgram: REQUIREMENTS_PER_PROGRAM,
   submissionsPerProgram: TEAMS_PER_PROGRAM * REQUIREMENTS_PER_PROGRAM,
-  invitationsPerTeam: 25,
-  invitationsPerRepository: 100,
+  invitationsPerTeam: MEMBERS_PER_TEAM,
+  invitationsPerRepository: MEMBERS_PER_TEAM,
   receivedInvitations: 50,
-  notificationsPerTeam: 100,
-  historyPerUser: 50,
+  notificationsPerTeam: MEMBERS_PER_TEAM,
+  commentsPerPost: 100,
+  historiesPerSubmission: 25,
   teamsPerUser: 20,
   filesPerSubmission: 25,
   reposPerTeam: 5,
   programs: 200,
   repositories: 500,
 } as const;
+
+export type NestedReadCaps = {
+  readonly [relation: string]:
+    number | { readonly cap?: number; readonly nested: NestedReadCaps };
+};
 
 export const READ_BATCH_SIZE = 500;

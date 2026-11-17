@@ -840,6 +840,7 @@ describe('StudentDashboardRepository', () => {
 
     const [args] = findMany.mock.calls[0] as [Prisma.TeamFindManyArgs];
     expect(args.select?.submissions).toEqual({
+      take: 101,
       select: {
         status: true,
         requirement: { select: { id: true, milestoneId: true } },

@@ -76,25 +76,40 @@ export class RequirementArchiveRepository implements ProgramArchiveReader {
 
   constructor(private readonly prisma: PrismaService) {}
   async findProgram(programId: string): Promise<ArchiveProgram | null> {
-    return this.prisma.program.findUnique({
-      where: { id: programId, lifecycle: { not: 'DELETED' } },
-      select: {
-        name: true,
-        milestones: {
-          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            name: true,
-            dueAt: true,
-            requirements: {
-              where: {},
-              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
-              select: { id: true, name: true, required: true },
+    return this.prisma.program
+      .findUnique({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+        select: {
+          name: true,
+          milestones: {
+            take: READ_CAP.milestonesPerProgram + 1,
+            orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              dueAt: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {},
+                orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+                select: { id: true, name: true, required: true },
+              },
             },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            milestones: {
+              cap: READ_CAP.milestonesPerProgram,
+              nested: { requirements: READ_CAP.requirementsPerMilestone },
+            },
+          },
+          'Program.findUnique',
+        ),
+      );
   }
   async findApprovedTeams(
     programId: string,
@@ -104,25 +119,34 @@ export class RequirementArchiveRepository implements ProgramArchiveReader {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: {
-            programId,
-            status: ApplicationStatus.APPROVED,
-            archivedAt: null,
-            ...(teamId === undefined ? {} : { id: teamId }),
-          },
-          orderBy: [{ name: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            applicant: { select: USER_PROFILE_NAME_SELECT },
-            name: true,
-            members: {
-              orderBy: { createdAt: 'asc' },
-              select: { user: { select: { nickname: true } } },
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+              ...(teamId === undefined ? {} : { id: teamId }),
             },
-          },
-        }),
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              applicant: { select: USER_PROFILE_NAME_SELECT },
+              name: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: { createdAt: 'asc' },
+                select: { user: { select: { nickname: true } } },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     return applications.map((application) => ({
       teamId: application.id,
@@ -339,20 +363,29 @@ export class RequirementCollectionReadStoreRepository {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.transaction.team.findMany({
-          take,
-          where: { programId, status: 'APPROVED', archivedAt: null },
-          orderBy: [{ name: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            applicant: { select: USER_PROFILE_NAME_SELECT },
-            name: true,
-            members: {
-              orderBy: { createdAt: 'asc' },
-              select: { user: { select: { nickname: true } } },
+        this.transaction.team
+          .findMany({
+            take,
+            where: { programId, status: 'APPROVED', archivedAt: null },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              applicant: { select: USER_PROFILE_NAME_SELECT },
+              name: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: { createdAt: 'asc' },
+                select: { user: { select: { nickname: true } } },
+              },
             },
-          },
-        }),
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     return applications.map((application) => ({
       teamId: application.id,
@@ -708,6 +741,7 @@ const collectionApplicationSelect = {
   applicant: { select: USER_PROFILE_NAME_SELECT },
   name: true,
   members: {
+    take: READ_CAP.membersPerTeam + 1,
     orderBy: { createdAt: 'asc' },
     select: { user: { select: { nickname: true } } },
   },
@@ -1130,16 +1164,24 @@ export class RequirementsRepository {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: {
-            programId,
-            status: ApplicationStatus.APPROVED,
-            archivedAt: null,
-          },
-          orderBy: [{ name: 'asc' }, { id: 'asc' }],
-          select: collectionApplicationSelect,
-        }),
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: collectionApplicationSelect,
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     return applications.map((application) => ({
       teamId: application.id,
@@ -1970,16 +2012,24 @@ export class RequirementsRepository {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        transaction.team.findMany({
-          take,
-          where: {
-            programId,
-            status: ApplicationStatus.APPROVED,
-            archivedAt: null,
-          },
-          orderBy: [{ name: 'asc' }, { id: 'asc' }],
-          select: collectionApplicationSelect,
-        }),
+        transaction.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: collectionApplicationSelect,
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     return applications.map((application) => ({
       teamId: application.id,

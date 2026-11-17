@@ -80,22 +80,31 @@ export class TeamHistoryRepository {
     deletedCounts: Prisma.InputJsonObject,
     occurredAt: Date,
   ): Promise<void> {
-    const team = await transaction.team.findUniqueOrThrow({
-      where: { id: teamId },
-      select: {
-        name: true,
-        programId: true,
-        leaderId: true,
-        status: true,
-        members: {
-          orderBy: { userId: 'asc' },
-          select: {
-            userId: true,
-            user: { select: { name: true, nickname: true } },
+    const team = await transaction.team
+      .findUniqueOrThrow({
+        where: { id: teamId },
+        select: {
+          name: true,
+          programId: true,
+          leaderId: true,
+          status: true,
+          members: {
+            take: READ_CAP.membersPerTeam + 1,
+            orderBy: { userId: 'asc' },
+            select: {
+              userId: true,
+              user: { select: { name: true, nickname: true } },
+            },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { members: READ_CAP.membersPerTeam },
+          'Team.findUniqueOrThrow',
+        ),
+      );
     await transaction.teamHistory.create({
       data: {
         teamId,

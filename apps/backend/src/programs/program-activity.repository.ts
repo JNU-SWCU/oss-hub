@@ -125,45 +125,56 @@ export class ProgramActivityRepository {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: {
-            programId,
-            archivedAt: null,
-            AND: [
-              {
-                OR: [
-                  { teamRepos: { some: { validTo: null } } },
-                  {
-                    status: 'APPROVED',
-                    teamRepos: { none: { validTo: null } },
-                  },
-                ],
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              archivedAt: null,
+              AND: [
+                {
+                  OR: [
+                    { teamRepos: { some: { validTo: null } } },
+                    {
+                      status: 'APPROVED',
+                      teamRepos: { none: { validTo: null } },
+                    },
+                  ],
+                },
+                ...(studentUserId
+                  ? [
+                      this.platformRepository.programApplicationParticipantWhere(
+                        studentUserId,
+                      ),
+                    ]
+                  : []),
+              ],
+            },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+                select: {
+                  user: { select: { githubId: true, nickname: true } },
+                },
               },
-              ...(studentUserId
-                ? [
-                    this.platformRepository.programApplicationParticipantWhere(
-                      studentUserId,
-                    ),
-                  ]
-                : []),
-            ],
-          },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            name: true,
-            members: {
-              orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-              select: { user: { select: { githubId: true, nickname: true } } },
+              teamRepos: {
+                where: { validTo: null },
+                take: 1,
+                select: { repoId: true },
+              },
             },
-            teamRepos: {
-              where: { validTo: null },
-              take: 1,
-              select: { repoId: true },
-            },
-          },
-        }),
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     const repositoryIds = applications.flatMap((application) =>
       application.teamRepos.map((link) => link.repoId),

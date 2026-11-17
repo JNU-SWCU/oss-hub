@@ -126,7 +126,10 @@ describe('ProgramEditorRepository edit counts', () => {
         _count: {
           select: { teams: true, boardPosts: true },
         },
-        milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
+        milestones: {
+          take: 51,
+          orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+        },
       },
     });
     expect(queryRaw).toHaveBeenCalledTimes(1);

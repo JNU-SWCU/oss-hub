@@ -989,13 +989,21 @@ export class ApplicationsRepository {
               remainingSkip - bucketCount,
               remainingTake,
             );
-          const chunk = await transaction.team.findMany({
-            where: bucket,
-            orderBy: TEAM_MANAGEMENT_ORDER_BY,
-            skip: remainingSkip,
-            take: remainingTake,
-            select: TEAM_MANAGEMENT_LIST_SELECT,
-          });
+          const chunk = await transaction.team
+            .findMany({
+              where: bucket,
+              orderBy: TEAM_MANAGEMENT_ORDER_BY,
+              skip: remainingSkip,
+              take: remainingTake,
+              select: TEAM_MANAGEMENT_LIST_SELECT,
+            })
+            .then((result) =>
+              this.boundedReads.assertNestedWithin(
+                result,
+                { members: READ_CAP.membersPerTeam },
+                'Team.findMany',
+              ),
+            );
           return [
             ...chunk,
             ...(await readBuckets(index + 1, 0, remainingTake - chunk.length)),
@@ -1160,22 +1168,33 @@ export class ApplicationsRepository {
     await transaction.$queryRaw(
       Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
     );
-    const application = await transaction.team.findUnique({
-      where: {
-        id: teamId,
-        archivedAt: null,
-        program: { lifecycle: { not: 'DELETED' } },
-      },
-      include: {
-        program: {
-          select: { repositoryProvisioningEnabled: true, name: true },
+    const application = await transaction.team
+      .findUnique({
+        where: {
+          id: teamId,
+          archivedAt: null,
+          program: { lifecycle: { not: 'DELETED' } },
         },
-        applicant: { select: { id: true, nickname: true } },
-        leader: { select: { id: true, nickname: true } },
-        members: { select: { user: { select: { id: true, nickname: true } } } },
-        teamRepos: OPEN_TEAM_REPO_SELECT,
-      },
-    });
+        include: {
+          program: {
+            select: { repositoryProvisioningEnabled: true, name: true },
+          },
+          applicant: { select: { id: true, nickname: true } },
+          leader: { select: { id: true, nickname: true } },
+          members: {
+            take: READ_CAP.membersPerTeam + 1,
+            select: { user: { select: { id: true, nickname: true } } },
+          },
+          teamRepos: OPEN_TEAM_REPO_SELECT,
+        },
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { members: READ_CAP.membersPerTeam },
+          'Team.findUnique',
+        ),
+      );
     return application ? toApplicationDecisionTarget(application) : null;
   }
 
@@ -1615,6 +1634,7 @@ const TEAM_MANAGEMENT_LIST_SELECT = {
   },
   _count: { select: { members: true } },
   members: {
+    take: READ_CAP.membersPerTeam + 1,
     orderBy: { createdAt: 'asc' },
     select: {
       user: {
@@ -2329,50 +2349,65 @@ export class TeamRepository {
     programId: string,
     userId: string,
   ): Promise<TeamDetailRecord | null> {
-    const membership = await this.prisma.teamMember.findUnique({
-      where: {
-        programId_userId: { programId, userId },
-      },
-      select: {
-        team: {
-          select: {
-            id: true,
-            name: true,
-            leaderId: true,
-            status: true,
-            updatedAt: true,
-            repositoryConnectionMode: true,
-            teamRepos: OPEN_TEAM_REPO_SELECT,
-            _count: {
-              select: {
-                submissions: true,
-                files: true,
-              },
-            },
-            programId: true,
-            program: {
-              select: {
-                teamMinSize: true,
-                teamMaxSize: true,
-                repositoryProvisioningEnabled: true,
-              },
-            },
-            members: {
-              select: {
-                userId: true,
-                user: {
-                  select: {
-                    nickname: true,
-                    ...USER_PROFILE_NAME_SELECT,
-                  },
+    const membership = await this.prisma.teamMember
+      .findUnique({
+        where: {
+          programId_userId: { programId, userId },
+        },
+        select: {
+          team: {
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              status: true,
+              updatedAt: true,
+              repositoryConnectionMode: true,
+              teamRepos: OPEN_TEAM_REPO_SELECT,
+              _count: {
+                select: {
+                  submissions: true,
+                  files: true,
                 },
               },
-              orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+              programId: true,
+              program: {
+                select: {
+                  teamMinSize: true,
+                  teamMaxSize: true,
+                  repositoryProvisioningEnabled: true,
+                },
+              },
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                select: {
+                  userId: true,
+                  user: {
+                    select: {
+                      nickname: true,
+                      ...USER_PROFILE_NAME_SELECT,
+                    },
+                  },
+                },
+                orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+              },
             },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            team: {
+              nested: {
+                members: READ_CAP.membersPerTeam,
+              },
+            },
+          },
+          'TeamMember.findUnique',
+        ),
+      );
     if (!membership) return null;
     const team = membership.team;
     const [outbox, job] = await Promise.all([
@@ -2423,29 +2458,37 @@ export class TeamRepository {
       READ_CAP.teamsPerProgram,
       'Team per program',
       (take) =>
-        this.prisma.team.findMany({
-          take,
-          where: { programId, archivedAt: null },
-          orderBy: { createdAt: 'asc' },
-          select: {
-            id: true,
-            name: true,
-            leaderId: true,
-            members: {
-              select: {
-                userId: true,
-                user: {
-                  select: {
-                    nickname: true,
-                    ...USER_PROFILE_NAME_SELECT,
+        this.prisma.team
+          .findMany({
+            take,
+            where: { programId, archivedAt: null },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              members: {
+                select: {
+                  userId: true,
+                  user: {
+                    select: {
+                      nickname: true,
+                      ...USER_PROFILE_NAME_SELECT,
+                    },
                   },
                 },
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: { createdAt: 'asc' },
               },
-              take: READ_CAP.membersPerTeam,
-              orderBy: { createdAt: 'asc' },
             },
-          },
-        }),
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
     );
     return teams.map((team) => ({
       id: team.id,
@@ -2462,57 +2505,80 @@ export class TeamRepository {
     programId: string,
     teamId: string,
   ): Promise<StaffTeamDetailRecord | null> {
-    const row = await this.prisma.team.findFirst({
-      where: { id: teamId, programId, archivedAt: null },
-      select: {
-        id: true,
-        name: true,
-        leaderId: true,
-        members: {
-          select: {
-            userId: true,
-            user: {
-              select: {
-                githubId: true,
-                nickname: true,
-                ...USER_PROFILE_NAME_SELECT,
+    const row = await this.prisma.team
+      .findFirst({
+        where: { id: teamId, programId, archivedAt: null },
+        select: {
+          id: true,
+          name: true,
+          leaderId: true,
+          members: {
+            take: READ_CAP.membersPerTeam + 1,
+            select: {
+              userId: true,
+              user: {
+                select: {
+                  githubId: true,
+                  nickname: true,
+                  ...USER_PROFILE_NAME_SELECT,
+                },
               },
             },
+            orderBy: { createdAt: 'asc' },
           },
-          orderBy: { createdAt: 'asc' },
-        },
-        status: true,
-        updatedAt: true,
-        repositoryConnectionMode: true,
-        isRepositoryPublicationPlanned: true,
-        teamRepos: OPEN_TEAM_REPO_SELECT,
-        program: {
-          select: {
-            id: true,
-            startAt: true,
-            repositoryProvisioningEnabled: true,
-            endAt: true,
-            milestones: {
-              select: {
-                id: true,
-                requirements: {
-                  where: {
-                    required: true,
+          status: true,
+          updatedAt: true,
+          repositoryConnectionMode: true,
+          isRepositoryPublicationPlanned: true,
+          teamRepos: OPEN_TEAM_REPO_SELECT,
+          program: {
+            select: {
+              id: true,
+              startAt: true,
+              repositoryProvisioningEnabled: true,
+              endAt: true,
+              milestones: {
+                take: READ_CAP.milestonesPerProgram + 1,
+                select: {
+                  id: true,
+                  requirements: {
+                    take: READ_CAP.requirementsPerMilestone + 1,
+                    where: {
+                      required: true,
+                    },
+                    select: { id: true },
                   },
-                  select: { id: true },
                 },
               },
             },
           },
+          submissions: {
+            take: READ_CAP.requirementsPerProgram + 1,
+            select: {
+              status: true,
+              requirement: { select: { id: true, milestoneId: true } },
+            } satisfies PrismaTypes.SubmissionSelect,
+          },
         },
-        submissions: {
-          select: {
-            status: true,
-            requirement: { select: { id: true, milestoneId: true } },
-          } satisfies PrismaTypes.SubmissionSelect,
-        },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            members: READ_CAP.membersPerTeam,
+            program: {
+              nested: {
+                milestones: {
+                  cap: READ_CAP.milestonesPerProgram,
+                  nested: { requirements: READ_CAP.requirementsPerMilestone },
+                },
+              },
+            },
+            submissions: READ_CAP.requirementsPerProgram,
+          },
+          'Team.findFirst',
+        ),
+      );
     if (!row) return null;
     const team = withOpenRepository(row);
 
@@ -2568,23 +2634,32 @@ export class TeamRepository {
     programId: string,
     teamId: string,
   ): Promise<TeamActivityScope | null> {
-    const row = await this.prisma.team.findFirst({
-      where: { id: teamId, programId, archivedAt: null },
-      select: {
-        leaderId: true,
-        program: { select: { startAt: true, endAt: true } },
-        members: {
-          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-          select: {
-            userId: true,
-            user: { select: { githubId: true, nickname: true } },
+    const row = await this.prisma.team
+      .findFirst({
+        where: { id: teamId, programId, archivedAt: null },
+        select: {
+          leaderId: true,
+          program: { select: { startAt: true, endAt: true } },
+          members: {
+            take: READ_CAP.membersPerTeam + 1,
+            orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+            select: {
+              userId: true,
+              user: { select: { githubId: true, nickname: true } },
+            },
           },
+          id: true,
+          status: true,
+          teamRepos: OPEN_TEAM_REPO_SELECT,
         },
-        id: true,
-        status: true,
-        teamRepos: OPEN_TEAM_REPO_SELECT,
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { members: READ_CAP.membersPerTeam },
+          'Team.findFirst',
+        ),
+      );
     if (!row) return null;
     const { id, status, repository, ...scope } = withOpenRepository(row);
     return { ...scope, application: { id, status, repository } };

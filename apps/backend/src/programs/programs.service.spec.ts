@@ -147,6 +147,7 @@ describe('ProgramsService detail', () => {
         id: true,
         status: true,
         submissions: {
+          take: 101,
           select: {
             status: true,
             requirement: {
@@ -239,6 +240,7 @@ describe('ProgramsService detail', () => {
       },
       select: {
         submissions: {
+          take: 101,
           select: {
             status: true,
             requirement: {

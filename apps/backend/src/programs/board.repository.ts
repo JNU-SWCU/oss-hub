@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import type { MemberKind } from '../users/user-contract.config';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import type { UserProfileNameSource } from '../platform/user-profile-read.config';
@@ -116,6 +118,7 @@ const postDetailSelect = {
   createdAt: true,
   updatedAt: true,
   comments: {
+    take: READ_CAP.commentsPerPost + 1,
     orderBy: { createdAt: 'asc' as const },
     select: commentSelect,
   },
@@ -124,6 +127,8 @@ const postDetailSelect = {
 
 @Injectable()
 export class BoardRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -207,10 +212,18 @@ export class BoardRepository {
   }
 
   async findDetailById(postId: string): Promise<BoardPostDetailRecord | null> {
-    const post = await this.prisma.boardPost.findUnique({
-      where: { id: postId },
-      select: postDetailSelect,
-    });
+    const post = await this.prisma.boardPost
+      .findUnique({
+        where: { id: postId },
+        select: postDetailSelect,
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { comments: READ_CAP.commentsPerPost },
+          'BoardPost.findUnique',
+        ),
+      );
     return post ? toDetailRecord(post) : null;
   }
 
