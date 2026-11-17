@@ -69,7 +69,7 @@ describe('Combined owned audit feed', () => {
   it('applies actor action and dates to the canonical feed rather than individual projections', async () => {
     const result = await service.list({
       ...query,
-      q: 'HISTORY-ACTOR',
+      q: 'ORIGINAL-ACTOR',
       action: 'USER_ROLE_CHANGED',
       limit: 1,
     });
@@ -79,7 +79,7 @@ describe('Combined owned audit feed', () => {
       id: `${HISTORY_FEED_PREFIX}audit:3`,
       actor: { name: 'Original actor', login: 'original-actor' },
       target: { name: 'Original target', login: 'original-target' },
-      change: { before: 'STAFF', after: 'ADMIN' },
+      change: { field: 'role', before: 'STAFF', after: 'ADMIN' },
     });
   });
 
@@ -184,7 +184,7 @@ describe('Combined owned audit feed', () => {
           programName: null,
           teamName: null,
         },
-        change: { before: 'UNSELECTED', after: 'STUDENT' },
+        change: { field: 'userType', before: 'UNSELECTED', after: 'STUDENT' },
         requestId: null,
         teamMembership: null,
         legacy: false,

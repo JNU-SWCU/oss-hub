@@ -47,8 +47,9 @@ export function auditRow(overrides: Partial<AuditSourceRow>): AuditSourceRow {
     metadata: {},
     historyKind: null,
     category: 'ACCOUNT',
+    requestId: null,
     actor: null,
-    subject: null,
+    targetPerson: null,
     programName: null,
     teamName: null,
     repositoryName: null,
@@ -105,7 +106,7 @@ export const cases: readonly MappingCase[] = [
     expectedTarget: { name: null, login: null },
   },
   {
-    name: 'v2 access target snapshot',
+    name: 'v2 access target whose identity the feed query resolves',
     targetType: 'USER',
     metadata: {
       schemaVersion: 2,
@@ -114,7 +115,7 @@ export const cases: readonly MappingCase[] = [
       before: state,
       after: state,
     },
-    expectedTarget: { name: 'Original target', login: 'old-target' },
+    expectedTarget: { name: null, login: null },
   },
   {
     name: 'v2 program snapshot',
@@ -160,7 +161,7 @@ export const cases: readonly MappingCase[] = [
     },
     expectedTarget: {
       name: null,
-      login: 'original-applicant',
+      login: null,
       programName: 'Original program',
     },
   },

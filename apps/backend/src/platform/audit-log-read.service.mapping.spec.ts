@@ -66,7 +66,7 @@ describe('AuditLogReadService record mapping', () => {
     },
   );
 
-  it('uses event-time people instead of renamed live users', async () => {
+  it('passes the identities resolved by the feed query through unchanged', async () => {
     const metadata = {
       schemaVersion: 2,
       eventKind: 'DIRECT_ROLE_CHANGED',
@@ -74,62 +74,22 @@ describe('AuditLogReadService record mapping', () => {
       before: state,
       after: state,
     };
-
-    const result = await readRows([row(metadata)]);
-
-    expect(result.items[0]).toMatchObject({
-      actor: {
-        id: 'actor-id',
-        name: 'Original actor',
-        login: 'old-actor',
-        role: 'ADMIN',
-      },
-      target: { name: 'Original target', login: 'old-target' },
-      metadata,
-      legacy: false,
-    });
-  });
-
-  it('returns the joined User name when the snapshot lacks a display name', async () => {
-    const metadata = {
-      schemaVersion: 2,
-      eventKind: 'DIRECT_ROLE_CHANGED',
-      actor: { displayName: null, githubLogin: 'old-actor' },
-      target: { displayName: null, githubLogin: 'old-target' },
-      before: state,
-      after: state,
+    const targetPerson = {
+      name: 'Resolved Target',
+      login: 'resolved-target',
+      role: 'STUDENT',
     };
 
     const result = await readRows([
-      auditRow({
-        actor: JOINED_ACTOR,
-        subject: {
-          id: 'subject-id',
-          name: 'Joined Subject',
-          login: 'renamed-target',
-          role: 'STUDENT',
-        },
-        metadata,
-      }),
-      auditRow({ id: 'audit-2', actor: JOINED_ACTOR, metadata: {} }),
+      auditRow({ actor: JOINED_ACTOR, targetPerson, metadata }),
     ]);
 
-    expect(result.items.map((item) => [item.actor, item.target])).toEqual([
-      [
-        {
-          id: 'actor-id',
-          name: 'Joined Actor',
-          login: 'old-actor',
-          role: 'ADMIN',
-        },
-        expect.objectContaining({
-          name: 'Joined Subject',
-          login: 'old-target',
-          role: 'STUDENT',
-        }),
-      ],
-      [JOINED_ACTOR, expect.objectContaining({ name: null, login: null })],
-    ]);
+    expect(result.items[0]).toMatchObject({
+      actor: JOINED_ACTOR,
+      target: targetPerson,
+      metadata,
+      legacy: false,
+    });
   });
 
   it('does not invent an actor for system histories', async () => {
@@ -184,7 +144,7 @@ describe('AuditLogReadService record mapping', () => {
     ).toEqual([
       ['Original program', null, null],
       ['original/repo', null, null],
-      [null, 'original-applicant', 'Original program'],
+      [null, null, 'Original program'],
     ]);
   });
 
@@ -206,9 +166,9 @@ describe('AuditLogReadService record mapping', () => {
     ]);
 
     expect(result.items.map((item) => item.change)).toEqual([
-      { before: 'PUBLISHED', after: 'ARCHIVED' },
-      { before: 'SUBMITTED', after: 'APPROVED' },
-      { before: 'STUDENT', after: 'STAFF' },
+      { field: 'lifecycle', before: 'PUBLISHED', after: 'ARCHIVED' },
+      { field: 'status', before: 'SUBMITTED', after: 'APPROVED' },
+      { field: 'role', before: 'STUDENT', after: 'STAFF' },
       null,
     ]);
   });
@@ -330,7 +290,11 @@ describe('AuditLogReadService record mapping', () => {
         category: 'LOGIN',
         action: 'LOGIN',
         actor: JOINED_ACTOR,
-        subject: JOINED_ACTOR,
+        targetPerson: {
+          name: 'Joined Actor',
+          login: 'renamed-actor',
+          role: 'ADMIN',
+        },
         metadata: { schemaVersion: 1, provider: 'github' },
       }),
     ]);
@@ -347,7 +311,7 @@ describe('AuditLogReadService record mapping', () => {
           programName: 'Joined program',
           teamName: 'Joined team',
         },
-        change: { before: null, after: '2' },
+        change: { field: 'revision', before: null, after: '2' },
       }),
       expect.objectContaining({
         category: 'LOGIN',
@@ -367,5 +331,34 @@ describe('AuditLogReadService record mapping', () => {
     expect(JSON.stringify(result)).not.toMatch(
       /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/,
     );
+  });
+
+  it('returns the changed grant when the effective role stays the same', async () => {
+    const before = {
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+      role: 'ADMIN',
+      accountStatus: 'ACTIVE',
+    };
+
+    const result = await readRows([
+      auditRow({
+        action: 'REVOKE_STAFF_ACCESS',
+        metadata: {
+          schemaVersion: 2,
+          eventKind: 'INDEPENDENT_AUTHORITY_CHANGED',
+          command: 'REVOKE_STAFF_ACCESS',
+          before,
+          after: { ...before, hasStaffAccess: false },
+        },
+      }),
+    ]);
+
+    expect(result.items[0]?.change).toEqual({
+      field: 'hasStaffAccess',
+      before: true,
+      after: false,
+    });
   });
 });

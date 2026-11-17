@@ -17,9 +17,12 @@ export type AuditTarget = {
   readonly teamName: string | null;
 };
 
+export type AuditChangeValue = string | boolean | null;
+
 export type AuditChange = {
-  readonly before: string | null;
-  readonly after: string | null;
+  readonly field: string;
+  readonly before: AuditChangeValue;
+  readonly after: AuditChangeValue;
 };
 
 export type AuditTeamMembership = {
@@ -48,11 +51,10 @@ export type AuditEntry = AuditEntryBase &
     | { readonly legacy: false; readonly metadata: AuditMetadataEvidence }
   );
 
-export type AuditJoinedUser = {
-  readonly id: string;
+export type AuditTargetPerson = {
   readonly name: string | null;
-  readonly login: string;
-  readonly role: string;
+  readonly login: string | null;
+  readonly role: string | null;
 };
 
 export type AuditSourceRow = {
@@ -65,8 +67,9 @@ export type AuditSourceRow = {
   readonly metadata: unknown;
   readonly historyKind: string | null;
   readonly category: AuditCategory;
-  readonly actor: AuditJoinedUser | null;
-  readonly subject: AuditJoinedUser | null;
+  readonly requestId: string | null;
+  readonly actor: AuditPerson | null;
+  readonly targetPerson: AuditTargetPerson | null;
   readonly programName: string | null;
   readonly teamName: string | null;
   readonly repositoryName: string | null;

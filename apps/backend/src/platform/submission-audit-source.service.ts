@@ -15,7 +15,7 @@ export class SubmissionAuditSourceService extends AuditSourceAdapterService {
     return this.entry(row, metadata, {
       change:
         REVISION_ACTIONS.has(row.action) && typeof revision === 'number'
-          ? { before: null, after: String(revision) }
+          ? { field: 'revision', before: null, after: String(revision) }
           : null,
     });
   }

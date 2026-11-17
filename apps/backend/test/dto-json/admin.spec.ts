@@ -215,7 +215,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
               programName: null,
               teamName: null,
             },
-            change: { before: 'PRIVATE', after: 'PUBLIC' },
+            change: { field: 'visibility', before: 'PRIVATE', after: 'PUBLIC' },
             requestId: null,
             teamMembership: null,
             legacy: false,

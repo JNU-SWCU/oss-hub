@@ -81,7 +81,7 @@ describe('Owned history display', () => {
     expect(result.items[0]).toMatchObject({ legacy: true, metadata: null });
   });
 
-  it('preserves event-time people snapshots on imported metadata', async () => {
+  it('keeps imported metadata with people snapshots as display evidence', async () => {
     const metadata = {
       schemaVersion: 1,
       actor: { displayName: 'Original actor', githubLogin: 'old-actor' },
@@ -95,8 +95,7 @@ describe('Owned history display', () => {
     });
 
     expect(result.items[0]).toMatchObject({
-      actor: { name: 'Original actor', login: 'old-actor' },
-      target: { name: 'Original target', login: 'old-target' },
+      actor: RENAMED_ACTOR,
       legacy: false,
       metadata,
     });
@@ -133,7 +132,6 @@ describe('Owned history display', () => {
         replacementRequestId: 'request-new',
       },
     });
-    expect(result.items[0]?.requestId).toBe('request-old');
     expect(result.items[0]?.metadata).not.toHaveProperty('request');
     expect(result.items[0]?.metadata).not.toHaveProperty('actor');
   });

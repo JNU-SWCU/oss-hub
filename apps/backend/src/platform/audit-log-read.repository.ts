@@ -33,22 +33,60 @@ const AUDIT_FEED_EVENTS = Object.values(AUDIT_SOURCE_QUERIES)
   .map((query) => `(${query})`)
   .join('\n    UNION ALL\n');
 
-const joinedUser = (alias: string, adminAlias: string) => `
-  CASE WHEN ${alias}."id" IS NULL THEN NULL
-    ELSE jsonb_build_object(
-      'id', ${alias}."id",
-      'name', ${alias}."name",
-      'login', ${alias}."login",
-      'role', CASE WHEN ${adminAlias}."userId" IS NULL
-        THEN ${alias}."type"::text ELSE 'ADMIN' END) END`;
+const STORED_SNAPSHOT = `(event."historyKind" IS NULL
+  AND jsonb_typeof(event."metadata") = 'object'
+  AND NOT event."metadata" ? 'recordKind'
+  AND event."metadata"->'schemaVersion' IN ('1'::jsonb, '2'::jsonb)
+  AND NOT (event."action" = 'USER_PHONE_UPDATED'
+    AND COALESCE(event."metadata"->>'transition', '') NOT IN ('SET', 'REPLACED')))`;
 
-const AUDIT_FEED_FILTERED_SELECT = `
+const snapshotPerson = (key: 'actor' | 'target') => `(${STORED_SNAPSHOT}
+  AND jsonb_typeof(event."metadata"#>'{${key},githubLogin}') = 'string'
+  AND event."metadata"#>>'{${key},githubLogin}' <> ''
+  AND jsonb_typeof(event."metadata"#>'{${key},displayName}') IN ('string', 'null'))`;
+
+const snapshotName = (key: 'actor' | 'target') =>
+  `CASE WHEN ${snapshotPerson(key)}
+    THEN NULLIF(btrim(event."metadata"#>>'{${key},displayName}'), '') END`;
+
+const snapshotLogin = (key: 'actor' | 'target') =>
+  `CASE WHEN ${snapshotPerson(key)}
+    THEN event."metadata"#>>'{${key},githubLogin}' END`;
+
+const joinedRole = (alias: string, adminAlias: string) =>
+  `CASE WHEN ${alias}."id" IS NULL THEN NULL
+    WHEN ${adminAlias}."userId" IS NULL THEN ${alias}."type"::text
+    ELSE 'ADMIN' END`;
+
+const APPLICANT_SNAPSHOT_LOGIN = `CASE WHEN ${STORED_SNAPSHOT}
+  THEN NULLIF(event."metadata"->>'applicantGithubLogin', '') END`;
+
+const AUDIT_FEED_RESOLVED_SELECT = `
   SELECT event."id", event."source", event."occurredAt", event."action",
     event."targetType", event."targetId", event."metadata", event."historyKind",
+    event."requestId",
     CASE WHEN event."actorId" IS NULL THEN 'SYSTEM'
       ELSE event."category" END AS "category",
-    ${joinedUser('actor', 'actor_admin')} AS "actor",
-    ${joinedUser('subject', 'subject_admin')} AS "subject",
+    CASE WHEN actor."id" IS NULL AND NOT ${snapshotPerson('actor')} THEN NULL
+      ELSE jsonb_build_object(
+        'id', actor."id",
+        'name', COALESCE(${snapshotName('actor')}, NULLIF(btrim(actor."name"), '')),
+        'login', COALESCE(${snapshotLogin('actor')}, actor."login"),
+        'role', ${joinedRole('actor', 'actor_admin')}) END AS "actor",
+    CASE
+      WHEN event."targetType" IN ('USER', 'ROLE_REQUEST') THEN
+        CASE WHEN subject."id" IS NULL AND NOT ${snapshotPerson('target')} THEN NULL
+          ELSE jsonb_build_object(
+            'name', COALESCE(${snapshotName('target')}, NULLIF(btrim(subject."name"), '')),
+            'login', COALESCE(${snapshotLogin('target')}, subject."login"),
+            'role', ${joinedRole('subject', 'subject_admin')}) END
+      WHEN event."targetType" = 'APPLICATION'
+        AND COALESCE(${snapshotLogin('target')}, ${APPLICANT_SNAPSHOT_LOGIN}) IS NOT NULL
+        THEN jsonb_build_object(
+          'name', ${snapshotName('target')},
+          'login', COALESCE(${snapshotLogin('target')}, ${APPLICANT_SNAPSHOT_LOGIN}),
+          'role', NULL)
+    END AS "targetPerson",
     program."name" AS "programName",
     team."name" AS "teamName",
     repo."owner_name" AS "repositoryName"
@@ -77,8 +115,10 @@ export class AuditLogReadRepository {
     if (query.q) {
       const pattern = `%${query.q}%`;
       predicates.push(
-        Prisma.sql`(actor."name" ILIKE ${pattern} OR actor."login" ILIKE ${pattern}
-          OR subject."name" ILIKE ${pattern} OR subject."login" ILIKE ${pattern})`,
+        Prisma.sql`(event."actor"->>'name' ILIKE ${pattern}
+          OR event."actor"->>'login' ILIKE ${pattern}
+          OR event."targetPerson"->>'name' ILIKE ${pattern}
+          OR event."targetPerson"->>'login' ILIKE ${pattern})`,
       );
     }
     if (query.action)
@@ -99,7 +139,8 @@ export class AuditLogReadRepository {
       : Prisma.sql`true`;
     const result = await this.prisma.$queryRaw<AuditLogQueryRow[]>`
       WITH events AS (${Prisma.raw(AUDIT_FEED_EVENTS)}),
-      filtered AS (${Prisma.raw(AUDIT_FEED_FILTERED_SELECT)} ${where})
+      resolved AS (${Prisma.raw(AUDIT_FEED_RESOLVED_SELECT)}),
+      filtered AS (SELECT * FROM resolved event ${where})
       SELECT totals.*, page.*
       FROM (
         SELECT count(*) FILTER (WHERE ${inCategory})::integer AS "total",

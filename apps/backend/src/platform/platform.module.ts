@@ -32,6 +32,16 @@ import { HistoryMetadataService } from './history-metadata.service';
 import { OriginGuard } from './origin.guard';
 import { RolesGuard } from './roles.guard';
 
+export const AUDIT_LOG_READ_PROVIDERS = [
+  AuditLogReadRepository,
+  AccountAuditSourceService,
+  TeamAuditSourceService,
+  ProgramAuditSourceService,
+  SubmissionAuditSourceService,
+  LoginAuditSourceService,
+  AuditLogReadService,
+] as const;
+
 @Global()
 @Module({
   controllers: [HealthController],
@@ -51,14 +61,8 @@ import { RolesGuard } from './roles.guard';
     HealthRepository,
     LockProgramTreeRepository,
     HealthService,
-    AuditLogReadRepository,
     HistoryMetadataService,
-    AccountAuditSourceService,
-    TeamAuditSourceService,
-    ProgramAuditSourceService,
-    SubmissionAuditSourceService,
-    LoginAuditSourceService,
-    AuditLogReadService,
+    ...AUDIT_LOG_READ_PROVIDERS,
     RolesGuard,
     AuthConfig,
     AuthSessionService,

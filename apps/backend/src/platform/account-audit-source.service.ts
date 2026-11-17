@@ -16,14 +16,7 @@ import type {
 @Injectable()
 export class AccountAuditSourceService extends AuditSourceAdapterService {
   toAuditEntry(row: AuditSourceRow): AuditEntry {
-    const metadata = this.recordMetadata(row);
-    return this.entry(row, metadata, {
-      requestId:
-        metadata?.recordKind === 'REQUEST_TRANSITION' &&
-        typeof metadata.requestId === 'string'
-          ? metadata.requestId
-          : null,
-    });
+    return this.entry(row, this.recordMetadata(row));
   }
 
   private recordMetadata(row: AuditSourceRow): AuditMetadataEvidence | null {

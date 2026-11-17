@@ -18,7 +18,11 @@ function selectionRow(metadata: unknown): AuditSourceRow {
   return auditRow({
     id: 'user:synthetic-type-selection',
     actor: SELECTED_USER,
-    subject: SELECTED_USER,
+    targetPerson: {
+      name: SELECTED_USER.name,
+      login: SELECTED_USER.login,
+      role: SELECTED_USER.role,
+    },
     action: 'USER_ROLE_CHANGED',
     targetType: 'USER',
     targetId: 'synthetic:type-selection-user',
@@ -61,7 +65,7 @@ describe('TYPE_SELECTION audit display', () => {
           programName: null,
           teamName: null,
         },
-        change: { before, after },
+        change: { field: 'userType', before, after },
         requestId: null,
         teamMembership: null,
         legacy: false,

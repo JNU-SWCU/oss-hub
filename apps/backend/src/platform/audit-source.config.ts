@@ -43,7 +43,9 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
         NULL::text AS "historyKind",
         NULL::text AS "programId",
         NULL::text AS "teamId",
-        "userId" AS "subjectUserId"
+        "userId" AS "subjectUserId",
+        COALESCE("original"->>'requestId', "original"#>>'{metadata,requestId}')
+          AS "requestId"
       FROM imported
       UNION ALL
       SELECT "id", 'ACCOUNT', "actorId", "occurredAt",
@@ -70,7 +72,10 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
           ELSE "data"->>'recordKind' END,
         NULL::text,
         NULL::text,
-        "userId"
+        "userId",
+        COALESCE("data"->>'requestId', "data"#>>'{metadata,requestId}',
+          CASE WHEN "data"->>'recordKind' = 'REQUEST_TRANSITION'
+            THEN "data"#>>'{request,id}' END)
       FROM histories
       WHERE "event" <> 'LEGACY_IMPORT'
         AND "data"->>'schemaVersion' = '1'
@@ -78,13 +83,6 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
     ) event
   `,
   TEAM: `
-    SELECT event."id", event."source", event."actorId", event."occurredAt",
-      event."action", event."targetType", event."targetId", event."metadata",
-      event."historyKind", event."programId", event."teamId",
-      CASE WHEN event."targetType" = 'APPLICATION' THEN event."applicantId" END
-        AS "subjectUserId",
-      'OPERATION' AS "category"
-    FROM (
       SELECT history."id", 'TEAM' AS "source", history."actorId",
         history."occurredAt",
         COALESCE(history."data"->>'action', CASE history."event"::text
@@ -120,12 +118,15 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
         NULL::text AS "historyKind",
         history."programId",
         history."teamId",
-        team."applicantId"
+        NULL::text AS "subjectUserId",
+        COALESCE(history."data"->>'requestId',
+          history."data"#>>'{metadata,requestId}',
+          history."data"#>>'{pairedAuditMetadata,requestId}') AS "requestId",
+        'OPERATION' AS "category"
       FROM "TeamHistory" history
       LEFT JOIN "Program" program ON program."id" = history."programId"
       LEFT JOIN "Team" team ON team."id" = history."teamId"
       WHERE history."event"::text NOT LIKE 'INVITATION%'
-    ) event
   `,
   PROGRAM: `
     SELECT history."id", 'PROGRAM' AS "source", history."actorId",
@@ -133,7 +134,10 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
       'PROGRAM' AS "targetType", history."programId" AS "targetId",
       history."data"->'metadata' AS "metadata", NULL::text AS "historyKind",
       history."programId", NULL::text AS "teamId",
-      NULL::text AS "subjectUserId", 'OPERATION' AS "category"
+      NULL::text AS "subjectUserId",
+      COALESCE(history."data"->>'requestId', history."data"#>>'{metadata,requestId}')
+        AS "requestId",
+      'OPERATION' AS "category"
     FROM "ProgramHistory" history
   `,
   SUBMISSION: `
@@ -147,7 +151,7 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
         'revision', history."revision")) AS "metadata",
       NULL::text AS "historyKind", milestone."programId",
       submission."teamId", NULL::text AS "subjectUserId",
-      'SUBMISSION' AS "category"
+      NULL::text AS "requestId", 'SUBMISSION' AS "category"
     FROM "SubmissionHistory" history
     JOIN "Submission" submission ON submission."id" = history."submissionId"
     JOIN "Requirement" requirement ON requirement."id" = submission."requirementId"
@@ -163,7 +167,7 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
         AS "metadata",
       NULL::text AS "historyKind", NULL::text AS "programId",
       NULL::text AS "teamId", history."userId" AS "subjectUserId",
-      'LOGIN' AS "category"
+      NULL::text AS "requestId", 'LOGIN' AS "category"
     FROM "LoginHistory" history
   `,
 };
