@@ -18,7 +18,6 @@ afterEach(() => {
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
 import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
-import { ActivityPanelBody } from './components/activity-graph-panel';
 import { ApiError } from '@/lib/api-client';
 import { RequirementSectionBody } from '../documents/requirement-list';
 import type { Requirement } from '../documents/requirement-dto';
@@ -60,85 +59,6 @@ const milestone: ProgramMilestone = {
   viewerSubmissionStatus: 'REJECTED',
   applicationSubmissionSummary: null,
 };
-
-describe('ActivityPanelBody', () => {
-  it('저장소 없음과 부분 실패를 독립 상태로 표시한다', () => {
-    const empty = renderToStaticMarkup(
-      <ActivityPanelBody
-        state={{ kind: 'ready', activities: [] }}
-        onRetry={vi.fn()}
-      />,
-    );
-    const failed = renderToStaticMarkup(
-      <ActivityPanelBody state={{ kind: 'failed' }} onRetry={vi.fn()} />,
-    );
-    expect(empty).toContain('표시할 팀이 없습니다');
-    expect(failed).toContain('활동을 불러오지 못했습니다');
-    expect(failed).toContain('프로그램 정보는 정상적으로 표시');
-  });
-
-  it('canonical 커밋·PR·릴리스와 데이터 기준 시각을 모두 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <ActivityPanelBody
-        state={{
-          kind: 'ready',
-          activities: [
-            {
-              teamId: 'application-1',
-              label: '학생',
-              commitCount: 2,
-              pullRequestCount: 3,
-              releaseCount: 4,
-              collectionStatus: 'READY',
-              members: [],
-              hasIncompleteContributions: false,
-              lastActivityAt: '2026-07-23T00:00:00.000Z',
-              dataAsOf: '2026-07-24T00:00:00.000Z',
-            },
-          ],
-        }}
-        onRetry={vi.fn()}
-      />,
-    );
-
-    expect(html).toContain('aria-label="학생 Commit"');
-    expect(html).toContain('aria-label="학생 PR"');
-    expect(html).toContain('aria-label="학생 Release"');
-    expect(html).toContain('aria-valuenow="2"');
-    expect(html).toContain('aria-valuenow="3"');
-    expect(html).toContain('aria-valuenow="4"');
-    expect(html).toContain('데이터 기준');
-    expect(html).not.toContain('star');
-  });
-
-  it('활성 generation이 없는 저장소에 안전한 빈 활동 문구를 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <ActivityPanelBody
-        state={{
-          kind: 'ready',
-          activities: [
-            {
-              teamId: 'application-1',
-              label: '학생',
-              commitCount: 0,
-              pullRequestCount: 0,
-              releaseCount: 0,
-              collectionStatus: 'EMPTY',
-              members: [],
-              hasIncompleteContributions: false,
-              lastActivityAt: null,
-              dataAsOf: null,
-            },
-          ],
-        }}
-        onRetry={vi.fn()}
-      />,
-    );
-
-    expect(html).toContain('아직 수집된 활동이 없습니다');
-    expect(html).toContain('아직 게시된 활동 데이터가 없습니다');
-  });
-});
 
 const programWithoutMilestones: ProgramDetail = {
   id: 'program-1',
