@@ -14,6 +14,10 @@ import {
 } from '@nestjs/common';
 import { type Response } from 'express';
 import { OriginGuard } from '../platform/origin.guard';
+import {
+  ApiFileResponse,
+  ApiFileUpload,
+} from '../platform/api-contract.decorator';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import {
   FilesService,
@@ -55,6 +59,7 @@ export class FilesController {
   constructor(private readonly service: FilesService) {}
   @Get(':fileId')
   @Protected()
+  @ApiFileResponse('application/octet-stream')
   async download(
     @Req()
     request: SubmissionRequest,
@@ -70,6 +75,7 @@ export class FilesController {
   @Protected()
   @UseGuards(OriginGuard)
   @UseInterceptors(SubmissionFileUploadInterceptor)
+  @ApiFileUpload()
   check(
     @UploadedFile()
     file: SubmissionFileUpload | undefined,
@@ -108,6 +114,7 @@ export class RequirementFilesController {
   @Protected()
   @UseGuards(OriginGuard)
   @UseInterceptors(RequirementFileUploadInterceptor)
+  @ApiFileUpload('milestoneId', 'documentId')
   async upload(
     @Req() request: ViewerRequest,
     @Body('milestoneId') milestoneId: unknown,
@@ -129,6 +136,7 @@ export class RequirementFilesController {
   @Protected()
   @UseGuards(OriginGuard)
   @UseInterceptors(RequirementFileUploadInterceptor)
+  @ApiFileUpload()
   check(
     @UploadedFile() file: RequirementFileUpload | undefined,
   ): Promise<void> {

@@ -14,7 +14,7 @@ export class CreateApplicationRequestDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  declare readonly inviteeUserIds?: readonly string[];
+  declare readonly inviteeUserIds?: string[];
 
   @IsDefined()
   @IsObject()

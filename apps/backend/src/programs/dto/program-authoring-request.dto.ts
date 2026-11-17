@@ -121,7 +121,7 @@ export class ProgramAuthoringMilestoneRequestDto {
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => ProgramAuthoringDocumentRequestDto)
-  declare readonly documents: readonly ProgramAuthoringDocumentRequestDto[];
+  declare readonly documents: ProgramAuthoringDocumentRequestDto[];
 }
 
 export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
@@ -132,7 +132,7 @@ export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
 
   @IsArray()
   @IsString({ each: true })
-  declare readonly organizers: readonly string[];
+  declare readonly organizers: string[];
 
   @IsIn(Object.values(ProgramTrackType))
   declare readonly trackType: ProgramTrackType;
@@ -176,7 +176,7 @@ export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
   @AtMostDocuments(100)
   @ValidateNested({ each: true })
   @Type(() => ProgramAuthoringMilestoneRequestDto)
-  declare readonly milestones: readonly ProgramAuthoringMilestoneRequestDto[];
+  declare readonly milestones: ProgramAuthoringMilestoneRequestDto[];
 }
 
 export class UpdateProgramRequestDto

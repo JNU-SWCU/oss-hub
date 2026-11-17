@@ -8,6 +8,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ApiFoundResponse, ApiQuery } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthFlowService } from './auth-flow.service';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
@@ -24,6 +25,7 @@ export class AuthController {
 
   @Get('github')
   @Public()
+  @ApiFoundResponse()
   startGithubLogin(
     @Query() query: GithubLoginRequestDto,
     @Res() res: Response,
@@ -33,6 +35,10 @@ export class AuthController {
 
   @Get('github/callback')
   @Public()
+  @ApiFoundResponse()
+  @ApiQuery({ name: 'code', type: String, required: false })
+  @ApiQuery({ name: 'state', type: String, required: false })
+  @ApiQuery({ name: 'error', type: String, required: false })
   githubCallback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,

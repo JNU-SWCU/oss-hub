@@ -196,9 +196,8 @@ export async function schemaDrift(
     [
       'migrate',
       'diff',
-      '--from-url',
-      url,
-      '--to-schema-datamodel',
+      '--from-config-datasource',
+      '--to-schema',
       schemas[phase],
       '--script',
     ],

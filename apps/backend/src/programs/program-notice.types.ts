@@ -11,8 +11,9 @@ export type ProgramNoticeCandidates = {
   readonly teamSize?: { readonly min: number; readonly max: number };
 };
 
-export type ProgramNoticeWarning =
-  'NO_IMAGE' | 'MULTIPLE_IMAGES' | 'EXTERNAL_APPLICATION_LINK';
+import type { ProgramNoticeWarning } from './program-notice.config';
+
+export type { ProgramNoticeWarning } from './program-notice.config';
 
 export type ProgramNoticePreview = {
   readonly sourceUrl: string;

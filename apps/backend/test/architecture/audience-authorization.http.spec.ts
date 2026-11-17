@@ -492,7 +492,18 @@ describe('Audience authorization HTTP characterization', () => {
           provide: AuditLogReadRepository,
           useValue: {
             findActorByGithubId: findActor,
-            list: () => Promise.resolve({ rows: [], total: 0 }),
+            list: () =>
+              Promise.resolve({
+                rows: [],
+                total: 0,
+                counts: {
+                  ACCOUNT: 0,
+                  OPERATION: 0,
+                  SUBMISSION: 0,
+                  LOGIN: 0,
+                  SYSTEM: 0,
+                },
+              }),
           },
         },
         {

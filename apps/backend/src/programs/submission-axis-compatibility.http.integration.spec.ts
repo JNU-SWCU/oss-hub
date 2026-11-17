@@ -70,7 +70,10 @@ it('holds the submission row lock before reading the item review version', async
         WHERE "requirementId" = ${flowIds.document}
           AND "teamId" = ${flowIds.team}
         FOR UPDATE NOWAIT
-      `).rejects.toMatchObject({ code: 'P2010', meta: { code: '55P03' } });
+      `).rejects.toMatchObject({
+        code: 'P2010',
+        meta: { driverAdapterError: { cause: { originalCode: '55P03' } } },
+      });
     });
   } finally {
     await contender.$disconnect();
@@ -504,7 +507,10 @@ it('serializes review commit before program deletion with two transactions and n
           flowIds.program,
         );
       } catch (error) {
-        expect(error).toMatchObject({ code: 'P2010', meta: { code: '55P03' } });
+        expect(error).toMatchObject({
+          code: 'P2010',
+          meta: { driverAdapterError: { cause: { originalCode: '55P03' } } },
+        });
         deleteWasBlocked = true;
         await transaction.$executeRawUnsafe(
           'ROLLBACK TO SAVEPOINT legacy_review_delete',

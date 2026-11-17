@@ -116,9 +116,7 @@ it('현재 첨부가 둘이면 어느 revision인지 추측하지 않고 전체�
     ),
   ).rejects.toMatchObject({
     code: 'P2010',
-    meta: {
-      code: '23514',
-    },
+    meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
   });
 
   await expect(

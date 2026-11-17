@@ -214,7 +214,6 @@ describe('TeamsController', () => {
       id: 'user-a',
       name: '가나다',
       nickname: 'login-a',
-      isLeader: true,
     };
     const page: TeamManagementListPage = {
       items: [
@@ -405,6 +404,8 @@ describe('TeamsController', () => {
         },
       ],
       application: null,
+      repositoryContributions: null,
+      repositoryUrlHistory: { items: [], nextCursor: null },
     });
     const controller = new TeamsController(serviceStub({ getForStaff }));
 
@@ -424,6 +425,8 @@ describe('TeamsController', () => {
         },
       ],
       application: null,
+      repositoryContributions: null,
+      repositoryUrlHistory: { items: [], nextCursor: null },
     });
   });
 

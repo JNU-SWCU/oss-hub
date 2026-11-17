@@ -2,8 +2,39 @@ import type { ApplicationStatus } from '@prisma/client';
 import type {
   TeamManagementListItem,
   TeamManagementListPage,
-  TeamManagementMember,
 } from '../team.repository';
+
+class TeamManagementMemberResponseDto {
+  declare readonly id: string;
+  declare readonly name: string | null;
+  declare readonly nickname: string;
+
+  static from(
+    member: NonNullable<TeamManagementListItem['team']>['members'][number],
+  ): TeamManagementMemberResponseDto {
+    return { id: member.id, name: member.name, nickname: member.nickname };
+  }
+}
+
+class TeamManagementTeamResponseDto {
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly memberCount: number;
+  declare readonly members: TeamManagementMemberResponseDto[];
+
+  static from(
+    team: NonNullable<TeamManagementListItem['team']>,
+  ): TeamManagementTeamResponseDto {
+    return {
+      id: team.id,
+      name: team.name,
+      memberCount: team.memberCount,
+      members: team.members.map((member) =>
+        TeamManagementMemberResponseDto.from(member),
+      ),
+    };
+  }
+}
 
 export class TeamManagementListItemResponseDto {
   declare readonly id: string;
@@ -17,12 +48,7 @@ export class TeamManagementListItemResponseDto {
     readonly name: string | null;
     readonly nickname: string;
   };
-  declare readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly memberCount: number;
-    readonly members: readonly TeamManagementMember[];
-  } | null;
+  declare readonly team: TeamManagementTeamResponseDto | null;
 
   static from(item: TeamManagementListItem): TeamManagementListItemResponseDto {
     return {
@@ -33,13 +59,13 @@ export class TeamManagementListItemResponseDto {
       submittedAt: item.submittedAt.toISOString(),
       rejectionReason: item.rejectionReason,
       applicant: item.applicant,
-      team: item.team,
+      team: item.team ? TeamManagementTeamResponseDto.from(item.team) : null,
     };
   }
 }
 
 export class TeamManagementListPageResponseDto {
-  declare readonly items: readonly TeamManagementListItemResponseDto[];
+  declare readonly items: TeamManagementListItemResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly totalItems: number;

@@ -5,7 +5,10 @@ export class StudentApplicationResponseDto {
   declare readonly programId: string;
   declare readonly status: StudentApplicationView['status'];
   declare readonly teamId: string | null;
-  declare readonly answers: StudentApplicationView['answers'];
+  declare readonly answers: {
+    readonly applicantName: string;
+    readonly title: string;
+  };
   declare readonly submittedAt: string;
   declare readonly updatedAt: string;
   declare readonly isRepositoryPublicationPlanned: boolean;

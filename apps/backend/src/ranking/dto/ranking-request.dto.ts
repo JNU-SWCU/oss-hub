@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 import { LEGACY_RANKING_PERIODS } from '../ranking-year.service';
@@ -15,11 +16,13 @@ export class RankingRequestDto {
   @IsIn([LEGACY_RANKING_PERIODS.THIS_YEAR, LEGACY_RANKING_PERIODS.ALL])
   readonly period?: LegacyRankingPeriod;
 
+  @ApiPropertyOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   readonly page: number = 1;
 
+  @ApiPropertyOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

@@ -5,7 +5,6 @@ import type {
 import type { AuthorityLabel } from '../../users/authority-label.types';
 import type {
   AccountStatus,
-  AdminOrigin,
   ApprovalStatus,
   LoginHistoryEvent,
 } from '@prisma/client';
@@ -17,12 +16,7 @@ import type {
   AdminAccessUserPage,
   AdminAccessUserHistory,
 } from '../../users/admin-access-read-ordering.repository';
-
-const ADMIN_GRANT_TIME_MEANINGS = {
-  MIGRATION: 'MIGRATED_QUALIFICATION_CREATED',
-  ADMIN: 'GRANTED',
-  BOOTSTRAP: 'GRANTED',
-} as const satisfies Readonly<Record<AdminOrigin, string>>;
+import { AdminGrantResponseDto } from './admin-grant-response.dto';
 
 class StaffAccessRequestHistoryItemResponseDto {
   declare readonly id: string;
@@ -68,13 +62,13 @@ class LoginHistoryItemResponseDto {
 
 export class AccessRequestsUserHistoryResponseDto {
   declare readonly staffAccessRequests: {
-    readonly items: readonly StaffAccessRequestHistoryItemResponseDto[];
+    readonly items: StaffAccessRequestHistoryItemResponseDto[];
     readonly page: number;
     readonly limit: number;
     readonly total: number;
   };
   declare readonly loginHistory: {
-    readonly items: readonly LoginHistoryItemResponseDto[];
+    readonly items: LoginHistoryItemResponseDto[];
     readonly page: number;
     readonly limit: number;
     readonly total: number;
@@ -151,9 +145,20 @@ export class AccessRequestsUserResponseDto {
 }
 
 export class AccessRequestsFacetsResponseDto {
-  declare readonly roles: AdminAccessFacets['roles'];
-  declare readonly accountStatuses: AdminAccessFacets['accountStatuses'];
-  declare readonly pendingRequests: AdminAccessFacets['pendingRequests'];
+  declare readonly roles: {
+    readonly unassigned: number;
+    readonly student: number;
+    readonly staff: number;
+    readonly admin: number;
+  };
+  declare readonly accountStatuses: {
+    readonly active: number;
+    readonly deactivated: number;
+  };
+  declare readonly pendingRequests: {
+    readonly none: number;
+    readonly pending: number;
+  };
 
   static from(facets: AdminAccessFacets): AccessRequestsFacetsResponseDto {
     return {
@@ -165,7 +170,7 @@ export class AccessRequestsFacetsResponseDto {
 }
 
 export class AccessRequestsUserPageResponseDto {
-  declare readonly items: readonly AccessRequestsUserResponseDto[];
+  declare readonly items: AccessRequestsUserResponseDto[];
   declare readonly page: number;
   declare readonly limit: number;
   declare readonly total: number;
@@ -216,14 +221,15 @@ export class AccessRequestsUserDetailResponseDto {
   declare readonly createdAt: string;
   declare readonly pendingRequest: PendingRequestResponseDto | null;
   declare readonly lastLoginAt: string | null;
-  declare readonly profile: AdminAccessUserDetail['profile'];
-  declare readonly participations:
-    readonly UserParticipationResponseDto[] | null;
-  declare readonly adminGrant: {
-    readonly origin: AdminOrigin;
-    readonly grantedAt: string;
-    readonly grantTimeMeaning: (typeof ADMIN_GRANT_TIME_MEANINGS)[AdminOrigin];
-  } | null;
+  declare readonly profile: {
+    readonly name: string | null;
+    readonly studentId: string | null;
+    readonly staffNumber: string | null;
+    readonly department: string | null;
+    readonly isComplete: boolean;
+  };
+  declare readonly participations: UserParticipationResponseDto[] | null;
+  declare readonly adminGrant: AdminGrantResponseDto | null;
 
   static from(
     user: AdminAccessUserDetail,
@@ -250,11 +256,7 @@ export class AccessRequestsUserDetailResponseDto {
           UserParticipationResponseDto.from(participation),
         ) ?? null,
       adminGrant: user.adminGrant
-        ? {
-            origin: user.adminGrant.origin,
-            grantedAt: user.adminGrant.grantedAt.toISOString(),
-            grantTimeMeaning: ADMIN_GRANT_TIME_MEANINGS[user.adminGrant.origin],
-          }
+        ? AdminGrantResponseDto.from(user.adminGrant)
         : null,
     };
   }

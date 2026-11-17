@@ -1,3 +1,4 @@
+import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
 import type {
   RankingEntry,
   RankingPage,
@@ -8,6 +9,11 @@ import type {
   RankingTimeline,
   RankingTimelineSeries,
 } from '../ranking-timeline.service';
+
+const NULLABLE_INTEGER_ARRAY = {
+  type: 'array',
+  items: { type: 'integer', nullable: true },
+} as const;
 
 class PublicRankingEntryResponseDto {
   declare readonly rank: number;
@@ -90,9 +96,22 @@ function assertNeverViewerClass(value: never): never {
   throw new TypeError(`Unexpected ranking viewer class: ${String(value)}`);
 }
 
+@ApiExtraModels(PublicRankingEntryResponseDto, StaffRankingEntryResponseDto)
 export class RankingPageResponseDto {
+  @ApiProperty({
+    oneOf: [{ type: 'integer' }, { type: 'string', enum: ['all'] }],
+  })
   declare readonly year: RankingYear;
-  declare readonly items: readonly RankingEntryResponseDto[];
+  @ApiProperty({
+    type: 'array',
+    items: {
+      oneOf: [
+        { $ref: getSchemaPath(PublicRankingEntryResponseDto) },
+        { $ref: getSchemaPath(StaffRankingEntryResponseDto) },
+      ],
+    },
+  })
+  declare readonly items: RankingEntryResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly total: number;
@@ -104,7 +123,7 @@ export class RankingPageResponseDto {
   static from(page: RankingPage): RankingPageResponseDto {
     return {
       year: page.year,
-      items: projectItems(page),
+      items: [...projectItems(page)],
       page: page.page,
       pageSize: page.pageSize,
       total: page.total,
@@ -117,23 +136,41 @@ export class RankingPageResponseDto {
 }
 
 export class RankingYearsResponseDto {
-  declare readonly years: readonly number[];
+  declare readonly years: number[];
 
   static from(years: readonly number[]): RankingYearsResponseDto {
-    return { years };
+    return { years: [...years] };
+  }
+}
+
+class RankingTimelineSeriesResponseDto {
+  declare readonly githubLogin: string;
+  @ApiProperty(NULLABLE_INTEGER_ARRAY)
+  declare readonly ranks: (number | null)[];
+  @ApiProperty(NULLABLE_INTEGER_ARRAY)
+  declare readonly totals: (number | null)[];
+
+  static from(series: RankingTimelineSeries): RankingTimelineSeriesResponseDto {
+    return {
+      githubLogin: series.githubLogin,
+      ranks: [...series.ranks],
+      totals: [...series.totals],
+    };
   }
 }
 
 export class RankingTimelineResponseDto {
   declare readonly year: number;
-  declare readonly months: readonly number[];
-  declare readonly series: readonly RankingTimelineSeries[];
+  declare readonly months: number[];
+  declare readonly series: RankingTimelineSeriesResponseDto[];
 
   static from(timeline: RankingTimeline): RankingTimelineResponseDto {
     return {
       year: timeline.year,
-      months: timeline.months,
-      series: timeline.series,
+      months: [...timeline.months],
+      series: timeline.series.map((series) =>
+        RankingTimelineSeriesResponseDto.from(series),
+      ),
     };
   }
 }

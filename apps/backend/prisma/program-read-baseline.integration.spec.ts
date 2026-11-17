@@ -2,6 +2,8 @@ import { FileMetadataRepository } from '../src/programs/files.repository';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PrismaClient, type Prisma } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { PlatformRepository } from '../src/platform/platform.repository';
 import { ProgramOverviewRepository } from '../src/programs/programs.repository';
@@ -36,6 +38,7 @@ class UnseededProgramBaselineError extends Error {
 }
 
 const prisma = new MeasuredPrisma({
+  adapter: new PrismaPg(loadPrismaPoolConfig()),
   log: [{ emit: 'event', level: 'query' }],
 });
 let queryCount = 0;

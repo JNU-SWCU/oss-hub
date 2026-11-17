@@ -11,6 +11,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiExtraModels,
+  ApiOkResponse,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import {
@@ -79,6 +85,28 @@ export class MilestonesController {
   }
 
   @Patch(':id')
+  @ApiExtraModels(
+    UpdateMilestoneRequestDto,
+    UpsertMilestoneRequestDto,
+    ProgramMilestoneEditResponseDto,
+    ProgramMilestoneResponseDto,
+  )
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(UpdateMilestoneRequestDto) },
+        { $ref: getSchemaPath(UpsertMilestoneRequestDto) },
+      ],
+    },
+  })
+  @ApiOkResponse({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(ProgramMilestoneEditResponseDto) },
+        { $ref: getSchemaPath(ProgramMilestoneResponseDto) },
+      ],
+    },
+  })
   async update(
     @Req() request: SessionIdentity,
     @Param('id') id: string,

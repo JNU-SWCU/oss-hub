@@ -27,7 +27,7 @@ export class UserProfileResponseDto {
   declare readonly department: string | null;
   declare readonly phone: string | null;
   declare readonly isComplete: boolean;
-  declare readonly participations: readonly UserParticipationResponseDto[];
+  declare readonly participations: UserParticipationResponseDto[];
 
   static from(profile: UserProfile): UserProfileResponseDto {
     return {
