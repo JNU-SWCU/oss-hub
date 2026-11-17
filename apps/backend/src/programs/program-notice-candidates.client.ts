@@ -74,7 +74,7 @@ function extractPeriod(
   const parts = input.split(/\s*[~～–]\s*/);
   if (parts.length > 2) return undefined;
   const first = parts[0] ?? '';
-  const year = Number(input.match(/(?:^|\D)(20\d{2})\s*[년./-]/)?.[1]);
+  const year = Number(input.match(/(?:^|\D)(20\d{2})(?!\d)\s*[년./-]/)?.[1]);
   if (!year) return undefined;
   const start = dateParts(first, year);
   const second = parts[1];
@@ -106,7 +106,7 @@ type NoticeDate = {
 
 function dateParts(input: string, year: number): NoticeDate | undefined {
   const match = input.match(
-    /^\s*(?:(20\d{2})\s*[년./-]\s*)?(\d{1,2})\s*[월./-]\s*(\d{1,2})\s*(?:일|\.)?\s*(?:\([월화수목금토일]\))?\s*(?:(\d{1,2}):(\d{2}))?/,
+    /^\s*(?:(20\d{2})(?!\d)\s*[년./-]\s*)?(\d{1,2})(?!\d)\s*[월./-]\s*(\d{1,2})(?!\d)\s*(?:일|\.)?\s*(?:\([월화수목금토일]\))?\s*(?:(\d{1,2})(?!\d):(\d{2})(?!\d))?\s*(?:까지)?\s*(?:\/\s*.+)?$/,
   );
   if (!match) return undefined;
   const value = {
