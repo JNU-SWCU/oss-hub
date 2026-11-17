@@ -637,12 +637,11 @@ test('release 지표는 랭킹 화면에서 사라진다 — 저장소 축 전�
   expect(html).not.toContain('릴리스');
 });
 
-test('랭킹 점수 설명은 올해 활동을 말하고 스타 규칙을 안내한다', () => {
+test('랭킹 화면은 머리말의 점수 계산 방법 도움말을 그린다', () => {
   const html = staffAxisMarkup([personAxisItem()], {
     viewerClass: 'staff',
   });
 
-  expect(html).toContain('올해 깃허브에 갈아 넣은 만큼 점수가 쌓여요.');
   expect(html).toContain('aria-label="점수 계산 방법"');
 });
 
