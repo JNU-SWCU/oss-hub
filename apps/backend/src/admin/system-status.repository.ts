@@ -59,7 +59,6 @@ export interface AdminChangeEventDto {
 const LIVE_TEAM_JOB_WHERE = {
   team: { archivedAt: null, program: { lifecycle: { not: 'DELETED' } } },
 } satisfies Prisma.RepositoryProvisionJobWhereInput;
-const HISTORY_PAGE_SIZE = 500;
 
 @Injectable()
 export class SystemStatusRepository {
@@ -133,33 +132,37 @@ export class SystemStatusRepository {
     since: Date,
   ): Promise<readonly BulkRemovalEventDto[]> {
     const [teamEvents, programEvents] = await Promise.all([
-      readHistoryPages((after) =>
-        this.prisma.teamHistory.findMany({
-          take: HISTORY_PAGE_SIZE,
-          orderBy: { id: 'asc' },
-          where: {
-            ...(after === undefined ? {} : { id: { gt: after } }),
-            event: {
-              in: [TeamHistoryEvent.REJECTED, TeamHistoryEvent.DELETED],
+      this.boundedReads.readAllInBatches(
+        (after: string | undefined, take) =>
+          this.prisma.teamHistory.findMany({
+            take,
+            orderBy: { id: 'asc' },
+            where: {
+              ...(after === undefined ? {} : { id: { gt: after } }),
+              event: {
+                in: [TeamHistoryEvent.REJECTED, TeamHistoryEvent.DELETED],
+              },
+              actorId: { not: null },
+              occurredAt: { gte: since },
             },
-            actorId: { not: null },
-            occurredAt: { gte: since },
-          },
-          select: { id: true, actorId: true, occurredAt: true },
-        }),
+            select: { id: true, actorId: true, occurredAt: true },
+          }),
+        (row) => row.id,
       ),
-      readHistoryPages((after) =>
-        this.prisma.programHistory.findMany({
-          take: HISTORY_PAGE_SIZE,
-          orderBy: { id: 'asc' },
-          where: {
-            ...(after === undefined ? {} : { id: { gt: after } }),
-            event: ProgramHistoryEvent.DELETED,
-            actorId: { not: null },
-            occurredAt: { gte: since },
-          },
-          select: { id: true, actorId: true, occurredAt: true },
-        }),
+      this.boundedReads.readAllInBatches(
+        (after: string | undefined, take) =>
+          this.prisma.programHistory.findMany({
+            take,
+            orderBy: { id: 'asc' },
+            where: {
+              ...(after === undefined ? {} : { id: { gt: after } }),
+              event: ProgramHistoryEvent.DELETED,
+              actorId: { not: null },
+              occurredAt: { gte: since },
+            },
+            select: { id: true, actorId: true, occurredAt: true },
+          }),
+        (row) => row.id,
       ),
     ]);
     return [...teamEvents, ...programEvents].flatMap(
@@ -171,23 +174,27 @@ export class SystemStatusRepository {
   async findAdminChangeEvents(
     since: Date,
   ): Promise<readonly AdminChangeEventDto[]> {
-    const events = await readHistoryPages((after) =>
-      this.prisma.adminHistory.findMany({
-        take: HISTORY_PAGE_SIZE,
-        orderBy: { id: 'asc' },
-        where: {
-          ...(after === undefined ? {} : { id: { gt: after } }),
-          event: { in: [AdminHistoryEvent.GRANTED, AdminHistoryEvent.REVOKED] },
-          occurredAt: { gte: since },
-        },
-        select: {
-          id: true,
-          userId: true,
-          actorId: true,
-          occurredAt: true,
-          user: { select: { nickname: true } },
-        },
-      }),
+    const events = await this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.adminHistory.findMany({
+          take,
+          orderBy: { id: 'asc' },
+          where: {
+            ...(after === undefined ? {} : { id: { gt: after } }),
+            event: {
+              in: [AdminHistoryEvent.GRANTED, AdminHistoryEvent.REVOKED],
+            },
+            occurredAt: { gte: since },
+          },
+          select: {
+            id: true,
+            userId: true,
+            actorId: true,
+            occurredAt: true,
+            user: { select: { nickname: true } },
+          },
+        }),
+      (row) => row.id,
     );
     return events.map(({ user, userId, actorId, occurredAt }) => ({
       userId,
@@ -254,18 +261,5 @@ export class SystemStatusRepository {
       trackedRepositoryCount: tracked._count._all,
       lastSuccessAt: tracked._max.lastSuccessAt ?? null,
     };
-  }
-}
-
-async function readHistoryPages<T extends { readonly id: string }>(
-  readPage: (after: string | undefined) => Promise<T[]>,
-): Promise<T[]> {
-  const events: T[] = [];
-  let after: string | undefined;
-  for (;;) {
-    const page = await readPage(after);
-    events.push(...page);
-    if (page.length < HISTORY_PAGE_SIZE) return events;
-    after = page[page.length - 1]?.id;
   }
 }
