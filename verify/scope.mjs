@@ -125,11 +125,7 @@ async function ciRanges(cwd, env) {
   const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
   const head = env.GITHUB_SHA ?? (await git(cwd, ['rev-parse', 'HEAD']));
   let base;
-  if (
-    eventName === 'pull_request' ||
-    eventName === 'pull_request_target' ||
-    eventName === 'pull_request_review'
-  ) {
+  if (eventName === 'pull_request' || eventName === 'pull_request_target') {
     base = event.pull_request?.base?.sha;
     if (!base || isZeroSha(base)) {
       throw new VerifyError('pull_request event has no base.sha');
