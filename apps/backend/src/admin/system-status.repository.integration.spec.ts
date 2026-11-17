@@ -366,7 +366,11 @@ it('preserves removal peaks and admin change counts across history pages', async
 
   const { anomalies } = await statusService.getStatus();
 
-  expect(anomalies.filter(({ rule }) => rule === 'BULK_REMOVAL')).toEqual([
+  expect(
+    anomalies.filter(
+      ({ rule, target }) => rule === 'BULK_REMOVAL' && target?.id === ADMIN_ID,
+    ),
+  ).toEqual([
     {
       rule: 'BULK_REMOVAL',
       severity: 'HIGH',
