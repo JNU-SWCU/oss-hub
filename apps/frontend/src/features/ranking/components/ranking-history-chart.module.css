@@ -47,7 +47,6 @@
 }
 
 .scaleToggle {
-  font-family: var(--font-comic), var(--font-sans);
   font-size: var(--step-small);
   color: var(--muted-foreground);
 }
@@ -60,7 +59,6 @@
 
 .title {
   margin: 0;
-  font-family: var(--font-comic), var(--font-sans);
   font-size: var(--step-body);
   font-weight: 700;
   line-height: 1.3;
@@ -80,7 +78,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-family: var(--font-comic), var(--font-sans);
   font-size: var(--step-small);
 }
 
@@ -179,7 +176,6 @@
   border-radius: var(--control-radius);
   background-color: var(--popover);
   color: var(--popover-foreground);
-  font-family: var(--font-comic), var(--font-sans);
   font-size: var(--step-small);
 }
 

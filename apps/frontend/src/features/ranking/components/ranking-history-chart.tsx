@@ -19,7 +19,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { RankingTimeline } from '../types';
-import { comicNeue } from './comic-font';
 import {
   buildRankingHistoryChart,
   rankingHistoryAvatarSlots,
@@ -35,7 +34,6 @@ import styles from './ranking-history-chart.module.css';
 const WOBBLE_FILTER_ID = 'ranking-history-wobble';
 const TICK = {
   fill: 'var(--muted-foreground)',
-  fontFamily: 'var(--font-comic), var(--font-sans)',
   fontSize: 12,
 } as const;
 const CURSOR = {
@@ -47,10 +45,7 @@ const FADED_OPACITY = 0.28;
 
 function Note(props: { readonly state: string; readonly text: string }) {
   return (
-    <div
-      className={cn(styles.root, comicNeue.variable)}
-      data-history-chart={props.state}
-    >
+    <div className={styles.root} data-history-chart={props.state}>
       <p className={styles.caption}>{props.text}</p>
     </div>
   );
@@ -99,7 +94,7 @@ export function RankingHistoryChart({
 
   return (
     <div
-      className={cn(styles.root, comicNeue.variable)}
+      className={styles.root}
       data-history-chart="ready"
       data-viewer-login={viewerGithubLogin ?? ''}
     >
