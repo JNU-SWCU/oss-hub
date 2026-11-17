@@ -20,7 +20,7 @@ export class ProgramOverviewTeamResponseDto {
   declare readonly teamId: string;
   declare readonly name: string;
   declare readonly memberCount: number;
-  declare readonly members: readonly ProgramOverviewTeamMemberResponseDto[];
+  declare readonly members: ProgramOverviewTeamMemberResponseDto[];
 
   static from(row: PublicTeamRow): ProgramOverviewTeamResponseDto {
     return {

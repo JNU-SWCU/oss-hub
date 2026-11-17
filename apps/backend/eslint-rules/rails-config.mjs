@@ -704,7 +704,7 @@ export async function createRailsConfig(rootDir) {
           {
             type: 'common',
             pattern: [
-              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,prisma-serialization-retry.repository}.ts',
+              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,api-contract.decorator,prisma-serialization-retry.repository}.ts',
               'src/platform/{system-error-code,error-code}.error.ts',
             ],
             mode: 'full',

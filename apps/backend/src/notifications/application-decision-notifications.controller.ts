@@ -36,7 +36,7 @@ export class ApplicationDecisionNotificationsController {
   @Protected()
   async listUnread(
     @Req() request: SessionIdentity,
-  ): Promise<readonly ApplicationDecisionNotificationResponseDto[]> {
+  ): Promise<ApplicationDecisionNotificationResponseDto[]> {
     return (await this.service.listUnread(request.sessionGithubId)).map(
       (notification) =>
         ApplicationDecisionNotificationResponseDto.from(notification),
@@ -59,7 +59,7 @@ export class ApplicationDecisionNotificationsController {
   @Protected()
   async listUnreadTeamDeletions(
     @Req() request: SessionIdentity,
-  ): Promise<readonly TeamDeletionNotificationResponseDto[]> {
+  ): Promise<TeamDeletionNotificationResponseDto[]> {
     return (
       await this.service.listUnreadTeamDeletions(request.sessionGithubId)
     ).map((notification) =>

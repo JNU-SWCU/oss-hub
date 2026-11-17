@@ -20,6 +20,7 @@ import {
   ProgramsService,
 } from './programs.service';
 import { OriginGuard } from '../platform/origin.guard';
+import { ApiFileResponse } from '../platform/api-contract.decorator';
 import {
   type AuthenticatedRequest,
   type OptionalSessionRequest,
@@ -153,7 +154,7 @@ export class ProgramsController {
   async programActivity(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
-  ): Promise<readonly ProgramActivityResponseDto[]> {
+  ): Promise<ProgramActivityResponseDto[]> {
     return (
       await this.activity.activityForGithubId(
         programId,
@@ -166,6 +167,7 @@ export class ProgramsController {
   @Public()
   @Header('Cache-Control', 'no-store')
   @Header('X-Content-Type-Options', 'nosniff')
+  @ApiFileResponse('image/png', 'image/jpeg')
   async cover(
     @Param('id') programId: string,
     @Param('coverId') coverId: string,

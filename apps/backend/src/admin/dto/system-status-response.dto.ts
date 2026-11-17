@@ -76,7 +76,7 @@ export class SystemStatusExternalCollectionResponseDto {
 export class SystemStatusResponseDto {
   declare readonly collection: CollectionSystemStatusResponseDto;
   declare readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto;
-  declare readonly collectionRepositories: readonly SystemStatusCollectionRepositoryResponseDto[];
+  declare readonly collectionRepositories: SystemStatusCollectionRepositoryResponseDto[];
   declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
   static from(result: SystemStatusResult): SystemStatusResponseDto {

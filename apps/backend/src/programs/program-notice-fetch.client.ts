@@ -11,6 +11,7 @@ import {
   defaultTreeAdapter,
   parse,
 } from 'parse5';
+import type { ProgramNoticeWarning } from './program-notice.config';
 
 type Node = DefaultTreeAdapterMap['node'];
 
@@ -349,9 +350,6 @@ function parseProgramNoticeImageUrl(
     throw error;
   }
 }
-
-export type ProgramNoticeWarning =
-  'NO_IMAGE' | 'MULTIPLE_IMAGES' | 'EXTERNAL_APPLICATION_LINK';
 
 export type ProgramNoticePreview = {
   readonly sourceUrl: string;

@@ -2,16 +2,39 @@ import type {
   TeamHistoryEvent,
   ApplicationStatus,
   RepositoryConnectionMode,
+  RepositoryVisibility,
 } from '@prisma/client';
 import type {
   ApplicationListItem,
   ApplicationListPage,
-  ApplicationListRepository,
   ApplicationReviewHistoryEntry,
   RepositoryProvisioningJobStatus,
   RepositoryProvisioningSafeErrorClass,
   StaffApplicationDetail,
 } from '../team.repository';
+
+class ApplicationRepositoryResponseDto {
+  declare readonly url: string;
+  declare readonly visibility: RepositoryVisibility;
+
+  static from(
+    repository: NonNullable<ApplicationListItem['repository']>,
+  ): ApplicationRepositoryResponseDto {
+    return { url: repository.url, visibility: repository.visibility };
+  }
+}
+
+class ApplicationTeamResponseDto {
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly memberCount: number;
+
+  static from(
+    team: NonNullable<ApplicationListItem['team']>,
+  ): ApplicationTeamResponseDto {
+    return { id: team.id, name: team.name, memberCount: team.memberCount };
+  }
+}
 
 export class ApplicationListItemResponseDto {
   declare readonly id: string;
@@ -30,7 +53,7 @@ export class ApplicationListItemResponseDto {
     readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
 
-  declare readonly repository: ApplicationListRepository | null;
+  declare readonly repository: ApplicationRepositoryResponseDto | null;
   declare readonly isRepositoryPublicationPlanned: boolean;
   declare readonly participation: 'INDIVIDUAL' | 'TEAM';
   declare readonly applicant: {
@@ -38,11 +61,7 @@ export class ApplicationListItemResponseDto {
     readonly name: string | null;
     readonly nickname: string;
   };
-  declare readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly memberCount: number;
-  } | null;
+  declare readonly team: ApplicationTeamResponseDto | null;
   declare readonly answers: {
     readonly applicantName: string;
     readonly title: string;
@@ -63,18 +82,20 @@ export class ApplicationListItemResponseDto {
         updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
         safeErrorClass: item.repositoryProvisioning.safeErrorClass,
       },
-      repository: item.repository,
+      repository: item.repository
+        ? ApplicationRepositoryResponseDto.from(item.repository)
+        : null,
       isRepositoryPublicationPlanned: item.isRepositoryPublicationPlanned,
       participation: item.participation,
       applicant: item.applicant,
-      team: item.team,
+      team: item.team ? ApplicationTeamResponseDto.from(item.team) : null,
       answers: item.answers,
     };
   }
 }
 
 export class ApplicationListPageResponseDto {
-  declare readonly items: readonly ApplicationListItemResponseDto[];
+  declare readonly items: ApplicationListItemResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly totalItems: number;
@@ -135,7 +156,7 @@ export class ApplicationDetailResponseDto {
     readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
 
-  declare readonly repository: ApplicationListRepository | null;
+  declare readonly repository: ApplicationRepositoryResponseDto | null;
   declare readonly isRepositoryPublicationPlanned: boolean;
   declare readonly participation: 'INDIVIDUAL' | 'TEAM';
   declare readonly applicant: {
@@ -143,17 +164,13 @@ export class ApplicationDetailResponseDto {
     readonly name: string | null;
     readonly nickname: string;
   };
-  declare readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly memberCount: number;
-  } | null;
+  declare readonly team: ApplicationTeamResponseDto | null;
   declare readonly answers: {
     readonly applicantName: string;
     readonly title: string;
     readonly summary: string;
   };
-  declare readonly reviewHistory: readonly ReviewHistoryEntryResponseDto[];
+  declare readonly reviewHistory: ReviewHistoryEntryResponseDto[];
 
   static from(detail: StaffApplicationDetail): ApplicationDetailResponseDto {
     const item = ApplicationListItemResponseDto.from(detail.application);

@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsInt,
@@ -18,6 +19,7 @@ export class PublicProjectRequestDto {
   @MaxLength(2048)
   readonly pageId?: string;
 
+  @ApiPropertyOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

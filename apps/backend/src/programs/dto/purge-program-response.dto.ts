@@ -1,10 +1,11 @@
-import type { ProgramPurgeDeletedCounts } from '../programs.repository';
 import type { ProgramPurgeResult } from '../programs.service';
 
 export class PurgeProgramResponseDto {
   declare readonly id: string;
   declare readonly deleted: true;
-  declare readonly deletedCounts: ProgramPurgeDeletedCounts;
+  declare readonly deletedCounts: {
+    readonly files: number;
+  };
 
   static from(result: ProgramPurgeResult): PurgeProgramResponseDto {
     return {

@@ -29,7 +29,7 @@ export class RequirementFeedbackItemResponseDto {
   }
 }
 export class RequirementFeedbackResponseDto {
-  declare readonly items: readonly RequirementFeedbackItemResponseDto[];
+  declare readonly items: RequirementFeedbackItemResponseDto[];
   static from(
     result: RequirementFeedbackResult,
   ): RequirementFeedbackResponseDto {

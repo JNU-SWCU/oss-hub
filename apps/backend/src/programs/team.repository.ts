@@ -445,7 +445,7 @@ export interface ApplicationRepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
-export interface ApplicationListRepository {
+interface ApplicationListRepository {
   readonly url: string;
   readonly visibility: RepositoryVisibility;
 }
@@ -538,7 +538,7 @@ export interface ApplicationListPage {
   readonly totalPages: number;
 }
 
-export interface TeamManagementMember {
+interface TeamManagementMember {
   readonly id: string;
   readonly name: string | null;
   readonly nickname: string;

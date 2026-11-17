@@ -59,7 +59,7 @@ export class ProgramMilestoneOperationResponseDto {
 export class ProgramMilestoneEditResponseDto {
   declare readonly milestone: ProgramMilestoneResponseDto;
   declare readonly operation: ProgramMilestoneOperationResponseDto;
-  declare readonly documents: readonly ProgramRequirementResponseDto[];
+  declare readonly documents: ProgramRequirementResponseDto[];
   declare readonly fileUpload: {
     readonly maxBytes: number;
     readonly maxLabel: string;
@@ -84,19 +84,33 @@ export class ProgramMilestoneEditResponseDto {
     };
   }
 }
+class ProgramExternalCoverResponseDto {
+  declare readonly sourceUrl: string;
+  declare readonly imageUrl: string;
+  static from(
+    cover: NonNullable<EditableProgramView['externalCover']>,
+  ): ProgramExternalCoverResponseDto {
+    return { sourceUrl: cover.sourceUrl, imageUrl: cover.imageUrl };
+  }
+}
 export class EditableProgramResponseDto {
-  declare readonly externalCover: NonNullable<
-    EditableProgramView['externalCover']
-  > | null;
+  declare readonly externalCover: ProgramExternalCoverResponseDto | null;
   declare readonly coverImageUrl: string | null;
   declare readonly id: string;
   declare readonly name: string;
-  declare readonly organizers: readonly string[];
+  declare readonly organizers: string[];
   declare readonly trackType: EditableProgramView['trackType'];
   declare readonly applicationTemplateKey: string;
   declare readonly applicationTemplateVersion: number;
   declare readonly applicationCount: number;
-  declare readonly deletionScopeCounts?: EditableProgramView['deletionScopeCounts'];
+  declare readonly deletionScopeCounts?: {
+    readonly applications: number;
+    readonly teams: number;
+    readonly boardPosts: number;
+    readonly submissions: number;
+    readonly submissionEvents: number;
+    readonly scopeFingerprint: string;
+  };
   declare readonly applicationStartAt: string;
   declare readonly applicationEndAt: string;
   declare readonly startAt: string;
@@ -104,16 +118,18 @@ export class EditableProgramResponseDto {
   declare readonly repositoryProvisioningEnabled: boolean;
   declare readonly notifyOnDeadline: boolean;
   declare readonly description: string;
-  declare readonly milestones: readonly ProgramMilestoneResponseDto[];
+  declare readonly milestones: ProgramMilestoneResponseDto[];
   declare readonly teamMinSize: number;
   declare readonly teamMaxSize: number;
   static from(program: EditableProgramView): EditableProgramResponseDto {
     return {
-      externalCover: program.externalCover ?? null,
+      externalCover: program.externalCover
+        ? ProgramExternalCoverResponseDto.from(program.externalCover)
+        : null,
       coverImageUrl: program.coverImageUrl ?? null,
       id: program.id,
       name: program.name,
-      organizers: program.organizers,
+      organizers: [...program.organizers],
       trackType: program.trackType,
       applicationTemplateKey: program.applicationTemplateKey,
       applicationTemplateVersion: program.applicationTemplateVersion,

@@ -156,37 +156,56 @@ export class StaffInsightsLeaderResponseDto extends StaffInsightsRecentLeaderRes
   }
 }
 
-export class StaffInsightsCohortLeadersResponseDto<Row> {
-  declare readonly all: readonly Row[];
-  declare readonly swMajor: readonly Row[];
-  declare readonly nonSw: readonly Row[];
+export class StaffInsightsCohortLeadersResponseDto {
+  declare readonly all: StaffInsightsLeaderResponseDto[];
+  declare readonly swMajor: StaffInsightsLeaderResponseDto[];
+  declare readonly nonSw: StaffInsightsLeaderResponseDto[];
 
-  static from<Source, Row>(
-    leaders: StaffInsightsCohortLeaders<Source>,
-    toRow: (row: Source) => Row,
-  ): StaffInsightsCohortLeadersResponseDto<Row> {
+  static from(
+    leaders: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>,
+  ): StaffInsightsCohortLeadersResponseDto {
     return {
-      all: leaders.all.map(toRow),
-      swMajor: leaders.swMajor.map(toRow),
-      nonSw: leaders.nonSw.map(toRow),
+      all: leaders.all.map((row) => StaffInsightsLeaderResponseDto.from(row)),
+      swMajor: leaders.swMajor.map((row) =>
+        StaffInsightsLeaderResponseDto.from(row),
+      ),
+      nonSw: leaders.nonSw.map((row) =>
+        StaffInsightsLeaderResponseDto.from(row),
+      ),
+    };
+  }
+}
+
+export class StaffInsightsRecentCohortLeadersResponseDto {
+  declare readonly all: StaffInsightsRecentLeaderResponseDto[];
+  declare readonly swMajor: StaffInsightsRecentLeaderResponseDto[];
+  declare readonly nonSw: StaffInsightsRecentLeaderResponseDto[];
+
+  static from(
+    leaders: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>,
+  ): StaffInsightsRecentCohortLeadersResponseDto {
+    return {
+      all: leaders.all.map((row) =>
+        StaffInsightsRecentLeaderResponseDto.from(row),
+      ),
+      swMajor: leaders.swMajor.map((row) =>
+        StaffInsightsRecentLeaderResponseDto.from(row),
+      ),
+      nonSw: leaders.nonSw.map((row) =>
+        StaffInsightsRecentLeaderResponseDto.from(row),
+      ),
     };
   }
 }
 
 export class StaffInsightsLeadersResponseDto {
-  declare readonly period: StaffInsightsCohortLeadersResponseDto<StaffInsightsLeaderResponseDto>;
-  declare readonly recent: StaffInsightsCohortLeadersResponseDto<StaffInsightsRecentLeaderResponseDto>;
+  declare readonly period: StaffInsightsCohortLeadersResponseDto;
+  declare readonly recent: StaffInsightsRecentCohortLeadersResponseDto;
 
   static from(leaders: StaffInsightsLeaders): StaffInsightsLeadersResponseDto {
     return {
-      period: StaffInsightsCohortLeadersResponseDto.from(
-        leaders.period,
-        (row) => StaffInsightsLeaderResponseDto.from(row),
-      ),
-      recent: StaffInsightsCohortLeadersResponseDto.from(
-        leaders.recent,
-        (row) => StaffInsightsRecentLeaderResponseDto.from(row),
-      ),
+      period: StaffInsightsCohortLeadersResponseDto.from(leaders.period),
+      recent: StaffInsightsRecentCohortLeadersResponseDto.from(leaders.recent),
     };
   }
 }
@@ -266,10 +285,10 @@ export class StaffInsightsProgramSummaryResponseDto {
 export class StaffInsightsResponseDto {
   declare readonly scope: StaffInsightsScopeResponseDto;
   declare readonly dataAsOf: string | null;
-  declare readonly years: readonly number[];
-  declare readonly cohorts: readonly StaffInsightsCohortResponseDto[];
-  declare readonly departments: readonly StaffInsightsDepartmentResponseDto[];
-  declare readonly programs: readonly StaffInsightsProgramResponseDto[];
+  declare readonly years: number[];
+  declare readonly cohorts: StaffInsightsCohortResponseDto[];
+  declare readonly departments: StaffInsightsDepartmentResponseDto[];
+  declare readonly programs: StaffInsightsProgramResponseDto[];
   declare readonly programSummary: StaffInsightsProgramSummaryResponseDto;
   declare readonly leaders: StaffInsightsLeadersResponseDto;
   declare readonly recentWindow: {
@@ -282,7 +301,7 @@ export class StaffInsightsResponseDto {
       scope: StaffInsightsScopeResponseDto.from(summary.scope),
       dataAsOf:
         summary.dataAsOf === null ? null : summary.dataAsOf.toISOString(),
-      years: summary.years,
+      years: [...summary.years],
       cohorts: summary.cohorts.map((row) =>
         StaffInsightsCohortResponseDto.from(row),
       ),

@@ -23,7 +23,7 @@ export class LoginHistoryResponseDto {
 }
 
 export class LoginHistoryPageResponseDto {
-  declare readonly items: readonly LoginHistoryResponseDto[];
+  declare readonly items: LoginHistoryResponseDto[];
   declare readonly page: number;
   declare readonly size: number;
   declare readonly total: number;
