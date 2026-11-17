@@ -31,6 +31,7 @@ prepare_backend() {
   rm -rf "$root"
   mkdir -p "$root/apps/backend/prisma"
   ln -sfn "${repo}/apps/backend/node_modules" "$root/apps/backend/node_modules"
+  cp "${repo}/apps/backend/prisma.config.ts" "$root/apps/backend/prisma.config.ts"
   cat >"$root/apps/backend/prisma/schema.prisma" <<'EOF'
 generator client {
   provider = "prisma-client-js"
@@ -38,7 +39,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 EOF
 }

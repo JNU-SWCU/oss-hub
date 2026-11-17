@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
@@ -12,7 +14,9 @@ const TEST_PREFIX = 'test:qa148:phone-migration:';
 const USER_ID = `${TEST_PREFIX}user`;
 const CONSTRAINT_NAME = 'User_phone_digits_check';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(loadPrismaPoolConfig()),
+});
 
 async function cleanFixtures(): Promise<void> {
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
@@ -139,7 +143,7 @@ describe('QA148 canonical user phone migration', () => {
 
       await expect(insert).rejects.toMatchObject({
         code: 'P2010',
-        meta: { code: '23514' },
+        meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
       });
     },
   );

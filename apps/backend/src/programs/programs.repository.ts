@@ -722,7 +722,7 @@ export class ProgramDeletionScopeRepository {
               )
             ) OR (
               notification.type = 'DEADLINE_DIGEST'
-              AND notification."idempotencyKey" LIKE CONCAT('%:', ${programId}, ':%')
+              AND notification."idempotencyKey" LIKE CONCAT('%:', ${programId}::text, ':%')
             ) OR (
               notification.type = 'TEAM_DELETED'
               AND notification.payload->>'programId' = ${programId}

@@ -16,6 +16,8 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import {
@@ -233,7 +235,10 @@ type QueryPlanRow = {
 async function historyQueryPlans(
   userId: string,
 ): Promise<readonly [readonly QueryPlanRow[], readonly QueryPlanRow[]]> {
-  const reader = new PrismaClient({ log: [{ emit: 'event', level: 'query' }] });
+  const reader = new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+    log: [{ emit: 'event', level: 'query' }],
+  });
   const queries: Prisma.QueryEvent[] = [];
   reader.$on('query', (event) => {
     if (event.query.startsWith('SELECT')) queries.push(event);

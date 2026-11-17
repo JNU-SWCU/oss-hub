@@ -146,7 +146,10 @@ it('enforces direct Program ownership and keeps file metadata after byte deletio
       )
     `,
     ),
-  ).rejects.toMatchObject({ code: 'P2010', meta: { code: '23503' } });
+  ).rejects.toMatchObject({
+    code: 'P2010',
+    meta: { driverAdapterError: { cause: { originalCode: '23503' } } },
+  });
   await inProgramAuthoringFixtureSchema(prisma, schema, async (tx) => {
     await tx.$executeRaw`
       UPDATE "ProgramAuthoringUpload" SET lifecycle = 'DELETE_PENDING', "attachedAt" = NULL,
@@ -184,7 +187,10 @@ it.each([
           `UPDATE "Program" SET ${assignment} WHERE id = 'program-1'`,
         ),
       ),
-    ).rejects.toMatchObject({ code: 'P2010', meta: { code: '23514' } });
+    ).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+    });
   },
 );
 
@@ -269,7 +275,7 @@ it('refuses retirement without dropping anything when copied creation facts disa
 
   await expect(retire()).rejects.toMatchObject({
     code: 'P2010',
-    meta: { code: 'P0001' },
+    meta: { driverAdapterError: { cause: { originalCode: 'P0001' } } },
   });
   await expect(
     relationExists(prisma, schema, 'ProgramCreateRequest'),

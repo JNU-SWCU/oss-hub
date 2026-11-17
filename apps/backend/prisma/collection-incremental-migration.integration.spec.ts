@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../src/platform/prisma-pool.config';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({
@@ -10,7 +12,9 @@ const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'test:414:';
 const REPO_ID = 9_414_000_101n;
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(loadPrismaPoolConfig()),
+});
 
 async function cleanFixtures(): Promise<void> {
   await prisma.repo.deleteMany({ where: { githubRepoId: REPO_ID } });

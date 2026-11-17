@@ -1,9 +1,10 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaClient } from '@prisma/client';
-
+import { PrismaService } from '../platform/prisma.service';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import type { PrismaService } from '../platform/prisma.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -11,7 +12,9 @@ assertIsolatedIntegrationDatabase({
 });
 
 describe('Contribution 재계산 (실 Postgres)', () => {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+  });
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
     new PlatformRepository(),
@@ -222,6 +225,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       queries.push(event.query);
     };
     const logged = new PrismaClient({
+      adapter: new PrismaPg(loadPrismaPoolConfig()),
       log: [{ emit: 'event', level: 'query' }],
     });
     logged.$on('query' as never, spy);
@@ -247,7 +251,9 @@ describe('Contribution 재계산 (실 Postgres)', () => {
 });
 
 describe('수집 성공 기록 (실 Postgres)', () => {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg(loadPrismaPoolConfig()),
+  });
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
     new PlatformRepository(),

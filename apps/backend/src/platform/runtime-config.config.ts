@@ -1,5 +1,6 @@
 export const RUNTIME_CONFIG_KEYS = [
   'AUTH_INITIAL_ROLES',
+  'DATABASE_URL',
   'SESSION_SECRET',
   'FRONTEND_URL',
   'GITHUB_OAUTH_CLIENT_ID',
@@ -39,6 +40,7 @@ export type RuntimeConfig = Readonly<{
 export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
   return Object.freeze({
     AUTH_INITIAL_ROLES: env.AUTH_INITIAL_ROLES,
+    DATABASE_URL: env.DATABASE_URL,
     SESSION_SECRET: env.SESSION_SECRET,
     FRONTEND_URL: env.FRONTEND_URL,
     GITHUB_OAUTH_CLIENT_ID: env.GITHUB_OAUTH_CLIENT_ID,

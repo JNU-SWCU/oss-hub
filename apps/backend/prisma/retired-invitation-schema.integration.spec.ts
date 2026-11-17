@@ -109,7 +109,10 @@ it('drops only retired schema while preserving pending rows and archived facts',
       (tx) =>
         tx.$executeRaw`INSERT INTO "TeamInvitation" (id, "teamId", "inviteeId") VALUES ('duplicate', 'team', 'invitee-1')`,
     ),
-  ).rejects.toMatchObject({ code: 'P2010', meta: { code: '23505' } });
+  ).rejects.toMatchObject({
+    code: 'P2010',
+    meta: { driverAdapterError: { cause: { originalCode: '23505' } } },
+  });
   await expect(
     within(
       (tx) =>
