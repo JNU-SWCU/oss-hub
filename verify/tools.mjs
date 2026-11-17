@@ -30,6 +30,7 @@ export const RULE_SOURCES = {
   'api-breaking':
     'https://github.com/oasdiff/oasdiff/blob/main/docs/BREAKING-CHANGES.md',
   'api-baseline-stale': VERIFY_ISSUE,
+  'allowlist-growth': VERIFY_ISSUE,
   'api-break-unapproved': VERIFY_ISSUE,
   'api-route-reconciliation': VERIFY_ISSUE,
   'api-route-unresolved': VERIFY_ISSUE,
@@ -232,6 +233,18 @@ export async function gitOk(cwd, args) {
 export async function showAtRevision(cwd, revision, path) {
   const result = await run('git', ['show', `${revision}:${path}`], { cwd });
   return result.code === 0 ? result.stdout : null;
+}
+
+export async function issueTrailers(cwd, range, key) {
+  const output = await git(cwd, [
+    'log',
+    `--format=%(trailers:key=${key},valueonly,separator=%x1f)%x1e`,
+    `${range.base}..${range.head}`,
+  ]);
+  return output
+    .split(/[\x1e\x1f\n]/)
+    .map((value) => value.trim())
+    .filter((value) => /^#\d+$/.test(value));
 }
 
 export async function requireTool(tool) {
