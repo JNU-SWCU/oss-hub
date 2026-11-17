@@ -24,26 +24,24 @@ export function groupAuditFeed(
   records: readonly AuditLogRecord[],
 ): readonly FeedDay[] {
   const days: FeedDay[] = [];
-  let requestChains = new Map<string, FeedChain>();
   for (const record of records) {
     const key = dayKey(record.occurredAt);
     let day = days.at(-1);
     if (day?.key !== key) {
       day = { key, chains: [] };
       days.push(day);
-      requestChains = new Map();
     }
-    const chain =
-      record.requestId === null
-        ? undefined
-        : requestChains.get(record.requestId);
-    if (chain) {
+    const chain = day.chains.at(-1);
+    const previous = chain ? (chain.linked.at(-1) ?? chain.head) : undefined;
+    if (
+      chain &&
+      record.requestId !== null &&
+      previous?.requestId === record.requestId
+    ) {
       chain.linked.push(record);
       continue;
     }
-    const created = { head: record, linked: [] };
-    day.chains.push(created);
-    if (record.requestId !== null) requestChains.set(record.requestId, created);
+    day.chains.push({ head: record, linked: [] });
   }
   return days;
 }
