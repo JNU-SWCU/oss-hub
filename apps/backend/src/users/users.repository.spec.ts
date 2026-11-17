@@ -91,6 +91,7 @@ describe('UsersRepository participation reads', () => {
       repository.listParticipationMemberships('synthetic-user'),
     ).resolves.toEqual([membership]);
     expect(findMany).toHaveBeenCalledWith({
+      take: 200,
       where: {
         userId: 'synthetic-user',
         team: {

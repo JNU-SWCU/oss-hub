@@ -10,6 +10,10 @@ const transactionWrite =
   '한 트랜잭션 안에서 항목별 쓰기를 순서대로 한다. 쓰기 경로이며 항목 수는 요청 본문이 정한다.';
 
 export const awaitInLoopAllowlist = {
+  'src/admin/system-status.repository.ts': {
+    readHistoryPages:
+      '7일 이상 징후는 전체 이력의 시각과 건수가 필요하다. 한 번에 500행씩 읽으며 다음 커서는 앞 페이지의 마지막 id로 정한다.',
+  },
   'src/github/collection-app.client.ts': {
     'CollectionAppClient.collectRepositoryContributions': githubPaging,
     'CollectionAppClient.send': httpRetry,

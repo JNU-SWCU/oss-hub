@@ -237,6 +237,55 @@ it('학번·학과를 User에 저장하고 다시 조회한다', async () => {
     ...firstProfile,
   });
 });
+
+it('returns only the newest 200 participation memberships', async () => {
+  const ids = Array.from(
+    { length: 201 },
+    (_, index) => `test:users:cap:${index}`,
+  );
+  try {
+    await prisma.program.createMany({
+      data: ids.map((id, index) => ({
+        id,
+        name: id,
+        organizers: ['Synthetic'],
+        category: 'BASIC' as const,
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01'),
+        applicationEndAt: new Date('2026-01-31'),
+        startAt: new Date(Date.UTC(2026, 0, 1 + index)),
+        endAt: new Date('2099-01-01'),
+        description: 'Synthetic',
+      })),
+    });
+    await prisma.team.createMany({
+      data: ids.map((id) => ({
+        id,
+        programId: id,
+        name: id,
+        leaderId: userId,
+        applicantId: userId,
+        answers: {},
+        applicationTemplateVersion: 1,
+        status: 'APPROVED' as const,
+      })),
+    });
+    await prisma.teamMember.createMany({
+      data: ids.map((id) => ({ teamId: id, programId: id, userId })),
+    });
+
+    const memberships = await repository.listParticipationMemberships(userId);
+
+    expect(memberships.map(({ team }) => team.program.id)).toEqual(
+      ids.slice(1).reverse(),
+    );
+  } finally {
+    await prisma.teamMember.deleteMany({ where: { programId: { in: ids } } });
+    await prisma.team.deleteMany({ where: { id: { in: ids } } });
+    await prisma.program.deleteMany({ where: { id: { in: ids } } });
+  }
+});
 it('학번 없는 교직원 프로필은 User 행으로 저장된다', async () => {
   await prisma.user.update({
     where: { id: userId },

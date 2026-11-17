@@ -135,6 +135,7 @@ afterAll(async () => {
   await clearSeededSignals();
   await prisma.admin.deleteMany({ where: { userId: ADMIN_ID } });
   await prisma.user.deleteMany({ where: { id: ADMIN_ID } });
+  await prisma.$disconnect();
 });
 
 it('drops a detached organization repository from the tracked set', async () => {
@@ -285,6 +286,107 @@ it('counts email sends and failures in the window and reports the latest success
   expect(after.lastSentAt?.getTime()).toBeGreaterThanOrEqual(
     recentSend.getTime(),
   );
+});
+
+it('keeps the full failure count while listing the latest 100 failed teams', async () => {
+  const before = await status.getProvisioningStatus();
+  const { leaderId } = await prisma.team.findUniqueOrThrow({
+    where: { id: teamId },
+    select: { leaderId: true },
+  });
+  const ids = Array.from(
+    { length: 101 },
+    (_, index) => `${teamId}-failed-${index}`,
+  );
+  try {
+    await prisma.team.createMany({
+      data: ids.map((id) => ({
+        id,
+        programId,
+        leaderId,
+        applicantId: leaderId,
+        name: id,
+        answers: {},
+        applicationTemplateVersion: 1,
+      })),
+    });
+    await prisma.repositoryProvisionJob.createMany({
+      data: ids.map((id, index) => ({
+        teamId: id,
+        status: 'FAILED_FINAL' as const,
+        updatedAt: new Date(Date.UTC(2099, 0, 1, 0, index)),
+      })),
+    });
+
+    const result = await status.getProvisioningStatus();
+
+    expect(result.failedFinal).toBe(before.failedFinal + 101);
+    expect(result.failedTeams.map((team) => team.teamId)).toEqual(
+      ids.slice(1).reverse(),
+    );
+  } finally {
+    await prisma.repositoryProvisionJob.deleteMany({
+      where: { teamId: { in: ids } },
+    });
+    await prisma.team.deleteMany({ where: { id: { in: ids } } });
+  }
+});
+
+it('preserves removal peaks and admin change counts across history pages', async () => {
+  const weekdayNoon = koreaNoonWithinLastWeek(new Date(), false);
+  const subjectId = `${SELF_SUBJECT_ID}-paged`;
+  await prisma.user.create({
+    data: {
+      id: subjectId,
+      githubId: 9_517_000_000_004n,
+      nickname: subjectId,
+    },
+  });
+  await seedTeamRemovals(501, weekdayNoon, 0);
+  await prisma.programHistory.createMany({
+    data: Array.from({ length: 501 }, () => ({
+      programId: HISTORY_PROGRAM_ID,
+      actorId: ADMIN_ID,
+      event: 'DELETED' as const,
+      occurredAt: weekdayNoon,
+      source: 'APPLICATION' as const,
+      data: { schemaVersion: 1, metadata: {} },
+    })),
+  });
+  await prisma.adminHistory.createMany({
+    data: Array.from({ length: 501 }, () => ({
+      userId: subjectId,
+      actorId: subjectId,
+      event: 'GRANTED' as const,
+      occurredAt: weekdayNoon,
+      source: 'APPLICATION' as const,
+      data: {},
+    })),
+  });
+
+  const { anomalies } = await statusService.getStatus();
+
+  expect(anomalies.filter(({ rule }) => rule === 'BULK_REMOVAL')).toEqual([
+    {
+      rule: 'BULK_REMOVAL',
+      severity: 'HIGH',
+      count: 1002,
+      target: { kind: 'USER', id: ADMIN_ID, login: null },
+    },
+  ]);
+  expect(
+    anomalies.filter(
+      ({ rule, target }) =>
+        rule === 'SELF_ADMIN_CHANGE' && target?.id === subjectId,
+    ),
+  ).toEqual([
+    {
+      rule: 'SELF_ADMIN_CHANGE',
+      severity: 'HIGH',
+      count: 501,
+      target: { kind: 'USER', id: subjectId, login: subjectId },
+    },
+  ]);
 });
 
 it('reads only actor-attributed rejections and deletions inside the window', async () => {

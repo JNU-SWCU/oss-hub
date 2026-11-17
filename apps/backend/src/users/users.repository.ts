@@ -125,6 +125,7 @@ export class UsersRepository implements UsersRepositoryPort {
   ): Promise<readonly UserParticipationMembership[]> {
     return this.prisma.teamMember.findMany({
       ...USER_PARTICIPATION_MEMBERSHIPS,
+      take: 200,
       where: { ...USER_PARTICIPATION_MEMBERSHIPS.where, userId },
     });
   }

@@ -1178,6 +1178,7 @@ describe('TeamApplicationService integration', () => {
     await expect(
       prisma.repositoryIssuanceHistory.findMany({
         where: { teamId },
+        take: 10,
         select: { requestId: true, outcome: true },
       }),
     ).resolves.toEqual([
@@ -1199,6 +1200,7 @@ describe('TeamApplicationService integration', () => {
     await expect(
       prisma.outboxEvent.findMany({
         where: { aggregateId: teamId },
+        take: 10,
         select: { id: true },
       }),
     ).resolves.toEqual([{ id: eventId }]);
