@@ -6,6 +6,11 @@ import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import { Global, Module } from '@nestjs/common';
 import { AuditLogReadRepository } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
+import { AccountAuditSourceService } from './account-audit-source.service';
+import { TeamAuditSourceService } from './team-audit-source.service';
+import { ProgramAuditSourceService } from './program-audit-source.service';
+import { SubmissionAuditSourceService } from './submission-audit-source.service';
+import { LoginAuditSourceService } from './login-audit-source.service';
 import { AuthConfig } from './auth.config';
 import { AuthSessionService } from './auth-session.service';
 import { HealthController } from './health.controller';
@@ -48,6 +53,11 @@ import { RolesGuard } from './roles.guard';
     HealthService,
     AuditLogReadRepository,
     HistoryMetadataService,
+    AccountAuditSourceService,
+    TeamAuditSourceService,
+    ProgramAuditSourceService,
+    SubmissionAuditSourceService,
+    LoginAuditSourceService,
     AuditLogReadService,
     RolesGuard,
     AuthConfig,

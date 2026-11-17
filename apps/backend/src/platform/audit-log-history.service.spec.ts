@@ -1,15 +1,27 @@
-import { AuditLogReadService } from './audit-log-read.service';
 import { InvalidAuditLogMetadataError } from './history.error';
+import {
+  auditRow,
+  createAuditLogReadService,
+  EMPTY_COUNTS,
+} from './audit-log-mapping.fixture';
+
+const RENAMED_ACTOR = {
+  id: 'actor-id',
+  name: null,
+  login: 'renamed-actor',
+  role: 'STAFF',
+};
 
 function serviceFor(metadata: unknown, historyKind: string | null = null) {
-  return new AuditLogReadService({
+  return createAuditLogReadService({
     list: () =>
       Promise.resolve({
         total: 1,
+        counts: EMPTY_COUNTS,
         rows: [
-          {
+          auditRow({
             id: 'original-audit',
-            actor: { nickname: 'renamed-actor' },
+            actor: RENAMED_ACTOR,
             action:
               historyKind === 'BOOTSTRAP'
                 ? 'GRANT_ADMIN_ACCESS'
@@ -19,8 +31,7 @@ function serviceFor(metadata: unknown, historyKind: string | null = null) {
             occurredAt: new Date('2026-11-01T00:00:00.000Z'),
             metadata,
             historyKind,
-            joinedTarget: null,
-          },
+          }),
         ],
       }),
   });
@@ -38,14 +49,22 @@ describe('Owned history display', () => {
       expect(result.items).toEqual([
         {
           id: 'original-audit',
-          actor: 'renamed-actor',
-          actorHandle: 'renamed-actor',
-          action: 'USER_PROFILE_UPDATED',
-          targetType: 'USER',
-          targetId: 'missing-user',
-          target: 'USER / missing-user',
-          targetHandle: null,
           occurredAt: new Date('2026-11-01T00:00:00.000Z'),
+          action: 'USER_PROFILE_UPDATED',
+          category: 'ACCOUNT',
+          actor: RENAMED_ACTOR,
+          target: {
+            type: 'USER',
+            id: 'missing-user',
+            name: null,
+            login: null,
+            role: null,
+            programName: null,
+            teamName: null,
+          },
+          change: null,
+          requestId: null,
+          teamMembership: null,
           legacy: true,
           metadata: null,
         },
@@ -76,10 +95,8 @@ describe('Owned history display', () => {
     });
 
     expect(result.items[0]).toMatchObject({
-      actor: 'Original actor',
-      actorHandle: 'old-actor',
-      target: 'Original target',
-      targetHandle: 'old-target',
+      actor: { name: 'Original actor', login: 'old-actor' },
+      target: { name: 'Original target', login: 'old-target' },
       legacy: false,
       metadata,
     });
@@ -116,6 +133,7 @@ describe('Owned history display', () => {
         replacementRequestId: 'request-new',
       },
     });
+    expect(result.items[0]?.requestId).toBe('request-old');
     expect(result.items[0]?.metadata).not.toHaveProperty('request');
     expect(result.items[0]?.metadata).not.toHaveProperty('actor');
   });

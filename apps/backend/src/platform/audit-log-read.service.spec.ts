@@ -1,43 +1,39 @@
 import { AuditLogErrorCode } from './history.error';
-import type { AuditLogRow } from './audit-log-read.repository';
-import { AuditLogReadService } from './audit-log-read.service';
+import {
+  auditRow,
+  createAuditLogReadService,
+} from './audit-log-mapping.fixture';
 
-const rows: readonly AuditLogRow[] = [
-  {
+const rows = [
+  auditRow({
     id: 'newer',
-    actor: { nickname: 'synthetic-admin' },
     action: 'STAFF_ROLE_REQUEST_APPROVED',
     targetType: 'ROLE_REQUEST',
     targetId: 'request-2',
-    metadata: {},
-    historyKind: null,
-    joinedTarget: null,
     occurredAt: new Date('2026-07-24T02:00:00.000Z'),
-  },
-  {
+  }),
+  auditRow({
     id: 'older',
-    actor: { nickname: 'other-admin' },
     action: 'STAFF_ROLE_REQUEST_REJECTED',
     targetType: 'ROLE_REQUEST',
     targetId: 'request-1',
-    metadata: {},
-    historyKind: null,
-    joinedTarget: null,
     occurredAt: new Date('2026-07-24T01:00:00.000Z'),
-  },
+  }),
 ];
+const counts = { ACCOUNT: 2, OPERATION: 0, SUBMISSION: 0, LOGIN: 1, SYSTEM: 0 };
 
 function createRepository() {
-  return { list: jest.fn().mockResolvedValue({ rows, total: 2 }) };
+  return { list: jest.fn().mockResolvedValue({ rows, total: 2, counts }) };
 }
 
 describe('AuditLogReadService', () => {
-  it('ADMIN 조회는 행위자·액션·기간 필터를 저장소에 전달한다', async () => {
+  it('ADMIN 조회는 검색어·분류·액션·기간 필터를 저장소에 전달하고 분류별 건수를 돌려준다', async () => {
     const repository = createRepository();
-    const service = new AuditLogReadService(repository);
+    const service = createAuditLogReadService(repository);
     const query = {
-      actor: 'synthetic-admin',
+      q: 'synthetic-admin',
       action: 'STAFF_ROLE_REQUEST_APPROVED',
+      category: 'ACCOUNT' as const,
       from: '2026-07-24',
       to: '2026-07-24',
       page: 1,
@@ -48,12 +44,12 @@ describe('AuditLogReadService', () => {
 
     expect(repository.list.mock.calls).toEqual([[query]]);
     expect(result.items.map((record) => record.id)).toEqual(['newer', 'older']);
-    expect(result).toMatchObject({ page: 1, limit: 20, total: 2 });
+    expect(result).toMatchObject({ page: 1, limit: 20, total: 2, counts });
   });
 
   it('시작일이 종료일보다 늦으면 400으로 거부한다', async () => {
     const repository = createRepository();
-    const service = new AuditLogReadService(repository);
+    const service = createAuditLogReadService(repository);
 
     await expect(
       service.list({
@@ -70,12 +66,12 @@ describe('AuditLogReadService', () => {
 
   it('요청의 빈 페이지 값은 첫 페이지 20건으로 조회한다', async () => {
     const repository = createRepository();
-    const service = new AuditLogReadService(repository);
+    const service = createAuditLogReadService(repository);
 
-    await service.listFromRequest({ actor: 'synthetic-admin' });
+    await service.listFromRequest({ q: 'synthetic-admin' });
 
     expect(repository.list.mock.calls).toEqual([
-      [{ actor: 'synthetic-admin', page: 1, limit: 20 }],
+      [{ q: 'synthetic-admin', page: 1, limit: 20 }],
     ]);
   });
 });

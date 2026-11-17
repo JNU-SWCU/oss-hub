@@ -22,6 +22,23 @@ describe('AuditLogListRequestDto', () => {
     ]);
   });
 
+  it('분류는 정해진 값만 허용한다', async () => {
+    const unknown = Object.assign(new AuditLogListRequestDto(), {
+      category: 'BILLING',
+    });
+    const known = Object.assign(new AuditLogListRequestDto(), {
+      category: 'LOGIN',
+    });
+
+    const [unknownErrors, knownErrors] = await Promise.all([
+      validate(unknown),
+      validate(known),
+    ]);
+
+    expect(unknownErrors.map((error) => error.property)).toEqual(['category']);
+    expect(knownErrors).toEqual([]);
+  });
+
   it('page는 1 이상이고 limit은 1부터 100까지만 허용한다', async () => {
     const dto = Object.assign(new AuditLogListRequestDto(), {
       page: 0,

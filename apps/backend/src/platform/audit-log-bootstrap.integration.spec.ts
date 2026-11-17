@@ -1,7 +1,7 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
 import { AuditLogReadRepository } from './audit-log-read.repository';
-import { AuditLogReadService } from './audit-log-read.service';
+import { createAuditLogReadService } from './audit-log-mapping.fixture';
 import { InvalidAuditLogMetadataError } from './history.error';
 
 assertIsolatedIntegrationDatabase({
@@ -12,7 +12,7 @@ assertIsolatedIntegrationDatabase({
 const HISTORY_FEED_PREFIX = 'test:audit-bootstrap:';
 describe('Bootstrap audit feed', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogReadService(new AuditLogReadRepository(prisma));
+  const service = createAuditLogReadService(new AuditLogReadRepository(prisma));
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({
@@ -71,27 +71,43 @@ describe('Bootstrap audit feed', () => {
     expect(pages.flatMap((page) => page.items)).toEqual([
       {
         id: `${HISTORY_FEED_PREFIX}bootstrap-grant`,
-        actor: 'SYSTEM',
-        actorHandle: null,
-        action: 'GRANT_ADMIN_ACCESS',
-        targetType: 'USER',
-        targetId: userId,
-        target: `USER / ${userId}`,
-        targetHandle: null,
         occurredAt: new Date('2092-01-01T00:00:00Z'),
+        action: 'GRANT_ADMIN_ACCESS',
+        category: 'SYSTEM',
+        actor: null,
+        target: {
+          type: 'USER',
+          id: userId,
+          name: null,
+          login: 'bootstrap-subject',
+          role: 'UNSELECTED',
+          programName: null,
+          teamName: null,
+        },
+        change: null,
+        requestId: null,
+        teamMembership: null,
         legacy: false,
         metadata: { schemaVersion: 1, recordKind: 'BOOTSTRAP' },
       },
       {
         id: `${HISTORY_FEED_PREFIX}bootstrap-revoke`,
-        actor: 'SYSTEM',
-        actorHandle: null,
-        action: 'REVOKE_ADMIN_ACCESS',
-        targetType: 'USER',
-        targetId: userId,
-        target: `USER / ${userId}`,
-        targetHandle: null,
         occurredAt: new Date('2092-01-01T00:01:00Z'),
+        action: 'REVOKE_ADMIN_ACCESS',
+        category: 'SYSTEM',
+        actor: null,
+        target: {
+          type: 'USER',
+          id: userId,
+          name: null,
+          login: 'bootstrap-subject',
+          role: 'UNSELECTED',
+          programName: null,
+          teamName: null,
+        },
+        change: null,
+        requestId: null,
+        teamMembership: null,
         legacy: false,
         metadata: { schemaVersion: 1, recordKind: 'BOOTSTRAP' },
       },

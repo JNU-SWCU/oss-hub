@@ -1,131 +1,67 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
+import {
+  AUDIT_SOURCE_QUERIES,
+  type AuditCategory,
+} from './audit-source.config';
+import type { AuditCategoryCounts, AuditSourceRow } from './audit-entry.types';
 
 export interface AuditLogListQuery {
-  readonly actor?: string;
+  readonly q?: string;
   readonly action?: string;
+  readonly category?: AuditCategory;
   readonly from?: string;
   readonly to?: string;
   readonly page: number;
   readonly limit: number;
 }
 
-export type AuditLogRow = {
-  readonly id: string;
-  readonly occurredAt: Date;
-  readonly action: string;
-  readonly targetType: string;
-  readonly targetId: string;
-  readonly metadata: unknown;
-  readonly historyKind: string | null;
-  readonly actor: { readonly nickname: string } | null;
-  readonly joinedTarget: string | null;
+type AuditLogTotals = {
+  readonly total: number;
+  readonly accountCount: number;
+  readonly operationCount: number;
+  readonly submissionCount: number;
+  readonly loginCount: number;
+  readonly systemCount: number;
 };
 
 type AuditLogQueryRow =
-  | (AuditLogRow & { readonly total: number })
-  | { readonly id: null; readonly total: number };
+  (AuditSourceRow & AuditLogTotals) | (AuditLogTotals & { readonly id: null });
 
-const AUDIT_HISTORY_FEED_CTE = `
-    WITH histories AS (
-      SELECT "id", "userId", "actorId", "event"::text, "occurredAt",
-        "sourceTable", "sourceId", "sourcePart", "data"
-      FROM "UserHistory"
-      UNION ALL
-      SELECT "id", "userId", "actorId", "event"::text, "occurredAt",
-        "sourceTable", "sourceId", "sourcePart", "data"
-      FROM "AdminHistory"
-    ), imported AS (
-      SELECT DISTINCT ON ("sourceId") "sourceId" AS "id", "actorId",
-        "occurredAt", "data"->'original' AS "original"
-      FROM histories
-      WHERE "event" = 'LEGACY_IMPORT' AND "sourceTable" = 'AuditLog'
-        AND "sourceId" IS NOT NULL
-        AND "data"->>'schemaVersion' = '1'
-        AND "data"->>'recordKind' = 'AUDIT_EVENT'
-      ORDER BY "sourceId", "sourcePart", "id"
-    ), events AS (
-      SELECT "id", "actorId", "occurredAt",
-        "original"->>'action' AS "action",
-        "original"->>'targetType' AS "targetType",
-        "original"->>'targetId' AS "targetId",
-        "original"->'metadata' AS "metadata",
-        NULL::text AS "historyKind",
-        NULL::text AS "programId"
-      FROM imported
-      UNION ALL
-      SELECT "id", "actorId", "occurredAt",
-        CASE "data"->>'recordKind'
-          WHEN 'DOMAIN_EVENT' THEN "data"->>'action'
-          WHEN 'BOOTSTRAP' THEN CASE "event"
-            WHEN 'GRANTED' THEN 'GRANT_ADMIN_ACCESS'
-            WHEN 'REVOKED' THEN 'REVOKE_ADMIN_ACCESS'
-            ELSE "event" END
-          WHEN 'TYPE_SELECTION' THEN 'USER_ROLE_CHANGED'
-          ELSE "event" END,
-        CASE "data"->>'recordKind'
-          WHEN 'DOMAIN_EVENT' THEN "data"->>'targetType'
-          WHEN 'REQUEST_TRANSITION' THEN 'ROLE_REQUEST'
-          ELSE 'USER' END,
-        CASE "data"->>'recordKind'
-          WHEN 'DOMAIN_EVENT' THEN "data"->>'targetId'
-          WHEN 'REQUEST_TRANSITION' THEN "data"#>>'{request,id}'
-          ELSE "userId" END,
-        CASE "data"->>'recordKind'
-          WHEN 'DOMAIN_EVENT' THEN "data"->'metadata'
-          ELSE "data" END,
-        CASE WHEN "data"->>'recordKind' = 'DOMAIN_EVENT' THEN NULL
-          ELSE "data"->>'recordKind' END,
-        NULL::text
-      FROM histories
-      WHERE "event" <> 'LEGACY_IMPORT'
-        AND "data"->>'schemaVersion' = '1'
-        AND "data"->>'recordKind' IN ('DOMAIN_EVENT', 'REQUEST_TRANSITION', 'SIGNUP', 'BOOTSTRAP', 'TYPE_SELECTION')
-      UNION ALL
-      SELECT history."id", history."actorId", history."occurredAt",
-        COALESCE(history."data"->>'action', CASE history."event"::text
-          WHEN 'CREATED' THEN 'TEAM_CREATED'
-          WHEN 'JOINED' THEN 'TEAM_JOINED'
-          WHEN 'RENAMED' THEN 'TEAM_RENAMED'
-          WHEN 'DELETED' THEN 'TEAM_DELETED'
-          WHEN 'MEMBER_LEFT' THEN 'TEAM_MEMBERSHIP_CHANGED'
-          WHEN 'MEMBER_REMOVED' THEN 'TEAM_MEMBERSHIP_CHANGED'
-          WHEN 'LEADER_TRANSFERRED' THEN 'TEAM_MEMBERSHIP_CHANGED'
-          WHEN 'REPOSITORY_PUBLISHED' THEN 'REPOSITORY_PUBLISHED'
-          ELSE 'APPLICATION_' || history."event"::text END),
-        COALESCE(history."data"->>'targetType',
-          CASE WHEN history."data"->>'applicationId' IS NOT NULL
-            THEN 'APPLICATION' ELSE 'TEAM' END),
-        COALESCE(history."data"->>'targetId', history."data"->>'applicationId',
-          history."teamId"),
-        COALESCE(history."data"->'metadata', history."data"->'pairedAuditMetadata',
-          jsonb_strip_nulls(jsonb_build_object(
-            'schemaVersion', 1,
-            'programName', program."name",
-            'teamName', COALESCE(history."data"->>'name', team."name"),
-            'previousName', history."data"->>'previousName',
-            'operation', CASE history."event"::text
-              WHEN 'MEMBER_LEFT' THEN 'LEAVE'
-              WHEN 'MEMBER_REMOVED' THEN 'REMOVE'
-              WHEN 'LEADER_TRANSFERRED' THEN 'TRANSFER_LEADER' END,
-            'removedUserId', history."data"->>'removedUserId',
-            'previousLeaderId', history."data"->>'previousLeaderId'))
-          || CASE WHEN history."data" ? 'nextLeaderId'
-            THEN jsonb_build_object('nextLeaderId', history."data"->'nextLeaderId')
-            ELSE '{}'::jsonb END),
-        NULL::text,
-        history."programId"
-      FROM "TeamHistory" history
-      LEFT JOIN "Program" program ON program."id" = history."programId"
-      LEFT JOIN "Team" team ON team."id" = history."teamId"
-      WHERE history."event"::text NOT LIKE 'INVITATION%'
-      UNION ALL
-      SELECT history."id", history."actorId", history."occurredAt",
-        'PROGRAM_' || history."event"::text, 'PROGRAM', history."programId",
-        history."data"->'metadata', NULL::text, history."programId"
-      FROM "ProgramHistory" history
-    )
+const AUDIT_FEED_EVENTS = Object.values(AUDIT_SOURCE_QUERIES)
+  .map((query) => `(${query})`)
+  .join('\n    UNION ALL\n');
+
+const joinedUser = (alias: string, adminAlias: string) => `
+  CASE WHEN ${alias}."id" IS NULL THEN NULL
+    ELSE jsonb_build_object(
+      'id', ${alias}."id",
+      'name', ${alias}."name",
+      'login', ${alias}."login",
+      'role', CASE WHEN ${adminAlias}."userId" IS NULL
+        THEN ${alias}."type"::text ELSE 'ADMIN' END) END`;
+
+const AUDIT_FEED_FILTERED_SELECT = `
+  SELECT event."id", event."source", event."occurredAt", event."action",
+    event."targetType", event."targetId", event."metadata", event."historyKind",
+    CASE WHEN event."actorId" IS NULL THEN 'SYSTEM'
+      ELSE event."category" END AS "category",
+    ${joinedUser('actor', 'actor_admin')} AS "actor",
+    ${joinedUser('subject', 'subject_admin')} AS "subject",
+    program."name" AS "programName",
+    team."name" AS "teamName",
+    repo."owner_name" AS "repositoryName"
+  FROM events event
+  LEFT JOIN "User" actor ON actor."id" = event."actorId"
+  LEFT JOIN "Admin" actor_admin ON actor_admin."userId" = actor."id"
+  LEFT JOIN "User" subject ON subject."id" = event."subjectUserId"
+  LEFT JOIN "Admin" subject_admin ON subject_admin."userId" = subject."id"
+  LEFT JOIN "Program" program ON program."id" = event."programId"
+  LEFT JOIN "Team" team ON team."id" = event."teamId"
+  LEFT JOIN "repo" repo
+    ON event."targetType" = 'REPOSITORY'
+    AND repo."github_repo_id"::text = event."targetId"
 `;
 
 @Injectable()
@@ -133,12 +69,18 @@ export class AuditLogReadRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: AuditLogListQuery): Promise<{
-    readonly rows: readonly AuditLogRow[];
+    readonly rows: readonly AuditSourceRow[];
     readonly total: number;
+    readonly counts: AuditCategoryCounts;
   }> {
     const predicates: Prisma.Sql[] = [];
-    if (query.actor)
-      predicates.push(Prisma.sql`actor."login" ILIKE ${`%${query.actor}%`}`);
+    if (query.q) {
+      const pattern = `%${query.q}%`;
+      predicates.push(
+        Prisma.sql`(actor."name" ILIKE ${pattern} OR actor."login" ILIKE ${pattern}
+          OR subject."name" ILIKE ${pattern} OR subject."login" ILIKE ${pattern})`,
+      );
+    }
     if (query.action)
       predicates.push(Prisma.sql`event."action" = ${query.action}`);
     if (query.from)
@@ -152,35 +94,40 @@ export class AuditLogReadRepository {
     const where = predicates.length
       ? Prisma.sql`WHERE ${Prisma.join(predicates, ' AND ')}`
       : Prisma.empty;
+    const inCategory = query.category
+      ? Prisma.sql`"category" = ${query.category}`
+      : Prisma.sql`true`;
     const result = await this.prisma.$queryRaw<AuditLogQueryRow[]>`
-      ${Prisma.raw(AUDIT_HISTORY_FEED_CTE)}, filtered AS (
-        SELECT event."id", event."occurredAt", event."action", event."targetType",
-          event."targetId", event."metadata", event."historyKind",
-          CASE WHEN actor."id" IS NULL THEN NULL
-            ELSE jsonb_build_object('nickname', actor."login") END AS "actor",
-          CASE event."targetType"
-            WHEN 'PROGRAM' THEN program."name"
-            WHEN 'APPLICATION' THEN program."name"
-            WHEN 'REPOSITORY' THEN repo."owner_name" END AS "joinedTarget"
-        FROM events event
-        LEFT JOIN "User" actor ON actor."id" = event."actorId"
-        LEFT JOIN "Program" program ON program."id" = event."programId"
-        LEFT JOIN "repo" repo
-          ON event."targetType" = 'REPOSITORY'
-          AND repo."github_repo_id"::text = event."targetId"
-        ${where}
-      )
-      SELECT totals."total", page.*
-      FROM (SELECT count(*)::integer AS "total" FROM filtered) totals
+      WITH events AS (${Prisma.raw(AUDIT_FEED_EVENTS)}),
+      filtered AS (${Prisma.raw(AUDIT_FEED_FILTERED_SELECT)} ${where})
+      SELECT totals.*, page.*
+      FROM (
+        SELECT count(*) FILTER (WHERE ${inCategory})::integer AS "total",
+          count(*) FILTER (WHERE "category" = 'ACCOUNT')::integer AS "accountCount",
+          count(*) FILTER (WHERE "category" = 'OPERATION')::integer AS "operationCount",
+          count(*) FILTER (WHERE "category" = 'SUBMISSION')::integer AS "submissionCount",
+          count(*) FILTER (WHERE "category" = 'LOGIN')::integer AS "loginCount",
+          count(*) FILTER (WHERE "category" = 'SYSTEM')::integer AS "systemCount"
+        FROM filtered
+      ) totals
       LEFT JOIN LATERAL (
-        SELECT * FROM filtered ORDER BY "occurredAt" DESC, "id" DESC
+        SELECT * FROM filtered WHERE ${inCategory}
+        ORDER BY "occurredAt" DESC, "id" DESC
         OFFSET ${(query.page - 1) * query.limit} LIMIT ${query.limit}
       ) page ON true
       ORDER BY page."occurredAt" DESC, page."id" DESC
     `;
+    const totals = result[0];
     return {
       rows: result.flatMap((row) => (row.id === null ? [] : [row])),
-      total: result[0]?.total ?? 0,
+      total: totals?.total ?? 0,
+      counts: {
+        ACCOUNT: totals?.accountCount ?? 0,
+        OPERATION: totals?.operationCount ?? 0,
+        SUBMISSION: totals?.submissionCount ?? 0,
+        LOGIN: totals?.loginCount ?? 0,
+        SYSTEM: totals?.systemCount ?? 0,
+      },
     };
   }
 }

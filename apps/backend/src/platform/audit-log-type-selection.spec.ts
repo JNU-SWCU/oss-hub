@@ -1,27 +1,31 @@
-import { AuditLogReadService } from './audit-log-read.service';
 import { InvalidAuditLogMetadataError } from './history.error';
-import type { AuditLogRow } from './audit-log-read.repository';
+import type { AuditSourceRow } from './audit-entry.types';
+import { auditRow, readRows } from './audit-log-mapping.fixture';
 
 const occurredAt = new Date('2026-11-02T00:00:00.000Z');
+const SELECTED_USER = {
+  id: 'synthetic:type-selection-user',
+  name: 'Selected User',
+  login: 'selected-user',
+  role: 'STUDENT',
+};
 
-function read(row: AuditLogRow) {
-  return new AuditLogReadService({
-    list: () => Promise.resolve({ rows: [row], total: 1 }),
-  }).list({ page: 1, limit: 20 });
+function read(row: AuditSourceRow) {
+  return readRows([row]);
 }
 
-function selectionRow(metadata: unknown): AuditLogRow {
-  return {
+function selectionRow(metadata: unknown): AuditSourceRow {
+  return auditRow({
     id: 'user:synthetic-type-selection',
-    actor: { nickname: 'selected-user' },
+    actor: SELECTED_USER,
+    subject: SELECTED_USER,
     action: 'USER_ROLE_CHANGED',
     targetType: 'USER',
     targetId: 'synthetic:type-selection-user',
     occurredAt,
     historyKind: 'TYPE_SELECTION',
-    joinedTarget: null,
     metadata,
-  };
+  });
 }
 
 describe('TYPE_SELECTION audit display', () => {
@@ -44,14 +48,22 @@ describe('TYPE_SELECTION audit display', () => {
 
       expect(result.items[0]).toEqual({
         id: 'user:synthetic-type-selection',
-        actor: 'selected-user',
-        actorHandle: 'selected-user',
-        action: 'USER_ROLE_CHANGED',
-        targetType: 'USER',
-        targetId: 'synthetic:type-selection-user',
-        target: 'USER / synthetic:type-selection-user',
-        targetHandle: null,
         occurredAt,
+        action: 'USER_ROLE_CHANGED',
+        category: 'ACCOUNT',
+        actor: SELECTED_USER,
+        target: {
+          type: 'USER',
+          id: 'synthetic:type-selection-user',
+          name: 'Selected User',
+          login: 'selected-user',
+          role: 'STUDENT',
+          programName: null,
+          teamName: null,
+        },
+        change: { before, after },
+        requestId: null,
+        teamMembership: null,
         legacy: false,
         metadata: {
           schemaVersion: 1,

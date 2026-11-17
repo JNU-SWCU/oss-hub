@@ -1,4 +1,60 @@
 import type { Prisma } from '@prisma/client';
+import type { AuditLogReadRepository } from './audit-log-read.repository';
+import { AuditLogReadService } from './audit-log-read.service';
+import type { AuditSourceRow, AuditTarget } from './audit-entry.types';
+import { AccountAuditSourceService } from './account-audit-source.service';
+import { TeamAuditSourceService } from './team-audit-source.service';
+import { ProgramAuditSourceService } from './program-audit-source.service';
+import { SubmissionAuditSourceService } from './submission-audit-source.service';
+import { LoginAuditSourceService } from './login-audit-source.service';
+
+export function createAuditLogReadService(
+  repository: Pick<AuditLogReadRepository, 'list'>,
+): AuditLogReadService {
+  return new AuditLogReadService(
+    repository,
+    new AccountAuditSourceService(),
+    new TeamAuditSourceService(),
+    new ProgramAuditSourceService(),
+    new SubmissionAuditSourceService(),
+    new LoginAuditSourceService(),
+  );
+}
+
+export const EMPTY_COUNTS = {
+  ACCOUNT: 0,
+  OPERATION: 0,
+  SUBMISSION: 0,
+  LOGIN: 0,
+  SYSTEM: 0,
+} as const;
+
+export function readRows(rows: readonly AuditSourceRow[]) {
+  return createAuditLogReadService({
+    list: () =>
+      Promise.resolve({ rows, total: rows.length, counts: EMPTY_COUNTS }),
+  }).list({ page: 1, limit: 20 });
+}
+
+export function auditRow(overrides: Partial<AuditSourceRow>): AuditSourceRow {
+  return {
+    id: 'audit-1',
+    source: 'ACCOUNT',
+    occurredAt: new Date('2026-07-24T03:00:00.000Z'),
+    action: 'SYNTHETIC',
+    targetType: 'USER',
+    targetId: 'target',
+    metadata: {},
+    historyKind: null,
+    category: 'ACCOUNT',
+    actor: null,
+    subject: null,
+    programName: null,
+    teamName: null,
+    repositoryName: null,
+    ...overrides,
+  };
+}
 
 export const occurredAt = new Date('2026-07-24T03:00:00.000Z');
 export const state = {
@@ -27,14 +83,14 @@ type MappingCase = {
   readonly name: string;
   readonly targetType: string;
   readonly metadata: Prisma.JsonValue;
-  readonly expectedTarget: string;
+  readonly expectedTarget: Partial<AuditTarget>;
 };
 export const cases: readonly MappingCase[] = [
   {
     name: 'empty legacy metadata',
     targetType: 'ROLE_REQUEST',
     metadata: {},
-    expectedTarget: 'ROLE_REQUEST / target',
+    expectedTarget: { name: null, login: null },
   },
   {
     name: 'v1 access without target snapshot',
@@ -46,7 +102,7 @@ export const cases: readonly MappingCase[] = [
       before: state,
       after: state,
     },
-    expectedTarget: 'USER / target',
+    expectedTarget: { name: null, login: null },
   },
   {
     name: 'v2 access target snapshot',
@@ -58,7 +114,7 @@ export const cases: readonly MappingCase[] = [
       before: state,
       after: state,
     },
-    expectedTarget: 'Original target',
+    expectedTarget: { name: 'Original target', login: 'old-target' },
   },
   {
     name: 'v2 program snapshot',
@@ -68,13 +124,13 @@ export const cases: readonly MappingCase[] = [
       programName: 'Original program',
       ...lifecycle,
     },
-    expectedTarget: 'Original program',
+    expectedTarget: { name: 'Original program', programName: null },
   },
   {
     name: 'v1 program join',
     targetType: 'PROGRAM',
     metadata: { schemaVersion: 1, ...lifecycle },
-    expectedTarget: 'Current program',
+    expectedTarget: { name: 'Current program' },
   },
   {
     name: 'v2 repository snapshot',
@@ -85,16 +141,16 @@ export const cases: readonly MappingCase[] = [
       repositoryFullName: 'original/repo',
       ...visibility,
     },
-    expectedTarget: 'original/repo',
+    expectedTarget: { name: 'original/repo' },
   },
   {
     name: 'v1 repository join',
     targetType: 'REPOSITORY',
     metadata: { schemaVersion: 1, repositoryId: 'target', ...visibility },
-    expectedTarget: 'current/repo',
+    expectedTarget: { name: 'current/repo' },
   },
   {
-    name: 'v2 application snapshot composition',
+    name: 'v2 application snapshot parts',
     targetType: 'APPLICATION',
     metadata: {
       schemaVersion: 2,
@@ -102,28 +158,40 @@ export const cases: readonly MappingCase[] = [
       applicantGithubLogin: 'original-applicant',
       ...decision,
     },
-    expectedTarget: 'Original program · @original-applicant',
+    expectedTarget: {
+      name: null,
+      login: 'original-applicant',
+      programName: 'Original program',
+    },
   },
   {
-    name: 'v1 application join without applicant leak',
+    name: 'v1 application joined program',
     targetType: 'APPLICATION',
     metadata: { schemaVersion: 1, ...decision },
-    expectedTarget: 'Current application program',
+    expectedTarget: {
+      name: null,
+      login: null,
+      programName: 'Current application program',
+    },
   },
   {
-    name: 'team composition before program name',
+    name: 'team parts without composition',
     targetType: 'TEAM',
     metadata: {
       schemaVersion: 1,
       programName: 'Original program',
       teamName: 'Original team',
     },
-    expectedTarget: 'Original program · Original team',
+    expectedTarget: {
+      name: 'Original team',
+      programName: 'Original program',
+      teamName: null,
+    },
   },
   {
-    name: 'program without team composition',
+    name: 'program without team',
     targetType: 'PROGRAM',
     metadata: { schemaVersion: 1, programName: 'Original program' },
-    expectedTarget: 'Original program',
+    expectedTarget: { name: 'Original program', teamName: null },
   },
 ];
