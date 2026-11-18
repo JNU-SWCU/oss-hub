@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  type ApplicationStatus,
-  type Prisma,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { PrismaService } from '../platform/prisma.service';
+import {
+  ProgramMailAuditRepository,
+  type ProgramMailAuditInput,
+} from './program-mail-audit.repository';
 
 export type ProgramMailApplicant = {
   readonly id: string;
@@ -47,6 +47,7 @@ export interface ProgramMailRepositoryPort {
     status: ProgramMailNotificationStatus,
     payload: Prisma.InputJsonValue,
   ): Promise<void>;
+  recordSendAudit(input: ProgramMailAuditInput): Promise<void>;
 }
 
 const applicantSelect = {
@@ -65,6 +66,7 @@ export class ProgramMailRepository implements ProgramMailRepositoryPort {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
+    private readonly audit: ProgramMailAuditRepository,
   ) {}
 
   async findAudience(
@@ -168,6 +170,7 @@ export class ProgramMailRepository implements ProgramMailRepositoryPort {
           name: team.name,
           status: team.status,
           deadlineEligible:
+            team.status === ApplicationStatus.APPROVED &&
             requiredDocumentIds.size > 0 &&
             [...requiredDocumentIds].some((id) => !submitted.has(id)),
           applicants: [...applicants.values()],
@@ -219,5 +222,9 @@ export class ProgramMailRepository implements ProgramMailRepositoryPort {
         sentAt: status === 'SENT' ? new Date() : null,
       },
     });
+  }
+
+  recordSendAudit(input: ProgramMailAuditInput): Promise<void> {
+    return this.audit.recordSend(input);
   }
 }

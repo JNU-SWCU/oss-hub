@@ -10,7 +10,7 @@ import {
 
 const team: ProgramMailTeam = {
   id: 'team-1',
-  name: '합성 팀',
+  name: '프론트 1팀',
   status: 'SUBMITTED',
   deadlineEligible: true,
   applicants: [
@@ -95,7 +95,10 @@ describe('ProgramMailRecipientTree', () => {
     expect(checkbox.getAttribute('aria-checked')).toBe('mixed');
     await act(async () => checkbox.click());
     expect([...selected]).toEqual(['student-1', 'student-2']);
+    expect(container.textContent).toContain('프론트 1팀');
     expect(container.textContent).toContain('검토 대기');
+    expect(container.querySelector('.lucide-clock-3')).not.toBeNull();
+    expect(container.querySelector('[data-slot="status-badge"]')).toBeNull();
     expect(container.textContent).toContain('메일 수신 불가');
   });
 });

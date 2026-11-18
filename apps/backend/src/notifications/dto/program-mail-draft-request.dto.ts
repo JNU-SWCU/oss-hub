@@ -7,8 +7,7 @@ import {
   Length,
   MaxLength,
 } from 'class-validator';
-
-const MAX_RECIPIENTS = 5050;
+import { PROGRAM_MAIL_RECIPIENT_LIMIT } from '../program-mail.config';
 
 export class ProgramMailDraftRequestDto {
   @IsString()
@@ -21,7 +20,7 @@ export class ProgramMailDraftRequestDto {
 
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(MAX_RECIPIENTS)
+  @ArrayMaxSize(PROGRAM_MAIL_RECIPIENT_LIMIT)
   @ArrayUnique()
   @IsString({ each: true })
   @MaxLength(128, { each: true })

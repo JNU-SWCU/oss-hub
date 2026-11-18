@@ -1,21 +1,34 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { StatusBadge } from '@/components/status-badge';
+import { CircleCheck, CircleX, Clock3, type LucideIcon } from 'lucide-react';
 import type {
   ProgramMailApplicationStatus,
   ProgramMailTeam,
 } from './program-mail-dto';
 
 const STATUS = {
-  SUBMITTED: { label: '검토 대기', variant: 'pending' },
-  APPROVED: { label: '승인', variant: 'approved' },
-  REJECTED: { label: '반려', variant: 'rejected' },
+  SUBMITTED: {
+    label: '검토 대기',
+    icon: Clock3,
+    tone: 'text-status-pending-fg',
+  },
+  APPROVED: {
+    label: '승인',
+    icon: CircleCheck,
+    tone: 'text-status-approved-fg',
+  },
+  REJECTED: {
+    label: '반려',
+    icon: CircleX,
+    tone: 'text-status-rejected-fg',
+  },
 } as const satisfies Record<
   ProgramMailApplicationStatus,
   {
     readonly label: string;
-    readonly variant: 'pending' | 'approved' | 'rejected';
+    readonly icon: LucideIcon;
+    readonly tone: string;
   }
 >;
 
@@ -85,6 +98,7 @@ export function ProgramMailRecipientTree({
     <div className="grid gap-4" aria-label="메일 수신자">
       {teams.map((team) => {
         const status = STATUS[team.status];
+        const StatusIcon = status.icon;
         const state = selectedTeamState(team, selectedIds);
         const availableCount = team.applicants.filter(
           (applicant) => applicant.mailAvailable,
@@ -112,7 +126,12 @@ export function ProgramMailRecipientTree({
                   {team.name}
                 </span>
               </label>
-              <StatusBadge variant={status.variant}>{status.label}</StatusBadge>
+              <span
+                className={`flex items-center gap-1.5 text-small font-medium ${status.tone}`}
+              >
+                <StatusIcon aria-hidden="true" className="size-4" />
+                {status.label}
+              </span>
             </div>
             <div
               role="group"

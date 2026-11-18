@@ -40,7 +40,6 @@ export class ProgramMailController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
-  @UseGuards(OriginGuard)
   async recipients(
     @Param('programId') programId: string,
   ): Promise<ProgramMailRecipientsResponseDto> {

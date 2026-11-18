@@ -166,6 +166,9 @@ export function ProgramMailPreviewView({
       <p className="border-t border-border pt-4 text-small text-muted-foreground">
         {preview.footer}
       </p>
+      <p className="text-small font-semibold">
+        보낸 메일은 취소할 수 없습니다.
+      </p>
     </div>
   );
 }

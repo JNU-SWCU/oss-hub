@@ -51,7 +51,7 @@ const happyDomTests = [
   'src/features/programs/authoring/program-organizer-field.test.tsx',
   'src/features/programs/catalog/components/activity-graph-panel.test.tsx',
   'src/features/programs/documents/components/{milestone-notice.test.tsx,program-milestone-timeline.test.tsx}',
-  'src/features/programs/notifications/program-mail-recipient-tree.test.tsx',
+  'src/features/programs/notifications/{program-mail-dialog.test.tsx,program-mail-recipient-tree.test.tsx}',
   'src/features/ranking/components/ranking-screen.test.tsx',
   'src/features/reviews/{submission-review-conflict.test.tsx,submission-review-refresh.test.tsx,submission-review-request-order.test.tsx,submission-review-screen.test.tsx}',
   'src/features/reviews/components/repository-publish-card.test.tsx',

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
 import type { MailSender } from './gmail-mail.client';
@@ -10,6 +11,7 @@ import type {
   ProgramMailRepositoryPort,
 } from './program-mail.repository';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
+import { ProgramMailRateLimitService } from './program-mail-rate-limit.service';
 import { ProgramMailService } from './program-mail.service';
 import { ProgramMailTemplateService } from './program-mail-template.service';
 
@@ -54,6 +56,7 @@ function harness() {
     findAudience: jest.fn().mockResolvedValue(audience),
     claimNotification: jest.fn().mockResolvedValue(true),
     completeNotification: jest.fn().mockResolvedValue(undefined),
+    recordSendAudit: jest.fn().mockResolvedValue(undefined),
   };
   const mailSender: jest.Mocked<MailSender> = {
     send: jest.fn().mockResolvedValue(undefined),
@@ -68,6 +71,7 @@ function harness() {
         mailSender,
         new ProgramMailTemplateService(),
       ),
+      new ProgramMailRateLimitService(),
     ),
   };
 }
@@ -128,6 +132,26 @@ it('rejects a selected applicant whose notification settings do not permit mail'
   });
 });
 
+it('rejects a send that exceeds the bounded recipient limit', async () => {
+  const { service } = harness();
+
+  await expect(
+    service.preview('program-1', sender, {
+      subject: '안내 제목',
+      body: '안내 본문',
+      applicantIds: Array.from(
+        { length: 201 },
+        (_, index) => `student-${index}`,
+      ),
+    }),
+  ).rejects.toMatchObject({
+    errorCode:
+      NOTIFICATIONS_ERROR_CODES[
+        NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_LIMIT
+      ],
+  });
+});
+
 it('sends the confirmed preview once and deduplicates a repeated confirmation', async () => {
   const { service, repository, mailSender } = harness();
   const now = new Date('2026-11-18T00:00:00.000Z');
@@ -160,4 +184,19 @@ it('sends the confirmed preview once and deduplicates a repeated confirmation', 
   expect(sentMail?.subject).toBe('[oss-hub] 안내 제목');
   expect(sentMail?.body).toContain('보낸 사람: 담당 교직원');
   expect(sentMail?.html).toContain('이 메일은 oss-hub에서 발송했습니다.');
+  const audit = repository.recordSendAudit.mock.calls[0]?.[0];
+  expect(audit).toMatchObject({
+    actorId: 'staff-1',
+    programId: 'program-1',
+    recipientIds: ['student-1'],
+    subject: '안내 제목',
+    bodyLength: 5,
+    bodyHash: createHash('sha256').update('안내 본문').digest('hex'),
+    sentCount: 1,
+    duplicateCount: 0,
+    failedCount: 0,
+  });
+  expect(audit?.idempotencyKey).toBe(
+    `program-mail-send:${preview.previewVersion}`,
+  );
 });

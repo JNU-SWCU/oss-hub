@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -50,8 +50,8 @@ export function ProgramMailDialog({
   const [preview, setPreview] = useState<ProgramMailPreview | null>(null);
   const [result, setResult] = useState<ProgramMailSendResult | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
-  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (open) return;
@@ -61,9 +61,13 @@ export function ProgramMailDialog({
     setPreview(null);
     setResult(null);
     setBusy(null);
-    setConfirming(false);
     setError(null);
   }, [open]);
+
+  useEffect(() => {
+    if (preview === null || result !== null || busy !== null) return;
+    queueMicrotask(() => editButtonRef.current?.focus());
+  }, [busy, preview, result]);
 
   const canPreview =
     selectedIds.size > 0 &&
@@ -105,10 +109,8 @@ export function ProgramMailDialog({
     setError(null);
     try {
       setResult(await sendProgramMail(programId, preview));
-      setConfirming(false);
     } catch (caught: unknown) {
       setPreview(null);
-      setConfirming(false);
       setError(apiErrorMessage(caught));
     } finally {
       setBusy(null);
@@ -122,6 +124,7 @@ export function ProgramMailDialog({
   ) : preview ? (
     <>
       <Button
+        ref={editButtonRef}
         type="button"
         variant="outline"
         disabled={busy !== null}
@@ -132,9 +135,9 @@ export function ProgramMailDialog({
       <Button
         type="button"
         disabled={busy !== null}
-        onClick={() => setConfirming(true)}
+        onClick={() => void send()}
       >
-        보내기
+        {busy === 'send' ? '보내는 중…' : '보내기'}
       </Button>
     </>
   ) : (
@@ -158,94 +161,59 @@ export function ProgramMailDialog({
   );
 
   return (
-    <>
-      <DialogShell
-        open={open}
-        title="메일 보내기"
-        description="프로그램 신청 학생을 선택하고 메일 내용을 확인한 뒤 발송합니다."
-        size="lg"
-        busy={busy !== null}
-        returnFocusRef={returnFocusRef}
-        className="max-h-[calc(100dvh-2rem)]"
-        bodyClassName="gap-6"
-        onCancel={onClose}
-        footer={footer}
-      >
-        {recipientsQuery.isPending ? (
-          <Skeleton label="메일 수신자 불러오는 중" className="grid gap-4">
-            <SkeletonBlock className="h-32 rounded-card" />
-            <SkeletonBlock className="h-32 rounded-card" />
-          </Skeleton>
-        ) : recipientsQuery.isError ? (
-          <FailureState
-            title="메일 수신자를 불러오지 못했습니다"
-            onRetry={() => void recipientsQuery.refetch()}
-          />
-        ) : result ? (
-          <Alert>
-            <AlertTitle>{result.sentCount}명에게 메일을 보냈습니다.</AlertTitle>
-            <AlertDescription>
-              중복 생략 {result.duplicateCount}명 · 발송 실패{' '}
-              {result.failedCount}명
-            </AlertDescription>
-          </Alert>
-        ) : preview ? (
-          <ProgramMailPreviewView preview={preview} />
-        ) : (
-          <ProgramMailCompose
-            model={{
-              recipients: recipientsQuery.data,
-              selectedIds,
-              subject,
-              body,
-            }}
-            onChange={{
-              selection: (next) => changeDraft(() => setSelectedIds(next)),
-              subject: (next) => changeDraft(() => setSubject(next)),
-              body: (next) => changeDraft(() => setBody(next)),
-            }}
-          />
-        )}
-        {error ? (
-          <Alert variant="destructive">
-            <AlertTitle>메일을 처리하지 못했습니다</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </DialogShell>
-      {confirming && preview !== null ? (
-        <DialogShell
-          kind="alert"
-          title={`${preview.recipientCount}명에게 메일을 보낼까요?`}
-          description="보낸 메일은 취소할 수 없습니다."
-          busy={busy === 'send'}
-          onCancel={() => setConfirming(false)}
-          footer={
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy === 'send'}
-                onClick={() => setConfirming(false)}
-              >
-                취소
-              </Button>
-              <Button
-                type="button"
-                disabled={busy === 'send'}
-                onClick={() => void send()}
-              >
-                {busy === 'send' ? '보내는 중…' : '보내기'}
-              </Button>
-            </>
-          }
-        >
-          <p className="text-small text-muted-foreground">
-            미리보기에서 확인한 대상과 내용 그대로 발송합니다.
-          </p>
-        </DialogShell>
+    <DialogShell
+      open={open}
+      title="메일 보내기"
+      size="lg"
+      busy={busy !== null}
+      returnFocusRef={returnFocusRef}
+      className="max-h-[calc(100dvh-2rem)]"
+      bodyClassName="gap-6"
+      onCancel={onClose}
+      footer={footer}
+    >
+      {recipientsQuery.isPending ? (
+        <Skeleton label="메일 수신자 불러오는 중" className="grid gap-4">
+          <SkeletonBlock className="h-32 rounded-card" />
+          <SkeletonBlock className="h-32 rounded-card" />
+        </Skeleton>
+      ) : recipientsQuery.isError ? (
+        <FailureState
+          title="메일 수신자를 불러오지 못했습니다"
+          onRetry={() => void recipientsQuery.refetch()}
+        />
+      ) : result ? (
+        <Alert>
+          <AlertTitle>{result.sentCount}명에게 메일을 보냈습니다.</AlertTitle>
+          <AlertDescription>
+            중복 생략 {result.duplicateCount}명 · 발송 실패 {result.failedCount}
+            명
+          </AlertDescription>
+        </Alert>
+      ) : preview ? (
+        <ProgramMailPreviewView preview={preview} />
+      ) : (
+        <ProgramMailCompose
+          model={{
+            recipients: recipientsQuery.data,
+            selectedIds,
+            subject,
+            body,
+          }}
+          onChange={{
+            selection: (next) => changeDraft(() => setSelectedIds(next)),
+            subject: (next) => changeDraft(() => setSubject(next)),
+            body: (next) => changeDraft(() => setBody(next)),
+          }}
+        />
+      )}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTitle>메일을 처리하지 못했습니다</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
-    </>
+    </DialogShell>
   );
 }
 

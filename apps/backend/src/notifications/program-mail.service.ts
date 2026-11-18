@@ -12,7 +12,9 @@ import {
   type ProgramMailAudience,
   type ProgramMailRepositoryPort,
 } from './program-mail.repository';
+import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
+import { ProgramMailRateLimitService } from './program-mail-rate-limit.service';
 
 const PREVIEW_TTL_MS = 10 * 60 * 1000;
 const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
@@ -79,6 +81,7 @@ export class ProgramMailService {
     @Inject(ProgramMailRepository)
     private readonly repository: ProgramMailRepositoryPort,
     private readonly delivery: ProgramMailDeliveryService,
+    private readonly rateLimit: ProgramMailRateLimitService,
   ) {}
 
   async recipients(
@@ -136,19 +139,30 @@ export class ProgramMailService {
     if (prepared.previewVersion !== request.previewVersion) {
       this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
     }
-
-    return {
-      ...(await this.delivery.send({
-        programId,
-        programName: prepared.programName,
-        senderName: prepared.senderName,
-        subject: prepared.subject,
-        body: prepared.body,
+    const release = this.rateLimit.begin({
+      actorId: sender.id,
+      programId,
+      idempotencyKey: prepared.previewVersion,
+      now,
+    });
+    try {
+      return {
+        ...(await this.delivery.send({
+          actorId: sender.id,
+          programId,
+          programName: prepared.programName,
+          senderName: prepared.senderName,
+          subject: prepared.subject,
+          body: prepared.body,
+          previewVersion: prepared.previewVersion,
+          occurredAt: now,
+          recipients: prepared.recipients,
+        })),
         previewVersion: prepared.previewVersion,
-        recipients: prepared.recipients,
-      })),
-      previewVersion: prepared.previewVersion,
-    };
+      };
+    } finally {
+      release();
+    }
   }
 
   private async requireAudience(
@@ -177,6 +191,9 @@ export class ProgramMailService {
         team.applicants.map((applicant) => [applicant.id, applicant] as const),
       ),
     );
+    if (selectedIds.length > PROGRAM_MAIL_RECIPIENT_LIMIT) {
+      this.fail(NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_LIMIT);
+    }
     const recipients = selectedIds.flatMap((id) => {
       const applicant = applicantById.get(id);
       return applicant?.mailAvailable && applicant.notificationEmail !== null

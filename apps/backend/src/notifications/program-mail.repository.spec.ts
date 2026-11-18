@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ApplicationStatus, type Prisma } from '@prisma/client';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { PrismaService } from '../platform/prisma.service';
+import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailRepository } from './program-mail.repository';
 
 const findUnique = jest.fn<Promise<unknown>, [Prisma.ProgramFindUniqueArgs]>();
@@ -37,6 +38,10 @@ it('reads every team status and nested applicant data in one bounded query', asy
     providers: [
       ProgramMailRepository,
       {
+        provide: ProgramMailAuditRepository,
+        useValue: { recordSend: jest.fn() },
+      },
+      {
         provide: PrismaService,
         useValue: { program: { findUnique } },
       },
@@ -67,7 +72,7 @@ it('reads every team status and nested applicant data in one bounded query', asy
     `"submissions":{"take":${READ_CAP.requirementsPerProgram + 1}`,
   );
   expect(result?.teams[0]?.status).toBe(ApplicationStatus.REJECTED);
-  expect(result?.teams[0]?.deadlineEligible).toBe(true);
+  expect(result?.teams[0]?.deadlineEligible).toBe(false);
   expect(result?.teams[0]?.applicants[0]?.id).toBe('student-1');
   expect(result?.teams[0]?.applicants[0]?.mailAvailable).toBe(true);
 });
