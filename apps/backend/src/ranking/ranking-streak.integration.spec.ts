@@ -22,7 +22,7 @@ const service = new RankingService(
 );
 
 const PREFIX = 'synthetic-ranking-streak';
-const BASE_ID = 8_970_000_000_000n;
+const BASE_ID = 9_000_000_000_000_000_000n;
 const START = new Date('2098-01-01T00:00:00.000Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(START.getTime() + 400 * DAY_MS + 12 * 60 * 60 * 1000);
@@ -32,6 +32,7 @@ const students = Array.from({ length: 12 }, (_, index) => ({
   score: 11_000 - index * 1_000,
 }));
 const ids = students.map((student) => student.githubId);
+const userIds = students.map((student) => `${PREFIX}-${student.githubId}`);
 
 function studentAt(index: number) {
   const student = students[index];
@@ -55,7 +56,7 @@ async function purge(): Promise<void> {
   await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: ids } },
   });
-  await prisma.user.deleteMany({ where: { githubId: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 }
 
 beforeAll(async () => {
