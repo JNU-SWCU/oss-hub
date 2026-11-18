@@ -796,9 +796,9 @@ describe('program team membership transactions integration', () => {
   );
 
   it.each([
-    ['leave', 'recordInvitationClosed'],
+    ['leave', 'recordInvitationsClosed'],
     ['leave', 'recordTeamInvitationsDeleted'],
-    ['staff removal', 'recordInvitationClosed'],
+    ['staff removal', 'recordInvitationsClosed'],
     ['staff removal', 'recordTeamInvitationsDeleted'],
   ] as const)(
     '%s rolls back the sole team, member and invitation when %s fails',

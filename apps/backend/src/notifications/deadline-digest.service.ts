@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import {
   type BuiltDeadlineMail,
   DeadlineDigestMailService,
@@ -231,6 +232,8 @@ const DEADLINE_PREVIEW_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class DeadlineDigestService {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     @Inject(DeadlineDigestRepository)
     private readonly repository: DeadlineDigestRepositoryPort,
@@ -349,8 +352,7 @@ export class DeadlineDigestService {
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
     const window = this.deadlineWindow(now);
     const programIds = await this.repository.findAutomaticProgramIds(window);
-    await programIds.reduce(async (previous, programId) => {
-      await previous;
+    await this.sequential.forEach(programIds, async (programId) => {
       const source = await this.repository.findDeadlineProgram(programId);
       if (source === null || !source.notifyOnDeadline) return;
       const prepared = this.prepareDeadlineDigest(
@@ -370,7 +372,7 @@ export class DeadlineDigestService {
           mailSender: this.mailSender,
         },
       );
-    }, Promise.resolve());
+    });
   }
 
   private async requireEligibility(

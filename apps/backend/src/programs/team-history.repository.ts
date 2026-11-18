@@ -149,36 +149,51 @@ export class TeamHistoryRepository {
           orderBy: { id: 'asc' },
         }),
     );
-    await invitations.reduce(async (previous, invitation) => {
-      await previous;
-      await this.recordInvitationClosed(
-        transaction,
-        invitation,
-        'INVITATION_CANCELLED',
-        actorId,
-        occurredAt,
-        'TEAM_DELETED',
-      );
-    }, Promise.resolve());
+    await this.recordInvitationsClosed(
+      transaction,
+      invitations,
+      'INVITATION_CANCELLED',
+      actorId,
+      occurredAt,
+      'TEAM_DELETED',
+    );
   }
 
   async recordInvitationClosed(
     transaction: Pick<Prisma.TransactionClient, 'teamHistory'>,
     invitation: InvitationSnapshot,
-    event:
-      'INVITATION_ACCEPTED' | 'INVITATION_DECLINED' | 'INVITATION_CANCELLED',
+    event: InvitationClosedEvent,
     actorId: string,
     occurredAt: Date,
-    reason?: 'JOINED_ANOTHER_TEAM' | 'TEAM_DELETED',
+    reason?: InvitationClosedReason,
   ): Promise<void> {
-    await transaction.teamHistory.create({
-      data: {
+    await this.recordInvitationsClosed(
+      transaction,
+      [invitation],
+      event,
+      actorId,
+      occurredAt,
+      reason,
+    );
+  }
+
+  async recordInvitationsClosed(
+    transaction: Pick<Prisma.TransactionClient, 'teamHistory'>,
+    invitations: readonly InvitationSnapshot[],
+    event: InvitationClosedEvent,
+    actorId: string,
+    occurredAt: Date,
+    reason?: InvitationClosedReason,
+  ): Promise<void> {
+    if (invitations.length === 0) return;
+    await transaction.teamHistory.createMany({
+      data: invitations.map((invitation) => ({
         teamId: invitation.teamId,
         programId: invitation.programId,
         actorId,
         event,
         occurredAt,
-        source: 'APPLICATION',
+        source: 'APPLICATION' as const,
         sourceTable: 'TeamInvitation',
         sourceId: invitation.id,
         data: {
@@ -191,7 +206,12 @@ export class TeamHistoryRepository {
           },
           ...(reason === undefined ? {} : { reason }),
         },
-      },
+      })),
     });
   }
 }
+
+type InvitationClosedEvent =
+  'INVITATION_ACCEPTED' | 'INVITATION_DECLINED' | 'INVITATION_CANCELLED';
+
+type InvitationClosedReason = 'JOINED_ANOTHER_TEAM' | 'TEAM_DELETED';

@@ -631,21 +631,26 @@ export class TeamInvitationsRepository {
               orderBy: { id: 'asc' },
             }),
         );
-        await otherInvitations.reduce(async (previous, other) => {
-          await previous;
-          const closed = await tx.teamInvitation.deleteMany({
-            where: { id: other.id },
-          });
-          if (closed.count === 1)
-            await this.history.recordInvitationClosed(
-              tx,
-              other,
-              'INVITATION_CANCELLED',
-              inviteeId,
-              now,
-              'JOINED_ANOTHER_TEAM',
-            );
-        }, Promise.resolve());
+        const closedIds =
+          otherInvitations.length === 0
+            ? new Set<string>()
+            : new Set(
+                (
+                  await tx.$queryRaw<readonly { readonly id: string }[]>`
+                    DELETE FROM "TeamInvitation"
+                    WHERE "id" IN (${Prisma.join(otherInvitations.map(({ id }) => id))})
+                    RETURNING "id"
+                  `
+                ).map(({ id }) => id),
+              );
+        await this.history.recordInvitationsClosed(
+          tx,
+          otherInvitations.filter(({ id }) => closedIds.has(id)),
+          'INVITATION_CANCELLED',
+          inviteeId,
+          now,
+          'JOINED_ANOTHER_TEAM',
+        );
 
         await enqueueRepositoryAccessSyncEvents(
           this.platformRepository,

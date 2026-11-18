@@ -827,43 +827,47 @@ export class ApplicationsRepository {
     const [rows, totalItems] = await this.prisma.$transaction(
       async (transaction) => {
         const total = await transaction.team.count({ where });
-        const readBuckets = async (
-          index: number,
-          remainingSkip: number,
-          remainingTake: number,
-        ): Promise<TeamManagementListRow[]> => {
-          const bucket = buckets[index];
-          if (bucket === undefined || remainingTake <= 0) return [];
-          const bucketCount = await transaction.team.count({
-            where: bucket,
-          });
-          if (remainingSkip >= bucketCount)
-            return readBuckets(
-              index + 1,
-              remainingSkip - bucketCount,
-              remainingTake,
-            );
-          const chunk = await transaction.team
-            .findMany({
-              where: bucket,
-              orderBy: TEAM_MANAGEMENT_ORDER_BY,
-              skip: remainingSkip,
-              take: remainingTake,
-              select: TEAM_MANAGEMENT_LIST_SELECT,
-            })
-            .then((result) =>
-              this.boundedReads.assertNestedWithin(
-                result,
-                { members: READ_CAP.membersPerTeam },
-                'Team.findMany',
+        const bucketCounts = await Promise.all(
+          buckets.map((bucket) => transaction.team.count({ where: bucket })),
+        );
+        let remainingSkip = skip;
+        let remainingTake = query.pageSize;
+        const windows = buckets.flatMap((bucket, index) => {
+          const bucketCount = bucketCounts[index] ?? 0;
+          if (remainingTake <= 0) return [];
+          if (remainingSkip >= bucketCount) {
+            remainingSkip -= bucketCount;
+            return [];
+          }
+          const window = {
+            bucket,
+            skip: remainingSkip,
+            take: Math.min(remainingTake, bucketCount - remainingSkip),
+          };
+          remainingSkip = 0;
+          remainingTake -= window.take;
+          return [window];
+        });
+        const chunks = await Promise.all(
+          windows.map((window) =>
+            transaction.team
+              .findMany({
+                where: window.bucket,
+                orderBy: TEAM_MANAGEMENT_ORDER_BY,
+                skip: window.skip,
+                take: window.take,
+                select: TEAM_MANAGEMENT_LIST_SELECT,
+              })
+              .then((result) =>
+                this.boundedReads.assertNestedWithin(
+                  result,
+                  { members: READ_CAP.membersPerTeam },
+                  'Team.findMany',
+                ),
               ),
-            );
-          return [
-            ...chunk,
-            ...(await readBuckets(index + 1, 0, remainingTake - chunk.length)),
-          ];
-        };
-        const collected = await readBuckets(0, skip, query.pageSize);
+          ),
+        );
+        const collected = chunks.flat();
         return [collected, total] as const;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },

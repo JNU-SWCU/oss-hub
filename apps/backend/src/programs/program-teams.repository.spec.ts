@@ -160,6 +160,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
     },
     teamHistory: {
       create: jest.fn().mockResolvedValue({ id: 'synthetic-history' }),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     submission: { count: jest.fn().mockResolvedValue(0) },
     teamRepo: { count: jest.fn().mockResolvedValue(0) },
@@ -375,11 +376,13 @@ describe('TeamRepository.leave', () => {
         }) as unknown,
       }) as unknown,
     });
-    expect(tx.teamHistory.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        event: 'INVITATION_CANCELLED',
-        sourceId: 'synthetic-invitation',
-      }) as unknown,
+    expect(tx.teamHistory.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          event: 'INVITATION_CANCELLED',
+          sourceId: 'synthetic-invitation',
+        }) as unknown,
+      ],
     });
     expect(recordAudit).not.toHaveBeenCalled();
   });

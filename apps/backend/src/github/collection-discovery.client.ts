@@ -191,44 +191,53 @@ export class CollectionDiscoveryClient {
     );
   }
 
-  private async request(
-    payload: {
-      query: string;
-      variables: Record<string, unknown>;
-    },
-    attempt = 0,
-    deadline = this.now() + (this.config.deadlineMs ?? DEFAULT_DEADLINE_MS),
-  ): Promise<Record<string, unknown>> {
-    const url = this.config.apiUrl ?? DEFAULT_API_URL;
+  private async fetchOnce(
+    url: string,
+    payload: { query: string; variables: Record<string, unknown> },
+    deadline: number,
+  ): Promise<{ readonly response: Response; readonly token: string }> {
     const remaining = deadline - this.now();
     if (remaining <= 0) throw new CollectionDiscoveryClientError('DEADLINE');
     const signal = AbortSignal.timeout(Math.max(1, remaining));
     const token = await this.tokens.getToken(signal);
     if (deadline - this.now() <= 0)
       throw new CollectionDiscoveryClientError('DEADLINE');
-    let response: Response;
     try {
-      response = await this.fetcher(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'User-Agent': USER_AGENT,
-        },
-        body: JSON.stringify(payload),
-        signal,
-      });
+      return {
+        token,
+        response: await this.fetcher(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': USER_AGENT,
+          },
+          body: JSON.stringify(payload),
+          signal,
+        }),
+      };
     } catch {
       if (this.now() >= deadline)
         throw new CollectionDiscoveryClientError('DEADLINE');
       throw new CollectionDiscoveryClientError('UPSTREAM');
     }
+  }
+
+  private async request(
+    payload: {
+      query: string;
+      variables: Record<string, unknown>;
+    },
+    deadline = this.now() + (this.config.deadlineMs ?? DEFAULT_DEADLINE_MS),
+  ): Promise<Record<string, unknown>> {
+    const url = this.config.apiUrl ?? DEFAULT_API_URL;
+    const first = await this.fetchOnce(url, payload, deadline);
+    let { response, token } = first;
     if (response.status === 401) {
-      if (attempt === 0) {
-        this.tokens.clear(token);
-        return this.request(payload, 1, deadline);
-      }
-      throw new CollectionDiscoveryClientError('AUTH');
+      this.tokens.clear(token);
+      ({ response, token } = await this.fetchOnce(url, payload, deadline));
+      if (response.status === 401)
+        throw new CollectionDiscoveryClientError('AUTH');
     }
     if (!response.ok) {
       if (

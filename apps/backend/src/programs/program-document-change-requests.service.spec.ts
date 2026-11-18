@@ -61,27 +61,28 @@ function writeStore(
       .fn()
       .mockResolvedValue(['application-a', 'application-b', 'application-c']),
     findChangeRequestCandidates: jest.fn().mockResolvedValue(candidates),
-    findSubmissionForReview: jest.fn((requirementId: string, teamId: string) =>
-      Promise.resolve({
-        id: `${teamId}:${requirementId}`,
-        revision: 2,
-        submissionHistoryId: `history:${teamId}`,
-        latestHistoryCreatedAt: new Date('2026-10-11T00:00:00.000Z'),
-      }),
+    findSubmissionsForChangeRequest: jest.fn(
+      (
+        targets: Parameters<
+          RequirementWriteStore['findSubmissionsForChangeRequest']
+        >[0],
+      ) =>
+        Promise.resolve(
+          targets.map((target) => ({
+            id: `${target.teamId}:${target.requirementId}`,
+            requirementId: target.requirementId,
+            teamId: target.teamId,
+            revision: 2,
+            latestHistoryCreatedAt: new Date('2026-10-11T00:00:00.000Z'),
+          })),
+        ),
     ),
-    createReview: jest
+    createChangeRequests: jest
       .fn<
-        ReturnType<RequirementWriteStore['createReview']>,
-        Parameters<RequirementWriteStore['createReview']>
+        ReturnType<RequirementWriteStore['createChangeRequests']>,
+        Parameters<RequirementWriteStore['createChangeRequests']>
       >()
-      .mockResolvedValue({
-        id: 'review',
-        decision: 'CHANGES_REQUESTED',
-        comment: null,
-        reviewedAt: now,
-        reviewerNickname: 'synthetic-staff',
-      }),
-    updateSubmissionStatus: jest.fn().mockResolvedValue(undefined),
+      .mockResolvedValue(undefined),
   };
 }
 function repository(
@@ -201,19 +202,16 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       documentIds: ['document-1'],
       teamIds: ['application-a', 'application-b', 'application-c'],
     });
-    expect(store.createReview).toHaveBeenCalledTimes(2);
-    expect(store.createReview).toHaveBeenCalledWith({
-      submissionId: 'application-a:document-1',
-      submissionHistoryId: 'history:application-a',
-      revision: 2,
-      reviewerId: 'staff-1',
-      decision: 'CHANGES_REQUESTED',
-      comment: '양식을 바꿔 다시 내 주세요.',
-      reviewedAt: now,
-    });
-    expect(store.updateSubmissionStatus.mock.calls).toEqual([
-      ['application-a:document-1', SubmissionStatus.CHANGES_REQUESTED],
-      ['application-b:document-1', SubmissionStatus.CHANGES_REQUESTED],
+    expect(store.createChangeRequests).toHaveBeenCalledTimes(1);
+    expect(store.createChangeRequests.mock.calls[0]?.[0]).toEqual([
+      {
+        submissionId: 'application-a:document-1',
+        revision: 2,
+        reviewerId: 'staff-1',
+        comment: '양식을 바꿔 다시 내 주세요.',
+        reviewedAt: now,
+      },
+      expect.objectContaining({ submissionId: 'application-b:document-1' }),
     ]);
   });
   it('서류 행을 잠근 뒤 신청 행을 잠그고 그때의 승인 범위로 대상을 찾는다', async () => {
@@ -255,9 +253,8 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
         () => now,
       ),
     ).resolves.toEqual({ requestedCount: 3 });
-    expect(store.updateSubmissionStatus).toHaveBeenCalledWith(
-      'application-c:document-1',
-      SubmissionStatus.CHANGES_REQUESTED,
+    expect(store.createChangeRequests.mock.calls[0]?.[0]).toContainEqual(
+      expect.objectContaining({ submissionId: 'application-c:document-1' }),
     );
   });
   it('건수가 같아도 하나가 승인되고 새 제출이 들어와 대상이 바뀌었으면 하나도 바꾸지 않는다', async () => {
@@ -272,8 +269,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       .requestChanges('staff-1', programId, request(), () => now)
       .catch((caught: unknown) => caught);
     expect(code(error)).toBe(RequirementsErrorCode.REVIEW_TARGET_CHANGED);
-    expect(store.createReview).not.toHaveBeenCalled();
-    expect(store.updateSubmissionStatus).not.toHaveBeenCalled();
+    expect(store.createChangeRequests).not.toHaveBeenCalled();
   });
   it('보완 요청 중인 제출을 학생이 다시 내도 대상은 그대로라 보낸다', async () => {
     const store = writeStore([
@@ -299,12 +295,12 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       await expect(
         subject.requestChanges('staff-1', programId, input, () => now),
       ).resolves.toEqual({ requestedCount: 2 });
-      expect(store.createReview).toHaveBeenCalledWith(
-        expect.objectContaining({ comment: comment?.trim() || null }),
-      );
-      expect(store.createReview.mock.calls[0]?.[0]).not.toHaveProperty(
-        'resubmissionDueAt',
-      );
+      const inputs = store.createChangeRequests.mock.calls[0]?.[0] ?? [];
+      expect(inputs).toHaveLength(2);
+      for (const created of inputs) {
+        expect(created.comment).toBe(comment?.trim() || null);
+        expect(created).not.toHaveProperty('resubmissionDueAt');
+      }
     },
   );
 });
@@ -316,5 +312,5 @@ it('사전 조회 뒤 삭제된 프로그램은 문서와 신청 잠금 전에 �
   ).resolves.toBe(RequirementsErrorCode.PROGRAM_NOT_FOUND);
   expect(store.lockProgramDocumentIds).not.toHaveBeenCalled();
   expect(store.lockApprovedApplicationIds).not.toHaveBeenCalled();
-  expect(store.createReview).not.toHaveBeenCalled();
+  expect(store.createChangeRequests).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import {
   Injectable,
   Inject,
@@ -529,6 +530,8 @@ type ProgramAuthoringStore = Pick<
 >;
 @Injectable()
 export class ProgramAuthoringService {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     @Inject(ProgramAuthoringRepository)
     private readonly repository: ProgramAuthoringStore,
@@ -662,11 +665,9 @@ export class ProgramAuthoringService {
         programName: program.name,
       }),
     });
-    await plan.milestones.reduce(async (previousMilestone, milestone) => {
-      await previousMilestone;
+    await this.sequential.forEach(plan.milestones, async (milestone) => {
       const milestoneId = await store.createMilestone(program.id, milestone);
-      await milestone.documents.reduce(async (previousDocument, document) => {
-        await previousDocument;
+      await this.sequential.forEach(milestone.documents, async (document) => {
         const documentId = await store.createDocument(milestoneId, document);
         if (document.templateUploadId !== null) {
           const upload = uploads.find(
@@ -680,8 +681,8 @@ export class ProgramAuthoringService {
             upload,
           });
         }
-      }, Promise.resolve());
-    }, Promise.resolve());
+      });
+    });
     return program;
   }
   toCanonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {

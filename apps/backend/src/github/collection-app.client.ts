@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable } from '@nestjs/common';
 import { CollectionAppConfigValues } from './collection-app.config';
 import { CollectionAppClientError } from './collection-app.error';
@@ -172,6 +173,8 @@ function dedupeByGithubKey(
 
 @Injectable()
 export class CollectionAppClient {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     private readonly config: CollectionAppConfigValues,
     private readonly tokens: CollectionAppClientTokenProvider,
@@ -312,10 +315,9 @@ export class CollectionAppClient {
       ).get(kind);
       return collectPages(kind, next, pageIndex + 1);
     };
-    await pending.reduce(async (previous, kind) => {
-      await previous;
+    await this.sequential.forEach(pending, async (kind) => {
       await collectPages(kind, first.get(kind), 1);
-    }, Promise.resolve());
+    });
 
     return {
       contributions: {
@@ -467,6 +469,42 @@ export class CollectionAppClient {
     return { cost: r.cost, remaining: r.remaining };
   }
 
+  private async fetchOnce(
+    url: string,
+    init: {
+      readonly method?: 'POST';
+      readonly headers: Readonly<Record<string, string>>;
+      readonly body?: string;
+    },
+    deadline: number,
+  ): Promise<{ readonly response: Response; readonly token: string }> {
+    const remaining = deadline - this.now();
+    if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
+    const signal = AbortSignal.timeout(Math.max(1, remaining));
+    const token = await this.tokens.getToken(signal);
+    if (deadline - this.now() <= 0)
+      throw new CollectionAppClientError('DEADLINE');
+    try {
+      return {
+        token,
+        response: await this.fetcher(url, {
+          ...init,
+          headers: {
+            Accept: ACCEPT,
+            Authorization: `Bearer ${token}`,
+            'User-Agent': USER_AGENT,
+            ...init.headers,
+          },
+          signal,
+        }),
+      };
+    } catch {
+      if (this.now() >= deadline)
+        throw new CollectionAppClientError('DEADLINE');
+      throw new CollectionAppClientError('UPSTREAM');
+    }
+  }
+
   private async send(
     url: string,
     init: {
@@ -476,37 +514,13 @@ export class CollectionAppClient {
     },
     deadline: number,
     { notFound }: { readonly notFound: boolean },
-    attempt = 0,
   ): Promise<unknown> {
-    const remaining = deadline - this.now();
-    if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
-    const signal = AbortSignal.timeout(Math.max(1, remaining));
-    const token = await this.tokens.getToken(signal);
-    if (deadline - this.now() <= 0)
-      throw new CollectionAppClientError('DEADLINE');
-    let response: Response;
-    try {
-      response = await this.fetcher(url, {
-        ...init,
-        headers: {
-          Accept: ACCEPT,
-          Authorization: `Bearer ${token}`,
-          'User-Agent': USER_AGENT,
-          ...init.headers,
-        },
-        signal,
-      });
-    } catch {
-      if (this.now() >= deadline)
-        throw new CollectionAppClientError('DEADLINE');
-      throw new CollectionAppClientError('UPSTREAM');
-    }
+    const first = await this.fetchOnce(url, init, deadline);
+    let { response, token } = first;
     if (response.status === 401) {
-      if (attempt === 0) {
-        this.tokens.clear(token);
-        return this.send(url, init, deadline, { notFound }, 1);
-      }
-      throw new CollectionAppClientError('AUTH');
+      this.tokens.clear(token);
+      ({ response, token } = await this.fetchOnce(url, init, deadline));
+      if (response.status === 401) throw new CollectionAppClientError('AUTH');
     }
     if (!response.ok) {
       if (

@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
@@ -23,6 +24,8 @@ export type RepositoryOutboxConsumeResult =
 
 @Injectable()
 export class RepositoryOutboxConsumerService {
+  private readonly sequential = new SequentialRepository();
+
   private readonly logger = new Logger(RepositoryOutboxConsumerService.name);
   private readonly schedulerLogger = new Logger('RepositoryProvisionScheduler');
   private readonly workerId = `repository-${randomUUID()}`;
@@ -56,20 +59,12 @@ export class RepositoryOutboxConsumerService {
   }
 
   async runBatch(): Promise<void> {
-    const drain = async (
-      next: () => Promise<{ readonly kind: string }>,
-      remaining: number,
-    ): Promise<void> => {
-      if (remaining <= 0) return;
-      const result = await next();
-      if (result.kind === 'EMPTY') return;
-      await drain(next, remaining - 1);
-    };
-    await drain(
-      () => this.consumeNext(this.workerId, this.now()),
-      PROVISION_BATCH_SIZE,
-    );
-    await drain(() => this.worker.runNext(this.workerId), PROVISION_BATCH_SIZE);
+    const drain = (next: () => Promise<{ readonly kind: string }>) =>
+      this.sequential.repeat(PROVISION_BATCH_SIZE, async () =>
+        (await next()).kind === 'EMPTY' ? 'stop' : undefined,
+      );
+    await drain(() => this.consumeNext(this.workerId, this.now()));
+    await drain(() => this.worker.runNext(this.workerId));
   }
 
   async consumeNext(

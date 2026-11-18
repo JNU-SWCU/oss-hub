@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import {
@@ -213,6 +214,8 @@ type ProgramRecord = PrismaTypes.ProgramGetPayload<{
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 @Injectable()
 export class ProgramEditorRepository {
+  private readonly sequential = new SequentialRepository();
+
   private readonly boundedReads = new BoundedReadRepository();
 
   constructor(
@@ -692,8 +695,7 @@ export class ProgramEditorRepository {
       });
     }
     const consumptions: ProgramAuthoringPendingUploadConsumption[] = [];
-    await input.documents.reduce(async (previous, document, index) => {
-      await previous;
+    await this.sequential.forEach(input.documents, async (document, index) => {
       const requirementId =
         document.id ??
         (
@@ -728,7 +730,7 @@ export class ProgramEditorRepository {
         }
         consumptions.push({ requirementId, upload });
       }
-    }, Promise.resolve());
+    });
     await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
       transaction,
       input.actorId,

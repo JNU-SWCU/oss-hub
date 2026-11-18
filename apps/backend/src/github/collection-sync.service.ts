@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
@@ -120,6 +121,8 @@ const observationChanged = (
 
 @Injectable()
 export class CollectionSyncService {
+  private readonly sequential = new SequentialRepository();
+
   private readonly logger = new Logger(CollectionSyncService.name);
   private readonly deadline: CollectionSyncDeadlineService;
 
@@ -285,13 +288,19 @@ export class CollectionSyncService {
 
     try {
       const changed: CollectionRepositoryRow[] = [];
-      const probeFrom = async (offset: number): Promise<void> => {
-        if (offset >= targets.length || stoppedForBudget) return;
+      const batches = Array.from(
+        { length: Math.ceil(targets.length / PROBE_BATCH_SIZE) },
+        (_, index) =>
+          targets.slice(
+            index * PROBE_BATCH_SIZE,
+            (index + 1) * PROBE_BATCH_SIZE,
+          ),
+      );
+      await this.sequential.forEach(batches, async (batch) => {
         if (this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          return;
+          return 'stop';
         }
-        const batch = targets.slice(offset, offset + PROBE_BATCH_SIZE);
         const unchanged = await this.probe(
           runtime,
           lease,
@@ -311,16 +320,13 @@ export class CollectionSyncService {
         });
         await this.recordSuccess(lease, unchanged, succeededAt);
         stats.succeededRepos += unchanged.length;
-        await probeFrom(offset + PROBE_BATCH_SIZE);
-      };
-      await probeFrom(0);
+        return stoppedForBudget ? 'stop' : undefined;
+      });
 
-      const collectFrom = async (index: number): Promise<void> => {
-        const repository = changed[index];
-        if (repository === undefined) return;
+      await this.sequential.forEach(changed, async (repository) => {
         if (stoppedForBudget || this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          return;
+          return 'stop';
         }
         const outcome = await this.collect(
           runtime,
@@ -332,10 +338,12 @@ export class CollectionSyncService {
           stats,
           runId,
         );
-        if (outcome === 'STOPPED_FOR_BUDGET') stoppedForBudget = true;
-        await collectFrom(index + 1);
-      };
-      await collectFrom(0);
+        if (outcome === 'STOPPED_FOR_BUDGET') {
+          stoppedForBudget = true;
+          return 'stop';
+        }
+        return undefined;
+      });
 
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
       status = 'COMPLETED';
@@ -400,8 +408,7 @@ export class CollectionSyncService {
     this.observeRateLimit(stats, result.rateLimit);
 
     const unchanged: bigint[] = [];
-    await batch.reduce(async (previous, target, index) => {
-      await previous;
+    await this.sequential.forEach(batch, async (target, index) => {
       const probed = result.repositories[index] ?? null;
       if (
         probed === null ||
@@ -436,7 +443,7 @@ export class CollectionSyncService {
       } else {
         unchanged.push(target.githubRepositoryId);
       }
-    }, Promise.resolve());
+    });
     return unchanged;
   }
 
@@ -557,8 +564,7 @@ export class CollectionSyncService {
       this.observeRateLimit(stats, result.rateLimit);
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        await CONTRIBUTION_KINDS.reduce(async (previous, kind) => {
-          await previous;
+        await this.sequential.forEach(CONTRIBUTION_KINDS, async (kind) => {
           const recorded = await repo.recordContributions(
             repository.githubRepositoryId,
             kind,
@@ -566,7 +572,7 @@ export class CollectionSyncService {
           );
           stats.inserted += recorded.inserted;
           stats.authorFilled += recorded.authorFilled;
-        }, Promise.resolve());
+        });
         await repo.recordRepositorySuccess(
           [repository.githubRepositoryId],
           succeededAt,

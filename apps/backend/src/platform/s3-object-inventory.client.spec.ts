@@ -51,30 +51,37 @@ describe('S3ObjectInventoryClient', () => {
     const firstModified = new Date('2026-08-12T00:00:00.000Z');
     const secondModified = new Date('2026-08-12T01:00:00.000Z');
     const thirdModified = new Date('2026-08-12T02:00:00.000Z');
-    const send = createSend()
-      .mockResolvedValueOnce({
+    const pages: Record<string, object> = {
+      'submission-files/:': {
         Contents: [
           { Key: 'submission-files/one', LastModified: firstModified },
         ],
         IsTruncated: true,
         NextContinuationToken: 'next-page',
-      })
-      .mockResolvedValueOnce({
+      },
+      'submission-files/:next-page': {
         Contents: [
           { Key: 'submission-files/two', LastModified: secondModified },
         ],
         IsTruncated: false,
-      })
-      .mockResolvedValueOnce({
+      },
+      'program-authoring/:': {
         Contents: [
           { Key: 'program-authoring/three', LastModified: thirdModified },
         ],
         IsTruncated: false,
-      })
-      .mockResolvedValueOnce({
+      },
+      'program-covers/:': {
         Contents: [{ Key: 'program-covers/four', LastModified: thirdModified }],
         IsTruncated: false,
-      });
+      },
+    };
+    const send = createSend().mockImplementation((command) => {
+      const input = (command as ListObjectsV2Command).input;
+      return Promise.resolve(
+        pages[`${input.Prefix ?? ''}:${input.ContinuationToken ?? ''}`],
+      );
+    });
     const { inventory, requireSettings } = createInventory(send);
     const expected: ObjectInventoryEntry[] = [
       { key: 'submission-files/one', lastModified: firstModified },
@@ -92,36 +99,32 @@ describe('S3ObjectInventoryClient', () => {
     ).resolves.toEqual(expected);
     expect(send).toHaveBeenCalledTimes(4);
     expect(requireSettings).toHaveBeenCalledTimes(1);
-    const [firstCommand, secondCommand, thirdCommand, fourthCommand] =
-      send.mock.calls.map((call) => call[0]);
-    if (
-      !(firstCommand instanceof ListObjectsV2Command) ||
-      !(secondCommand instanceof ListObjectsV2Command) ||
-      !(thirdCommand instanceof ListObjectsV2Command) ||
-      !(fourthCommand instanceof ListObjectsV2Command)
-    ) {
-      throw new Error('Expected ListObjectsV2Command pagination');
-    }
-    expect(firstCommand.input).toEqual({
-      Bucket: settings.bucket,
-      Prefix: 'submission-files/',
-      ContinuationToken: undefined,
-    });
-    expect(secondCommand.input).toEqual({
-      Bucket: settings.bucket,
-      Prefix: 'submission-files/',
-      ContinuationToken: 'next-page',
-    });
-    expect(thirdCommand.input).toEqual({
-      Bucket: settings.bucket,
-      Prefix: 'program-authoring/',
-      ContinuationToken: undefined,
-    });
-    expect(fourthCommand.input).toEqual({
-      Bucket: settings.bucket,
-      Prefix: 'program-covers/',
-      ContinuationToken: undefined,
-    });
+    expect(
+      send.mock.calls.map((call) => (call[0] as ListObjectsV2Command).input),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          Bucket: settings.bucket,
+          Prefix: 'submission-files/',
+          ContinuationToken: undefined,
+        },
+        {
+          Bucket: settings.bucket,
+          Prefix: 'submission-files/',
+          ContinuationToken: 'next-page',
+        },
+        {
+          Bucket: settings.bucket,
+          Prefix: 'program-authoring/',
+          ContinuationToken: undefined,
+        },
+        {
+          Bucket: settings.bucket,
+          Prefix: 'program-covers/',
+          ContinuationToken: undefined,
+        },
+      ]),
+    );
     expect(send.mock.calls[0]?.[1]?.abortSignal).toBeInstanceOf(AbortSignal);
   });
 

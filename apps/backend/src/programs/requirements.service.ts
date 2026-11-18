@@ -834,33 +834,29 @@ export class ProgramDocumentChangeRequestsService {
         const targets = candidates.filter((candidate) =>
           statuses.includes(candidate.status),
         );
-        await targets.reduce(async (previous, target) => {
-          await previous;
-          const submission = await store.findSubmissionForReview(
-            target.requirementId,
-            target.teamId,
-          );
-          if (submission === null) {
-            throw this.error(RequirementsErrorCode.REVIEW_TARGET_CHANGED);
-          }
-          const reviewedAt = this.submissionRepository.nextHistoryCreatedAt(
-            now(),
-            submission.latestHistoryCreatedAt,
-          );
-          await store.createReview({
-            submissionId: submission.id,
-            submissionHistoryId: submission.submissionHistoryId,
-            revision: submission.revision,
-            reviewerId,
-            decision: 'CHANGES_REQUESTED',
-            comment: input.comment,
-            reviewedAt,
-          });
-          await store.updateSubmissionStatus(
-            submission.id,
-            SubmissionStatus.CHANGES_REQUESTED,
-          );
-        }, Promise.resolve());
+        const submissions = new Map(
+          (await store.findSubmissionsForChangeRequest(targets)).map(
+            (submission) => [changeRequestTargetKey(submission), submission],
+          ),
+        );
+        await store.createChangeRequests(
+          targets.map((target) => {
+            const submission = submissions.get(changeRequestTargetKey(target));
+            if (submission === undefined) {
+              throw this.error(RequirementsErrorCode.REVIEW_TARGET_CHANGED);
+            }
+            return {
+              submissionId: submission.id,
+              revision: submission.revision,
+              reviewerId,
+              comment: input.comment,
+              reviewedAt: this.submissionRepository.nextHistoryCreatedAt(
+                now(),
+                submission.latestHistoryCreatedAt,
+              ),
+            };
+          }),
+        );
         return targets.length;
       },
     );
@@ -886,6 +882,12 @@ export class ProgramDocumentChangeRequestsService {
   private error(code: RequirementsErrorCode): DomainException {
     return new DomainException(REQUIREMENTS_ERROR_CODES[code]);
   }
+}
+function changeRequestTargetKey(target: {
+  readonly requirementId: string;
+  readonly teamId: string;
+}): string {
+  return `${target.requirementId}:${target.teamId}`;
 }
 const OPEN_STATUSES: readonly SubmissionStatus[] = [
   SubmissionStatus.SUBMITTED,

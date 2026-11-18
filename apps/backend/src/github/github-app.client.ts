@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable } from '@nestjs/common';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
@@ -131,6 +132,8 @@ export type CollaboratorOutcome =
 
 @Injectable()
 export class GithubAppClient {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     private readonly tokenProvider: GithubInstallationTokenProvider,
     private readonly fetcher: GithubAppFetcher = globalThis.fetch,
@@ -251,19 +254,20 @@ export class GithubAppClient {
     const repositoryPath = this.repositoryPath(repositoryName);
     const target = githubLogin.toLowerCase();
     const invitations = await this.listInvitations(repositoryPath);
-    await invitations
-      .filter((invitation) => invitation.login.toLowerCase() === target)
-      .reduce(async (previous, invitation) => {
-        await previous;
-        const cancelResponse = await this.request(
-          `${repositoryPath}/invitations/${invitation.invitationId}`,
-          { method: 'DELETE' },
-        );
-        if (cancelResponse.status === 204 || cancelResponse.status === 404) {
-          return;
-        }
-        await throwForGithubErrorResponse(cancelResponse, this.now());
-      }, Promise.resolve());
+    await Promise.all(
+      invitations
+        .filter((invitation) => invitation.login.toLowerCase() === target)
+        .map(async (invitation) => {
+          const cancelResponse = await this.request(
+            `${repositoryPath}/invitations/${invitation.invitationId}`,
+            { method: 'DELETE' },
+          );
+          if (cancelResponse.status === 204 || cancelResponse.status === 404) {
+            return;
+          }
+          await throwForGithubErrorResponse(cancelResponse, this.now());
+        }),
+    );
 
     const response = await this.request(
       `${repositoryPath}/collaborators/${encodeURIComponent(githubLogin)}`,
@@ -293,12 +297,10 @@ export class GithubAppClient {
     repositoryPath: string,
   ): Promise<readonly GithubRepositoryInvitation[]> {
     const invitations: GithubRepositoryInvitation[] = [];
-    const readPage = async (
-      page: number,
-    ): Promise<readonly GithubRepositoryInvitation[]> => {
-      if (page > INVITATION_PAGE_LIMIT) throw invalidGithubResponseError();
+    let complete = false;
+    await this.sequential.repeat(INVITATION_PAGE_LIMIT, async (index) => {
       const response = await this.request(
-        `${repositoryPath}/invitations?per_page=${INVITATION_PAGE_SIZE}&page=${page}`,
+        `${repositoryPath}/invitations?per_page=${INVITATION_PAGE_SIZE}&page=${index + 1}`,
       );
       await throwForGithubErrorResponse(response, this.now());
       const parsed = this.parseRepositoryInvitations(
@@ -306,11 +308,13 @@ export class GithubAppClient {
       );
       invitations.push(...parsed);
       if (parsed.length < INVITATION_PAGE_SIZE) {
-        return invitations;
+        complete = true;
+        return 'stop';
       }
-      return readPage(page + 1);
-    };
-    return readPage(1);
+      return undefined;
+    });
+    if (!complete) throw invalidGithubResponseError();
+    return invitations;
   }
 
   private async assertRepositoryAccessible(name: string): Promise<void> {
@@ -356,12 +360,26 @@ export class GithubAppClient {
   private async request(
     path: string,
     init: RequestInit = {},
-    retriedAfterAuthentication = false,
   ): Promise<Response> {
+    const response = await this.fetchOnce(path, init);
+    if (response.status !== 401) {
+      return response;
+    }
+    this.tokenProvider.invalidateAccessToken();
+    const retried = await this.fetchOnce(path, init);
+    if (retried.status === 401) {
+      throw new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.AUTHENTICATION,
+        false,
+      );
+    }
+    return retried;
+  }
+
+  private async fetchOnce(path: string, init: RequestInit): Promise<Response> {
     const token = await this.tokenProvider.accessToken();
-    let response: Response;
     try {
-      response = await this.fetcher(`${GITHUB_API_BASE_URL}${path}`, {
+      return await this.fetcher(`${GITHUB_API_BASE_URL}${path}`, {
         ...init,
         headers: {
           Accept: 'application/vnd.github+json',
@@ -381,16 +399,5 @@ export class GithubAppClient {
       }
       throw error;
     }
-    if (response.status !== 401) {
-      return response;
-    }
-    if (retriedAfterAuthentication) {
-      throw new GithubOperationsError(
-        GITHUB_OPERATIONS_ERROR_CODES.AUTHENTICATION,
-        false,
-      );
-    }
-    this.tokenProvider.invalidateAccessToken();
-    return this.request(path, init, true);
   }
 }

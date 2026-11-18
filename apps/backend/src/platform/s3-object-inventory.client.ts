@@ -34,15 +34,13 @@ export class S3ObjectInventoryClient implements ObjectInventoryPort {
     prefixes: readonly string[],
   ): Promise<readonly ObjectInventoryEntry[]> {
     const { client, bucket } = this.connection.requireClient();
-    const objects: ObjectInventoryEntry[] = [];
     try {
-      await prefixes.reduce(async (previous, prefix) => {
-        await previous;
-        objects.push(
-          ...(await this.listObjectsByPrefix(client, bucket, prefix)),
-        );
-      }, Promise.resolve());
-      return objects;
+      const listed = await Promise.all(
+        prefixes.map((prefix) =>
+          this.listObjectsByPrefix(client, bucket, prefix),
+        ),
+      );
+      return listed.flat();
     } catch {
       throw new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.LIST_FAILED);
     }

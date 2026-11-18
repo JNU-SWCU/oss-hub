@@ -574,6 +574,25 @@ export interface RequirementArchiveSubmissionRecord {
     readonly sizeBytes: number;
   } | null;
 }
+export interface ChangeRequestTargetKey {
+  readonly requirementId: string;
+  readonly teamId: string;
+}
+
+export interface SubmissionForChangeRequest extends ChangeRequestTargetKey {
+  readonly id: string;
+  readonly revision: number;
+  readonly latestHistoryCreatedAt: Date | null;
+}
+
+export interface CreateChangeRequestInput {
+  readonly submissionId: string;
+  readonly revision: number;
+  readonly reviewerId: string;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+}
+
 interface CreateRequirementReviewRecordInput {
   readonly submissionId: string;
   readonly submissionHistoryId: string;
@@ -660,6 +679,12 @@ export interface RequirementWriteStore {
     readonly submissionHistoryId: string;
     readonly latestHistoryCreatedAt: Date | null;
   } | null>;
+  findSubmissionsForChangeRequest(
+    targets: readonly ChangeRequestTargetKey[],
+  ): Promise<readonly SubmissionForChangeRequest[]>;
+  createChangeRequests(
+    inputs: readonly CreateChangeRequestInput[],
+  ): Promise<void>;
   findLatestReviewIdForSubmission(submissionId: string): Promise<string | null>;
   createReview(
     input: CreateRequirementReviewRecordInput,
@@ -1153,6 +1178,8 @@ export class RequirementsRepository {
         },
       },
       _count: { _all: true },
+      orderBy: { requirementId: 'asc' },
+      take: documentIds.length,
     });
     return new Map(grouped.map((row) => [row.requirementId, row._count._all]));
   }
@@ -1514,6 +1541,9 @@ export class RequirementsRepository {
       applyDocumentOrder: this.applyDocumentOrderIn.bind(this, scope),
       deleteDocument: this.deleteDocumentIn.bind(this, scope),
       findSubmissionForReview: this.findSubmissionForReviewIn.bind(this, scope),
+      findSubmissionsForChangeRequest:
+        this.findSubmissionsForChangeRequestIn.bind(this, scope),
+      createChangeRequests: this.createChangeRequestsIn.bind(this, scope),
       findLatestReviewIdForSubmission:
         this.findLatestReviewIdForSubmissionIn.bind(this, scope),
       createReview: this.createReviewIn.bind(this, scope),
@@ -1729,17 +1759,20 @@ export class RequirementsRepository {
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<RequirementRecord[]> {
-    await documentIds.reduce(async (previous, documentId, index) => {
-      await previous;
-      await scope.transaction.requirement.update({
-        where: {
-          id: documentId,
-          milestoneId,
-        },
-        data: { sortOrder: index + 1 },
-        select: { id: true },
-      });
-    }, Promise.resolve());
+    if (documentIds.length > 0) {
+      const orders = Prisma.join(
+        documentIds.map(
+          (documentId, index) => Prisma.sql`(${documentId}, ${index + 1}::int)`,
+        ),
+      );
+      await scope.transaction.$executeRaw`
+        UPDATE "Requirement" AS requirement
+        SET "sortOrder" = ordered.sort_order
+        FROM (VALUES ${orders}) AS ordered(id, sort_order)
+        WHERE requirement."id" = ordered.id
+          AND requirement."milestoneId" = ${milestoneId}
+      `;
+    }
     const documents = await this.boundedReads.readCapped(
       READ_CAP.requirementsPerMilestone,
       'Requirement per milestone',
@@ -1846,6 +1879,94 @@ export class RequirementsRepository {
       submissionHistoryId: history.id,
       latestHistoryCreatedAt: latestHistory?.createdAt ?? null,
     };
+  }
+  private async findSubmissionsForChangeRequestIn(
+    scope: RequirementWriteScope,
+    targets: readonly ChangeRequestTargetKey[],
+  ): Promise<readonly SubmissionForChangeRequest[]> {
+    if (targets.length === 0) return [];
+    const pairs = Prisma.join(
+      targets.map(
+        (target) => Prisma.sql`(${target.requirementId}, ${target.teamId})`,
+      ),
+    );
+    await scope.transaction.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "Submission"
+      WHERE ("requirementId", "teamId") IN (${pairs})
+      ORDER BY "id"
+      LIMIT ${targets.length}
+      FOR UPDATE
+    `);
+    const submissions = await scope.transaction.submission.findMany({
+      take: targets.length,
+      where: {
+        OR: targets.map((target) => ({
+          requirementId: target.requirementId,
+          teamId: target.teamId,
+        })),
+      },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        requirementId: true,
+        teamId: true,
+        revision: true,
+        histories: {
+          where: {
+            event: {
+              in: [
+                SubmissionHistoryEvent.SUBMITTED,
+                SubmissionHistoryEvent.RESUBMITTED,
+              ],
+            },
+          },
+          orderBy: [{ revision: 'desc' }, { createdAt: 'desc' }],
+          take: 1,
+          select: { revision: true },
+        },
+      },
+    });
+    const current = submissions.filter(
+      (submission) => submission.histories[0]?.revision === submission.revision,
+    );
+    const latest = await scope.transaction.submissionHistory.groupBy({
+      by: ['submissionId'],
+      where: { submissionId: { in: current.map(({ id }) => id) } },
+      _max: { createdAt: true },
+      orderBy: { submissionId: 'asc' },
+      take: current.length,
+    });
+    const latestBySubmission = new Map(
+      latest.map((row) => [row.submissionId, row._max.createdAt]),
+    );
+    return current.map((submission) => ({
+      id: submission.id,
+      requirementId: submission.requirementId,
+      teamId: submission.teamId,
+      revision: submission.revision,
+      latestHistoryCreatedAt: latestBySubmission.get(submission.id) ?? null,
+    }));
+  }
+  private async createChangeRequestsIn(
+    scope: RequirementWriteScope,
+    inputs: readonly CreateChangeRequestInput[],
+  ): Promise<void> {
+    if (inputs.length === 0) return;
+    await scope.transaction.submissionHistory.createMany({
+      data: inputs.map((input) => ({
+        submissionId: input.submissionId,
+        event: SubmissionHistoryEvent.CHANGES_REQUESTED,
+        revision: input.revision,
+        comment: input.comment,
+        actorId: input.reviewerId,
+        createdAt: input.reviewedAt,
+      })),
+    });
+    await scope.transaction.submission.updateMany({
+      where: { id: { in: inputs.map(({ submissionId }) => submissionId) } },
+      data: { status: SubmissionStatus.CHANGES_REQUESTED },
+    });
   }
   private async findLatestReviewIdForSubmissionIn(
     scope: RequirementWriteScope,

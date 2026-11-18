@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable, Logger } from '@nestjs/common';
 
 import { CollectionDiscoveryClient } from './collection-discovery.client';
@@ -28,6 +29,8 @@ const seoulYearOf = (instant: Date): number =>
 
 @Injectable()
 export class CollectionUserActivityService {
+  private readonly sequential = new SequentialRepository();
+
   private readonly logger = new Logger(CollectionUserActivityService.name);
   private inFlightRun: Promise<CollectionUserActivitySweepResult> | null = null;
 
@@ -146,17 +149,13 @@ export class CollectionUserActivityService {
         return true;
       }
     };
-    await users.reduce(async (previousUser, user) => {
-      await previousUser;
-      const userFailed = await targetYears.reduce(
-        async (failedBefore, year) => {
-          const failed = await failedBefore;
-          return (await observeYear(user, year)) || failed;
-        },
-        Promise.resolve(false),
-      );
+    await this.sequential.forEach(users, async (user) => {
+      let userFailed = false;
+      await this.sequential.forEach(targetYears, async (year) => {
+        if (await observeYear(user, year)) userFailed = true;
+      });
       if (userFailed) failedUserCount += 1;
-    }, Promise.resolve());
+    });
 
     return {
       observedUserCount: users.length,

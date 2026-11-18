@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
@@ -220,6 +221,8 @@ export class ProgramAuthoringUploadRepository {
 
 @Injectable()
 export class ProgramAuthoringUploadTransactionRepository {
+  private readonly sequential = new SequentialRepository();
+
   async lockAttachableProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     actorId: string,
@@ -287,10 +290,11 @@ export class ProgramAuthoringUploadTransactionRepository {
     actorId: string,
     consumptions: readonly ProgramAuthoringPendingUploadConsumption[],
   ) {
-    await [...consumptions]
-      .sort((left, right) => left.upload.id.localeCompare(right.upload.id))
-      .reduce(async (previous, { requirementId, upload }) => {
-        await previous;
+    await this.sequential.forEach(
+      [...consumptions].sort((left, right) =>
+        left.upload.id.localeCompare(right.upload.id),
+      ),
+      async ({ requirementId, upload }) => {
         await transaction.file.updateMany({
           where: {
             kind: 'TEMPLATE',
@@ -320,7 +324,8 @@ export class ProgramAuthoringUploadTransactionRepository {
         if (attached.count !== 1) {
           throw new ProgramAuthoringUploadConsumptionRaceError(upload.id);
         }
-      }, Promise.resolve());
+      },
+    );
   }
 }
 

@@ -91,7 +91,10 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
         count: jest.fn().mockResolvedValue(options.memberCount ?? 1),
         create: options.create ?? jest.fn().mockResolvedValue(undefined),
       },
-      teamHistory: { create: jest.fn().mockResolvedValue({}) },
+      teamHistory: {
+        create: jest.fn().mockResolvedValue({}),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       user: {
         findUnique: jest.fn().mockResolvedValue(
           options.invitee === undefined
@@ -441,7 +444,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       meta: { modelName: 'TeamHistory' },
     });
     const tx = buildTx();
-    tx.teamHistory.create.mockRejectedValueOnce(boom);
+    tx.teamHistory.createMany.mockRejectedValueOnce(boom);
     await expect(accept(tx)).rejects.toBe(boom);
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
