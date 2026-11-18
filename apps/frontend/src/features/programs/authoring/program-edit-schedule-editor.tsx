@@ -155,7 +155,7 @@ export function ProgramEditScheduleEditor({
         {openRange !== null && openRangeId !== null ? (
           <ProgramScheduleRangeDialog
             range={openRange}
-            description="날짜를 적용한 뒤 프로그램 정보 저장을 눌러야 저장됩니다."
+            description="날짜를 적용한 뒤 저장해야 반영됩니다."
             confirmLabel="날짜 적용"
             dialogClassName="w-full px-3 py-3 sm:w-[calc(100%-2rem)] sm:px-card sm:py-card"
             bodyClassName="auto-rows-max"

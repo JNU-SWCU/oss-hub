@@ -134,14 +134,14 @@ describe('LoginButtonView', () => {
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('src="https://avatars.example/u/1?s=48"');
     expect(html).toContain('synthetic-user');
-    expect(html).not.toContain('로그인 계정');
+    expect(html).not.toContain('role="menu"');
     expect(html).not.toContain('설정');
     expect(html).not.toContain('로그아웃');
     expect(html).not.toContain('회원가입');
     expect(html).not.toContain('Your profile');
   });
 
-  it('열린 계정 메뉴에 로그인 계정·설정·로그아웃만 노출한다', () => {
+  it('열린 계정 메뉴에 계정 정보·설정·로그아웃만 노출한다', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={authenticatedSession}
@@ -153,8 +153,10 @@ describe('LoginButtonView', () => {
       />,
     );
 
-    expect(html).toContain('로그인 계정');
-    expect(html).toContain('synthetic-user');
+    expect(html).toContain(
+      '<p class="truncate text-sm font-semibold">synthetic-user</p>',
+    );
+    expect(html).toContain('aria-label="계정 메뉴"');
     expect(html).toContain('설정');
     expect(html).toContain('href="/settings"');
     expect(html).toContain('로그아웃');

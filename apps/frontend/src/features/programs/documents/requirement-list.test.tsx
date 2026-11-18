@@ -1748,6 +1748,13 @@ describe('문서 유예 설정과 학생 표시', () => {
       (candidate) => candidate.textContent?.trim() === label,
     );
   }
+  function labelledButton(label: string) {
+    const found = container.querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}"]`,
+    );
+    if (found === null) throw new Error(`Missing button: ${label}`);
+    return found;
+  }
 
   it('운영자가 한국 시간 날짜만 저장하고 문서를 다시 읽는다', async () => {
     const fetchMock = vi
@@ -1770,7 +1777,9 @@ describe('문서 유예 설정과 학생 표시', () => {
       )?.set?.call(field, '2099-06-30T23:59');
       field.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => button('유예 기한 저장').click());
+    const save = labelledButton('기획서 유예 기한 저장');
+    expect(save.textContent?.trim()).toBe('저장');
+    await act(async () => save.click());
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/document-1/grace'),
       expect.objectContaining({
@@ -1779,6 +1788,23 @@ describe('문서 유예 설정과 학생 표시', () => {
       }),
     );
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('저장과 취소를 블록 오른쪽 아래에 모으고 유예 해제는 떼어 둔다', async () => {
+    await render({ ...requirement, graceDueAt: '2099-06-30T14:59:00Z' });
+    const open = button('유예 기한 변경');
+    expect(open.getAttribute('aria-label')).toBe('기획서 유예 기한 변경');
+    await act(async () => open.click());
+    const actions = labelledButton('기획서 유예 기한 저장').parentElement;
+    if (actions === null) throw new Error('Missing grace action row');
+
+    expect(actions.className).toContain('justify-end');
+    expect(
+      [...actions.querySelectorAll('button')].map((candidate) =>
+        candidate.textContent?.trim(),
+      ),
+    ).toEqual(['유예 해제', '취소', '저장']);
+    expect(labelledButton('기획서 유예 해제').className).toContain('mr-auto');
   });
 
   it('유예 해제는 null만 보내고 저장 실패는 화면에 남긴다', async () => {

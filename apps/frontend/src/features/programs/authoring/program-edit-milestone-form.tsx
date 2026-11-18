@@ -103,9 +103,10 @@ export function ProgramEditMilestoneForm({
           <Button
             type="submit"
             disabled={isBusy || isSaveDisabled}
+            aria-label={`마일스톤 ${isBusy ? '저장 중…' : '저장'}`}
             aria-describedby="milestone-save-scope"
           >
-            {isBusy ? '저장 중…' : '마일스톤 저장'}
+            {isBusy ? '저장 중…' : '저장'}
           </Button>
         </div>
       </div>
