@@ -54,12 +54,25 @@ class PublicRankingEntryResponseDto {
   declare readonly total: number;
 
   static from(entry: RankingEntry): PublicRankingEntryResponseDto {
+    if (!('streak' in entry)) {
+      return {
+        rank: entry.rank,
+        previousRank: entry.previousRank,
+        githubLogin: entry.githubLogin,
+        commitCount: entry.commitCount,
+        pullRequestCount: entry.pullRequestCount,
+        issueCount: entry.issueCount,
+        repositoryCount: entry.repositoryCount,
+        starCount: entry.starCount,
+        total: entry.total,
+      };
+    }
     return {
       rank: entry.rank,
       previousRank: entry.previousRank,
       streak:
         entry.streak == null
-          ? entry.streak
+          ? null
           : RankingStreakResponseDto.from(entry.streak),
       githubLogin: entry.githubLogin,
       commitCount: entry.commitCount,
@@ -88,12 +101,27 @@ class StaffRankingEntryResponseDto {
   declare readonly total: number;
 
   static from(entry: RankingEntry): StaffRankingEntryResponseDto {
+    if (!('streak' in entry)) {
+      return {
+        rank: entry.rank,
+        previousRank: entry.previousRank,
+        githubLogin: entry.githubLogin,
+        department: entry.department,
+        name: entry.name ?? null,
+        commitCount: entry.commitCount,
+        pullRequestCount: entry.pullRequestCount,
+        issueCount: entry.issueCount,
+        repositoryCount: entry.repositoryCount,
+        starCount: entry.starCount,
+        total: entry.total,
+      };
+    }
     return {
       rank: entry.rank,
       previousRank: entry.previousRank,
       streak:
         entry.streak == null
-          ? entry.streak
+          ? null
           : RankingStreakResponseDto.from(entry.streak),
       githubLogin: entry.githubLogin,
       department: entry.department,
