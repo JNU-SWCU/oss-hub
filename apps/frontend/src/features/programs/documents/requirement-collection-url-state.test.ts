@@ -10,6 +10,7 @@ describe('RequirementCollection URL state', () => {
       'page=abc&sort=bad&status=bad&filter=bad&year=bad&granularity=bad&from=bad&to=bad&action=bad',
     );
     expect(parseRequirementCollectionSearchParams(input)).toEqual({
+      q: '',
       page: 1,
       pageSize: 20,
       filter: 'ALL',
@@ -19,6 +20,7 @@ describe('RequirementCollection URL state', () => {
   it('omits defaults from the address', () => {
     expect(
       buildRequirementCollectionSearchParams({
+        q: '',
         page: 1,
         pageSize: 20,
         filter: 'ALL',
@@ -28,6 +30,7 @@ describe('RequirementCollection URL state', () => {
 
   it('round trips nondefault shareable state', () => {
     const input = {
+      q: '',
       page: 2,
       pageSize: 20,
       filter: 'LATE',
@@ -37,6 +40,18 @@ describe('RequirementCollection URL state', () => {
     expect(params.toString()).toBe(
       'filter=LATE&documentId=doc%2F1&submissionState=MISSING&page=2',
     );
+    expect(parseRequirementCollectionSearchParams(params)).toEqual(input);
+  });
+
+  it('팀 검색어를 실어 나르고, 검색 중에는 한 번에 더 많은 팀을 불러온다', () => {
+    const input = {
+      q: 'hong',
+      page: 1,
+      pageSize: 100,
+      filter: 'ALL',
+    } as const;
+    const params = buildRequirementCollectionSearchParams(input);
+    expect(params.toString()).toBe('q=hong');
     expect(parseRequirementCollectionSearchParams(params)).toEqual(input);
   });
 });

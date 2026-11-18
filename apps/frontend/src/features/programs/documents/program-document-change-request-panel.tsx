@@ -66,7 +66,7 @@ function targetBreakdown(
 ): string {
   const parts: [string, number][] = [
     ['검토 대기', targets.submitted],
-    ['보완 요청 중', targets.changesRequested],
+    ['보완 요청', targets.changesRequested],
   ];
   if (includeFinalDecisions) {
     parts.push(['승인', targets.approved], ['반려', targets.rejected]);

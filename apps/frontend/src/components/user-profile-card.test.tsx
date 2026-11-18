@@ -59,7 +59,7 @@ describe('UserProfileCard — 가입 유형별 항목', () => {
     expect(html).toContain('학과');
     expect(html).toContain('소프트웨어공학과');
     expect(html).toContain('@synthetic-student');
-    expect(html).toContain('참여 프로그램·팀');
+    expect(html).toMatch(/<h3[^>]*>참여 프로그램<\/h3>/);
     expect(html).not.toContain('교직원 번호');
     expect(html).not.toContain('소속');
   });
@@ -75,7 +75,7 @@ describe('UserProfileCard — 가입 유형별 항목', () => {
     expect(html).toContain('@synthetic-staff');
     expect(html).not.toContain('학번');
     expect(html).not.toContain('학과');
-    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램');
     expect(html).not.toContain('합성 프로그램');
   });
 
@@ -85,11 +85,11 @@ describe('UserProfileCard — 가입 유형별 항목', () => {
     expect(html).toContain('가입 유형 미선택');
     expect(html).not.toContain('학번');
     expect(html).not.toContain('교직원 번호');
-    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램');
   });
 });
 
-describe('UserProfileCard — 참여 프로그램·팀', () => {
+describe('UserProfileCard — 참여 프로그램', () => {
   it('프로그램은 개요 주소로 잇고 팀 이름과 팀장 여부를 함께 보여 준다', () => {
     const html = render(student());
 
@@ -105,14 +105,14 @@ describe('UserProfileCard — 참여 프로그램·팀', () => {
     const html = render(student({ participations: null }));
 
     expect(html).toContain('260001');
-    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램');
     expect(html).not.toContain('참여 프로그램이 없습니다.');
   });
 
   it('참여한 프로그램이 없으면 없다고 알린다', () => {
     const html = render(student({ participations: [] }));
 
-    expect(html).toContain('참여 프로그램·팀');
+    expect(html).toMatch(/<h3[^>]*>참여 프로그램<\/h3>/);
     expect(html).toContain('참여 프로그램이 없습니다.');
     expect(html).not.toContain('<ul');
   });
@@ -147,9 +147,9 @@ describe('UserProfileCard — 머리말', () => {
     );
 
     expect(standalone).toMatch(/<h2[^>]*>합성 학생<\/h2>/);
-    expect(standalone).toMatch(/<h3[^>]*>참여 프로그램·팀<\/h3>/);
+    expect(standalone).toMatch(/<h3[^>]*>참여 프로그램<\/h3>/);
     expect(nested).toMatch(/<h3[^>]*>합성 학생<\/h3>/);
-    expect(nested).toMatch(/<h4[^>]*>참여 프로그램·팀<\/h4>/);
+    expect(nested).toMatch(/<h4[^>]*>참여 프로그램<\/h4>/);
   });
 
   it('받은 배지를 머리말에 그리고 없으면 자리를 만들지 않는다', () => {

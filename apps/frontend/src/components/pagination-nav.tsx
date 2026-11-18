@@ -7,6 +7,8 @@ interface PaginationNavProps {
   readonly onPageChange: (page: number) => void;
 
   readonly ariaLabel: string;
+
+  readonly isLoading?: boolean;
 }
 
 function PaginationNav({
@@ -14,8 +16,9 @@ function PaginationNav({
   totalPages,
   onPageChange,
   ariaLabel,
+  isLoading = false,
 }: PaginationNavProps): ReactElement | null {
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1 && page <= 1) return null;
 
   return (
     <nav
@@ -23,7 +26,7 @@ function PaginationNav({
       className="flex items-center justify-center gap-4"
     >
       <Button
-        disabled={page <= 1}
+        disabled={page <= 1 || isLoading}
         onClick={() => onPageChange(page - 1)}
         variant="outline"
       >
@@ -33,7 +36,7 @@ function PaginationNav({
         {page} / {totalPages}
       </span>
       <Button
-        disabled={page >= totalPages}
+        disabled={page >= totalPages || isLoading}
         onClick={() => onPageChange(page + 1)}
         variant="outline"
       >

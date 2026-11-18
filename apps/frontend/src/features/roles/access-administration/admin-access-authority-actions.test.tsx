@@ -69,7 +69,7 @@ function render(source: CanonicalAdminAccessDetail, onRequestAction = vi.fn()) {
 
 function resetButton(): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll('button')).find(
-    (candidate) => candidate.textContent?.trim() === '가입 유형 되돌리기',
+    (candidate) => candidate.textContent?.trim() === '변경',
   );
   if (!button) throw new TypeError('Reset button missing');
   return button;
@@ -94,7 +94,8 @@ describe('membership correction controls', () => {
     const request = render(detail());
     act(() => resetButton().click());
     expect(request).toHaveBeenCalledExactlyOnceWith('RESET_MEMBER_KIND');
-    expect(resetButton().dataset.variant).toBe('destructive');
+    expect(resetButton().dataset.variant).toBe('outline');
+    expect(resetButton().getAttribute('aria-label')).toBe('회원 유형 변경');
   });
   it.each([
     { isSelf: true },

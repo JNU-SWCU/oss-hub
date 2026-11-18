@@ -433,6 +433,7 @@ interface TeamManagementMember {
 export interface TeamManagementListItem {
   readonly id: string;
   readonly teamMinSize: number;
+  readonly teamMaxSize: number;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly applicant: {
@@ -1479,7 +1480,7 @@ const TEAM_MANAGEMENT_ORDER_BY = [
 
 const TEAM_MANAGEMENT_LIST_SELECT = {
   id: true,
-  program: { select: { teamMinSize: true } },
+  program: { select: { teamMinSize: true, teamMaxSize: true } },
   status: true,
   submittedAt: true,
   name: true,
@@ -1508,6 +1509,7 @@ function toTeamManagementListItem(
   return {
     id: row.id,
     teamMinSize: row.program.teamMinSize,
+    teamMaxSize: row.program.teamMaxSize,
     status: row.status,
     submittedAt: row.submittedAt,
     applicant: {

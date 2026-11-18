@@ -219,6 +219,7 @@ describe('TeamsController', () => {
         {
           id: 'team-1',
           teamMinSize: 1,
+          teamMaxSize: 3,
           status: 'SUBMITTED',
           submittedAt: new Date('2026-01-01'),
           applicant: { name: '가나다', nickname: 'login-a' },
@@ -252,6 +253,7 @@ describe('TeamsController', () => {
         {
           id: 'team-1',
           teamMinSize: 1,
+          teamMaxSize: 3,
           status: 'SUBMITTED',
           submittedAt: '2026-01-01T00:00:00.000Z',
           applicant: { name: '가나다', nickname: 'login-a' },

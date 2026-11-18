@@ -59,19 +59,22 @@ export function RequirementGraceEditor({
     }
   }
 
-  if (!editing)
+  if (!editing) {
+    const openLabel =
+      document.graceDueAt == null ? '유예 기한 설정' : '유예 기한 변경';
     return (
       <Button
         type="button"
         size="sm"
         variant="ghost"
         className={className}
-        aria-label={`${document.name} 유예 기한 설정`}
+        aria-label={`${document.name} ${openLabel}`}
         onClick={() => setEditing(true)}
       >
-        {document.graceDueAt == null ? '유예 기한 설정' : '유예 기한 변경'}
+        {openLabel}
       </Button>
     );
+  }
 
   return (
     <form
@@ -109,15 +112,14 @@ export function RequirementGraceEditor({
           {error}
         </p>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" disabled={saving}>
-          {saving ? '저장 중…' : '유예 기한 저장'}
-        </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {document.graceDueAt == null ? null : (
           <Button
             type="button"
             size="sm"
             variant="outline"
+            className="mr-auto"
+            aria-label={`${document.name} 유예 해제`}
             disabled={saving}
             onClick={() => void save(true)}
           >
@@ -128,6 +130,7 @@ export function RequirementGraceEditor({
           type="button"
           size="sm"
           variant="ghost"
+          aria-label={`${document.name} 유예 기한 편집 취소`}
           disabled={saving}
           onClick={() => {
             setEditing(false);
@@ -140,6 +143,14 @@ export function RequirementGraceEditor({
           }}
         >
           취소
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={saving}
+          aria-label={`${document.name} 유예 기한 ${saving ? '저장 중…' : '저장'}`}
+        >
+          {saving ? '저장 중…' : '저장'}
         </Button>
       </div>
     </form>

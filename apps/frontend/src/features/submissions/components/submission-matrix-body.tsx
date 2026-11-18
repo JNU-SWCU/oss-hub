@@ -7,7 +7,6 @@ import {
   applyMatrixQuickFilter,
   cellForMilestone,
   formatMatrixDueDate,
-  isMilestoneWithoutRequiredItems,
   MATRIX_MODE_LABELS,
   matrixEmptyKind,
   matrixRowTitle,
@@ -29,7 +28,6 @@ function matrixColumns(
   programId: string,
   milestones: readonly MatrixMilestone[],
   now: Date,
-  focused: boolean,
 ): DataTableColumn<MatrixRow>[] {
   return [
     {
@@ -71,7 +69,6 @@ function matrixColumns(
           cell={cellForMilestone(row, milestone.id)}
           milestone={milestone}
           now={now}
-          focused={focused}
         />
       ),
     })),
@@ -138,48 +135,29 @@ export function MatrixBody(
   if (emptyState !== null) return <>{emptyState}</>;
 
   const { milestones, rows, page, pageSize, total } = props.data;
-  const selectedMilestone =
-    milestones.find((item) => item.id === props.selectedMilestoneId) ?? null;
-  const visibleMilestones = selectedMilestone
-    ? [selectedMilestone]
-    : milestones;
-  const noRequiredItems =
-    selectedMilestone !== null &&
-    isMilestoneWithoutRequiredItems(rows, selectedMilestone, props.now);
-  const quickFiltered = noRequiredItems
-    ? rows
-    : applyMatrixQuickFilter(
-        rows,
-        visibleMilestones,
-        props.quickFilter,
-        props.now,
-      );
+  const quickFiltered = applyMatrixQuickFilter(
+    rows,
+    milestones,
+    props.quickFilter,
+    props.now,
+  );
 
   return (
     <>
-      {selectedMilestone === null ? (
-        <MatrixStatsStrip rows={rows} milestones={milestones} now={props.now} />
-      ) : null}
-      {noRequiredItems ? null : (
-        <MatrixQuickFilterButtons
-          rows={rows}
-          visibleMilestones={visibleMilestones}
-          now={props.now}
-          quickFilter={props.quickFilter}
-          onQuickFilterChange={props.onQuickFilterChange}
-        />
-      )}
-      {total > rows.length || selectedMilestone === null ? (
-        <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
-          {total > rows.length
-            ? `전체 ${total}개 팀 중 ${rows.length}개를 표시합니다. 빠른 필터는 이 페이지에만 적용됩니다.`
-            : null}
-          {total > rows.length && selectedMilestone === null ? ' ' : null}
-          {selectedMilestone === null
-            ? '표를 좌우로 스크롤할 수 있습니다.'
-            : null}
-        </p>
-      ) : null}
+      <MatrixStatsStrip rows={rows} milestones={milestones} now={props.now} />
+      <MatrixQuickFilterButtons
+        rows={rows}
+        visibleMilestones={milestones}
+        now={props.now}
+        quickFilter={props.quickFilter}
+        onQuickFilterChange={props.onQuickFilterChange}
+      />
+      <p id="matrix-scroll-hint" className="text-small text-muted-foreground">
+        {total > rows.length
+          ? `전체 ${total}개 팀 중 ${rows.length}개를 표시합니다. 빠른 필터는 이 페이지에만 적용됩니다. `
+          : null}
+        표를 좌우로 스크롤할 수 있습니다.
+      </p>
       {quickFiltered.length === 0 ? (
         <EmptyState
           title="조건에 맞는 팀이 없습니다"
@@ -197,18 +175,9 @@ export function MatrixBody(
       ) : (
         <DataTable
           className={TABLE_CARD}
-          aria-describedby={
-            total > rows.length || selectedMilestone === null
-              ? 'matrix-scroll-hint'
-              : undefined
-          }
+          aria-describedby="matrix-scroll-hint"
           scrollRegionLabel="마일스톤 제출 현황 표"
-          columns={matrixColumns(
-            props.programId,
-            visibleMilestones,
-            props.now,
-            selectedMilestone !== null,
-          )}
+          columns={matrixColumns(props.programId, milestones, props.now)}
           data={[...quickFiltered]}
           rowKey={(row) => row.teamId}
         />

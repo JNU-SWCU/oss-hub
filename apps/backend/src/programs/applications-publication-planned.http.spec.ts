@@ -190,6 +190,7 @@ const teamManagementPage: TeamManagementListPage = {
     {
       id: APPLICATION_ID,
       teamMinSize: 2,
+      teamMaxSize: 4,
       status: ApplicationStatus.SUBMITTED,
       submittedAt: SUBMITTED_AT,
       applicant: {
@@ -281,6 +282,7 @@ const teamManagementPageBody = {
     {
       id: APPLICATION_ID,
       teamMinSize: 2,
+      teamMaxSize: 4,
       status: ApplicationStatus.SUBMITTED,
       submittedAt: '2026-08-05T05:32:00.000Z',
       applicant: {

@@ -138,12 +138,12 @@ describe('sidebarGroupsFor (context)', () => {
     );
   });
 
-  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청·내 정보를 보여 준다', () => {
+  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청·설정을 보여 준다', () => {
     expect(STAFF_MENU).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
-      { label: '내 정보', href: '/dashboard/me' },
+      { label: '설정', href: '/settings' },
     ]);
     const groups = sidebarGroupsFor('dashboard', STAFF);
     expect(groups).toHaveLength(1);
@@ -164,7 +164,7 @@ describe('sidebarGroupsFor (context)', () => {
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
-      { label: '내 정보', href: '/dashboard/me' },
+      { label: '설정', href: '/settings' },
     ]);
     expect(groups[1]?.label).toBe('관리자');
     expect(
@@ -195,7 +195,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/my-repos',
         '/dashboard/activity',
-        '/dashboard/me',
+        '/settings',
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
@@ -209,7 +209,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/dashboard/insights',
         '/dashboard/applicants',
-        '/dashboard/me',
+        '/settings',
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
@@ -223,7 +223,7 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/audit-logs',
         '/dashboard/system-status',
         '/dashboard/applicants',
-        '/dashboard/me',
+        '/settings',
       ],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
@@ -249,14 +249,14 @@ describe('sidebarGroupsFor (context)', () => {
       { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
     ],
   ] satisfies readonly [string, MemberAccess][])(
-    '%s 대시보드 메뉴에 내 정보가 한 번 있다',
+    '%s 대시보드 메뉴에 설정이 한 번 있다',
     (_, access) => {
       const items = sidebarGroupsFor('dashboard', access)
         .flatMap((group) => group.items)
-        .filter((item) => item.href === '/dashboard/me');
+        .filter((item) => item.href === '/settings');
 
       expect(items).toHaveLength(1);
-      expect(items[0]).toMatchObject({ label: '내 정보', icon: 'person' });
+      expect(items[0]).toMatchObject({ label: '설정', icon: 'gear' });
     },
   );
 
@@ -284,14 +284,12 @@ describe('sidebarGroupsFor (context)', () => {
     ).toBe('프로그램 메뉴');
   });
 
-  it('교직원 업무 링크는 역할을 드러내지 않는 대시보드 경로를 사용한다', () => {
+  it('교직원 업무 링크는 역할을 드러내지 않는 경로를 사용한다', () => {
     const hrefs = dashboardHrefs(STAFF);
 
-    expect(
-      hrefs.every(
-        (href) => href === '/dashboard' || href.startsWith('/dashboard/'),
-      ),
-    ).toBe(true);
+    expect(hrefs.every((href) => !/^\/(staff|admin)(\/|$)/.test(href))).toBe(
+      true,
+    );
   });
 
   it('no practice competition item', () => {
@@ -442,10 +440,12 @@ describe('isCurrentSidebarItem', () => {
       isCurrentSidebarItem('/dashboard/applicants', '/dashboard', ''),
     ).toBe(false);
     expect(isCurrentSidebarItem('/my-repos', '/dashboard', '')).toBe(false);
-    expect(isCurrentSidebarItem('/dashboard/me', '/dashboard/me', '')).toBe(
-      true,
+    expect(
+      isCurrentSidebarItem('/dashboard/activity', '/dashboard/activity', ''),
+    ).toBe(true);
+    expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard', '')).toBe(
+      false,
     );
-    expect(isCurrentSidebarItem('/dashboard/me', '/dashboard', '')).toBe(false);
   });
 });
 
@@ -545,7 +545,7 @@ describe('programScopeSidebarGroups', () => {
     expect(board?.items[0]).toMatchObject({ label: '게시판', count: '3' });
   });
 
-  it('STAFF view: 서류 현황 and 모든 단계 have no count; stages count outstanding teams', () => {
+  it('STAFF view: 서류 현황 has no count and no 모든 단계 child; stages count outstanding teams', () => {
     const groups = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STAFF',
@@ -581,17 +581,15 @@ describe('programScopeSidebarGroups', () => {
       href: '/programs/prog-1/documents',
     });
     expect(documents?.items[0]?.count).toBeUndefined();
+    expect(documents?.items.some((item) => item.label === '모든 단계')).toBe(
+      false,
+    );
     expect(documents?.items[1]).toMatchObject({
-      label: '모든 단계',
-      href: '/programs/prog-1/documents',
-    });
-    expect(documents?.items[1]?.count).toBeUndefined();
-    expect(documents?.items[2]).toMatchObject({
       label: '프로젝트 계획서 제출',
       href: '/programs/prog-1/documents?milestoneId=m3',
       count: '1',
     });
-    expect(documents?.items[3]).toMatchObject({
+    expect(documents?.items[2]).toMatchObject({
       label: '1차 중간 산출물 제출',
       href: '/programs/prog-1/documents?milestoneId=m4',
       count: '3',
@@ -611,7 +609,7 @@ describe('programScopeSidebarGroups', () => {
       requirements: [{ milestoneId: 'm1', title: '계획서', ...summary }],
     });
 
-    expect(groups[1]?.items[2]).toMatchObject({
+    expect(groups[1]?.items[1]).toMatchObject({
       href: '/programs/prog-1/documents?milestoneId=m1',
       count: undefined,
     });

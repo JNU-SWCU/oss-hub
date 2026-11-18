@@ -37,7 +37,7 @@ describe('status vocabulary', () => {
       '보완 필요',
     );
     expect(submissionStatusLabel('CHANGES_REQUESTED', 'staff')).toBe(
-      '보완 요청 중',
+      '보완 요청',
     );
     for (const audience of ['student', 'staff'] as const) {
       expect(submissionStatusLabel('OVERDUE', audience)).toBe('기한 지남');

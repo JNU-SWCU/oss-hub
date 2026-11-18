@@ -6,17 +6,6 @@ const DUE_DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   day: 'numeric',
 });
 
-const DUE_DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: SEOUL_TIME_ZONE,
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  weekday: 'short',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-});
-
 const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   timeZone: SEOUL_TIME_ZONE,
   month: '2-digit',
@@ -28,13 +17,6 @@ const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
 
 export function formatMatrixDueDate(dueAt: string): string {
   return DUE_DATE_FORMAT.format(new Date(dueAt));
-}
-
-export function formatMatrixDueDateTime(dueAt: string): string {
-  const parts = DUE_DATE_TIME_FORMAT.formatToParts(new Date(dueAt));
-  const get = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-  return `${get('year')}년 ${get('month')}월 ${get('day')}일 (${get('weekday')}) ${get('dayPeriod')} ${get('hour')}:${get('minute')}`;
 }
 
 export function seoulCalendarDayNumber(value: Date): number {

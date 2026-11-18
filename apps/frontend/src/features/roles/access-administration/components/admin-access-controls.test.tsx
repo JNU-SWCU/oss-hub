@@ -151,7 +151,7 @@ describe('shared access controls', () => {
       expect(memberKind?.textContent).toBe('학생');
       expect(
         Array.from(container.querySelectorAll('button')).some(
-          (button) => button.textContent === '가입 유형 되돌리기',
+          (button) => button.getAttribute('aria-label') === '회원 유형 변경',
         ),
       ).toBe(false);
       expect(

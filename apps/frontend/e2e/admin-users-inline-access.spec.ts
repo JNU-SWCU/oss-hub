@@ -35,6 +35,7 @@ const ADMIN_SESSION = {
 } as const;
 const CONFLICT_NOTICE =
   '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.';
+const MEMBER_KIND_CHANGE_BUTTON = '회원 유형 변경';
 const LG_BREAKPOINT = 1024;
 const DESKTOP = { width: 1440, height: 900 } as const;
 const MOBILE = { width: 390, height: 844 } as const;
@@ -400,7 +401,7 @@ async function openDirectory(
   await expect(tableRegion(page)).toContainText('합성 사용자 19');
   await expect(
     tableRegion(page).getByRole('button', {
-      name: '가입 유형 되돌리기',
+      name: MEMBER_KIND_CHANGE_BUTTON,
       exact: true,
     }),
   ).toHaveCount(0);
@@ -438,7 +439,10 @@ async function expectResetBlocked(
   reasonText: string,
 ): Promise<void> {
   await expect(
-    detail.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+    detail.getByRole('button', {
+      name: MEMBER_KIND_CHANGE_BUTTON,
+      exact: true,
+    }),
   ).toBeDisabled();
   const reason = detail.locator('#admin-member-kind-reset-reason');
   await expect(reason).toHaveText(reasonText);
@@ -480,7 +484,7 @@ for (const [name, kind, approvalStatus] of [
       await expect(userDetail).not.toContainText('학번');
     }
     const reset = userDetail.getByRole('button', {
-      name: '가입 유형 되돌리기',
+      name: MEMBER_KIND_CHANGE_BUTTON,
       exact: true,
     });
     await reset.click();
@@ -504,7 +508,7 @@ for (const [name, kind, approvalStatus] of [
     ).toHaveText('미지정');
     await expect(
       tableRegion(page).getByRole('button', {
-        name: '가입 유형 되돌리기',
+        name: MEMBER_KIND_CHANGE_BUTTON,
         exact: true,
       }),
     ).toHaveCount(0);
@@ -680,7 +684,10 @@ test('상세에서 본인·관리자 초기화를 막고 대기 신청자는 허
   await returnToDirectory(page);
   const pending = await openUserDetail(page, '합성 사용자 05');
   await expect(
-    pending.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+    pending.getByRole('button', {
+      name: MEMBER_KIND_CHANGE_BUTTON,
+      exact: true,
+    }),
   ).toBeEnabled();
   await returnToDirectory(page);
   expect(store.patches).toEqual([]);
@@ -695,7 +702,7 @@ test('초기화 409는 확인 대화상자의 오류 영역에 서버 문구를 
   const store = await openDirectory(page, DESKTOP);
   const userDetail = await openUserDetail(page, '합성 사용자 03');
   await userDetail
-    .getByRole('button', { name: '가입 유형 되돌리기', exact: true })
+    .getByRole('button', { name: MEMBER_KIND_CHANGE_BUTTON, exact: true })
     .click();
   const dialog = dialogNamed(page, '가입 유형 되돌리기');
   const detail = '활동 기록이 있는 계정은 되돌릴 수 없습니다.';
@@ -944,11 +951,14 @@ async function captureDialog(page: Page, dir: string): Promise<void> {
   await settle(page);
   const detail = await openUserDetail(page, '합성 사용자 01');
   await expect(
-    detail.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+    detail.getByRole('button', {
+      name: MEMBER_KIND_CHANGE_BUTTON,
+      exact: true,
+    }),
   ).toBeVisible();
   await captureFull(page, dir, 'detail-reset-1440');
   await detail
-    .getByRole('button', { name: '가입 유형 되돌리기', exact: true })
+    .getByRole('button', { name: MEMBER_KIND_CHANGE_BUTTON, exact: true })
     .click();
   const dialog = dialogNamed(page, '가입 유형 되돌리기');
   await expect(dialog).toBeVisible();
