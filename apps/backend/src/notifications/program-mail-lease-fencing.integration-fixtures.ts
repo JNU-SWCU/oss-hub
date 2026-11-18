@@ -5,7 +5,10 @@ import { PROGRAM_MAIL_LEASE_MS } from './program-mail.config';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailSendRepository } from './program-mail-send.repository';
 import type { ProgramMailBatchContent } from './program-mail-send.types';
-import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
+import {
+  PROGRAM_MAIL_STAFF_FIXTURE,
+  type ProgramMailIntegrationWorld,
+} from './program-mail.integration-support';
 
 export function registerProgramMailLeaseFencingCases(
   currentWorld: () => ProgramMailIntegrationWorld,
@@ -193,7 +196,7 @@ async function batchContent(
   world: ProgramMailIntegrationWorld,
   suffix: string,
 ): Promise<ProgramMailBatchContent> {
-  const principal = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+  const principal = await world.principal(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
   const audience = await world.findAudience({
     from: new Date(DIGEST_FIXTURE.now.getTime() - 1),
     to: new Date(DIGEST_FIXTURE.now.getTime() + 1),

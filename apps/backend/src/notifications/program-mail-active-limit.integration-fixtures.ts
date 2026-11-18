@@ -1,7 +1,10 @@
 import type { MailSender } from './gmail-mail.client';
 import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
 import type { ProgramMailService } from './program-mail.service';
-import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
+import {
+  PROGRAM_MAIL_STAFF_FIXTURE,
+  type ProgramMailIntegrationWorld,
+} from './program-mail.integration-support';
 
 function deferred(): {
   readonly promise: Promise<void>;
@@ -44,7 +47,9 @@ export function registerProgramMailActiveLimitCase(
         await release.promise;
       },
     };
-    const principal = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const principal = await world.principal(
+      PROGRAM_MAIL_STAFF_FIXTURE.githubId,
+    );
     const [firstService, secondService, thirdService] = [
       world.createService(sender),
       world.createService(sender),

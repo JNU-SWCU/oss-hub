@@ -11,6 +11,7 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { OriginGuard } from '../platform/origin.guard';
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
+import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import type { MailSender } from './gmail-mail.client';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import type { PrismaService } from '../platform/prisma.service';
@@ -40,6 +41,11 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
+
+export const PROGRAM_MAIL_STAFF_FIXTURE = {
+  id: 'test:program-mail:staff',
+  githubId: 9_600_000_000_193_001n,
+} as const;
 
 type ConfirmedProgramMail = {
   readonly subject: string;
@@ -121,10 +127,28 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
   };
   const createService = (sender: MailSender) => createRuntime(sender).service;
   const service = createService(mailSender);
+  const clearProgramMail = async () => {
+    await harness.prisma.notification.deleteMany({
+      where: { type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] } },
+    });
+  };
   const sessions = new AuthSessionService();
   const sessionSecret = new Uint8Array(32).fill(8);
   await harness.connect();
   await harness.reset();
+  await harness.prisma.user.upsert({
+    where: { id: PROGRAM_MAIL_STAFF_FIXTURE.id },
+    create: {
+      ...canonicalUserCreateFromLabel('STAFF', {
+        id: PROGRAM_MAIL_STAFF_FIXTURE.id,
+        githubId: PROGRAM_MAIL_STAFF_FIXTURE.githubId,
+        nickname: 'program-mail-staff',
+      }),
+      notifyEnabled: false,
+      notificationEmail: null,
+    },
+    update: { notifyEnabled: false, notificationEmail: null },
+  });
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramMailController],
     providers: [
@@ -238,9 +262,7 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
     },
     reset: async () => {
       mailSender.sent.length = 0;
-      await harness.prisma.notification.deleteMany({
-        where: { type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] } },
-      });
+      await clearProgramMail();
       await harness.prisma.team.updateMany({
         where: {
           id: {
@@ -256,6 +278,7 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
       });
     },
     close: async () => {
+      await clearProgramMail();
       await app.close();
       await harness.prisma.$disconnect();
     },

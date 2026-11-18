@@ -8,6 +8,7 @@ import { registerProgramMailPendingRecoveryCase } from './program-mail-pending-r
 import { registerProgramMailConcurrencyCases } from './program-mail-concurrency.integration-fixtures';
 import { registerProgramMailLeaseFencingCases } from './program-mail-lease-fencing.integration-fixtures';
 import {
+  PROGRAM_MAIL_STAFF_FIXTURE,
   startProgramMailIntegration,
   type ProgramMailIntegrationWorld,
 } from './program-mail.integration-support';
@@ -31,7 +32,7 @@ it('lists all application statuses, sends mail, and records an attributable audi
     where: { id: DIGEST_FIXTURE.offApplication },
     data: { status: 'REJECTED' },
   });
-  const cookie = await world.sessionCookie(DIGEST_FIXTURE.staffOnGithub);
+  const cookie = await world.sessionCookie(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
   const recipientsResponse = await fetch(world.endpoint('recipients'), {
     headers: { cookie },
   });
@@ -58,7 +59,7 @@ it('lists all application statuses, sends mail, and records an attributable audi
     where: { id: `user:program-mail-result:${idempotencyKey}` },
     select: { actorId: true, occurredAt: true, data: true },
   });
-  expect(audit?.actorId).toBe(DIGEST_FIXTURE.staffOn);
+  expect(audit?.actorId).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(audit?.occurredAt).toBeInstanceOf(Date);
   expect(
     await world.prisma.userHistory.count({
@@ -84,7 +85,7 @@ it('lists all application statuses, sends mail, and records an attributable audi
   ).list({ action: 'PROGRAM_MAIL_SENT', page: 1, limit: 20 });
   expect(feed.items).toHaveLength(1);
   expect(feed.items[0]?.action).toBe('PROGRAM_MAIL_SENT');
-  expect(feed.items[0]?.actor?.id).toBe(DIGEST_FIXTURE.staffOn);
+  expect(feed.items[0]?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(feed.items[0]?.target.type).toBe('PROGRAM');
   expect(feed.items[0]?.target.id).toBe(DIGEST_FIXTURE.notifyProgram);
   expect(feed.items[0]?.requestId).toBe(idempotencyKey);
@@ -175,7 +176,7 @@ it('rejects a recipient who belongs to another program', async () => {
         body: '합성 본문',
         applicantIds: [externalUserId],
       },
-      await world.sessionCookie(DIGEST_FIXTURE.staffOnGithub),
+      await world.sessionCookie(PROGRAM_MAIL_STAFF_FIXTURE.githubId),
     );
 
     expect(response.status).toBe(400);
@@ -193,7 +194,7 @@ registerProgramMailPendingRecoveryCase(() => world);
 registerProgramMailLeaseFencingCases(() => world);
 
 it('revalidates program membership at send time', async () => {
-  const cookie = await world.sessionCookie(DIGEST_FIXTURE.staffOnGithub);
+  const cookie = await world.sessionCookie(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
   const confirmed = await world.confirmedPreview(cookie);
   await world.prisma.team.update({
     where: { id: DIGEST_FIXTURE.missingApplication },

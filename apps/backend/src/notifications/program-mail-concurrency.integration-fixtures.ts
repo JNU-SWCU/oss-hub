@@ -8,7 +8,10 @@ import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
 } from './notifications-error-code.error';
-import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
+import {
+  PROGRAM_MAIL_STAFF_FIXTURE,
+  type ProgramMailIntegrationWorld,
+} from './program-mail.integration-support';
 import type { ProgramMailService } from './program-mail.service';
 
 function deferred(): {
@@ -80,7 +83,7 @@ export function registerProgramMailConcurrencyCases(
 ): void {
   it('shares the per-staff rate limit across independent service instances', async () => {
     const world = currentWorld();
-    const actor = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const actor = await world.principal(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
     const first = world.createService(new RecordingMailSender());
     const second = world.createService(new RecordingMailSender());
     await sendFresh(first, actor, 1, 'shared-staff');
@@ -99,7 +102,7 @@ export function registerProgramMailConcurrencyCases(
       await world.prisma.notification.count({
         where: {
           type: 'PROGRAM_MAIL_SEND',
-          userId: DIGEST_FIXTURE.staffOn,
+          userId: PROGRAM_MAIL_STAFF_FIXTURE.id,
         },
       }),
     ).toBe(3);
@@ -107,7 +110,9 @@ export function registerProgramMailConcurrencyCases(
 
   it('shares the per-program rate limit across independent staff instances', async () => {
     const world = currentWorld();
-    const firstActor = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const firstActor = await world.principal(
+      PROGRAM_MAIL_STAFF_FIXTURE.githubId,
+    );
     const secondActor = await world.principal(
       (
         await world.prisma.user.findUniqueOrThrow({
@@ -147,7 +152,7 @@ export function registerProgramMailConcurrencyCases(
 
   it('returns in-progress to an overlapping duplicate and final state later', async () => {
     const world = currentWorld();
-    const actor = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const actor = await world.principal(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
     const barrier = new BarrierMailSender();
     const firstService = world.createService(barrier);
     const secondService = world.createService(barrier);

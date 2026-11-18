@@ -8,7 +8,10 @@ import type {
   ProgramMailSendRequest,
   ProgramMailService,
 } from './program-mail.service';
-import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
+import {
+  PROGRAM_MAIL_STAFF_FIXTURE,
+  type ProgramMailIntegrationWorld,
+} from './program-mail.integration-support';
 
 class FailingOnceAuditRepository extends ProgramMailAuditRepository {
   private shouldFail = true;
@@ -30,7 +33,9 @@ export function registerProgramMailAuditRecoveryCase(
 ): void {
   it('keeps failed completion rate accounting and recovers one audit result', async () => {
     const world = currentWorld();
-    const principal = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const principal = await world.principal(
+      PROGRAM_MAIL_STAFF_FIXTURE.githubId,
+    );
     const regular = world.createRuntime(world.mailSender);
     const failing = world.createRuntime(
       world.mailSender,

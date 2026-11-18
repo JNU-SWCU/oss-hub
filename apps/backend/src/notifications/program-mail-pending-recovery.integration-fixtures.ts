@@ -3,14 +3,19 @@ import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailSendRepository } from './program-mail-send.repository';
-import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
+import {
+  PROGRAM_MAIL_STAFF_FIXTURE,
+  type ProgramMailIntegrationWorld,
+} from './program-mail.integration-support';
 
 export function registerProgramMailPendingRecoveryCase(
   currentWorld: () => ProgramMailIntegrationWorld,
 ): void {
   it('reports stale PENDING as in progress until the worker recovers it', async () => {
     const world = currentWorld();
-    const principal = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const principal = await world.principal(
+      PROGRAM_MAIL_STAFF_FIXTURE.githubId,
+    );
     const runtime = world.createRuntime(world.mailSender);
     const recipients = await runtime.service.recipients(
       DIGEST_FIXTURE.notifyProgram,
