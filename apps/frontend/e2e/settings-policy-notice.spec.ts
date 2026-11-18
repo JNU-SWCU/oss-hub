@@ -61,7 +61,7 @@ const STUDENT: SettingsActor = {
     studentId: '260901',
     staffNumber: null,
     department: '인공지능학부',
-    phone: '01012345678',
+    phone: null,
     isComplete: true,
     participations: [],
   },
