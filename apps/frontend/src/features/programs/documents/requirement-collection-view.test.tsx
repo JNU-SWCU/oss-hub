@@ -955,6 +955,22 @@ describe('RequirementCollectionView 팀 검색', () => {
     expect(html).toContain('전체 보기');
   });
 
+  it('불러온 범위에 맞는 팀이 하나도 없어도 범위 알림을 붙인다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        total: 120,
+        filterCounts: { all: 120, zeroSubmission: 0 },
+      }),
+      search: '없는팀',
+      searchQuery: '없는팀',
+    });
+
+    expect(html).toContain('milestone-document-search-bound');
+    expect(html).toContain('먼저 불러온 2개 팀 안에서만 찾습니다');
+    expect(html).not.toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('전체 보기');
+  });
+
   it('검색 중에는 페이지 이동을 두지 않고, 불러온 범위 밖이 남았으면 알린다', () => {
     const html = render({
       data: collection(documents, rows, {
@@ -967,7 +983,7 @@ describe('RequirementCollectionView 팀 검색', () => {
 
     expect(html).not.toContain('aria-label="서류 수합 페이지"');
     expect(html).toContain('milestone-document-search-bound');
-    expect(html).toContain('먼저 불러온 2개 팀까지만 훑습니다');
+    expect(html).toContain('먼저 불러온 2개 팀 안에서만 찾습니다');
   });
 
   it('검색어가 없으면 페이지 안내와 이동을 그대로 둔다', () => {

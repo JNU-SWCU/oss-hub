@@ -626,6 +626,14 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
     props.data;
   const searching = props.searchQuery.trim() !== '';
   const visibleRows = searchCollectionRows(rows, props.searchQuery);
+  const searchBound = searching && total > rows.length;
+  const searchBoundNotice = searchBound ? (
+    <Alert data-testid="milestone-document-search-bound">
+      <AlertDescription className="break-keep">
+        먼저 불러온 {rows.length}개 팀 안에서만 찾습니다.
+      </AlertDescription>
+    </Alert>
+  ) : null;
   const empty = collectionEmptyKind({
     programId: props.programId,
     milestoneProgramId: milestone.programId,
@@ -710,9 +718,18 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
     return (
       <>
         {collectionToolbar}
+        {searchBoundNotice}
         <EmptyState
-          title="조건에 맞는 팀이 없습니다"
-          description="서류의 제출 여부나 빠른 필터를 바꿔 다시 확인해 보세요."
+          title={
+            searchBound
+              ? '불러온 팀 중에는 없습니다'
+              : '조건에 맞는 팀이 없습니다'
+          }
+          description={
+            searchBound
+              ? undefined
+              : '서류의 제출 여부나 빠른 필터를 바꿔 다시 확인해 보세요.'
+          }
           action={
             <Button
               type="button"
@@ -767,14 +784,7 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
           : `이 페이지 ${rows.length}개 팀(조건에 맞는 전체 ${total}개) · 표는 좌우로 `}
         <span className="whitespace-nowrap">스크롤해 확인하세요.</span>
       </p>
-      {searching && total > rows.length ? (
-        <Alert data-testid="milestone-document-search-bound">
-          <AlertDescription className="break-keep">
-            검색은 먼저 불러온 {rows.length}개 팀까지만 훑습니다. 빠른 필터로
-            범위를 줄인 뒤 다시 검색해 주세요.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {searchBoundNotice}
       <CollectionTable
         data={searching ? { ...props.data, rows: visibleRows } : props.data}
         loadPhase={props.loadPhase}
