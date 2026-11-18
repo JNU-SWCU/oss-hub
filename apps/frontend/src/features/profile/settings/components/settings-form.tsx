@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
+import type { UserParticipation } from '@/lib/user-participation';
 import { cn } from '@/lib/utils';
 import type { ProfileMemberKind } from '../../profile-requirements';
 import type {
@@ -15,11 +16,13 @@ import type {
   SettingsNotificationLoadState,
 } from '../types';
 import { AccountDeactivationSection } from './account-deactivation-section';
+import { SettingsParticipationSection } from './settings-participation-section';
 import { SettingsProfileSection } from './settings-profile-section';
 
 interface SettingsFormProps {
   readonly memberKind: ProfileMemberKind | null;
   readonly hasAdminAccess: boolean;
+  readonly participations: readonly UserParticipation[];
   readonly values: SettingsFormValues;
   readonly errors: SettingsFormErrors;
   readonly showValidationErrors: boolean;
@@ -47,6 +50,7 @@ export function SettingsSkeleton() {
 export function SettingsForm({
   memberKind,
   hasAdminAccess,
+  participations,
   values,
   errors,
   showValidationErrors,
@@ -81,6 +85,8 @@ export function SettingsForm({
 
   const showEmailError =
     showValidationErrors && errors.notificationEmail !== null;
+  const showParticipations =
+    memberKind === 'STUDENT' || participations.length > 0;
 
   return (
     <PageBody className="max-w-2xl">
@@ -118,6 +124,10 @@ export function SettingsForm({
             showValidationErrors={showValidationErrors}
             onChange={onChange}
           />
+
+          {showParticipations ? (
+            <SettingsParticipationSection participations={participations} />
+          ) : null}
 
           <FormSection
             title="알림 수신"
