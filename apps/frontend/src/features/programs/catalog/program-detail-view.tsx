@@ -4,7 +4,7 @@ import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program/program-cover-source';
 
 import Link from 'next/link';
-import { Mail, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
@@ -30,6 +30,7 @@ import { getProgramRecruitmentState } from './program-list';
 import { PROGRAM_LIST_STATUS_LABELS } from './program-list-labels';
 import { cn } from '@/lib/utils';
 import type { ProgramDetail, ProgramListItem } from './dto';
+import { ProgramMailAction } from '../notifications';
 
 export type RenderSignInApply = (applyHref: string) => ReactNode;
 
@@ -188,21 +189,6 @@ function ProgramEditAction({ programId }: { readonly programId: string }) {
   );
 }
 
-function ProgramNotificationsAction({
-  programId,
-}: {
-  readonly programId: string;
-}) {
-  return (
-    <Button asChild variant="outline" size="sm" className={HEADER_ACTION_CLASS}>
-      <Link href={programHref(programId, '/notifications')}>
-        <Mail aria-hidden="true" />
-        알림
-      </Link>
-    </Button>
-  );
-}
-
 export function ProgramNotFoundState() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
@@ -297,7 +283,10 @@ export function ProgramDetailReadyState({
     program.viewer.role === 'STAFF' ? (
       <>
         <ProgramEditAction programId={program.id} />
-        <ProgramNotificationsAction programId={program.id} />
+        <ProgramMailAction
+          programId={program.id}
+          className={HEADER_ACTION_CLASS}
+        />
       </>
     ) : showsApplyEntry(program.viewer) ? (
       <ProgramActions program={program} renderSignInApply={renderSignInApply} />
