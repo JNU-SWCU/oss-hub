@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 vi.mock('next/cache', () => ({
   unstable_cache: vi.fn((work: () => Promise<unknown>) => work),
 }));
-vi.mock('../../backend-origin', () => ({
+vi.mock('../../backend-origin', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../backend-origin')>()),
   backendOrigin: vi.fn(() => 'https://approved.example'),
 }));
 
@@ -16,6 +17,7 @@ async function freshClient() {
     unstableCache: vi.mocked(cacheModule.unstable_cache),
     backendOrigin: vi.mocked(originModule.backendOrigin),
     serverApiClient: clientModule.serverApiClient,
+    fetchProgramCover: clientModule.fetchProgramCover,
   };
 }
 
@@ -160,3 +162,54 @@ it('ignores a production host that is not a plain hostname', async () => {
     'https://approved.example/api/v1/programs',
   );
 });
+
+const coverCredential = `Basic ${Buffer.from(`vercel:${'x'.repeat(32)}`).toString('base64')}`;
+
+it('fetches cover bytes through the trusted production rewrite without a function credential or retry', async () => {
+  vi.stubEnv('VERCEL_ENV', 'production');
+  vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', '  APP.EXAMPLE.TEST  ');
+  vi.stubEnv('ORIGIN_BASIC_AUTH', coverCredential);
+  const { backendOrigin, fetchProgramCover } = await freshClient();
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(new Response(null, { status: 403 }));
+  vi.stubGlobal('fetch', fetchMock);
+
+  const response = await fetchProgramCover('program', 'cover');
+
+  expect(response.status).toBe(403);
+  expect(backendOrigin).not.toHaveBeenCalled();
+  expect(fetchMock).toHaveBeenCalledOnce();
+  const [url, init] = fetchMock.mock.calls[0] ?? [];
+  expect(url).toBe(
+    'https://app.example.test/api/v1/programs/program/cover/cover',
+  );
+  expect(init).toMatchObject({ cache: 'no-store', redirect: 'manual' });
+  expect(init?.signal).toBeInstanceOf(AbortSignal);
+  expect(init).not.toHaveProperty('headers');
+});
+
+it.each([
+  ['preview', 'app.example.test'],
+  ['production', 'app.example.test/untrusted'],
+])(
+  'fetches cover bytes with Basic auth at the validated origin for %s with host %s',
+  async (environment, host) => {
+    vi.stubEnv('VERCEL_ENV', environment);
+    vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', host);
+    vi.stubEnv('ORIGIN_BASIC_AUTH', coverCredential);
+    const { backendOrigin, fetchProgramCover } = await freshClient();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchProgramCover('program', 'cover');
+
+    expect(backendOrigin).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe(
+      'https://approved.example/api/v1/programs/program/cover/cover',
+    );
+    expect(init?.headers).toEqual({ Authorization: coverCredential });
+  },
+);
