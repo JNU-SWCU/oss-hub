@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import {
   CountdownDivider,
   CountdownPanel,
@@ -18,7 +19,7 @@ interface SingleCountdownProps {
   readonly mode?: 'single';
   readonly nextMilestoneLabel: string;
 
-  readonly dueAt: string;
+  readonly dueAt: string | undefined;
 
   readonly now?: Date;
 
@@ -47,12 +48,12 @@ export function ProgramCountdown(props: ProgramCountdownProps) {
     return () => clearInterval(id);
   }, [nowOverride]);
 
-  if (clock === null) {
-    return <CountdownPanel aria-hidden />;
-  }
-
   if (props.mode === 'program') {
-    return <ProgramSchedule milestones={props.milestones} clock={clock} />;
+    return clock === null ? (
+      <CountdownPanel aria-hidden />
+    ) : (
+      <ProgramSchedule milestones={props.milestones} clock={clock} />
+    );
   }
 
   return <SingleCountdown {...props} clock={clock} />;
@@ -63,24 +64,33 @@ function SingleCountdown({
   dueAt,
   untilLabel,
   clock,
-}: SingleCountdownProps & { readonly clock: Date }) {
-  const remaining = remainingUntil(new Date(dueAt), clock);
+}: SingleCountdownProps & { readonly clock: Date | null }) {
+  const remaining =
+    clock === null || dueAt === undefined
+      ? null
+      : remainingUntil(new Date(dueAt), clock);
   const untilText =
     untilLabel === undefined
       ? formatUntilDeadline(nextMilestoneLabel)
       : untilLabel;
 
   return (
-    <CountdownPanel>
-      <CurrentClock clock={clock} />
+    <CountdownPanel aria-hidden={remaining === null ? true : undefined}>
+      <CurrentClock clock={remaining === null ? null : clock} />
       <CountdownDivider />
       <p className="text-center text-xs text-muted-foreground">{untilText}</p>
-      <div className="mt-1 flex items-baseline justify-center gap-2">
-        <CountdownUnit value={remaining.days} unit="일" />
-        <CountdownUnit value={remaining.hours} unit="시간" />
-        <CountdownUnit value={remaining.minutes} unit="분" />
-        <CountdownUnit value={remaining.seconds} unit="초" />
-      </div>
+      {remaining === null ? (
+        <div className="mt-1 flex justify-center text-section">
+          <SkeletonBlock className="h-lh w-32 rounded-sm" />
+        </div>
+      ) : (
+        <div className="mt-1 flex items-baseline justify-center gap-2">
+          <CountdownUnit value={remaining.days} unit="일" />
+          <CountdownUnit value={remaining.hours} unit="시간" />
+          <CountdownUnit value={remaining.minutes} unit="분" />
+          <CountdownUnit value={remaining.seconds} unit="초" />
+        </div>
+      )}
     </CountdownPanel>
   );
 }

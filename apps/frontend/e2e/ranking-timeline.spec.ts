@@ -58,9 +58,13 @@ const TIMELINE_BODY = {
   series: SERIES,
 };
 
-async function openRanking(
+async function mockRanking(
   page: Page,
-  options: { readonly timelineStatus?: number } = {},
+  options: {
+    readonly timelineStatus?: number;
+    readonly rankingGate?: Promise<void>;
+    readonly timelineGate?: Promise<void>;
+  } = {},
 ) {
   await page.route('**/api/v1/auth/session', (route) =>
     route.fulfill({
@@ -110,24 +114,93 @@ async function openRanking(
   await page.route('**/api/v1/ranking/years*', (route) =>
     route.fulfill({ status: 200, body: JSON.stringify({ years: [2026] }) }),
   );
-  await page.route('**/api/v1/ranking/timeline*', (route) =>
-    route.fulfill({
+  await page.route('**/api/v1/ranking/timeline*', async (route) => {
+    await options.timelineGate;
+    await route.fulfill({
       status: options.timelineStatus ?? 200,
       contentType: 'application/json',
       body: JSON.stringify(
         options.timelineStatus === undefined ? TIMELINE_BODY : {},
       ),
-    }),
-  );
-  await page.route('**/api/v1/ranking?*', (route) =>
-    route.fulfill({
+    });
+  });
+  await page.route('**/api/v1/ranking?*', async (route) => {
+    await options.rankingGate;
+    await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(RANKING_PAGE),
-    }),
-  );
+    });
+  });
+}
+
+async function openRanking(
+  page: Page,
+  options: { readonly timelineStatus?: number } = {},
+) {
+  await mockRanking(page, options);
   await page.goto('/ranking?year=2026');
   await expect(page.locator(TABLE_ROW)).toHaveCount(SERIES.length);
+}
+
+for (const first of ['ranking', 'timeline'] as const) {
+  test(`모바일 랭킹 표의 시작 위치를 유지한다 (${first} 응답 먼저)`, async ({
+    page,
+  }) => {
+    const ranking = Promise.withResolvers<void>();
+    const timeline = Promise.withResolvers<void>();
+    await page.setViewportSize({ width: 412, height: 823 });
+    await mockRanking(page, {
+      rankingGate: ranking.promise,
+      timelineGate: timeline.promise,
+    });
+    const chart = page.locator('[data-history-chart]');
+    const table = page.getByRole('region', { name: '활동 랭킹 표' });
+    const clock = page.locator(
+      '[data-slot="ranking-page-countdown"] [data-slot="program-countdown-clock"]',
+    );
+    const completeRanking = async () => {
+      ranking.resolve();
+      await expect(clock).toBeVisible();
+      await expect(page.locator(TABLE_ROW)).toHaveCount(SERIES.length);
+    };
+    const completeTimeline = async () => {
+      timeline.resolve();
+      await expect(page.locator(CHART)).toBeVisible();
+    };
+    try {
+      await page.goto('/ranking?year=2026');
+      await expect(
+        page.getByText('순위 변화를 그리는 중입니다…'),
+      ).toBeVisible();
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      const tableTop = await table.evaluate(
+        (el) => el.getBoundingClientRect().top,
+      );
+      const chartBox = await chart.boundingBox();
+      const assertGeometry = async () => {
+        await expect(async () => {
+          expect(
+            await table.evaluate((el) => el.getBoundingClientRect().top),
+          ).toBeCloseTo(tableTop, 0);
+          const box = await chart.boundingBox();
+          expect(box?.y).toBeCloseTo(chartBox?.y ?? Number.NaN, 0);
+          expect(box?.height).toBeCloseTo(chartBox?.height ?? Number.NaN, 0);
+        }).toPass();
+      };
+
+      if (first === 'ranking') await completeRanking();
+      else await completeTimeline();
+      await assertGeometry();
+
+      if (first === 'ranking') await completeTimeline();
+      else await completeRanking();
+      await assertGeometry();
+    } finally {
+      ranking.resolve();
+      timeline.resolve();
+    }
+  });
 }
 
 async function changeText(page: Page, login: string): Promise<string> {

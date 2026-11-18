@@ -2,7 +2,6 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useMemo,
   useState,
@@ -10,10 +9,8 @@ import {
 } from 'react';
 
 interface RankingCycleContextValue {
-  readonly nextCycleAt: string | null;
-
-  readonly reported: boolean;
-  readonly setNextCycleAt: (nextCycleAt: string | null) => void;
+  readonly nextCycleAt: string | null | undefined;
+  readonly setNextCycleAt: (nextCycleAt: string | null | undefined) => void;
 }
 
 const RankingCycleContext = createContext<RankingCycleContextValue | null>(
@@ -27,18 +24,11 @@ export function RankingCycleProvider({
   readonly children: ReactNode;
   readonly initialNextCycleAt?: string | null;
 }) {
-  const [nextCycleAt, setNextCycleAtState] = useState<
-    string | null | undefined
-  >(initialNextCycleAt);
-  const setNextCycleAt = useCallback((value: string | null) => {
-    setNextCycleAtState(value);
-  }, []);
+  const [nextCycleAt, setNextCycleAt] = useState<string | null | undefined>(
+    initialNextCycleAt,
+  );
   const value = useMemo(
-    () => ({
-      nextCycleAt: nextCycleAt ?? null,
-      reported: nextCycleAt !== undefined,
-      setNextCycleAt,
-    }),
+    () => ({ nextCycleAt, setNextCycleAt }),
     [nextCycleAt, setNextCycleAt],
   );
   return (
@@ -58,10 +48,7 @@ export function useRankingCycle(): RankingCycleContextValue {
   return value;
 }
 
-export function useOptionalRankingNextCycleAt(): string | null {
-  return useContext(RankingCycleContext)?.nextCycleAt ?? null;
-}
-
-export function useOptionalRankingCycleReported(): boolean {
-  return useContext(RankingCycleContext)?.reported ?? true;
+export function useOptionalRankingNextCycleAt(): string | null | undefined {
+  const cycle = useContext(RankingCycleContext);
+  return cycle === null ? null : cycle.nextCycleAt;
 }

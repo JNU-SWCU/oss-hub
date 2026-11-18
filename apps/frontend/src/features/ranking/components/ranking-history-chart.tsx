@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   CartesianGrid,
   DefaultZIndexes,
@@ -17,6 +17,7 @@ import {
   type TooltipContentProps,
 } from 'recharts';
 import { Button } from '@/components/ui/button';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { RankingTimeline } from '../types';
 import {
@@ -52,11 +53,81 @@ function Note(props: { readonly state: string; readonly text: string }) {
 }
 
 export function RankingHistoryChartLoading() {
-  return <Note state="loading" text="순위 변화를 그리는 중입니다…" />;
+  return (
+    <HistoryCard
+      state="loading"
+      legend={
+        <div className={styles.legendPlaceholder} aria-hidden="true">
+          <SkeletonBlock className="h-lh w-1/2 rounded-sm" />
+          <SkeletonBlock className="h-lh w-1/3 rounded-sm" />
+        </div>
+      }
+    >
+      <div className="grid h-full content-start justify-items-center pt-4">
+        <p className={styles.caption} role="status">
+          순위 변화를 그리는 중입니다…
+        </p>
+      </div>
+    </HistoryCard>
+  );
 }
 
 export function RankingHistoryChartError() {
   return <Note state="error" text="순위 변화 그래프를 불러오지 못했습니다." />;
+}
+
+function HistoryCard({
+  state,
+  viewerGithubLogin,
+  logScale,
+  onToggleScale,
+  legend,
+  plotLabel,
+  children,
+}: {
+  readonly state: 'loading' | 'ready';
+  readonly viewerGithubLogin?: string;
+  readonly logScale?: boolean;
+  readonly onToggleScale?: () => void;
+  readonly legend: ReactNode;
+  readonly plotLabel?: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div
+      className={styles.root}
+      data-history-chart={state}
+      data-viewer-login={viewerGithubLogin}
+    >
+      <div className={styles.head}>
+        <div className={styles.titleRow}>
+          <h3 className={styles.title}>순위 변화</h3>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className={cn(styles.scaleToggle, 'h-auto px-1')}
+            aria-pressed={logScale}
+            disabled={onToggleScale === undefined}
+            onClick={onToggleScale}
+          >
+            로그 축
+          </Button>
+        </div>
+        <p className={styles.caption}>월별로 쌓인 올해 누적 점수입니다.</p>
+      </div>
+      <div className={styles.body}>
+        {legend}
+        <div
+          className={styles.plot}
+          role={plotLabel === undefined ? undefined : 'img'}
+          aria-label={plotLabel}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function RankingHistoryChart({
@@ -93,136 +164,118 @@ export function RankingHistoryChart({
   }
 
   return (
-    <div
-      className={styles.root}
-      data-history-chart="ready"
-      data-viewer-login={viewerGithubLogin ?? ''}
-    >
-      <WobbleDefs />
-      <div className={styles.head}>
-        <div className={styles.titleRow}>
-          <h3 className={styles.title}>순위 변화</h3>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            className={cn(styles.scaleToggle, 'h-auto px-1')}
-            aria-pressed={logScale}
-            onClick={() => setLogScale((current) => !current)}
-          >
-            로그 축
-          </Button>
-        </div>
-        <p className={styles.caption}>월별로 쌓인 올해 누적 점수입니다.</p>
-      </div>
-      <ul className={styles.legend} aria-label="상위 참여자">
-        {chart.legend.map((line) => (
-          <li
-            key={line.key}
-            className={styles.legendItem}
-            data-legend-login={line.githubLogin}
-            data-legend-compact={
-              line.isViewer ||
-              line.finalRank <= RANKING_HISTORY_COMPACT_LEGEND_LIMIT
-                ? 'keep'
-                : 'hide'
-            }
-          >
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className={cn(styles.legendButton, 'h-auto px-1')}
-              aria-pressed={!hidden.has(line.githubLogin)}
-              onClick={() => toggle(line.githubLogin)}
-              onMouseEnter={() => setFocused(line.githubLogin)}
-              onMouseLeave={() => setFocused(null)}
-              onFocus={() => setFocused(line.githubLogin)}
-              onBlur={() => setFocused(null)}
+    <HistoryCard
+      state="ready"
+      viewerGithubLogin={viewerGithubLogin ?? ''}
+      logScale={logScale}
+      onToggleScale={() => setLogScale((current) => !current)}
+      plotLabel={summaryOf(timeline, chart)}
+      legend={
+        <ul className={styles.legend} aria-label="상위 참여자">
+          {chart.legend.map((line) => (
+            <li
+              key={line.key}
+              className={styles.legendItem}
+              data-legend-login={line.githubLogin}
+              data-legend-compact={
+                line.isViewer ||
+                line.finalRank <= RANKING_HISTORY_COMPACT_LEGEND_LIMIT
+                  ? 'keep'
+                  : 'hide'
+              }
             >
-              <Swatch line={line} />
-              <span className={styles.rank}>{line.finalRank}</span>
-              <span className={styles.login}>@{line.githubLogin}</span>
-              {line.isViewer ? <span className={styles.me}>나</span> : null}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <div
-        className={styles.plot}
-        role="img"
-        aria-label={summaryOf(timeline, chart)}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={[...rows]} margin={MARGIN}>
-            <CartesianGrid
-              stroke="var(--border)"
-              strokeDasharray="3 5"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="label"
-              tick={TICK}
-              tickLine={false}
-              axisLine={{ stroke: 'var(--border)' }}
-              minTickGap={4}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              width={56}
-              tick={TICK}
-              tickLine={false}
-              axisLine={false}
-              allowDecimals={false}
-              {...(logScale
-                ? {
-                    scale: 'log' as const,
-                    domain: [1, 'dataMax'] as [number, string],
-                    ticks: [...rankingHistoryLogTicks(chart.lines)],
-                    allowDataOverflow: true,
-                  }
-                : {})}
-            />
-            <Tooltip
-              cursor={CURSOR}
-              content={(props: TooltipContentProps) => (
-                <HistoryTooltip
-                  active={props.active}
-                  label={props.label}
-                  chart={chart}
-                />
-              )}
-            />
-            {chart.lines.map((line) => (
-              <Line
-                key={line.key}
-                type="monotone"
-                dataKey={line.key}
-                name={line.githubLogin}
-                stroke={line.color}
-                strokeWidth={line.strokeWidth}
-                strokeOpacity={opacityOf(line)}
-                hide={hidden.has(line.githubLogin)}
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className={cn(styles.legendButton, 'h-auto px-1')}
+                aria-pressed={!hidden.has(line.githubLogin)}
+                onClick={() => toggle(line.githubLogin)}
                 onMouseEnter={() => setFocused(line.githubLogin)}
                 onMouseLeave={() => setFocused(null)}
-                className={line.faded ? undefined : styles.sketched}
-                dot={line.showDot ? { r: 2.5 } : false}
-                activeDot={line.isViewer}
-                connectNulls={false}
-                isAnimationActive={false}
+                onFocus={() => setFocused(line.githubLogin)}
+                onBlur={() => setFocused(null)}
+              >
+                <Swatch line={line} />
+                <span className={styles.rank}>{line.finalRank}</span>
+                <span className={styles.login}>@{line.githubLogin}</span>
+                {line.isViewer ? <span className={styles.me}>나</span> : null}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      }
+    >
+      <WobbleDefs />
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={[...rows]} margin={MARGIN}>
+          <CartesianGrid
+            stroke="var(--border)"
+            strokeDasharray="3 5"
+            vertical={false}
+          />
+          <XAxis
+            dataKey="label"
+            tick={TICK}
+            tickLine={false}
+            axisLine={{ stroke: 'var(--border)' }}
+            minTickGap={4}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            width={56}
+            tick={TICK}
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+            {...(logScale
+              ? {
+                  scale: 'log' as const,
+                  domain: [1, 'dataMax'] as [number, string],
+                  ticks: [...rankingHistoryLogTicks(chart.lines)],
+                  allowDataOverflow: true,
+                }
+              : {})}
+          />
+          <Tooltip
+            cursor={CURSOR}
+            content={(props: TooltipContentProps) => (
+              <HistoryTooltip
+                active={props.active}
+                label={props.label}
+                chart={chart}
               />
-            ))}
-            <LineAvatars
-              lines={chart.lines.filter(
-                (line) => !line.faded && !hidden.has(line.githubLogin),
-              )}
-              rows={rows}
-              opacityOf={opacityOf}
+            )}
+          />
+          {chart.lines.map((line) => (
+            <Line
+              key={line.key}
+              type="monotone"
+              dataKey={line.key}
+              name={line.githubLogin}
+              stroke={line.color}
+              strokeWidth={line.strokeWidth}
+              strokeOpacity={opacityOf(line)}
+              hide={hidden.has(line.githubLogin)}
+              onMouseEnter={() => setFocused(line.githubLogin)}
+              onMouseLeave={() => setFocused(null)}
+              className={line.faded ? undefined : styles.sketched}
+              dot={line.showDot ? { r: 2.5 } : false}
+              activeDot={line.isViewer}
+              connectNulls={false}
+              isAnimationActive={false}
             />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+          ))}
+          <LineAvatars
+            lines={chart.lines.filter(
+              (line) => !line.faded && !hidden.has(line.githubLogin),
+            )}
+            rows={rows}
+            opacityOf={opacityOf}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </HistoryCard>
   );
 }
 

@@ -381,16 +381,18 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     expect(
       document
         .getElementById(SIDEBAR_ASIDE_ID)
-        ?.querySelector('[data-slot="sidebar-bottom-skeleton"]'),
+        ?.querySelector('[data-slot="program-countdown"][aria-hidden="true"]'),
     ).not.toBeNull();
 
     await renderFrame('/ranking', <RankingPage />);
     const aside = document.getElementById(SIDEBAR_ASIDE_ID);
     expect(
-      aside?.querySelector('[data-slot="sidebar-bottom-skeleton"]'),
+      aside?.querySelector(
+        '[data-slot="program-countdown"][aria-hidden="true"]',
+      ),
     ).toBeNull();
     expect(
-      aside?.querySelector('[data-slot="program-countdown"]'),
+      aside?.querySelector('time[data-slot="program-countdown-clock"]'),
     ).not.toBeNull();
     expect(aside?.textContent).toContain('다음 수집');
     expect(container.querySelector('[data-slot="scope-bar"]')).toBeNull();

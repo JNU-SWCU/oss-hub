@@ -127,18 +127,19 @@ describe('ProductShell ranking fetch', () => {
     expect(mocks.getRankingYears).toHaveBeenCalled();
   });
 
-  const renderRankingPage = async (nextCycleAt: string | null) => {
+  const rankingPage = (nextCycleAt: string | null) => ({
+    viewerClass: 'public' as const,
+    year: 2026,
+    items: [],
+    page: 1,
+    pageSize: 100,
+    total: 0,
+    dataAsOf: null,
+    nextCycleAt,
+  });
+
+  const mountRankingPage = async () => {
     mocks.usePathname.mockReturnValue('/ranking');
-    mocks.getRanking.mockResolvedValue({
-      viewerClass: 'public',
-      year: 2026,
-      items: [],
-      page: 1,
-      pageSize: 100,
-      total: 0,
-      dataAsOf: null,
-      nextCycleAt,
-    });
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
@@ -148,6 +149,11 @@ describe('ProductShell ranking fetch', () => {
         </QueryClientProvider>,
       );
     });
+  };
+
+  const renderRankingPage = async (nextCycleAt: string | null) => {
+    mocks.getRanking.mockResolvedValue(rankingPage(nextCycleAt));
+    await mountRankingPage();
   };
 
   it('ranking page renders year chips from the shell facets', async () => {
@@ -172,12 +178,23 @@ describe('ProductShell ranking fetch', () => {
     ).not.toBeNull();
   });
 
-  it('ranking page reserves nothing when no cycle is reported', async () => {
-    await renderRankingPage(null);
+  it('keeps a clock placeholder while the deadline is unknown and removes it when missing', async () => {
+    const response = Promise.withResolvers<ReturnType<typeof rankingPage>>();
+    mocks.getRanking.mockReturnValue(response.promise);
+    await mountRankingPage();
 
+    const countdown = container.querySelector(
+      '[data-slot="ranking-page-countdown"]',
+    );
     expect(
-      container.querySelector('[data-slot="ranking-page-countdown"]')
-        ?.childElementCount,
-    ).toBe(0);
+      countdown?.querySelector(
+        '[data-slot="program-countdown"][aria-hidden="true"]',
+      ),
+    ).not.toBeNull();
+    expect(countdown?.querySelector('time')).toBeNull();
+
+    await act(async () => response.resolve(rankingPage(null)));
+
+    expect(countdown?.childElementCount).toBe(0);
   });
 });

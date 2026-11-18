@@ -1,16 +1,10 @@
 'use client';
 
 import { ProgramCountdown } from '@/components';
-import {
-  useOptionalRankingCycleReported,
-  useOptionalRankingNextCycleAt,
-} from './ranking-cycle-context';
-import { SidebarBottomSkeleton } from './sidebar-shell';
+import { useOptionalRankingNextCycleAt } from './ranking-cycle-context';
 
 export function RankingCycleCountdown() {
   const nextCycleAt = useOptionalRankingNextCycleAt();
-  const reported = useOptionalRankingCycleReported();
-  if (!reported) return <SidebarBottomSkeleton />;
   if (nextCycleAt === null) return null;
   return (
     <ProgramCountdown
