@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('./use-session-role', () => ({
+  useIndependentSessionRole: mocks.useSessionRole,
   useSessionRole: mocks.useSessionRole,
 }));
 
@@ -241,6 +242,6 @@ describe('RoleGate 렌더', () => {
     );
 
     expect(received).toBe(snapshot);
-    expect(mocks.useSessionRole).toHaveBeenCalledTimes(1);
+    expect(mocks.useSessionRole).toHaveBeenCalledTimes(2);
   });
 });

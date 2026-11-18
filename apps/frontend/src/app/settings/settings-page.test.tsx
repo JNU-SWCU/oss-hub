@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('../_shell/use-session-role', () => ({
+  useIndependentSessionRole: mocks.useSessionRole,
   useSessionRole: mocks.useSessionRole,
 }));
 
