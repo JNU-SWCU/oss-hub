@@ -127,7 +127,9 @@ export class RankingStreakRepository {
         ) AS rank_break_at,
         MAX(history.event_at) FILTER (
           WHERE history.rank > 10
-        ) AS top_ten_break_at
+        ) AS top_ten_break_at,
+        (ARRAY_AGG(history.rank ORDER BY history.event_at DESC))[1]
+          AS latest_history_rank
       FROM streak_current_top_ten AS current
       JOIN streak_ranked AS history USING (github_id)
       GROUP BY current.github_id, current.rank
@@ -158,7 +160,9 @@ export class RankingStreakRepository {
           AND (breaks.top_ten_break_at IS NULL
             OR event_at > breaks.top_ten_break_at)
       ) AS top_ten_run
-      WHERE rank_run.started_at IS NOT NULL AND top_ten_run.started_at IS NOT NULL
+      WHERE breaks.latest_history_rank = breaks.rank
+        AND rank_run.started_at IS NOT NULL
+        AND top_ten_run.started_at IS NOT NULL
       LIMIT 10
     )
     `;

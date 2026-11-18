@@ -40,17 +40,33 @@ export function RankingStreakDecoration({
   const [firstCharacter, remainder] = splitFirstGrapheme(name);
   const [entered, setEntered] = useState(false);
   const [interaction, setInteraction] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
-  useEffect(() => setEntered(true), []);
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncPreference = () => setReducedMotion(preference.matches);
+    syncPreference();
+    preference.addEventListener('change', syncPreference);
+    setEntered(true);
+    return () => preference.removeEventListener('change', syncPreference);
+  }, []);
 
   return (
-    <span className={styles.anchor} data-streak-entered={entered || undefined}>
+    <span
+      className={styles.anchor}
+      data-streak-entered={entered || undefined}
+      data-streak-reduced-motion={reducedMotion || undefined}
+    >
       <a
         href={href}
         target="_blank"
         rel="noreferrer"
         aria-label={linkAriaLabel}
-        className="break-keep whitespace-normal hover:underline"
+        className={cn(
+          styles.nameLink,
+          'break-keep whitespace-normal hover:underline',
+        )}
+        data-streak-name
       >
         <span className={styles.firstCharacter} data-streak-first-character>
           {firstCharacter}
@@ -75,7 +91,9 @@ export function RankingStreakDecoration({
         size="content"
         className={cn(styles.tag, styles[tier])}
         aria-label={`${title} 장식 효과 재생`}
-        onClick={() => setInteraction((value) => value + 1)}
+        onClick={() => {
+          if (!reducedMotion) setInteraction((value) => value + 1);
+        }}
         data-ranking-streak-tier={tier}
       >
         <span aria-hidden="true">
@@ -105,7 +123,12 @@ export function RankingStreakDecoration({
 
 export function IkseongwanHeadwear() {
   return (
-    <svg viewBox="0 0 44 28" className={styles.ikseongwan} focusable="false">
+    <svg
+      viewBox="0 0 44 28"
+      className={styles.ikseongwan}
+      focusable="false"
+      data-headwear-kind="ikseongwan"
+    >
       <path
         className={styles.crownBody}
         d="M9 22c1-9 5-15 13-15s12 6 13 15H9Z"
@@ -123,6 +146,7 @@ export function SamoHeadwear({ small = false }: { readonly small?: boolean }) {
       viewBox="0 0 44 26"
       className={cn(styles.samo, small && styles.smallSamo)}
       focusable="false"
+      data-headwear-kind="samo"
     >
       <path d="M10 20c1-9 5-14 12-14s11 5 12 14H10Z" />
       <path d="m11 11-9 3 9 4m22-7 9 3-9 4" />

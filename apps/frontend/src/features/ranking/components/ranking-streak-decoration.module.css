@@ -4,6 +4,12 @@
   max-width: 100%;
 }
 
+.nameLink {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+
 .firstCharacter {
   position: relative;
   display: inline-block;
@@ -14,9 +20,9 @@
   position: absolute;
   z-index: 2;
   left: 50%;
-  bottom: 72%;
-  width: 1.65rem;
-  height: 1.08rem;
+  bottom: 96%;
+  width: 0.9rem;
+  height: 0.58rem;
   translate: -50% 0;
   rotate: -15deg;
   transform-origin: 50% 100%;
@@ -38,10 +44,30 @@
   width: 100%;
   height: 100%;
   overflow: visible;
-  fill: color-mix(in srgb, var(--foreground) 90%, #25140e);
+  fill: var(--foreground);
   stroke: var(--background);
   stroke-width: 0.9;
   stroke-linejoin: round;
+}
+
+.ikseongwan {
+  scale: 1.18;
+  transform-origin: bottom center;
+}
+
+.ikseongwan .crownBody,
+.ikseongwan .crownBand {
+  fill: var(--palette-amber-500);
+  stroke: var(--foreground);
+  stroke-width: 1.4;
+}
+
+.ikseongwan .leftWing,
+.ikseongwan .rightWing {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-width: 3.2;
+  stroke-linecap: round;
 }
 
 .samo.smallSamo {
@@ -66,7 +92,7 @@
   position: absolute;
   z-index: 3;
   top: -0.55rem;
-  left: calc(100% - 0.2rem);
+  left: calc(100% + 0.4rem);
   width: max-content;
   min-height: 1.5rem;
   max-width: 7.25rem;
@@ -118,9 +144,9 @@
   font-weight: 850;
 }
 
-.shimmer::after,
-.strong::after,
-.celebration::after {
+.anchor[data-streak-entered] .shimmer::after,
+.anchor[data-streak-entered] .strong::after,
+.anchor[data-streak-entered] .celebration::after {
   content: '';
   pointer-events: none;
   position: absolute;
@@ -137,8 +163,8 @@
   animation: streak-shimmer 700ms 620ms ease-out 1 both;
 }
 
-.strong::after,
-.celebration::after {
+.anchor[data-streak-entered] .strong::after,
+.anchor[data-streak-entered] .celebration::after {
   width: 48%;
   animation-duration: 900ms;
   background: linear-gradient(
@@ -284,32 +310,64 @@
 }
 
 @media (max-width: 639px) {
+  .anchor {
+    display: inline-grid;
+    grid-template-rows: 1rem 1rem;
+    align-items: center;
+    max-width: 4.5rem;
+    vertical-align: middle;
+  }
+
+  .nameLink {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .headwear {
-    width: 1.4rem;
-    height: 0.94rem;
+    bottom: 96%;
+    width: 0.85rem;
+    height: 0.55rem;
   }
 
   .tag {
-    top: -0.62rem;
-    left: 0.35rem;
-    max-width: 4rem;
+    position: relative;
+    top: auto;
+    left: auto;
+    justify-self: start;
+    min-height: 1rem;
+    max-width: 4.25rem;
+    margin-top: 0.08rem;
+    translate: 0 0.25rem;
+    padding: 0 0.2rem;
     font-size: 0.45rem;
     line-height: 0.8rem;
+  }
+
+  .tag::before {
+    content: '';
+    position: absolute;
+    inset: -0.25rem 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .anchor[data-streak-entered] .headwear,
-  .headwear[data-streak-interaction],
+  .headwear[data-streak-interaction]:not([data-streak-interaction='0']),
   .anchor:has(.tag:hover) .headwear,
-  .headwear .leftWing,
-  .headwear .rightWing,
-  .tag::after,
+  .headwear[data-streak-interaction]:not([data-streak-interaction='0'])
+    .leftWing,
+  .headwear[data-streak-interaction]:not([data-streak-interaction='0'])
+    .rightWing,
+  .anchor:has(.tag:hover) .leftWing,
+  .anchor:has(.tag:hover) .rightWing,
+  .anchor[data-streak-entered] .tag::after,
   .confetti i {
     animation: none;
   }
 
-  .tag::after,
+  .anchor[data-streak-entered] .tag::after,
   .confetti {
     display: none;
   }

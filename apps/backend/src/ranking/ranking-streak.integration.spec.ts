@@ -244,6 +244,49 @@ test('서울 자정 직후 시작한 동일 순위 run은 시작일을 포함해
   }
 });
 
+test('선택 연도 밖 backfill로 현재 순위가 바뀌면 오래된 run을 노출하지 않는다', async () => {
+  const withinYear = new Date('2099-06-01T00:00:00.000Z');
+  const afterYear = new Date('2100-01-02T00:00:00.000Z');
+  await prisma.githubUserActivityObservation.createMany({
+    data: [
+      ...students.map((student, index) => ({
+        githubId: student.githubId,
+        year: 2099,
+        visibility: ActivityVisibility.PUBLIC,
+        commitCount: index === 0 ? 9_000 : 11_000 - index * 1_000,
+        observedAt: withinYear,
+      })),
+      {
+        githubId: LEADER.githubId,
+        year: 2099,
+        visibility: ActivityVisibility.PUBLIC,
+        commitCount: 12_000,
+        observedAt: afterYear,
+      },
+    ],
+  });
+
+  try {
+    const page = await service.findPage(
+      2099,
+      1,
+      10,
+      null,
+      new Date('2100-01-03T00:00:00.000Z'),
+    );
+
+    expect(page.items[0]).toMatchObject({
+      githubLogin: LEADER.login,
+      rank: 1,
+      streak: null,
+    });
+  } finally {
+    await prisma.githubUserActivityObservation.deleteMany({
+      where: { githubId: { in: ids }, year: 2099 },
+    });
+  }
+});
+
 test('1배와 10배 관측 이력 모두 한 ranking SQL과 한 count 문장만 실행한다', async () => {
   const rawQuery = jest.spyOn(prisma, '$queryRaw');
   const countQuery = jest.spyOn(prisma.user, 'count');

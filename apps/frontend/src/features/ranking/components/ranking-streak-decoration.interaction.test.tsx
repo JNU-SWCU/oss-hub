@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import {
   IkseongwanHeadwear,
   RankingStreakDecoration,
@@ -14,7 +14,20 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 let container: HTMLDivElement;
 let root: Root;
 
+function installReducedMotion(matches: boolean): void {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn(() => ({
+      matches,
+      media: '(prefers-reduced-motion: reduce)',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  });
+}
+
 beforeEach(() => {
+  installReducedMotion(false);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -60,6 +73,20 @@ test.each([
   expect(
     container.querySelector('[data-streak-entered="true"]'),
   ).not.toBeNull();
+});
+
+test('reduced motion에서는 효과 버튼이 상호작용 상태를 만들지 않는다', async () => {
+  installReducedMotion(true);
+  await renderName('leader');
+  const button = container.querySelector('button');
+
+  await act(async () => button?.click());
+
+  expect(
+    container.querySelector('[data-streak-reduced-motion="true"]'),
+  ).not.toBeNull();
+  expect(container.querySelector('[data-streak-interaction="1"]')).toBeNull();
+  expect(container.querySelector('[data-streak-confetti]')).toBeNull();
 });
 
 test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용에서 confetti를 만든다', async () => {
