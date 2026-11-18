@@ -1,4 +1,3 @@
-import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
@@ -78,6 +77,8 @@ export class SystemStatusRepository {
         by: ['status'],
         where: LIVE_TEAM_JOB_WHERE,
         _count: { _all: true },
+        orderBy: { status: 'asc' },
+        take: Object.keys(RepositoryProvisionJobStatus).length,
       }),
       this.prisma.repositoryProvisionJob.findMany({
         take: FAILED_TEAMS_SHOWN + 1,
@@ -218,19 +219,34 @@ export class SystemStatusRepository {
   async getCollectionRepositories(): Promise<
     readonly CollectionRepositoryStatusDto[]
   > {
-    const repositories = await this.boundedReads.readCapped(
-      READ_CAP.repositories,
-      'Repo',
-      (take) =>
+    const repositories = await this.boundedReads.readAllInBatches(
+      (
+        after:
+          | { readonly ownerName: string; readonly githubRepoId: bigint }
+          | undefined,
+        take,
+      ) =>
         this.prisma.repo.findMany({
           take,
           where: {
             presence: 'PRESENT',
             source: 'ORG_PROVISIONED',
             ...this.platform.collectionTargetRepoWhere(),
+            ...(after === undefined
+              ? {}
+              : {
+                  OR: [
+                    { ownerName: { gt: after.ownerName } },
+                    {
+                      ownerName: after.ownerName,
+                      githubRepoId: { gt: after.githubRepoId },
+                    },
+                  ],
+                }),
           },
-          orderBy: { ownerName: 'asc' },
+          orderBy: [{ ownerName: 'asc' }, { githubRepoId: 'asc' }],
           select: {
+            githubRepoId: true,
             ownerName: true,
             lastSuccessAt: true,
             teamRepos: {
@@ -242,6 +258,10 @@ export class SystemStatusRepository {
             },
           },
         }),
+      (repository) => ({
+        ownerName: repository.ownerName,
+        githubRepoId: repository.githubRepoId,
+      }),
     );
     return repositories.map((repository) => ({
       repositoryName: repository.ownerName,

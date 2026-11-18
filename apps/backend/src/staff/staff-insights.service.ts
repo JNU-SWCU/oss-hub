@@ -23,11 +23,6 @@ import {
 export interface StaffInsightsMetrics {
   readonly studentCount: number;
   readonly activeStudentCount: number;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
   readonly total: number;
   readonly participantCount: number;
 }
@@ -137,11 +132,6 @@ interface LeaderCandidate {
 const EMPTY_METRICS: StaffInsightsMetrics = {
   studentCount: 0,
   activeStudentCount: 0,
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-  starCount: 0,
   total: 0,
   participantCount: 0,
 };
@@ -241,16 +231,12 @@ export class StaffInsightsService {
     records: readonly StaffInsightsLeaderCandidateRecord[],
     toRow: (candidate: LeaderCandidate, rank: number) => Row,
   ): StaffInsightsCohortLeaders<Row> {
-    const ranked = records
-      .map((record) => ({
-        record,
-        cohort: this.staffInsightsQueryService.classifyDepartment(
-          record.department,
-        ),
-      }))
-      .sort((left, right) =>
-        this.rankingYearService.compareRanked(left.record, right.record),
-      );
+    const ranked = records.map((record) => ({
+      record,
+      cohort: this.staffInsightsQueryService.classifyDepartment(
+        record.department,
+      ),
+    }));
     const top = (cohort?: DepartmentCohort): readonly Row[] =>
       ranked
         .filter(
@@ -396,11 +382,6 @@ function addMetrics(
   return {
     studentCount: metrics.studentCount + record.studentCount,
     activeStudentCount: metrics.activeStudentCount + record.activeStudentCount,
-    commitCount: metrics.commitCount + record.commitCount,
-    pullRequestCount: metrics.pullRequestCount + record.pullRequestCount,
-    issueCount: metrics.issueCount + record.issueCount,
-    repositoryCount: metrics.repositoryCount + record.repositoryCount,
-    starCount: metrics.starCount + record.starCount,
     total: metrics.total + record.total,
     participantCount: metrics.participantCount + record.participantCount,
   };

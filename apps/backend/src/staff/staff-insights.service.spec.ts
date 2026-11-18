@@ -43,11 +43,6 @@ function metrics(
     department,
     studentCount: 1,
     activeStudentCount: 0,
-    commitCount: 0,
-    pullRequestCount: 0,
-    issueCount: 0,
-    repositoryCount: 0,
-    starCount: 0,
     total: 0,
     participantCount: 0,
     ...overrides,
@@ -104,17 +99,11 @@ function repository(): Store {
     listDepartmentMetrics: jest.fn().mockResolvedValue([
       metrics(SW, {
         activeStudentCount: 1,
-        commitCount: 10,
-        pullRequestCount: 2,
-        issueCount: 1,
-        repositoryCount: 2,
-        starCount: 4,
         total: 19,
         participantCount: 1,
       }),
       metrics(NON_SW, {
         activeStudentCount: 1,
-        commitCount: 1,
         total: 1,
         participantCount: 1,
       }),
@@ -182,9 +171,6 @@ describe('StaffInsightsService', () => {
     expect(cohort(DEPARTMENT_COHORTS.SW_MAJOR)).toMatchObject({
       studentCount: 1,
       activeStudentCount: 1,
-      issueCount: 1,
-      repositoryCount: 2,
-      starCount: 4,
       total: 19,
       participantCount: 1,
     });
@@ -401,12 +387,12 @@ describe('StaffInsightsService', () => {
   });
 
   describe('leaders', () => {
-    it('orders leaders with the ranking comparator and numbers ranks ordinally', async () => {
+    it('keeps the SQL ranking order and numbers ranks ordinally', async () => {
       const store = withLeaders([
-        candidate(1n, SW, [8, 2, 0, 0, 0], { githubLogin: 'zed' }),
-        candidate(2n, SW, [5, 5, 0, 0, 0], { githubLogin: 'Bravo' }),
-        candidate(3n, SW, [5, 5, 0, 0, 0], { githubLogin: 'alpha' }),
         candidate(4n, SW, [1, 1, 1, 1, 20], { githubLogin: 'top' }),
+        candidate(1n, SW, [8, 2, 0, 0, 0], { githubLogin: 'zed' }),
+        candidate(3n, SW, [5, 5, 0, 0, 0], { githubLogin: 'alpha' }),
+        candidate(2n, SW, [5, 5, 0, 0, 0], { githubLogin: 'Bravo' }),
       ]);
 
       const summary = await serviceFor(store).summarize(
@@ -440,7 +426,9 @@ describe('StaffInsightsService', () => {
     it('caps every list at 10 rows', async () => {
       const ids = Array.from({ length: 12 }, (_, index) => BigInt(index + 1));
       const store = withLeaders(
-        ids.map((id) => candidate(id, SW, [Number(id), 0, 0, 0, 0])),
+        [...ids]
+          .reverse()
+          .map((id) => candidate(id, SW, [Number(id), 0, 0, 0, 0])),
       );
 
       const summary = await serviceFor(store).summarize(
@@ -459,9 +447,9 @@ describe('StaffInsightsService', () => {
 
     it('splits cohorts and lists an unregistered student only in all', async () => {
       const store = withLeaders([
+        candidate(3n, null, [5, 0, 0, 0, 0], { name: null }),
         candidate(1n, SW, [3, 0, 0, 0, 0]),
         candidate(2n, NON_SW, [2, 0, 0, 0, 0]),
-        candidate(3n, null, [5, 0, 0, 0, 0], { name: null }),
       ]);
 
       const { period } = (

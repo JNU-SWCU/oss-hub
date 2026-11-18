@@ -6,8 +6,12 @@ import {
   type ProgramCategory,
 } from '@prisma/client';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
-import { STANDING_SQL } from '../platform/contributor-read.config';
-import { READ_CAP } from '../platform/bounded-read.config';
+import {
+  RANKING_ORDER_BY_SQL,
+  STANDING_SQL,
+} from '../platform/contributor-read.config';
+
+const STANDING = Prisma.raw(STANDING_SQL);
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 
@@ -19,7 +23,7 @@ interface StaffInsightsActivityCounts {
   readonly starCount: number;
 }
 
-export interface StaffInsightsDepartmentMetricsRecord extends StaffInsightsActivityCounts {
+export interface StaffInsightsDepartmentMetricsRecord {
   readonly department: string | null;
   readonly studentCount: number;
   readonly activeStudentCount: number;
@@ -85,8 +89,6 @@ export interface StaffInsightsActivityQuery {
   readonly currentYear?: number;
 }
 
-const STANDING = Prisma.raw(STANDING_SQL);
-
 const LEADER_LIMIT = 10;
 
 const PUBLIC_STANDING = Prisma.sql`
@@ -119,11 +121,7 @@ function rankedCandidatesSql(
   activity: Prisma.Sql,
   swMajorDepartments: readonly string[],
 ): Prisma.Sql {
-  const order = Prisma.sql`
-    ORDER BY total DESC, commit_count DESC, pull_request_count DESC,
-      issue_count DESC, repository_count DESC, star_count DESC,
-      lower(login) COLLATE "C", github_id
-  `;
+  const order = Prisma.sql`ORDER BY ${Prisma.raw(RANKING_ORDER_BY_SQL)}`;
   return Prisma.sql`
     WITH activity AS (${activity}),
     candidates AS (
@@ -193,6 +191,22 @@ function foldedActivitySql(query: StaffInsightsActivityQuery): Prisma.Sql {
   `;
 }
 
+function afterNullable(
+  column: Prisma.Sql,
+  after: string | null | undefined,
+): Prisma.Sql {
+  if (after === undefined) return Prisma.sql`TRUE`;
+  return after === null
+    ? Prisma.sql`${column} IS NOT NULL`
+    : Prisma.sql`${column} > ${after}`;
+}
+
+function afterKey(column: Prisma.Sql, after: string | undefined): Prisma.Sql {
+  return after === undefined
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`${column} > ${after}`;
+}
+
 @Injectable()
 export class StaffInsightsRepository {
   private readonly boundedReads = new BoundedReadRepository();
@@ -206,10 +220,8 @@ export class StaffInsightsRepository {
   async listDepartmentMetrics(
     query: StaffInsightsActivityQuery,
   ): Promise<readonly StaffInsightsDepartmentMetricsRecord[]> {
-    return this.boundedReads.readCapped(
-      READ_CAP.departments,
-      'Department metrics',
-      (take) =>
+    return this.boundedReads.readAllInBatches(
+      (after: string | null | undefined, take) =>
         this.prisma.$queryRaw<StaffInsightsDepartmentMetricsRecord[]>`
       WITH activity AS (${foldedActivitySql(query)}),
       participants AS (
@@ -218,38 +230,32 @@ export class StaffInsightsRepository {
       students AS (
         SELECT
           student.department,
-          COALESCE(activity.commit_count, 0) AS commit_count,
-          COALESCE(activity.pull_request_count, 0) AS pull_request_count,
-          COALESCE(activity.issue_count, 0) AS issue_count,
-          COALESCE(activity.repository_count, 0) AS repository_count,
-          COALESCE(activity.star_count, 0) AS star_count,
+          COALESCE(
+            activity.commit_count + activity.pull_request_count
+              + activity.issue_count + activity.repository_count
+              + activity.star_count,
+            0
+          ) AS total,
           participants.user_id IS NOT NULL AS participant
         FROM "User" AS student
         LEFT JOIN activity ON activity.github_id = student."githubId"
         LEFT JOIN participants ON participants.user_id = student.id
-        WHERE student.type = 'STUDENT' AND student."accountStatus" = 'ACTIVE'
+        WHERE student.type = 'STUDENT'
+          AND student."accountStatus" = 'ACTIVE'
+          AND ${afterNullable(Prisma.sql`student.department`, after)}
       )
       SELECT
         department,
         COUNT(*)::int AS "studentCount",
-        COUNT(*) FILTER (
-          WHERE commit_count + pull_request_count + issue_count
-            + repository_count + star_count > 0
-        )::int AS "activeStudentCount",
-        SUM(commit_count)::int AS "commitCount",
-        SUM(pull_request_count)::int AS "pullRequestCount",
-        SUM(issue_count)::int AS "issueCount",
-        SUM(repository_count)::int AS "repositoryCount",
-        SUM(star_count)::int AS "starCount",
-        SUM(
-          commit_count + pull_request_count + issue_count
-            + repository_count + star_count
-        )::int AS total,
+        COUNT(*) FILTER (WHERE total > 0)::int AS "activeStudentCount",
+        SUM(total)::int AS total,
         COUNT(*) FILTER (WHERE participant)::int AS "participantCount"
       FROM students
       GROUP BY department
+      ORDER BY department NULLS FIRST
       LIMIT ${take}
     `,
+      (row) => row.department,
     );
   }
 
@@ -334,25 +340,38 @@ export class StaffInsightsRepository {
   async listProgramParticipantDepartments(): Promise<
     readonly StaffInsightsProgramDepartmentRecord[]
   > {
-    return this.boundedReads.readCapped(
-      READ_CAP.insightGroups,
-      'Program department participants',
-      (take) =>
+    return this.boundedReads.readAllInBatches(
+      (
+        after:
+          | { readonly programId: string; readonly department: string | null }
+          | undefined,
+        take,
+      ) =>
         this.prisma.$queryRaw<StaffInsightsProgramDepartmentRecord[]>`
-      SELECT
-        approved.program_id AS "programId",
-        CASE
-          WHEN student.type = 'STUDENT' AND student."accountStatus" = 'ACTIVE'
-            THEN student.department
-        END AS department,
-        COUNT(DISTINCT approved.user_id)::int AS "participantCount"
-      FROM (${APPROVED_PARTICIPANTS}) AS approved
-      JOIN "Program" AS program ON program.id = approved.program_id
-      JOIN "User" AS student ON student.id = approved.user_id
-      WHERE program.lifecycle = 'PUBLISHED'
-      GROUP BY 1, 2
+      SELECT "programId", department, "participantCount"
+      FROM (
+        SELECT
+          approved.program_id AS "programId",
+          CASE
+            WHEN student.type = 'STUDENT' AND student."accountStatus" = 'ACTIVE'
+              THEN student.department
+          END AS department,
+          COUNT(DISTINCT approved.user_id)::int AS "participantCount"
+        FROM (${APPROVED_PARTICIPANTS}) AS approved
+        JOIN "Program" AS program ON program.id = approved.program_id
+        JOIN "User" AS student ON student.id = approved.user_id
+        WHERE program.lifecycle = 'PUBLISHED'
+        GROUP BY 1, 2
+      ) AS grouped
+      WHERE ${
+        after === undefined
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`("programId" > ${after.programId} OR ("programId" = ${after.programId} AND ${afterNullable(Prisma.sql`department`, after.department)}))`
+      }
+      ORDER BY "programId", department NULLS FIRST
       LIMIT ${take}
     `,
+      (row) => ({ programId: row.programId, department: row.department }),
     );
   }
 
@@ -380,60 +399,57 @@ export class StaffInsightsRepository {
   async listPublishedPrograms(): Promise<
     readonly StaffInsightsProgramRecord[]
   > {
-    return this.boundedReads.readCapped(READ_CAP.programs, 'Program', (take) =>
-      this.prisma.program.findMany({
-        take,
-        where: { lifecycle: ProgramLifecycle.PUBLISHED },
-        select: {
-          id: true,
-          name: true,
-          category: true,
-          applicationStartAt: true,
-          applicationEndAt: true,
-          startAt: true,
-          endAt: true,
-        },
-      }),
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.program.findMany({
+          take,
+          where: {
+            lifecycle: ProgramLifecycle.PUBLISHED,
+            ...(after === undefined ? {} : { id: { gt: after } }),
+          },
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            applicationStartAt: true,
+            applicationEndAt: true,
+            startAt: true,
+            endAt: true,
+          },
+        }),
+      (program) => program.id,
     );
   }
 
   async listProgramApplicationCounts(): Promise<
     readonly StaffInsightsApplicationCountRecord[]
   > {
-    const rows = await this.prisma.team.groupBy({
-      by: ['programId', 'status'],
-      where: {
-        archivedAt: null,
-        program: { lifecycle: ProgramLifecycle.PUBLISHED },
-      },
-      _count: { _all: true },
-    });
-    const byProgram = new Map<
-      string,
-      { appliedCount: number; approvedCount: number }
-    >();
-    for (const row of rows) {
-      const current = byProgram.get(row.programId) ?? {
-        appliedCount: 0,
-        approvedCount: 0,
-      };
-      current.appliedCount += row._count._all;
-      if (row.status === 'APPROVED') current.approvedCount += row._count._all;
-      byProgram.set(row.programId, current);
-    }
-    return [...byProgram.entries()].map(([programId, counts]) => ({
-      programId,
-      ...counts,
-    }));
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.$queryRaw<StaffInsightsApplicationCountRecord[]>`
+      SELECT
+        team."programId" AS "programId",
+        COUNT(*)::int AS "appliedCount",
+        COUNT(*) FILTER (WHERE team.status = 'APPROVED')::int AS "approvedCount"
+      FROM "Team" AS team
+      JOIN "Program" AS program ON program.id = team."programId"
+      WHERE team."archivedAt" IS NULL
+        AND program.lifecycle = 'PUBLISHED'
+        AND ${afterKey(Prisma.sql`team."programId"`, after)}
+      GROUP BY team."programId"
+      ORDER BY team."programId"
+      LIMIT ${take}
+    `,
+      (row) => row.programId,
+    );
   }
 
   async listProgramCompletion(
     now: Date,
   ): Promise<readonly StaffInsightsCompletionRecord[]> {
-    return this.boundedReads.readCapped(
-      READ_CAP.programs,
-      'Program completion',
-      (take) =>
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
         this.prisma.$queryRaw<StaffInsightsCompletionRecord[]>`
       SELECT
         team."programId" AS "programId",
@@ -454,19 +470,20 @@ export class StaffInsightsRepository {
         AND program.lifecycle = 'PUBLISHED'
         AND requirement.required = true
         AND milestone."dueAt" <= (${now.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+        AND ${afterKey(Prisma.sql`team."programId"`, after)}
       GROUP BY team."programId"
+      ORDER BY team."programId"
       LIMIT ${take}
     `,
+      (row) => row.programId,
     );
   }
 
   async listProgramOutcomes(
     now: Date,
   ): Promise<readonly StaffInsightsOutcomeRecord[]> {
-    return this.boundedReads.readCapped(
-      READ_CAP.programs,
-      'Program outcomes',
-      (take) =>
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
         this.prisma.$queryRaw<StaffInsightsOutcomeRecord[]>`
       WITH linked AS (
         SELECT
@@ -486,6 +503,7 @@ export class StaffInsightsRepository {
         WHERE team.status = 'APPROVED'
           AND team."archivedAt" IS NULL
           AND program.lifecycle = 'PUBLISHED'
+          AND ${afterKey(Prisma.sql`team."programId"`, after)}
       ),
       matched AS (
         SELECT DISTINCT
@@ -528,8 +546,10 @@ export class StaffInsightsRepository {
         ) AS distinct_events
         GROUP BY program_id
       ) AS events USING (program_id)
+      ORDER BY program_id
       LIMIT ${take}
     `,
+      (row) => row.programId,
     );
   }
 

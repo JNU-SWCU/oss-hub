@@ -161,11 +161,6 @@ const program: StaffDashboardComposedProgramSummary = {
 const metrics: StaffInsightsMetrics = {
   studentCount: 10,
   activeStudentCount: 8,
-  commitCount: 100,
-  pullRequestCount: 20,
-  issueCount: 5,
-  repositoryCount: 4,
-  starCount: 9,
   total: 138,
   participantCount: 7,
 };

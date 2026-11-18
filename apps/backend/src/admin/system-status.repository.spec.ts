@@ -42,7 +42,7 @@ describe('SystemStatusRepository', () => {
           presence: 'PRESENT',
           source: 'ORG_PROVISIONED',
         }) as unknown,
-        orderBy: { ownerName: 'asc' },
+        orderBy: [{ ownerName: 'asc' }, { githubRepoId: 'asc' }],
       }),
     );
   });

@@ -571,15 +571,18 @@ export class RepositoryProvisionStateRepository {
         requestId,
       );
 
-      const rows = await this.boundedReads.readCapped(
-        READ_CAP.invitationsPerRepository,
-        'RepositoryInvitation per repository',
-        (take) =>
+      const rows = await this.boundedReads.readAllInBatches(
+        (after: string | undefined, take) =>
           transaction.repositoryInvitation.findMany({
             take,
-            where: { repoId: githubRepositoryId },
+            where: {
+              repoId: githubRepositoryId,
+              ...(after === undefined ? {} : { id: { gt: after } }),
+            },
+            orderBy: { id: 'asc' },
             select: { id: true, githubLogin: true, status: true },
           }),
+        (row) => row.id,
       );
       const plan = planInvitations(rows);
       const repo = await transaction.repo.findUnique({
@@ -645,14 +648,27 @@ export class RepositoryProvisionStateRepository {
     if (available === 0) {
       return [];
     }
-    const rows = await this.boundedReads.readCapped(
-      READ_CAP.invitationsPerRepository,
-      'RepositoryInvitation per repository',
-      (take) =>
+    const rows = await this.boundedReads.readAllInBatches(
+      (
+        after: { readonly createdAt: Date; readonly id: string } | undefined,
+        take,
+      ) =>
         this.prisma.repositoryInvitation.findMany({
           take,
           where: {
             repoId: githubRepositoryId,
+            ...(after === undefined
+              ? {}
+              : {
+                  AND: [
+                    {
+                      OR: [
+                        { createdAt: { gt: after.createdAt } },
+                        { createdAt: after.createdAt, id: { gt: after.id } },
+                      ],
+                    },
+                  ],
+                }),
             OR: [
               {
                 status: RepositoryInvitationStatus.PENDING,
@@ -668,11 +684,21 @@ export class RepositoryProvisionStateRepository {
             ],
           },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: { id: true, githubLogin: true, status: true },
+          select: {
+            id: true,
+            githubLogin: true,
+            status: true,
+            createdAt: true,
+          },
         }),
+      (row) => ({ createdAt: row.createdAt, id: row.id }),
     );
 
-    return rows;
+    return rows.map(({ id, githubLogin, status }) => ({
+      id,
+      githubLogin,
+      status,
+    }));
   }
 
   async completeInvitation(

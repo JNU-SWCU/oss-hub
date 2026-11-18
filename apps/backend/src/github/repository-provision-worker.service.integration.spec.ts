@@ -105,6 +105,7 @@ const APPLICATION_IDS = [
   'synthetic-worker-new-external-current',
   'synthetic-worker-own-managed-current',
   'synthetic-worker-own-org-create',
+  'synthetic-worker-invitation-history',
 ] as const;
 const APPLICANT_LOGIN = 'synthetic-worker-applicant';
 
@@ -1343,6 +1344,49 @@ describe('RepositoryProvisionWorkerService integration', () => {
       attemptCount: 0,
       reconciliationCount: 0,
     });
+  });
+
+  it('과거 초대가 100건을 넘어도 준비와 작업 조회가 실패하지 않고 전부 읽는다', async () => {
+    const teamId = 'synthetic-worker-invitation-history';
+    await createApplicationAndEvent(teamId, [APPLICANT_LOGIN]);
+    await outbox.consumeNext('outbox-worker-history', NOW);
+    const githubRepositoryId = await createProvisionedRepository(teamId);
+    const historicalLogins = Array.from(
+      { length: 101 },
+      (_, index) => `synthetic-history-${String(index).padStart(3, '0')}`,
+    );
+    await prisma.repositoryInvitation.createMany({
+      data: historicalLogins.map((githubLogin) => ({
+        repoId: githubRepositoryId,
+        githubLogin,
+        status: RepositoryInvitationStatus.REVOKED,
+      })),
+    });
+    const job = await claimJobFor(teamId, 'state-worker-history');
+    const context = await state.loadContext(
+      job.id,
+      'state-worker-history',
+      job.requestId,
+    );
+
+    await state.prepareInvitations(
+      job.id,
+      'state-worker-history',
+      job.requestId,
+      githubRepositoryId,
+      context.currentMemberGithubLogins,
+    );
+    const work = await state.findInvitationWork(
+      job.id,
+      'state-worker-history',
+      job.requestId,
+      githubRepositoryId,
+    );
+
+    expect(
+      work.filter((row) => row.githubLogin.startsWith('synthetic-history-')),
+    ).toHaveLength(historicalLogins.length);
+    expect(work.map((row) => row.githubLogin)).toContain(APPLICANT_LOGIN);
   });
 
   it('작업 중 멤버십이 바뀌었으면 job을 닫지 않고 재무장한다', async () => {
