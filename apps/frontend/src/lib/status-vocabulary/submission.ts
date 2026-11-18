@@ -36,8 +36,8 @@ export function submissionStatusLabel(
   audience: StatusAudience,
 ): string {
   if (status === 'OVERDUE') return '기한 지남';
-  if (status === 'CHANGES_REQUESTED') {
-    return audience === 'student' ? '보완 필요' : '보완 요청 중';
+  if (status === 'CHANGES_REQUESTED' && audience === 'student') {
+    return '보완 필요';
   }
   return SUBMISSION_STATUS_LABELS[status];
 }

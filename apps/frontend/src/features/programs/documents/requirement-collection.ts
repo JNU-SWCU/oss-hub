@@ -26,6 +26,7 @@ export function selectCollectionDocument(
   document: RequirementCollectionSelection | null,
 ): RequirementCollectionQueryInput {
   return {
+    q: query.q,
     page: 1,
     pageSize: query.pageSize,
     filter: query.filter,
@@ -164,6 +165,19 @@ export function collectionRowMemberSummary(
   if (lead === null) return null;
   const others = Math.max(row.memberNicknames.length - 1, 0);
   return others === 0 ? lead : `${lead} 외 ${others}명`;
+}
+
+export function searchCollectionRows(
+  rows: readonly RequirementCollectionRow[],
+  q: string,
+): readonly RequirementCollectionRow[] {
+  const needle = q.trim().toLocaleLowerCase();
+  if (needle === '') return rows;
+  return rows.filter((row) =>
+    [row.teamName, row.applicantName ?? '', ...row.memberNicknames].some(
+      (field) => field.toLocaleLowerCase().includes(needle),
+    ),
+  );
 }
 
 export type RequirementCollectionEmptyKind =

@@ -20,13 +20,11 @@ export function MatrixCellContent({
   cell,
   milestone,
   now,
-  focused,
 }: {
   readonly programId: string;
   readonly cell: MatrixCell;
   readonly milestone: MatrixMilestone;
   readonly now: Date;
-  readonly focused: boolean;
 }): ReactElement {
   const action = matrixCellAction(cell, milestone, now);
   if (action.status === 'NONE') {
@@ -49,13 +47,12 @@ export function MatrixCellContent({
   const changeRequests =
     cell.changesRequestedCount > 0 ? (
       <span className="text-small font-semibold text-foreground">
-        보완 요청 중 {cell.changesRequestedCount}건
+        보완 요청 {cell.changesRequestedCount}건
       </span>
     ) : null;
 
   const deadline =
-    action.status === 'OVERDUE' ||
-    (action.status === 'NOT_SUBMITTED' && !focused)
+    action.status === 'OVERDUE' || action.status === 'NOT_SUBMITTED'
       ? notSubmittedDeadline(milestone.dueAt, now)
       : null;
 

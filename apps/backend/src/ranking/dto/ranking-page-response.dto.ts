@@ -6,7 +6,9 @@ import type {
 } from '../ranking.service';
 import type { RankingYear } from '../ranking-year.service';
 import type {
-  RankingTimeline,
+  RankingAllTimeline,
+  RankingYearTimeline,
+  RankingTimelinePeriod,
   RankingTimelineSeries,
 } from '../ranking-timeline.service';
 
@@ -162,10 +164,40 @@ export class RankingTimelineResponseDto {
   declare readonly months: number[];
   declare readonly series: RankingTimelineSeriesResponseDto[];
 
-  static from(timeline: RankingTimeline): RankingTimelineResponseDto {
+  static from(timeline: RankingYearTimeline): RankingTimelineResponseDto {
     return {
       year: timeline.year,
       months: [...timeline.months],
+      series: timeline.series.map((series) =>
+        RankingTimelineSeriesResponseDto.from(series),
+      ),
+    };
+  }
+}
+
+class RankingTimelinePeriodResponseDto {
+  @ApiProperty({ pattern: '^\\d{4}-(0[1-9]|1[0-2])$' })
+  declare readonly fromMonth: string;
+  @ApiProperty({ pattern: '^\\d{4}-(0[1-9]|1[0-2])$' })
+  declare readonly toMonth: string;
+
+  static from(period: RankingTimelinePeriod): RankingTimelinePeriodResponseDto {
+    return { fromMonth: period.fromMonth, toMonth: period.toMonth };
+  }
+}
+
+export class RankingAllTimelineResponseDto {
+  @ApiProperty({ type: 'string', enum: ['all'] })
+  declare readonly year: RankingAllTimeline['year'];
+  declare readonly periods: RankingTimelinePeriodResponseDto[];
+  declare readonly series: RankingTimelineSeriesResponseDto[];
+
+  static from(timeline: RankingAllTimeline): RankingAllTimelineResponseDto {
+    return {
+      year: timeline.year,
+      periods: timeline.periods.map((period) =>
+        RankingTimelinePeriodResponseDto.from(period),
+      ),
       series: timeline.series.map((series) =>
         RankingTimelineSeriesResponseDto.from(series),
       ),

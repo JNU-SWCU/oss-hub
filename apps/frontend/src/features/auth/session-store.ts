@@ -19,6 +19,7 @@ let snapshot: AuthSessionState = LOADING_STATE;
 const listeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
 let generation = 0;
+let lifecycleInstalled = false;
 
 function publish(next: AuthSessionState): void {
   snapshot = next;
@@ -48,16 +49,35 @@ async function load(loadGeneration: number): Promise<void> {
   }
 }
 
-export function ensureSessionLoaded(): void {
-  if (inFlight !== null || snapshot.status !== 'loading') {
-    return;
-  }
+function startSessionLoad(): void {
   const request = load(generation).finally(() => {
     if (inFlight === request) {
       inFlight = null;
     }
   });
   inFlight = request;
+}
+
+function revalidateSession(): void {
+  generation += 1;
+  inFlight = null;
+  startSessionLoad();
+}
+
+function installSessionLifecycle(): void {
+  if (lifecycleInstalled || typeof window === 'undefined') return;
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) revalidateSession();
+  });
+  lifecycleInstalled = true;
+}
+
+export function ensureSessionLoaded(): void {
+  installSessionLifecycle();
+  if (inFlight !== null || snapshot.status !== 'loading') {
+    return;
+  }
+  startSessionLoad();
 }
 
 export function subscribeSession(listener: () => void): () => void {

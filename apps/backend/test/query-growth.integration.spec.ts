@@ -52,6 +52,11 @@ const ENDPOINTS: readonly Endpoint[] = [
     path: (world) => `/api/v1/ranking/timeline?year=${world.year}`,
   },
   {
+    name: 'GET /ranking/timeline?year=all',
+    viewer: 'anonymous',
+    path: () => '/api/v1/ranking/timeline?year=all',
+  },
+  {
     name: 'GET /dashboard/staff/summary',
     viewer: 'staff',
     path: () => '/api/v1/dashboard/staff/summary',

@@ -72,11 +72,24 @@ export interface RankingTimelineSeries {
   readonly totals: readonly (number | null)[];
 }
 
-export interface RankingTimeline {
+interface RankingYearTimeline {
   readonly year: number;
   readonly months: readonly number[];
   readonly series: readonly RankingTimelineSeries[];
 }
+
+interface RankingTimelinePeriod {
+  readonly fromMonth: string;
+  readonly toMonth: string;
+}
+
+interface RankingAllTimeline {
+  readonly year: typeof RANKING_YEAR_ALL;
+  readonly periods: readonly RankingTimelinePeriod[];
+  readonly series: readonly RankingTimelineSeries[];
+}
+
+export type RankingTimeline = RankingYearTimeline | RankingAllTimeline;
 
 export interface RankingYears {
   readonly years: readonly number[];
@@ -86,20 +99,17 @@ export function currentRankingYear(now: Date = new Date()): number {
   return new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCFullYear();
 }
 
-export function rankingListHref(year: RankingYear): string {
-  if (year === currentRankingYear()) return '/ranking';
-  if (year === RANKING_YEAR_ALL) return '/ranking?year=all';
-  return `/ranking?year=${year}`;
+export function rankingListHref(year: RankingYear, search = ''): string {
+  const params = new URLSearchParams(search);
+  params.delete('page');
+  if (year === RANKING_YEAR_ALL) params.delete('year');
+  else params.set('year', String(year));
+  const query = params.toString();
+  return query ? `/ranking?${query}` : '/ranking';
 }
 
 export function parseRankingYearSearchParam(
   raw: string | null | undefined,
 ): RankingYear {
-  if (raw === null || raw === undefined || raw === '')
-    return currentRankingYear();
-  if (raw.toLowerCase() === RANKING_YEAR_ALL) return RANKING_YEAR_ALL;
-  const year = Number(raw);
-  if (Number.isInteger(year) && year >= 2000 && year <= 2100) return year;
-
-  return currentRankingYear();
+  return raw && /^(20\d{2}|2100)$/.test(raw) ? Number(raw) : RANKING_YEAR_ALL;
 }

@@ -30,6 +30,7 @@ import { RankingCycleCountdown } from './ranking-cycle-countdown';
 import { useShellMenu } from './shell-menu-context';
 import { useShellUrlState } from './shell-url-state';
 import {
+  canHaveShellSidebar,
   hasShellSidebar,
   isShellMember,
   shellSheetKind,
@@ -126,15 +127,38 @@ interface MenuSheetModel {
   readonly footKind: SidebarShellKind;
 }
 
-export function ProductShell({
+interface ProductShellProps {
+  readonly children: ReactNode;
+  readonly initialCollapsed?: boolean;
+}
+
+function MainContent({ children }: { readonly children: ReactNode }) {
+  return (
+    <RankingCycleProvider>
+      <div
+        id="main-content"
+        tabIndex={-1}
+        className="relative min-h-0 min-w-0 flex-1 overflow-y-auto pb-bottom-tabs-clearance shell:pb-0"
+      >
+        {children}
+      </div>
+    </RankingCycleProvider>
+  );
+}
+
+export function ProductShell(props: ProductShellProps) {
+  const pathname = usePathname();
+  if (!canHaveShellSidebar(pathname)) {
+    return <MainContent>{props.children}</MainContent>;
+  }
+  return <SidebarProductShell {...props} pathname={pathname} />;
+}
+
+function SidebarProductShell({
   children,
   initialCollapsed = false,
-}: {
-  readonly children: ReactNode;
-
-  readonly initialCollapsed?: boolean;
-}) {
-  const pathname = usePathname();
+  pathname,
+}: ProductShellProps & { readonly pathname: string }) {
   const search = useShellUrlState();
   const session = useSessionRole();
   const member = isShellMember(session);
@@ -191,25 +215,14 @@ export function ProductShell({
   }
 
   if (!hasShellSidebar(pathname, session)) {
-    return (
-      <RankingCycleProvider>
-        <div
-          id="main-content"
-          tabIndex={-1}
-          className="relative min-h-0 min-w-0 flex-1 overflow-y-auto pb-bottom-tabs-clearance shell:pb-0"
-        >
-          {children}
-        </div>
-      </RankingCycleProvider>
-    );
+    return <MainContent>{children}</MainContent>;
   }
 
   const groups = programDetailId
     ? []
     : sidebarGroupsFor(section, shellSidebarAccess(session), {
-        programCounts: facetData?.programCounts,
-        rankingYears: facetData?.rankingYears,
-        rankingCounts: facetData?.rankingCounts,
+        ...facetData,
+        rankingSearch: search,
       });
 
   let viewerDocuments:

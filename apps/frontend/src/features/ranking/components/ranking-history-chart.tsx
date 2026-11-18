@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { RankingTimeline } from '../types';
+import { RANKING_YEAR_ALL } from '../types';
 import {
   buildRankingHistoryChart,
   rankingHistoryAvatarSlots,
@@ -114,7 +115,7 @@ function HistoryCard({
             로그 축
           </Button>
         </div>
-        <p className={styles.caption}>월별로 쌓인 올해 누적 점수입니다.</p>
+        <p className={styles.caption}>누적 점수입니다.</p>
       </div>
       <div className={styles.body}>
         {legend}
@@ -159,10 +160,6 @@ export function RankingHistoryChart({
   if (chart.lines.length === 0) {
     return <Note state="empty" text="아직 그릴 활동 기록이 없습니다." />;
   }
-  if (chart.rows.length < 2) {
-    return <Note state="empty" text="그래프는 두 번째 달부터 그려집니다." />;
-  }
-
   return (
     <HistoryCard
       state="ready"
@@ -438,12 +435,14 @@ function HistoryTooltip({
 }
 
 function summaryOf(timeline: RankingTimeline, chart: HistoryChart): string {
-  const first = chart.rows[0]?.label ?? '';
-  const last = chart.rows.at(-1)?.label ?? '';
+  const period =
+    timeline.year === RANKING_YEAR_ALL
+      ? `전체 ${timeline.periods[0]?.fromMonth ?? ''}부터 ${timeline.periods.at(-1)?.toMonth ?? ''}까지`
+      : `${String(timeline.year)}년 1월부터 12월까지`;
   const leader = chart.legend[0];
   const lead =
     leader === undefined
       ? ''
-      : ` 1위는 @${leader.githubLogin} ${String(leader.totals.at(-1) ?? 0)}점입니다.`;
-  return `${String(timeline.year)}년 ${first}부터 ${last}까지 참여자 ${String(chart.lines.length)}명의 누적 점수 변화 꺾은선 그래프입니다.${lead}`;
+      : ` 1위는 @${leader.githubLogin} ${String(leader.totals[leader.tipIndex] ?? 0)}점입니다.`;
+  return `${period} 참여자 ${String(chart.lines.length)}명의 누적 점수 변화 꺾은선 그래프입니다.${lead}`;
 }

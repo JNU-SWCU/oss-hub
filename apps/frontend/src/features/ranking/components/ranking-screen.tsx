@@ -10,7 +10,7 @@ import {
   RANKING_CSV_PAGE_SIZE,
   rankingCsvFilename,
 } from '../csv';
-import { RANKING_VIEWER_CLASSES, RANKING_YEAR_ALL } from '../types';
+import { RANKING_VIEWER_CLASSES } from '../types';
 import {
   RankingHistoryChart,
   RankingHistoryChartError,
@@ -46,17 +46,16 @@ export function RankingScreen({
       ? { kind: 'error' }
       : { kind: 'ready', ranking: query.data };
   const timeline = useRankingTimelineQuery(year, viewerGithubLogin);
-  const chart =
-    year === RANKING_YEAR_ALL ? null : timeline.isPending ? (
-      <RankingHistoryChartLoading />
-    ) : timeline.isError ? (
-      <RankingHistoryChartError />
-    ) : (
-      <RankingHistoryChart
-        timeline={timeline.data}
-        viewerGithubLogin={viewerGithubLogin}
-      />
-    );
+  const chart = timeline.isPending ? (
+    <RankingHistoryChartLoading />
+  ) : timeline.isError ? (
+    <RankingHistoryChartError />
+  ) : (
+    <RankingHistoryChart
+      timeline={timeline.data}
+      viewerGithubLogin={viewerGithubLogin}
+    />
+  );
   const [exportStatus, setExportStatus] = useState<
     'idle' | 'preparing' | 'error'
   >('idle');

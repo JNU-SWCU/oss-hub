@@ -13,6 +13,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('../_shell/use-session-role', () => ({
+  useIndependentSessionRole: mocks.useSessionRole,
   useSessionRole: mocks.useSessionRole,
 }));
 

@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AccessDenied } from './access-denied';
 import { LoginRequiredNotice } from './login-required-notice';
 import { onboardingPathFor } from './onboarding-route';
 import { SessionError } from './session-error';
 import { SessionRoleProvider } from './session-role-context';
-import { useSessionRole } from './use-session-role';
+import { useIndependentSessionRole } from './use-session-role';
 import type { SessionRoleState } from './use-session-role';
 import { hasMemberSurface, type MemberSurface } from './member-access';
 
@@ -63,7 +63,12 @@ export function RoleGate({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const state = useSessionRole();
+  const liveState = useIndependentSessionRole();
+  const [hydrated, setHydrated] = useState(false);
+  useLayoutEffect(() => setHydrated(true), []);
+  const state = hydrated
+    ? liveState
+    : { ...liveState, status: 'loading' as const, isProfileComplete: false };
   const { status, retry } = state;
   const openForUnassigned = shouldOpenForUnassigned(state, unassignedAccess);
 

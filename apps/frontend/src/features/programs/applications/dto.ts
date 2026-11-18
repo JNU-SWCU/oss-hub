@@ -81,6 +81,7 @@ interface TeamManagementMember {
 export interface TeamManagementListItem {
   readonly id: string;
   readonly teamMinSize?: number;
+  readonly teamMaxSize?: number;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;
   readonly applicant: {

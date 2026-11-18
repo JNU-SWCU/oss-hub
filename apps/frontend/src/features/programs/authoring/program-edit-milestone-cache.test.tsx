@@ -233,7 +233,7 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     );
     await selectRange('결과물 제출', '2026-08-16', '2026-08-20');
     await act(async () => {
-      getButton('마일스톤 저장').click();
+      getAccessibleButton('마일스톤 저장').click();
       await Promise.resolve();
     });
 
@@ -243,7 +243,7 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       getButton('날짜 적용').click();
     });
     await act(async () => {
-      getButton('프로그램 정보 저장').click();
+      getAccessibleButton('프로그램 정보 저장').click();
       await Promise.resolve();
     });
 

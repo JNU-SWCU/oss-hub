@@ -3,9 +3,11 @@ import type {
   RankingTimeline,
   RankingTimelineSeries,
 } from '../types';
+import { RANKING_YEAR_ALL } from '../types';
 
 const LEGEND_LIMIT = 10;
 const LEAD_LIMIT = 3;
+const CALENDAR_MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 const SERIES_COLORS = [25, 260, 145, 330, 200, 50, 290, 175, 0, 115].map(
   (hue) => `oklch(0.64 0.17 ${String(hue)})`,
 );
@@ -62,14 +64,28 @@ export function buildRankingHistoryChart(
   timeline: RankingTimeline,
   viewerGithubLogin: string | null,
 ): RankingHistoryChart {
+  const axis =
+    timeline.year === RANKING_YEAR_ALL
+      ? timeline.periods.map(({ fromMonth, toMonth }, index) => ({
+          index,
+          label:
+            fromMonth === toMonth
+              ? toMonth.replace('-', '.')
+              : `${fromMonth.replace('-', '.')}–${toMonth.replace('-', '.')}`,
+        }))
+      : CALENDAR_MONTHS.map((month) => ({
+          index: timeline.months.indexOf(month),
+          label: `${String(month)}월`,
+        }));
+  const monthIndexes = axis.map(({ index }) => index);
   const lines = timeline.series.map((series, order) =>
-    lineOf(series, order, viewerGithubLogin),
+    lineOf(series, order, viewerGithubLogin, monthIndexes),
   );
-  const rows = timeline.months.map((month, index) => ({
+  const rows = axis.map(({ label }, index) => ({
     ...Object.fromEntries(
       lines.map((line) => [line.key, line.totals[index] ?? null]),
     ),
-    label: `${String(month)}월`,
+    label,
   }));
   const legend = lines
     .filter((line) => line.isViewer || line.finalRank <= LEGEND_LIMIT)
@@ -145,23 +161,31 @@ function lineOf(
   series: RankingTimelineSeries,
   order: number,
   viewerGithubLogin: string | null,
+  monthIndexes: readonly number[],
 ): RankingHistoryLine {
   const finalRank = series.ranks.at(-1) ?? order + 1;
   const isViewer = series.githubLogin === viewerGithubLogin;
   const ranked = finalRank <= LEGEND_LIMIT;
+  const totals = monthIndexes.map((index) => series.totals[index] ?? null);
   return {
     key: `s${String(order)}`,
     githubLogin: series.githubLogin,
     finalRank,
-    totals: series.totals,
-    ranks: series.ranks,
+    totals,
+    ranks: monthIndexes.map((index) => series.ranks[index] ?? null),
     color: colorOf(finalRank, isViewer, ranked),
     strokeWidth: rankingHistoryStrokeWidth(finalRank, isViewer),
     faded: !isViewer && !ranked,
     isViewer,
     showDot:
-      isViewer || series.totals.filter((total) => total !== null).length === 1,
-    tipIndex: series.totals.findLastIndex((total) => total !== null),
+      isViewer ||
+      totals.some(
+        (total, index) =>
+          total !== null &&
+          (totals[index - 1] ?? null) === null &&
+          (totals[index + 1] ?? null) === null,
+      ),
+    tipIndex: totals.findLastIndex((total) => total !== null),
   };
 }
 

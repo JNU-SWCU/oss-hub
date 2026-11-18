@@ -115,7 +115,7 @@ describe('판정 패널 머리', () => {
     expect(html).not.toContain('검토 대기');
   });
 
-  it('보완을 요청한 칸은 머리가 보완 요청 중이고, 지난 검토와 판정 칩은 보완 요청 그대로다', () => {
+  it('보완을 요청한 칸은 머리와 지난 검토, 판정 칩이 모두 보완 요청이다', () => {
     const html = render({
       cell: cell({
         status: 'CHANGES_REQUESTED',
@@ -128,8 +128,8 @@ describe('판정 패널 머리', () => {
       }),
     });
 
-    expect(badgeTexts(html)).toEqual(['보완 요청 중', '보완 요청']);
-    expect(html.match(/>보완 요청</g)).toHaveLength(2);
+    expect(badgeTexts(html)).toEqual(['보완 요청', '보완 요청']);
+    expect(html.match(/>보완 요청</g)).toHaveLength(3);
   });
 
   it('다시 낸 칸은 머리가 검토 대기, 아래에 지난 보완 요청이 남는다', () => {
@@ -515,5 +515,17 @@ describe('판정 저장 중', () => {
       expect(tagOf(html, label)).not.toContain('disabled=""');
     }
     expect(textareaTag(html)).not.toContain('disabled=""');
+  });
+
+  it('닫기와 저장을 블록 오른쪽 아래에 모아 둔다', () => {
+    const html = render();
+    const footerStart = html.indexOf(
+      'class="flex flex-wrap justify-end gap-2"',
+    );
+
+    expect(footerStart).toBeGreaterThan(-1);
+    const footer = html.slice(footerStart);
+    expect(footer).not.toContain('justify-between');
+    expect(footer.indexOf('>닫기<')).toBeLessThan(footer.indexOf('>저장<'));
   });
 });

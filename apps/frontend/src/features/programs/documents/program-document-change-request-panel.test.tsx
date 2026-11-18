@@ -133,7 +133,7 @@ it('범위 안 제출 수를 상태별로 보여 주고 이미 끝난 판정은 
     'program-1',
     { kind: 'PROGRAM' },
   );
-  expect(targetsText()).toContain('검토 대기 2건 · 보완 요청 중 1건');
+  expect(targetsText()).toContain('검토 대기 2건 · 보완 요청 1건');
   expect(targetsText()).toContain('승인·반려한 1건은 빠집니다.');
   expect(inDialog('3건 보완 요청 보내기').disabled).toBe(false);
 
@@ -142,9 +142,7 @@ it('범위 안 제출 수를 상태별로 보여 주고 이미 끝난 판정은 
   );
   await act(async () => finals?.click());
 
-  expect(targetsText()).toContain(
-    '검토 대기 2건 · 보완 요청 중 1건 · 승인 1건',
-  );
+  expect(targetsText()).toContain('검토 대기 2건 · 보완 요청 1건 · 승인 1건');
   expect(targetsText()).not.toContain('빠집니다');
   expect(inDialog('4건 보완 요청 보내기').disabled).toBe(false);
   expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledTimes(1);
