@@ -299,6 +299,8 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 
 </details>
 
+The Core Web Vitals verifier pins Lighthouse 13.6.0 after local same-frame text, later-text, raster-image and delayed-font validation. The thresholds and three-run median rule are unchanged. A measurement-model update is not a website speed improvement and does not retroactively pass older reports.
+
 ### Documentation map
 
 | What you want to know | Document |
