@@ -117,7 +117,7 @@ function UserProfileCard({
         {participations === null ? null : (
           <CardContent className={sectionClassName}>
             <SubheadingTag className="text-small font-normal text-muted-foreground">
-              참여 프로그램·팀
+              참여 프로그램
             </SubheadingTag>
             {participations.length === 0 ? (
               <p className="mt-2 text-muted-foreground">
