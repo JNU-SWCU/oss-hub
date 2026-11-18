@@ -16,12 +16,18 @@ import {
   ApplicationDecisionNotificationsService,
 } from './application-decision-notifications.service';
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
+import { ProgramMailController } from './program-mail.controller';
+import { ProgramMailDeliveryService } from './program-mail-delivery.service';
+import { ProgramMailRepository } from './program-mail.repository';
+import { ProgramMailService } from './program-mail.service';
+import { ProgramMailTemplateService } from './program-mail-template.service';
 
 @Module({
   controllers: [
     ApplicationDecisionNotificationsController,
     NotificationSettingsController,
     DeadlineDigestController,
+    ProgramMailController,
   ],
   providers: [
     ApplicationDecisionNotificationsRepository,
@@ -31,6 +37,10 @@ import { ApplicationDecisionNotificationsController } from './application-decisi
     DeadlineDigestRepository,
     DeadlineDigestService,
     DeadlineDigestMailService,
+    ProgramMailRepository,
+    ProgramMailDeliveryService,
+    ProgramMailService,
+    ProgramMailTemplateService,
     mailSenderProvider,
   ],
   exports: [DeadlineDigestService],

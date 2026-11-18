@@ -275,6 +275,21 @@
     "access": "PROTECTED"
   },
   {
+    "method": "POST",
+    "path": "/api/v1/programs/:programId/mail/preview",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/mail/recipients",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/programs/:programId/mail/send",
+    "access": "PROTECTED"
+  },
+  {
     "method": "GET",
     "path": "/api/v1/programs/:programId/overview",
     "access": "PROTECTED"

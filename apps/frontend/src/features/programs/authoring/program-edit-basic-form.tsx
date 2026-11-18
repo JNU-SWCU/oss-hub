@@ -19,7 +19,6 @@ import type {
   ProgramEditFieldValue,
   ProgramEditForm,
 } from './program-edit-flow';
-import { programHref } from '../program-paths';
 import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
@@ -188,8 +187,7 @@ export function ProgramEditOperationsSection({
       <ProgramDeadlineControl
         id="program-deadline-notification"
         enabled={form.notifyOnDeadline}
-        persistedEnabled={program.notifyOnDeadline}
-        notificationsHref={programHref(program.id, '/notifications')}
+        programId={program.id}
         onEnabledChange={(enabled) =>
           onFieldChange('notifyOnDeadline', enabled)
         }

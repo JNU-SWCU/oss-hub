@@ -4593,6 +4593,116 @@
         ]
       }
     },
+    "/api/v1/programs/{programId}/mail/recipients": {
+      "get": {
+        "operationId": "ProgramMailController_recipients",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailRecipientsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/mail/preview": {
+      "post": {
+        "operationId": "ProgramMailController_preview",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgramMailDraftRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/mail/send": {
+      "post": {
+        "operationId": "ProgramMailController_send",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgramMailSendRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailSendResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
     "/api/v1/ranking": {
       "get": {
         "operationId": "RankingController_findPage",
@@ -11513,6 +11623,238 @@
           "sentCount",
           "duplicateCount",
           "failedCount"
+        ]
+      },
+      "ProgramMailApplicantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "mailAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "nickname",
+          "mailAvailable"
+        ]
+      },
+      "ProgramMailTeamResponseDto": {
+        "type": "object",
+        "properties": {
+          "applicants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramMailApplicantResponseDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED",
+              "SUBMITTED"
+            ]
+          },
+          "deadlineEligible": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "applicants",
+          "id",
+          "name",
+          "status",
+          "deadlineEligible"
+        ]
+      },
+      "ProgramMailRecipientsResponseDto": {
+        "type": "object",
+        "properties": {
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramMailTeamResponseDto"
+            }
+          },
+          "programId": {
+            "type": "string"
+          },
+          "programName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "teams",
+          "programId",
+          "programName"
+        ]
+      },
+      "ProgramMailDraftRequestDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "applicantIds": {
+            "uniqueItems": true,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "applicantIds"
+        ]
+      },
+      "ProgramMailPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "applicantIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "programName": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "recipientNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recipientCount": {
+            "type": "number"
+          },
+          "renderedSubject": {
+            "type": "string"
+          },
+          "footer": {
+            "type": "string"
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "applicantIds",
+          "programName",
+          "senderName",
+          "recipientNames",
+          "recipientCount",
+          "renderedSubject",
+          "footer",
+          "previewedAt",
+          "expiresAt",
+          "previewVersion"
+        ]
+      },
+      "ProgramMailSendRequestDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "applicantIds": {
+            "uniqueItems": true,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "applicantIds",
+          "previewedAt",
+          "previewVersion"
+        ]
+      },
+      "ProgramMailSendResponseDto": {
+        "type": "object",
+        "properties": {
+          "sentCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "number"
+          },
+          "previewVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentCount",
+          "duplicateCount",
+          "failedCount",
+          "previewVersion"
         ]
       },
       "PublicRankingEntryResponseDto": {
