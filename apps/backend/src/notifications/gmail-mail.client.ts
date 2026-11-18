@@ -1,5 +1,9 @@
 import { connect as connectNet, type Socket } from 'node:net';
-import { connect as connectTls, type TLSSocket } from 'node:tls';
+import {
+  connect as connectTls,
+  type ConnectionOptions,
+  type TLSSocket,
+} from 'node:tls';
 import { Injectable, Logger } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
 import { PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS } from './program-mail.config';
@@ -11,8 +15,14 @@ export interface DeadlineDigestMail {
   readonly html?: string;
 }
 
+export type MailOperation = {
+  readonly promise: Promise<void>;
+  readonly abort: (reason: Error) => void;
+};
+
 export interface MailSender {
   send(mail: DeadlineDigestMail, signal?: AbortSignal): Promise<void>;
+  start?(mail: DeadlineDigestMail): MailOperation;
 }
 
 export const MAIL_SENDER = Symbol('NOTIFICATIONS_MAIL_SENDER');
@@ -22,6 +32,14 @@ export interface GmailSenderConfig {
   readonly clientId: string;
   readonly clientSecret: string;
   readonly refreshToken: string;
+  readonly accessToken?: string;
+  readonly smtp?: {
+    readonly host: string;
+    readonly port: number;
+    readonly secure: boolean;
+    readonly servername: string;
+    readonly ca: string;
+  };
 }
 
 type MailSocket = Socket | TLSSocket;
@@ -30,10 +48,14 @@ type MailSocketOptions = {
   readonly port?: number;
   readonly secure?: boolean;
   readonly servername?: string;
+  readonly tls?: ConnectionOptions;
 };
 type MailSocketCallback = (
   error: Error | null,
-  options?: { readonly connection: MailSocket },
+  options?: {
+    readonly connection: MailSocket;
+    readonly secured: boolean;
+  },
 ) => void;
 
 @Injectable()
@@ -42,13 +64,26 @@ export class GmailMailClient implements MailSender {
 
   async send(mail: DeadlineDigestMail, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted();
+    const operation = this.start(mail);
+    const abort = () => operation.abort(this.abortError(signal));
+    signal?.addEventListener('abort', abort, { once: true });
+    try {
+      await operation.promise;
+      signal?.throwIfAborted();
+    } finally {
+      signal?.removeEventListener('abort', abort);
+    }
+  }
+
+  start(mail: DeadlineDigestMail): MailOperation {
     const socket: { current: MailSocket | null } = { current: null };
     let pendingSocketCallback: MailSocketCallback | null = null;
     let transporter: Transporter | null = null;
-    const abort = () => {
-      const error = this.abortError(signal);
-      socket.current?.destroy(error);
-      pendingSocketCallback?.(error);
+    let finished = false;
+    const abort = (reason: Error) => {
+      if (finished) return;
+      socket.current?.destroy(reason);
+      pendingSocketCallback?.(reason);
       pendingSocketCallback = null;
       transporter?.close();
     };
@@ -60,9 +95,10 @@ export class GmailMailClient implements MailSender {
       const port = options.port ?? (options.secure ? 465 : 587);
       const connection = options.secure
         ? connectTls({
+            ...options.tls,
             host,
             port,
-            servername: options.servername ?? host,
+            servername: options.tls?.servername ?? options.servername ?? host,
           })
         : connectNet({ host, port });
       socket.current = connection;
@@ -71,31 +107,33 @@ export class GmailMailClient implements MailSender {
       connection.once(connectedEvent, () => {
         if (pendingSocketCallback !== callback) return;
         pendingSocketCallback = null;
-        callback(null, { connection });
+        callback(null, {
+          connection,
+          secured: options.secure === true,
+        });
       });
       connection.once('error', (error: Error) => {
         if (pendingSocketCallback !== callback) return;
         pendingSocketCallback = null;
         callback(error);
       });
-      if (signal?.aborted) abort();
     };
     transporter = this.createTransporter(getSocket);
-    signal?.addEventListener('abort', abort, { once: true });
-    try {
-      await transporter.sendMail({
+    const promise = transporter
+      .sendMail({
         from: this.config.sender,
         to: mail.to,
         subject: mail.subject,
         text: mail.body,
         html: mail.html,
+      })
+      .then(() => undefined)
+      .finally(() => {
+        finished = true;
+        socket.current?.destroy();
+        transporter?.close();
       });
-      signal?.throwIfAborted();
-    } finally {
-      signal?.removeEventListener('abort', abort);
-      socket.current?.destroy();
-      transporter.close();
-    }
+    return { promise, abort };
   }
 
   private createTransporter(
@@ -105,7 +143,18 @@ export class GmailMailClient implements MailSender {
     ) => void,
   ): Transporter {
     return createTransport({
-      service: 'gmail',
+      ...(this.config.smtp === undefined
+        ? { service: 'gmail' }
+        : {
+            host: this.config.smtp.host,
+            port: this.config.smtp.port,
+            secure: this.config.smtp.secure,
+            tls: {
+              servername: this.config.smtp.servername,
+              ca: this.config.smtp.ca,
+              rejectUnauthorized: true,
+            },
+          }),
       connectionTimeout: PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS,
       greetingTimeout: PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS,
       socketTimeout: PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS,
@@ -116,6 +165,7 @@ export class GmailMailClient implements MailSender {
         clientId: this.config.clientId,
         clientSecret: this.config.clientSecret,
         refreshToken: this.config.refreshToken,
+        accessToken: this.config.accessToken,
       },
     });
   }

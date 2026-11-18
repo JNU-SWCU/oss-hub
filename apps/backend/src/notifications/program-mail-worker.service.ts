@@ -5,6 +5,7 @@ import { SequentialRepository } from '../platform/sequential.repository';
 import { ProgramMailBatchRepository } from './program-mail-batch.repository';
 import {
   PROGRAM_MAIL_BATCH_DEADLINE_MS,
+  PROGRAM_MAIL_BATCH_DRAIN_MS,
   PROGRAM_MAIL_DELIVERY_BATCH_SIZE,
   PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
   PROGRAM_MAIL_POLL_INTERVAL_MS,
@@ -18,7 +19,10 @@ import type {
   ProgramMailClock,
   ProgramMailProcessResult,
 } from './program-mail-send.types';
-import { ProgramMailTransportService } from './program-mail-transport.service';
+import {
+  type ProgramMailBatchScope,
+  ProgramMailTransportService,
+} from './program-mail-transport.service';
 
 const SYSTEM_CLOCK: ProgramMailClock = () => new Date();
 
@@ -46,10 +50,7 @@ export class ProgramMailWorkerService {
       | 'result'
     >,
     @Inject(ProgramMailTransportService)
-    private readonly transport: Pick<
-      ProgramMailTransportService,
-      'send' | 'runBatch'
-    >,
+    private readonly transport: Pick<ProgramMailTransportService, 'runBatch'>,
   ) {}
 
   @Interval('program-mail-delivery', PROGRAM_MAIL_POLL_INTERVAL_MS)
@@ -115,17 +116,53 @@ export class ProgramMailWorkerService {
         current.leaseExpiresAt.getTime() - clock().getTime();
       if (
         remainingLeaseMs <=
-        PROGRAM_MAIL_BATCH_DEADLINE_MS + PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS
+        PROGRAM_MAIL_BATCH_DEADLINE_MS +
+          PROGRAM_MAIL_BATCH_DRAIN_MS +
+          PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS
       ) {
         leaseOwned = false;
         return 'stop';
       }
-      const results = await this.transport.runBatch((signal) =>
-        Promise.all(
-          batch.map((state) => this.deliverOne(current, state, clock, signal)),
+      const results = await this.transport.runBatch(
+        batch.map(
+          (state) => (scope) => this.deliverOne(current, state, clock, scope),
         ),
       );
-      if (results.some((owned) => !owned)) {
+      const ownership = await Promise.all(
+        results.map((result, index) => {
+          if (result.status === 'fulfilled') {
+            return Promise.resolve(result.value);
+          }
+          const state = batch[index];
+          this.logger.error({
+            event:
+              result.status === 'rejected'
+                ? 'program-mail.batch-task.failed'
+                : 'program-mail.batch-task.drain-timeout',
+            batchKey: current.batchKey,
+            recipientId: state?.recipient.id,
+            errorName:
+              result.status === 'rejected' && result.reason instanceof Error
+                ? result.reason.name
+                : undefined,
+          });
+          return state === undefined
+            ? Promise.resolve(false)
+            : this.deliveries
+                .markClaimedUnknown(current, state, clock())
+                .catch((error: unknown) => {
+                  this.logger.error({
+                    event: 'program-mail.batch-task.unknown-write-failed',
+                    batchKey: current.batchKey,
+                    recipientId: state.recipient.id,
+                    errorName:
+                      error instanceof Error ? error.name : 'UnknownError',
+                  });
+                  return false;
+                });
+        }),
+      );
+      if (ownership.some((owned) => !owned)) {
         leaseOwned = false;
         return 'stop';
       }
@@ -137,7 +174,7 @@ export class ProgramMailWorkerService {
     work: ProgramMailBatchWork,
     state: ProgramMailRecipientDeliveryState,
     clock: ProgramMailClock,
-    signal: AbortSignal,
+    scope: ProgramMailBatchScope,
   ): Promise<boolean> {
     if (state.status === 'SENT' || state.status === 'FAILED') return true;
     if (state.status === 'PROCESSING') {
@@ -149,9 +186,10 @@ export class ProgramMailWorkerService {
     if (state.status !== 'PENDING' || !work.deliveryAllowed) return true;
     if (!(await this.deliveries.claim(work, state, clock()))) return false;
     try {
-      await this.transport.send(work, state, signal);
+      await scope.send(work, state);
+      scope.signal.throwIfAborted();
     } catch {
-      if (signal.aborted) {
+      if (scope.signal.aborted) {
         return this.deliveries.markClaimedUnknown(work, state, clock());
       }
       const owned = await this.deliveries.complete({

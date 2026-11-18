@@ -1,6 +1,8 @@
+import { Logger } from '@nestjs/common';
 import type { ProgramMailBatchRepository } from './program-mail-batch.repository';
 import {
   PROGRAM_MAIL_BATCH_DEADLINE_MS,
+  PROGRAM_MAIL_BATCH_DRAIN_MS,
   PROGRAM_MAIL_LEASE_MS,
   PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
 } from './program-mail.config';
@@ -67,7 +69,14 @@ const work: ProgramMailBatchWork = {
 };
 
 describe('ProgramMailWorkerService', () => {
-  afterEach(() => jest.useRealTimers());
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
 
   it('renews between bounded recipient batches and sends at most ten at once', async () => {
     const entered = deferred();
@@ -112,18 +121,19 @@ describe('ProgramMailWorkerService', () => {
       markClaimedUnknown: jest.fn().mockResolvedValue(true),
       result: jest.fn().mockResolvedValue(result),
     };
-    const transport: Pick<ProgramMailTransportService, 'send' | 'runBatch'> = {
-      runBatch: <Result>(operation: (signal: AbortSignal) => Promise<Result>) =>
-        operation(new AbortController().signal),
-      send: jest.fn().mockImplementation(async () => {
-        attempts += 1;
-        active += 1;
-        maximumActive = Math.max(maximumActive, active);
-        if (attempts === 10) entered.resolve();
-        if (attempts <= 10) await release.promise;
-        active -= 1;
-      }),
-    };
+    const transport = new ProgramMailTransportService(
+      {
+        send: async () => {
+          attempts += 1;
+          active += 1;
+          maximumActive = Math.max(maximumActive, active);
+          if (attempts === 10) entered.resolve();
+          if (attempts <= 10) await release.promise;
+          active -= 1;
+        },
+      },
+      new ProgramMailTemplateService(),
+    );
     const worker = new ProgramMailWorkerService(batches, deliveries, transport);
 
     const processing = worker.process(work.batchKey, () => now);
@@ -139,7 +149,9 @@ describe('ProgramMailWorkerService', () => {
 
   it('aborts a never-ending batch at the hard deadline and leaves no live operation', async () => {
     expect(
-      PROGRAM_MAIL_BATCH_DEADLINE_MS + PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
+      PROGRAM_MAIL_BATCH_DEADLINE_MS +
+        PROGRAM_MAIL_BATCH_DRAIN_MS +
+        PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
     ).toBeLessThan(PROGRAM_MAIL_LEASE_MS);
     jest.useFakeTimers();
     jest.setSystemTime(now);
@@ -193,25 +205,22 @@ describe('ProgramMailWorkerService', () => {
     };
     const transport = new ProgramMailTransportService(
       {
-        send: (_mail, signal) =>
-          new Promise<void>((_resolve, reject) => {
-            attempts += 1;
-            active += 1;
-            if (attempts === 10) entered.resolve();
-            signal?.addEventListener(
-              'abort',
-              () => {
-                aborted += 1;
-                active -= 1;
-                reject(
-                  signal.reason instanceof Error
-                    ? signal.reason
-                    : new Error('Program mail batch aborted'),
-                );
-              },
-              { once: true },
-            );
-          }),
+        send: () => Promise.resolve(),
+        start: () => {
+          attempts += 1;
+          active += 1;
+          if (attempts === 10) entered.resolve();
+          let operationAborted = false;
+          return {
+            promise: new Promise<void>(() => undefined),
+            abort: () => {
+              if (operationAborted) return;
+              operationAborted = true;
+              aborted += 1;
+              active -= 1;
+            },
+          };
+        },
       },
       new ProgramMailTemplateService(),
     );
@@ -220,13 +229,21 @@ describe('ProgramMailWorkerService', () => {
     const processing = worker.process(work.batchKey, () => new Date());
     await entered.promise;
     expect(active).toBe(10);
+    let completed = false;
+    void processing.then(() => {
+      completed = true;
+    });
     await jest.advanceTimersByTimeAsync(PROGRAM_MAIL_BATCH_DEADLINE_MS);
+    expect(active).toBe(0);
+    expect(completed).toBe(false);
+    await jest.advanceTimersByTimeAsync(PROGRAM_MAIL_BATCH_DRAIN_MS);
     await expect(processing).resolves.toMatchObject({
       kind: 'COMPLETED',
       result: { unknownCount: 10 },
     });
     expect(aborted).toBe(10);
     expect(active).toBe(0);
+    expect(completed).toBe(true);
     expect(deliveries.markClaimedUnknown).toHaveBeenCalledTimes(10);
     expect(deliveries.complete).not.toHaveBeenCalled();
     expect(jest.getTimerCount()).toBe(0);
