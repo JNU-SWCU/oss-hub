@@ -22,8 +22,9 @@ afterEach(async () => {
 
 describe('program cover', () => {
   it('AC6 shows the whole card image and recovers from failed loads', async () => {
+    const cover = apiPath('programs/program/cover/cover-one');
     await act(async () =>
-      root.render(<ProgramCover src="/cover-one" sizes="88px" />),
+      root.render(<ProgramCover src={cover} sizes="88px" />),
     );
     const image = container.querySelector('img');
     expect(image?.className).toContain('object-contain');
@@ -32,7 +33,8 @@ describe('program cover', () => {
     expect(image?.alt).toBe('');
     await act(async () => image?.dispatchEvent(new Event('error')));
     const original = container.querySelector('img');
-    expect(original?.getAttribute('src')).toMatch(/\/cover-one$/);
+    expect(new URL(original?.src ?? '', document.baseURI).pathname).toBe(cover);
+    expect(original?.hasAttribute('srcset')).toBe(false);
     await act(async () => original?.dispatchEvent(new Event('error')));
     expect(
       container.querySelector('[data-cover-state="error"]'),
@@ -42,10 +44,15 @@ describe('program cover', () => {
       container.querySelector('svg[aria-hidden="true"]')?.textContent,
     ).toBe('OSS Hub');
     await act(async () =>
-      root.render(<ProgramCover src="/cover-two" sizes="88px" />),
+      root.render(
+        <ProgramCover
+          src={apiPath('programs/program/cover/cover-two')}
+          sizes="88px"
+        />,
+      ),
     );
     expect(container.querySelector('img')?.getAttribute('src')).toContain(
-      `url=${encodeURIComponent('/cover-two')}`,
+      `url=${encodeURIComponent('/program-cover-source/program/cover-two')}`,
     );
   });
 
@@ -57,14 +64,25 @@ describe('program cover', () => {
     const image = container.querySelector('img');
     expect(image?.getAttribute('sizes')).toBe('88px');
     expect(image?.getAttribute('srcset')).toContain(
-      `/_next/image?url=${encodeURIComponent(cover)}&w=96&`,
+      `/_next/image?url=${encodeURIComponent('/program-cover-source/program/current')}&w=96&`,
     );
   });
 
+  it('leaves external covers on their original URL', async () => {
+    const cover = 'https://example.test/cover.png';
+    await act(async () =>
+      root.render(<ProgramCover src={cover} sizes="88px" />),
+    );
+    const image = container.querySelector('img');
+    expect(image?.getAttribute('src')).toBe(cover);
+    expect(image?.hasAttribute('srcset')).toBe(false);
+  });
+
   it('opens the complete detail image in a named dialog and closes it', async () => {
+    const cover = apiPath('programs/program/cover/portrait');
     await act(async () =>
       root.render(
-        <ProgramCover src="/portrait" size="detail" title="합성 프로그램" />,
+        <ProgramCover src={cover} size="detail" title="합성 프로그램" />,
       ),
     );
     const trigger = container.querySelector('button');
@@ -77,8 +95,12 @@ describe('program cover', () => {
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       '합성 프로그램 대표 이미지',
     );
-    const enlarged = document.querySelector('[role="dialog"] img');
+    const enlarged = document.querySelector<HTMLImageElement>(
+      '[role="dialog"] img',
+    );
     expect(enlarged?.className).toContain('object-contain');
+    expect(new URL(enlarged?.src ?? '', document.baseURI).pathname).toBe(cover);
+    expect(enlarged?.hasAttribute('srcset')).toBe(false);
     await act(async () =>
       document
         .querySelector<HTMLButtonElement>('[aria-label="이미지 닫기"]')

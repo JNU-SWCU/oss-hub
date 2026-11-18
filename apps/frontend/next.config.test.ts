@@ -147,10 +147,11 @@ describe('nextConfig image optimizer', () => {
   it('공개 프로그램 표지 경로만 최적화 대상으로 받는다', () => {
     const patterns = nextConfig.images?.localPatterns ?? [];
 
-    expect(hasLocalMatch(patterns, '/api/v1/programs/p1/cover/c1')).toBe(true);
-    expect(hasLocalMatch(patterns, '/api/v1/programs/p1/cover/c1?v=2')).toBe(
+    expect(hasLocalMatch(patterns, '/program-cover-source/p1/c1')).toBe(true);
+    expect(hasLocalMatch(patterns, '/program-cover-source/p1/c1?v=2')).toBe(
       false,
     );
+    expect(hasLocalMatch(patterns, '/api/v1/programs/p1/cover/c1')).toBe(false);
     expect(hasLocalMatch(patterns, '/api/v1/submissions/s1/files/f1')).toBe(
       false,
     );

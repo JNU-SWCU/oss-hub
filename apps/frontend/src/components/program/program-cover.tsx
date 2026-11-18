@@ -6,6 +6,7 @@ import { ImageIcon, Maximize2, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { optimizedProgramCoverSource } from './program-cover-source';
 
 export type ProgramCoverProps = {
   readonly src: string | null;
@@ -77,8 +78,9 @@ export function ProgramCover({
   const [failure, setFailure] = useState<CoverFailure | null>(null);
   const failedStage = failure?.src === src ? failure.stage : null;
   const available = src !== null && failedStage !== 'original';
-  const optimized = src?.startsWith('/') === true && failedStage === null;
-  const failedStageNow = optimized ? 'optimized' : 'original';
+  const optimizedSrc =
+    failedStage === null ? optimizedProgramCoverSource(src) : null;
+  const failedStageNow = optimizedSrc === null ? 'original' : 'optimized';
   const imageSizes = size === 'card' ? sizes : (sizes ?? RENDERED_WIDTH[size]);
   const image = (
     <div
@@ -96,27 +98,27 @@ export function ProgramCover({
       {available ? (
         size === 'detail' ? (
           <Image
-            src={src}
+            src={optimizedSrc ?? src}
             alt=""
             width={0}
             height={0}
             sizes={imageSizes}
             priority
             fetchPriority="high"
-            unoptimized={!optimized}
+            unoptimized={optimizedSrc === null}
             referrerPolicy="no-referrer"
             className="block h-auto max-h-[141.4cqw] w-full object-cover object-top"
             onError={() => setFailure({ src, stage: failedStageNow })}
           />
         ) : (
           <Image
-            src={src}
+            src={optimizedSrc ?? src}
             alt=""
             fill
             sizes={imageSizes}
             priority={priority}
             fetchPriority={priority ? 'high' : undefined}
-            unoptimized={!optimized}
+            unoptimized={optimizedSrc === null}
             referrerPolicy="no-referrer"
             className="object-contain"
             onError={() => setFailure({ src, stage: failedStageNow })}

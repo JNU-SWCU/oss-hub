@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { unstable_cache } from 'next/cache';
-import { backendOrigin } from '../../backend-origin';
+import { backendOrigin, originAuthorization } from '../../backend-origin';
+import { apiPath } from './api-client';
 
 let target: PublicApiTarget | undefined;
 
@@ -25,6 +26,7 @@ function publicApiTarget(): PublicApiTarget {
 }
 
 const REQUEST_DEADLINE_MS = 2000;
+const COVER_DEADLINE_MS = 5000;
 
 export class ServerApiError extends Error {
   constructor(readonly status: number) {
@@ -83,4 +85,17 @@ export async function serverApiClient(
     ['server-api', url],
     { revalidate: cache.revalidate, tags: [...cache.tags] },
   )();
+}
+
+export function fetchProgramCover(programId: string, coverId: string) {
+  const credential = originAuthorization();
+  return fetch(
+    `${backendOrigin()}${apiPath(`/programs/${programId}/cover/${coverId}`)}`,
+    {
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(COVER_DEADLINE_MS),
+      ...(credential ? { headers: { Authorization: credential } } : {}),
+    },
+  );
 }
