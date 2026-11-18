@@ -237,15 +237,17 @@ describe('ProgramScopeSidebar', () => {
     expect(html).not.toContain('선택됨');
   });
 
-  it('selects 모든 단계 when staff opens documents without milestoneId', () => {
+  it('milestoneId 없이 열면 서류 현황 자체가 현재 항목이고 선택된 단계는 없다', () => {
     const html = render({
       groups: staffGroups,
       pathname: '/programs/prog-1/documents',
       search: '',
     });
 
+    expect(html).not.toContain('모든 단계');
+    expect(html).not.toContain('data-selected="true"');
     expect(html).toMatch(
-      /href="\/programs\/prog-1\/documents"[^>]*aria-current="true"[^>]*data-selected="true"[^>]*data-depth="1"[^>]*>[\s\S]*?모든 단계[\s\S]*?<\/a>/,
+      /href="\/programs\/prog-1\/documents"[^>]*aria-current="page"[^>]*data-depth="0"/,
     );
   });
 
@@ -259,20 +261,20 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toMatch(
       /href="\/programs\/prog-1\/documents\?milestoneId=m3"[^>]*aria-current="true"[^>]*data-selected="true"[^>]*>[\s\S]*?프로젝트 계획서 제출[\s\S]*?<\/a>/,
     );
-    expect(html.match(/data-scroll="false"/g)).toHaveLength(2);
+    expect(html.match(/data-scroll="false"/g)).toHaveLength(1);
   });
 
-  it('단계를 바꿔도 milestoneId 이외의 기존 쿼리를 보존한다', () => {
+  it('단계 링크는 milestoneId 이외의 쿼리를 보존하고 서류 현황은 쿼리 없는 주소로 돌아간다', () => {
     const html = render({
       groups: staffGroups,
       pathname: '/programs/prog-1/documents',
       search: 'tab=overview&milestoneId=m3',
     });
 
-    expect(html).toContain('href="/programs/prog-1/documents?tab=overview"');
     expect(html).toContain(
       'href="/programs/prog-1/documents?tab=overview&amp;milestoneId=m3"',
     );
+    expect(html).toContain('href="/programs/prog-1/documents"');
   });
 
   it('단계 목록이 비어도 오류 문구 없이 나머지 내비게이션을 그대로 그린다', () => {
@@ -284,17 +286,17 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('프로그램 개요');
   });
 
-  it('falls back to 모든 단계 for an unknown milestoneId without selecting another stage', () => {
+  it('알 수 없는 milestoneId는 어떤 단계도 선택하지 않는다', () => {
     const html = render({
       groups: staffGroups,
       pathname: '/programs/prog-1/documents',
       search: 'milestoneId=unknown',
     });
 
+    expect(html).not.toContain('data-selected="true"');
     expect(html).toMatch(
-      /href="\/programs\/prog-1\/documents"[^>]*aria-current="true"[^>]*data-selected="true"[^>]*data-depth="1"[^>]*>[\s\S]*?모든 단계[\s\S]*?<\/a>/,
+      /href="\/programs\/prog-1\/documents"[^>]*aria-current="page"/,
     );
-    expect(html).not.toMatch(/milestoneId=m3"[^>]*data-selected="true"/);
   });
 
   it('teams page highlights the 참여 팀 item', () => {

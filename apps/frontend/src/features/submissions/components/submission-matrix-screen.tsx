@@ -10,13 +10,9 @@ import { SubmissionMatrixView } from './submission-matrix-view';
 
 export function SubmissionMatrixScreen({
   programId,
-  selectedMilestoneId,
-  onSelectMilestone,
   headerActions,
 }: {
   readonly programId: string;
-  readonly selectedMilestoneId: string | null;
-  readonly onSelectMilestone: (milestoneId: string | null) => void;
   readonly headerActions?: ReactNode;
 }) {
   const { state: urlState, navigate } = useSubmissionMatrixUrlState();
@@ -42,7 +38,6 @@ export function SubmissionMatrixScreen({
       isLoading={isLoading}
       errorMessage={errorMessage}
       now={new Date()}
-      selectedMilestoneId={selectedMilestoneId}
       headerActions={headerActions}
       onSearchChange={setSearch}
       onSearch={() => {
@@ -57,7 +52,6 @@ export function SubmissionMatrixScreen({
         navigate({ page, quickFilter: 'ALL' });
       }}
       onRetry={() => void result.refetch()}
-      onSelectMilestone={onSelectMilestone}
     />
   );
 }

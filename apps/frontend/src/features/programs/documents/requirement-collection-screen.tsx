@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useRequirementCollectionUrlState } from './requirement-collection-url-state';
 import {
   useRequirementCollectionQuery,
@@ -40,9 +46,11 @@ import type { RequirementReviewDecision } from './requirement-review-dto';
 export function RequirementCollectionScreen({
   programId,
   milestoneId,
+  headerActions,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
+  readonly headerActions?: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const { state: query, navigate } = useRequirementCollectionUrlState();
@@ -208,6 +216,7 @@ export function RequirementCollectionScreen({
   return (
     <RequirementCollectionView
       programId={programId}
+      headerActions={headerActions}
       data={data}
       filter={query.filter}
       documentSelection={query.document ?? null}

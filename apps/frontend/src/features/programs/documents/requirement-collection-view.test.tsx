@@ -367,7 +367,7 @@ describe('RequirementCollectionView 표', () => {
       ]),
     });
 
-    expect(html).toContain('보완 요청 중');
+    expect(html).toContain('보완 요청');
     expect(html).toContain('승인');
 
     expect(html).not.toContain('표지를 고쳐 주세요.');

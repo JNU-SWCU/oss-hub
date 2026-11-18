@@ -4,16 +4,9 @@ import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  isMilestoneWithoutRequiredItems,
-  type MatrixQuickFilter,
-} from '../matrix';
+import type { MatrixQuickFilter } from '../matrix';
 import type { SubmissionMatrixPage } from '../types';
 import { MatrixBody } from './submission-matrix-body';
-import {
-  MatrixFocusSummary,
-  MatrixStageNavigation,
-} from './submission-matrix-stage-navigation';
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
 const FILTER_ROW =
@@ -28,7 +21,6 @@ export interface SubmissionMatrixViewProps {
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
-  readonly selectedMilestoneId: string | null;
   readonly headerActions?: ReactNode;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
@@ -36,7 +28,6 @@ export interface SubmissionMatrixViewProps {
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
-  readonly onSelectMilestone: (milestoneId: string | null) => void;
 }
 
 export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
@@ -46,32 +37,11 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
   };
   const hasActiveFilter =
     props.search.trim() !== '' || props.quickFilter !== 'ALL';
-  const selectedMilestone =
-    props.data?.milestones.find(
-      (milestone) => milestone.id === props.selectedMilestoneId,
-    ) ?? null;
 
   return (
     <PageBody>
       <PageHeader title="서류 현황" actions={props.headerActions} />
       <div className={SECTION_BODY}>
-        {props.data && props.data.milestones.length > 0 ? (
-          <MatrixStageNavigation
-            milestones={props.data.milestones}
-            selectedMilestoneId={selectedMilestone?.id ?? null}
-            onSelectMilestone={props.onSelectMilestone}
-          />
-        ) : null}
-        {selectedMilestone ? (
-          <MatrixFocusSummary
-            milestone={selectedMilestone}
-            noRequiredItems={isMilestoneWithoutRequiredItems(
-              props.data?.rows ?? [],
-              selectedMilestone,
-              props.now,
-            )}
-          />
-        ) : null}
         <form className={FILTER_ROW} onSubmit={submit}>
           <div className="flex w-full min-w-0 flex-col gap-2">
             <label

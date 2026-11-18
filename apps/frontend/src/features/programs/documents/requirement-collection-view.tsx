@@ -85,6 +85,7 @@ const ARCHIVE_GROUPING_ID = 'milestone-document-collection-archive-grouping';
 
 export interface RequirementCollectionViewProps {
   readonly programId: string;
+  readonly headerActions?: ReactNode;
   readonly data: RequirementCollection | null;
   readonly filter: RequirementCollectionFilter;
   readonly documentSelection: RequirementCollectionSelection | null;
@@ -793,6 +794,7 @@ export function RequirementCollectionView(
         title={
           milestone === null ? '서류 수합' : `서류 수합 — ${milestone.name}`
         }
+        actions={props.headerActions}
         description={
           milestone === null ? undefined : (
             <span className="break-keep">

@@ -591,7 +591,7 @@ describe('programScopeSidebarGroups', () => {
     expect(board?.items[0]).toMatchObject({ label: '게시판', count: '3' });
   });
 
-  it('STAFF view: 서류 현황 and 모든 단계 have no count; stages count outstanding teams', () => {
+  it('STAFF view: 서류 현황 has no count and no 모든 단계 child; stages count outstanding teams', () => {
     const groups = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STAFF',
@@ -627,17 +627,15 @@ describe('programScopeSidebarGroups', () => {
       href: '/programs/prog-1/documents',
     });
     expect(documents?.items[0]?.count).toBeUndefined();
+    expect(documents?.items.some((item) => item.label === '모든 단계')).toBe(
+      false,
+    );
     expect(documents?.items[1]).toMatchObject({
-      label: '모든 단계',
-      href: '/programs/prog-1/documents',
-    });
-    expect(documents?.items[1]?.count).toBeUndefined();
-    expect(documents?.items[2]).toMatchObject({
       label: '프로젝트 계획서 제출',
       href: '/programs/prog-1/documents?milestoneId=m3',
       count: '1',
     });
-    expect(documents?.items[3]).toMatchObject({
+    expect(documents?.items[2]).toMatchObject({
       label: '1차 중간 산출물 제출',
       href: '/programs/prog-1/documents?milestoneId=m4',
       count: '3',
@@ -657,7 +655,7 @@ describe('programScopeSidebarGroups', () => {
       requirements: [{ milestoneId: 'm1', title: '계획서', ...summary }],
     });
 
-    expect(groups[1]?.items[2]).toMatchObject({
+    expect(groups[1]?.items[1]).toMatchObject({
       href: '/programs/prog-1/documents?milestoneId=m1',
       count: undefined,
     });

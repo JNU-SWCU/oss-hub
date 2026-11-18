@@ -9,7 +9,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
-import { programRequirementsHref } from '@/lib/program-route';
+import { programDocumentsHref } from '@/lib/program-route';
 import {
   SUBMISSION_STATUS_BADGE,
   submissionStatusLabel,
@@ -148,7 +148,7 @@ function staffCells({
   const action = (
     <Button asChild variant="outline" size="sm">
       <Link
-        href={programRequirementsHref(programId, milestone.id)}
+        href={programDocumentsHref(programId, milestone.id)}
         aria-describedby={nameId}
       >
         서류 수합

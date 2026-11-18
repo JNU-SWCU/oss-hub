@@ -36,13 +36,6 @@ export function programSubmissionReviewHref(
   return `/programs/${encodeURIComponent(programId)}/submissions/${encodeURIComponent(submissionId)}/review`;
 }
 
-export function programRequirementsHref(
-  programId: string,
-  milestoneId: string,
-): string {
-  return `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/documents`;
-}
-
 export function programTeamDetailHref(
   programId: string,
   teamId: string,
