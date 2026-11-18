@@ -22,7 +22,7 @@ import { RankingView, type RankingViewState } from './ranking-view';
 const PAGE_SIZE = 100;
 
 interface RankingScreenProps {
-  readonly onNextCycleAt: (nextCycleAt: string | null) => void;
+  readonly onNextCycleAt: (nextCycleAt: string | null | undefined) => void;
 
   readonly header?: ReactNode;
   readonly filters?: ReactNode;
@@ -61,10 +61,11 @@ export function RankingScreen({
     'idle' | 'preparing' | 'error'
   >('idle');
 
-  useEffect(() => {
-    onNextCycleAt(query.data?.nextCycleAt ?? null);
-    return () => onNextCycleAt(null);
-  }, [query.data, onNextCycleAt]);
+  const nextCycleAt = query.isPending
+    ? undefined
+    : (query.data?.nextCycleAt ?? null);
+  useEffect(() => onNextCycleAt(nextCycleAt), [nextCycleAt, onNextCycleAt]);
+  useEffect(() => () => onNextCycleAt(null), [onNextCycleAt]);
 
   const exportCsv = useCallback(() => {
     if (exportStatus === 'preparing') return;

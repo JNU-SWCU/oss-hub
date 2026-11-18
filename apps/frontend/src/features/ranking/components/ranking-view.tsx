@@ -2,6 +2,7 @@ import { createContext, Suspense, useContext, type ReactNode } from 'react';
 import { Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import { DataTable, EmptyState, type DataTableColumn } from '@/components';
 import { cn } from '@/lib/utils';
 import {
@@ -308,12 +309,17 @@ export function RankingView({
       </RankingCsvExportContext.Provider>
       <Suspense fallback={null}>
         {filters}
-        {ranking ? (
+        {ranking || state.kind === 'loading' ? (
           <div
-            className="flex flex-wrap items-center gap-3 text-sm"
+            data-slot="ranking-as-of"
+            className="flex min-h-lh flex-wrap items-center gap-3 text-sm"
             aria-live="polite"
           >
-            {rankingAsOfAction(ranking)}
+            {ranking ? (
+              rankingAsOfAction(ranking)
+            ) : (
+              <SkeletonBlock className="h-[0.7em] w-32 rounded-sm" />
+            )}
             {exportStatus === 'preparing' ? (
               <span>CSV를 준비하는 중입니다.</span>
             ) : null}

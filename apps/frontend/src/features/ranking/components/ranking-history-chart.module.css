@@ -1,4 +1,5 @@
 .root {
+  container-type: inline-size;
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
@@ -71,6 +72,28 @@
   color: var(--muted-foreground);
 }
 
+.body {
+  --plot-size: calc(var(--space-9) * 3);
+  --legend-rows: 3;
+  --legend-size: calc(
+    var(--legend-rows) * (1lh + var(--space-1)) - var(--space-1)
+  );
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  /* Wrapped legend lines share this space with the plot, not the table. */
+  block-size: calc(var(--legend-size) + var(--space-3) + var(--plot-size));
+  font-size: var(--step-small);
+  line-height: 1.5;
+}
+
+.legendPlaceholder {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  block-size: var(--legend-size);
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -78,7 +101,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--step-small);
 }
 
 .legendItem {
@@ -135,7 +157,7 @@
 .plot {
   inline-size: 100%;
   min-inline-size: 0;
-  block-size: calc(var(--space-9) * 3);
+  min-block-size: 0;
 }
 
 @media (max-width: 39.99rem) {
@@ -145,8 +167,14 @@
 }
 
 @media (min-width: 40rem) {
-  .plot {
-    block-size: calc(var(--space-9) * 4);
+  .body {
+    --plot-size: calc(var(--space-9) * 4);
+  }
+}
+
+@container (min-width: 40rem) {
+  .body {
+    --legend-rows: 2;
   }
 }
 

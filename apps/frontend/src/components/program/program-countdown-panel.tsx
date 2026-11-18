@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Clock } from 'lucide-react';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import { formatClockTime, formatCountdownDate } from './program-countdown-time';
 
 type CountdownPanelProps = {
@@ -22,23 +23,38 @@ export function CountdownPanel({
   );
 }
 
-export function CurrentClock({ clock }: { readonly clock: Date }) {
+export function CurrentClock({ clock }: { readonly clock: Date | null }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <Clock aria-hidden="true" className="size-3.5" />
-        현재 시간
-      </p>
-      <time
-        data-slot="program-countdown-clock"
-        dateTime={clock.toISOString()}
-        className="mt-1 font-mono text-section font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums"
-      >
-        {formatClockTime(clock)}
-      </time>
-      <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-        {formatCountdownDate(clock)}
-      </p>
+      {clock === null ? (
+        <div className="text-xs">
+          <SkeletonBlock className="h-lh w-12 rounded-sm" />
+        </div>
+      ) : (
+        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <Clock aria-hidden="true" className="size-3.5" />
+          현재 시간
+        </p>
+      )}
+      <div className="mt-1 font-mono text-section font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums">
+        {clock === null ? (
+          <SkeletonBlock className="h-lh w-[8ch] rounded-sm" />
+        ) : (
+          <time
+            data-slot="program-countdown-clock"
+            dateTime={clock.toISOString()}
+          >
+            {formatClockTime(clock)}
+          </time>
+        )}
+      </div>
+      <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+        {clock === null ? (
+          <SkeletonBlock className="h-lh w-20 rounded-sm" />
+        ) : (
+          formatCountdownDate(clock)
+        )}
+      </div>
     </div>
   );
 }
