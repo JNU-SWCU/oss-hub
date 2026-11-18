@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
 import { getRanking, getRankingTimeline } from './api';
-import { RANKING_YEAR_ALL, type RankingYear } from './types';
+import type { RankingYear } from './types';
 
 export const RANKING_POLL_MS = 5 * 60_000;
 
@@ -34,8 +34,7 @@ export function useRankingTimelineQuery(
   return useQuery({
     queryKey: featureKey('ranking', 'timeline', year, viewerGithubLogin ?? ''),
     queryFn: ({ signal }) =>
-      getRankingTimeline(Number(year), viewerGithubLogin, signal),
-    enabled: year !== RANKING_YEAR_ALL,
+      getRankingTimeline(year, viewerGithubLogin, signal),
     refetchInterval: RANKING_POLL_MS,
   });
 }

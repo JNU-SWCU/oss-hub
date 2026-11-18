@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RankingRepository } from './ranking.repository';
-import { RankingYearService } from './ranking-year.service';
+import { RANKING_YEAR_ALL, RankingYearService } from './ranking-year.service';
 
 export interface RankingTimelineSeries {
   readonly githubLogin: string;
@@ -8,11 +8,24 @@ export interface RankingTimelineSeries {
   readonly totals: readonly (number | null)[];
 }
 
-export interface RankingTimeline {
+export interface RankingYearTimeline {
   readonly year: number;
   readonly months: readonly number[];
   readonly series: readonly RankingTimelineSeries[];
 }
+
+export interface RankingTimelinePeriod {
+  readonly fromMonth: string;
+  readonly toMonth: string;
+}
+
+export interface RankingAllTimeline {
+  readonly year: typeof RANKING_YEAR_ALL;
+  readonly periods: readonly RankingTimelinePeriod[];
+  readonly series: readonly RankingTimelineSeries[];
+}
+
+export type RankingTimeline = RankingYearTimeline | RankingAllTimeline;
 
 @Injectable()
 export class RankingTimelineService {
@@ -27,15 +40,20 @@ export class RankingTimelineService {
     readonly year: string;
     readonly viewer?: string;
   }): Promise<RankingTimeline> {
-    const year = Number(request.year);
+    const year =
+      request.year === RANKING_YEAR_ALL
+        ? RANKING_YEAR_ALL
+        : Number(request.year);
     const viewer = request.viewer ?? null;
     const key = `${year}:${viewer?.toLowerCase() ?? ''}`;
     const existingBuild = this.inFlightBuilds.get(key);
     if (existingBuild) return existingBuild;
 
-    const build = this.findTimeline(year, viewer).finally(() =>
-      this.inFlightBuilds.delete(key),
-    );
+    const build = (
+      year === RANKING_YEAR_ALL
+        ? this.findAllTimeline(viewer)
+        : this.findTimeline(year, viewer)
+    ).finally(() => this.inFlightBuilds.delete(key));
     this.inFlightBuilds.set(key, build);
     return build;
   }
@@ -44,7 +62,7 @@ export class RankingTimelineService {
     year: number,
     viewer: string | null,
     now: Date = new Date(),
-  ): Promise<RankingTimeline> {
+  ): Promise<RankingYearTimeline> {
     const lastMonth =
       this.rankingYear.rankingYearInAsiaSeoul(now) === year
         ? this.rankingYear.rankingMonthInAsiaSeoul(now)
@@ -89,5 +107,43 @@ export class RankingTimelineService {
       };
     });
     return { year, months: [...pastMonths, lastMonth], series };
+  }
+
+  private async findAllTimeline(
+    viewer: string | null,
+  ): Promise<RankingAllTimeline> {
+    const rows = await this.ranking.findAllTimelineSeries(viewer);
+    const slots = new Map<
+      string,
+      {
+        readonly period: RankingTimelinePeriod;
+        readonly points: Map<string, { rank: number; total: number }>;
+      }
+    >();
+    for (const { fromMonth, toMonth, githubLogin, rank, total } of rows) {
+      let slot = slots.get(fromMonth);
+      if (slot === undefined) {
+        slot = { period: { fromMonth, toMonth }, points: new Map() };
+        slots.set(fromMonth, slot);
+      }
+      if (githubLogin !== null && rank !== null && total !== null) {
+        slot.points.set(githubLogin, { rank, total });
+      }
+    }
+    const periods = [...slots.values()];
+    const finalPoints = periods.at(-1)?.points.keys() ?? [];
+    return {
+      year: RANKING_YEAR_ALL,
+      periods: periods.map(({ period }) => period),
+      series: [...finalPoints].map((githubLogin) => ({
+        githubLogin,
+        ranks: periods.map(
+          ({ points }) => points.get(githubLogin)?.rank ?? null,
+        ),
+        totals: periods.map(
+          ({ points }) => points.get(githubLogin)?.total ?? null,
+        ),
+      })),
+    };
   }
 }
