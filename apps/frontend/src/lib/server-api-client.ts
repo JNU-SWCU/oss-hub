@@ -22,7 +22,13 @@ function publicApiTarget(): PublicApiTarget {
   ) {
     return { origin: `https://${host}`, sendsCredential: false };
   }
-  return { origin: backendOrigin(), sendsCredential: true };
+  let origin: string | undefined;
+  return {
+    get origin() {
+      return (origin ??= backendOrigin());
+    },
+    sendsCredential: true,
+  };
 }
 
 const REQUEST_DEADLINE_MS = 2000;
@@ -94,9 +100,12 @@ export async function fetchProgramCover(programId: string, coverId: string) {
     | 'origin_hash_read'
     | 'fetch_transport' = 'origin_authorization';
   try {
-    const credential = originAuthorization();
+    const coverTarget = publicApiTarget();
+    const credential = coverTarget.sendsCredential
+      ? originAuthorization()
+      : undefined;
     stage = 'origin_validation';
-    const url = `${backendOrigin()}${apiPath(`/programs/${programId}/cover/${coverId}`)}`;
+    const url = `${coverTarget.origin}${apiPath(`/programs/${programId}/cover/${coverId}`)}`;
     stage = 'fetch_transport';
     return await fetch(url, {
       cache: 'no-store',
