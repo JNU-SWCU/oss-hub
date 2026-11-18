@@ -69,7 +69,11 @@ test.each([
 
   expect(firstCharacter?.childNodes[0]?.textContent).toBe(first);
   expect(link?.textContent).toBe(`${first}${remainder}`);
-  expect(firstCharacter?.querySelector('svg')).not.toBeNull();
+  const nameText = container.querySelector('[data-streak-name-text]');
+  const hat = container.querySelector('[data-streak-headwear]');
+  expect(firstCharacter?.querySelector('svg')).toBeNull();
+  expect(nameText?.contains(hat)).toBe(false);
+  expect(link?.contains(hat)).toBe(true);
   expect(
     container.querySelector('[data-streak-entered="true"]'),
   ).not.toBeNull();

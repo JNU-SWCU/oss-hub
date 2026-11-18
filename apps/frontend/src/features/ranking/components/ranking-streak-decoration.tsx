@@ -68,19 +68,21 @@ export function RankingStreakDecoration({
         )}
         data-streak-name
       >
-        <span className={styles.firstCharacter} data-streak-first-character>
-          {firstCharacter}
-          <span
-            key={interaction}
-            aria-hidden="true"
-            className={styles.headwear}
-            data-streak-headwear
-            data-streak-interaction={interaction}
-          >
-            {headwear}
+        <span className={styles.nameText} data-streak-name-text>
+          <span className={styles.firstCharacter} data-streak-first-character>
+            {firstCharacter}
           </span>
+          {remainder}
         </span>
-        {remainder}
+        <span
+          key={interaction}
+          aria-hidden="true"
+          className={styles.headwear}
+          data-streak-headwear
+          data-streak-interaction={interaction}
+        >
+          {headwear}
+        </span>
       </a>
       <span className="sr-only">
         {title} · {rank}위 {days}일째 유지

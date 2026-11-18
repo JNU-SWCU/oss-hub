@@ -168,6 +168,7 @@ async function decorationClearance(page: Page) {
           nameTagOverlap: true,
           nameCenterHitsLink: false,
           hatCoverage: 1,
+          hatVisibleFraction: 0,
         };
       }
       const nameRect = name.getBoundingClientRect();
@@ -188,11 +189,36 @@ async function decorationClearance(page: Page) {
         Math.min(firstRect.bottom, hatRect.bottom) -
           Math.max(firstRect.top, hatRect.top),
       );
+      const hatSvg = hat.querySelector<SVGElement>('svg');
+      const svgRect = hatSvg?.getBoundingClientRect();
+      let visibleLeft = svgRect?.left ?? 0;
+      let visibleRight = svgRect?.right ?? 0;
+      let visibleTop = svgRect?.top ?? 0;
+      let visibleBottom = svgRect?.bottom ?? 0;
+      let ancestor = hatSvg?.parentElement ?? null;
+      while (ancestor !== null && svgRect !== undefined) {
+        const style = getComputedStyle(ancestor);
+        const ancestorRect = ancestor.getBoundingClientRect();
+        if (['auto', 'clip', 'hidden', 'scroll'].includes(style.overflowX)) {
+          visibleLeft = Math.max(visibleLeft, ancestorRect.left);
+          visibleRight = Math.min(visibleRight, ancestorRect.right);
+        }
+        if (['auto', 'clip', 'hidden', 'scroll'].includes(style.overflowY)) {
+          visibleTop = Math.max(visibleTop, ancestorRect.top);
+          visibleBottom = Math.min(visibleBottom, ancestorRect.bottom);
+        }
+        ancestor = ancestor.parentElement;
+      }
+      const svgArea = (svgRect?.width ?? 0) * (svgRect?.height ?? 0);
+      const visibleArea =
+        Math.max(0, visibleRight - visibleLeft) *
+        Math.max(0, visibleBottom - visibleTop);
       return {
         name: name.textContent ?? '',
         nameTagOverlap,
         nameCenterHitsLink: nameCenterTarget?.closest('a') === name,
         hatCoverage: coveredHeight / firstRect.height,
+        hatVisibleFraction: svgArea === 0 ? 0 : visibleArea / svgArea,
       };
     });
     window.scrollTo({ top: originalScrollY });
@@ -300,6 +326,9 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   expect(desktopClearance.filter((row) => row.nameTagOverlap)).toEqual([]);
   expect(desktopClearance.filter((row) => !row.nameCenterHitsLink)).toEqual([]);
   expect(desktopClearance.filter((row) => row.hatCoverage > 0.2)).toEqual([]);
+  expect(
+    desktopClearance.filter((row) => row.hatVisibleFraction < 0.9),
+  ).toEqual([]);
   const hydrationMotion = await page.evaluate(async () => {
     const nextFrame = () =>
       new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -356,6 +385,9 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   expect(mobileClearance.filter((row) => row.nameTagOverlap)).toEqual([]);
   expect(mobileClearance.filter((row) => !row.nameCenterHitsLink)).toEqual([]);
   expect(mobileClearance.filter((row) => row.hatCoverage > 0.2)).toEqual([]);
+  expect(mobileClearance.filter((row) => row.hatVisibleFraction < 0.9)).toEqual(
+    [],
+  );
   expect(mobileGeometry.after).toEqual(mobileGeometry.before);
   expect(mobileGeometry.decoratedScrollWidth).toBe(
     mobileGeometry.hiddenScrollWidth,
