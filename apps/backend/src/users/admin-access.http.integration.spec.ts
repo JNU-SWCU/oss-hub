@@ -73,6 +73,76 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     loginHistory: { page: 1, limit: 1 },
   });
 });
+it('returns 200 for request history with unreadable imported timestamps and counts only readable requests', async () => {
+  const actor = await harness.createUser(
+    'history-range-actor',
+    'ADMIN',
+    AccountStatus.ACTIVE,
+  );
+  const target = await harness.createUser(
+    'history-range-target',
+    'STUDENT',
+    AccountStatus.ACTIVE,
+  );
+  const snapshot = (
+    id: string,
+    createdAt: string,
+    decidedAt: string | null,
+  ) => ({
+    userId: target.id,
+    event: 'LEGACY_IMPORT' as const,
+    source: 'APPLICATION' as const,
+    occurredAt: new Date('2026-01-01T00:00:00.000Z'),
+    recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+    data: {
+      schemaVersion: 1,
+      recordKind: 'REQUEST_SNAPSHOT',
+      original: {
+        id: `${target.id}:${id}`,
+        userId: target.id,
+        status: decidedAt === null ? 'PENDING' : 'REVOKED',
+        createdAt,
+        decidedAt,
+        decidedById: null,
+        rejectionReason: null,
+      },
+    },
+  });
+  await harness.prisma.userHistory.createMany({
+    data: [
+      snapshot('readable', '2026-01-02T00:00:00.000Z', null),
+      snapshot('infinity', 'infinity', null),
+      snapshot('negative-infinity', '-infinity', null),
+      snapshot('far-future', '294000-01-01T00:00:00Z', null),
+      snapshot('pre-epoch', '1969-12-31T23:59:59Z', null),
+      snapshot('relative-text', 'yesterday', null),
+      snapshot(
+        'decided-far-future',
+        '2026-01-02T00:00:00.000Z',
+        '294000-01-01T00:00:00Z',
+      ),
+    ],
+  });
+
+  const response = await harness.request(
+    'GET',
+    `/users/${target.id}/access/history?staffAccessRequestLimit=20&loginLimit=1`,
+    actor.githubId,
+  );
+
+  expect(response.status).toBe(200);
+  const body = (await response.json()) as {
+    readonly staffAccessRequests: {
+      readonly items: readonly { readonly id: string }[];
+      readonly total: number;
+    };
+  };
+  expect(body.staffAccessRequests.total).toBe(1);
+  expect(body.staffAccessRequests.items.map((item) => item.id)).toEqual([
+    `${target.id}:readable`,
+  ]);
+});
+
 it('executes PATCH /users/:id/access through the real transaction and audit path', async () => {
   const actor = await harness.createUser(
     'patch-actor',

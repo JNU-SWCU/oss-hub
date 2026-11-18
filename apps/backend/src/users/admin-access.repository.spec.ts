@@ -196,23 +196,6 @@ it('builds paged user output and search-scoped facets from current approval pred
   );
 });
 it('maps the SQL request page with decider names and keeps login history bounded', async () => {
-  const request = (
-    id: string,
-    createdAt: string,
-    status: 'PENDING' | 'REJECTED',
-  ) => ({
-    schemaVersion: 1,
-    recordKind: 'REQUEST_TRANSITION',
-    request: {
-      id,
-      userId: 'target',
-      status,
-      createdAt,
-      decidedAt: status === 'REJECTED' ? '2026-03-01T00:00:00.000Z' : null,
-      decidedById: status === 'REJECTED' ? 'actor' : null,
-      rejectionReason: status === 'REJECTED' ? 'Reason' : null,
-    },
-  });
   const loginFindMany = jest
     .fn()
     .mockResolvedValue([
@@ -231,11 +214,12 @@ it('maps the SQL request page with decider names and keeps login history bounded
           ? [{ total: 2 }]
           : [
               {
-                data: request(
-                  'request-1',
-                  '2026-01-01T00:00:00.000Z',
-                  'REJECTED',
-                ),
+                id: 'request-1',
+                status: 'REJECTED',
+                createdAt: at,
+                decidedAt: new Date('2026-03-01'),
+                decidedById: 'actor',
+                rejectionReason: 'Reason',
               },
             ],
       ),

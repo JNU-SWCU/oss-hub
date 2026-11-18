@@ -172,6 +172,54 @@ it('folds an actual approval decision over the same imported pending request', a
   });
 });
 
+it('reads imported local and offset timestamps as UTC and drops unreadable ones from both page and total', async () => {
+  const pending = { ...original, decidedAt: null, decidedById: null };
+  const createdAt = (id: string, value: string) =>
+    imported({
+      ...pending,
+      id: `${PREFIX}-${id}`,
+      status: 'PENDING',
+      createdAt: value,
+    });
+  await record([
+    createdAt('local', '2026-09-02T00:00:00'),
+    createdAt('fraction', '2026-01-02T00:00:00.12'),
+    createdAt('offset', '2026-01-02T09:00:00.123+09:00'),
+    createdAt('invalid', '2026-13-45T00:00:00'),
+    createdAt('infinity', 'infinity'),
+    createdAt('negative-infinity', '-infinity'),
+    createdAt('far-future', '294000-01-01T00:00:00Z'),
+    createdAt('pre-epoch', '1969-12-31T23:59:59Z'),
+    createdAt('text', 'yesterday'),
+    imported({
+      ...original,
+      id: `${PREFIX}-decided-infinity`,
+      status: 'REVOKED',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      decidedAt: 'infinity',
+    }),
+    imported({
+      ...original,
+      id: `${PREFIX}-decided-far-future`,
+      status: 'REVOKED',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      decidedAt: '294000-01-01T00:00:00Z',
+    }),
+  ]);
+
+  const result = await read();
+
+  expect(result.total).toBe(3);
+  expect(result.items).toHaveLength(3);
+  expect(
+    result.items.map((item) => [item.id, item.createdAt.toISOString()]),
+  ).toEqual([
+    [`${PREFIX}-local`, '2026-09-02T00:00:00.000Z'],
+    [`${PREFIX}-offset`, '2026-01-02T00:00:00.123Z'],
+    [`${PREFIX}-fraction`, '2026-01-02T00:00:00.120Z'],
+  ]);
+});
+
 it('folds typed request creation and supersession events', async () => {
   await record([
     event('APPROVAL_REQUESTED', {
