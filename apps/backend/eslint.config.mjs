@@ -7,9 +7,7 @@ import { controllerExplicitReturn } from './eslint-rules/controller-explicit-ret
 import { fileClassMatch } from './eslint-rules/file-class-match.mjs';
 import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
 import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
-import { findManyTake } from './eslint-rules/find-many-take.mjs';
-import { nestedRelationTake } from './eslint-rules/nested-relation-take.mjs';
-import { rawSelectLimit } from './eslint-rules/raw-select-limit.mjs';
+import { queryRuleBlocks } from './eslint-rules/query-rules.config.mjs';
 import { noPassthroughFactory } from './eslint-rules/no-passthrough-factory.mjs';
 import {
   bootstrapFiles,
@@ -130,25 +128,7 @@ export default tseslint.config(
     plugins: { auth: { rules: { 'no-session-guard': noSessionGuard } } },
     rules: { 'auth/no-session-guard': 'error' },
   },
-  {
-    files: ['src/**/*.ts'],
-    ignores: testFiles,
-    plugins: {
-      prisma: {
-        rules: {
-          'find-many-take': findManyTake,
-          'nested-relation-take': nestedRelationTake,
-          'raw-select-limit': rawSelectLimit,
-        },
-      },
-    },
-    rules: {
-      'no-await-in-loop': 'error',
-      'prisma/find-many-take': 'error',
-      'prisma/nested-relation-take': 'error',
-      'prisma/raw-select-limit': 'error',
-    },
-  },
+  ...queryRuleBlocks,
   {
     files: ['src/*/*.controller.ts'],
     rules: { 'conventions/controller-explicit-return': 'error' },

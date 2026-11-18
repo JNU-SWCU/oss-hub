@@ -1,4 +1,9 @@
-const RAW_METHODS = new Set(['$queryRaw', '$queryRawUnsafe']);
+const RAW_METHODS = new Set([
+  '$queryRaw',
+  '$queryRawUnsafe',
+  '$executeRaw',
+  '$executeRawUnsafe',
+]);
 const WRITE_KEYWORDS = new Set(['INSERT', 'UPDATE', 'DELETE', 'MERGE']);
 
 const propertyName = (node) =>

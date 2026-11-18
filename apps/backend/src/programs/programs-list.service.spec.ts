@@ -417,14 +417,16 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
     ]);
 
     expect(groupBy).toHaveBeenCalledTimes(1);
-    expect(groupBy).toHaveBeenCalledWith({
-      by: ['programId', 'status'],
-      where: {
-        programId: { in: ['program-a', 'program-b', 'program-c'] },
-        archivedAt: null,
-      },
-      _count: { _all: true },
-    });
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['programId', 'status'],
+        where: {
+          programId: { in: ['program-a', 'program-b', 'program-c'] },
+          archivedAt: null,
+        },
+        _count: { _all: true },
+      }),
+    );
     expect(counts.get('program-a')).toEqual({ total: 3, pending: 2 });
     expect(counts.get('program-b')).toEqual({ total: 4, pending: 0 });
     expect(counts.has('program-c')).toBe(false);

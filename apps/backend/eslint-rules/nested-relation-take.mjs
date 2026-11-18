@@ -101,6 +101,13 @@ export const nestedRelationTake = {
     };
 
     return {
+      Property(node) {
+        const key = keyName(node);
+        if (key !== 'select' && key !== 'include') return;
+        if (unwrap(node.value)?.type !== 'Identifier') return;
+        const selection = resolve(node.value);
+        if (selection?.type === 'ObjectExpression') checkSelection(selection);
+      },
       ObjectExpression(node) {
         if (isSelectionTyped(node)) {
           checkSelection(node);

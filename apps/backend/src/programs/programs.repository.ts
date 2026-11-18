@@ -566,6 +566,8 @@ export class ProgramsRepository {
       by: ['programId', 'status'],
       where: { programId: { in: [...programIds] }, archivedAt: null },
       _count: { _all: true },
+      orderBy: [{ programId: 'asc' }, { status: 'asc' }],
+      take: programIds.length * Object.keys(ApplicationStatus).length,
     });
     const counts = new Map<
       string,
@@ -1417,6 +1419,8 @@ export class ProgramOverviewRepository {
     const rows = await this.prisma.submission.groupBy({
       by: ['requirementId'],
       where: { teamId, requirementId: { in: documentIds } },
+      orderBy: { requirementId: 'asc' },
+      take: documentIds.length,
     });
     return new Set(rows.map((row) => row.requirementId));
   }
@@ -1465,6 +1469,8 @@ export class ProgramOverviewRepository {
         teamId: { in: [...teamIds] },
         requirementId: { in: [...documentIds] },
       },
+      orderBy: [{ requirementId: 'asc' }, { teamId: 'asc' }],
+      take: teamIds.length * documentIds.length,
     });
     return rows.map((row) => ({
       teamId: row.teamId,
@@ -1482,6 +1488,8 @@ export class ProgramOverviewRepository {
       by: ['teamId'],
       where: { programId, teamId: { in: [...teamIds] } },
       _count: { teamId: true },
+      orderBy: { teamId: 'asc' },
+      take: teamIds.length,
     });
     return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
   }
