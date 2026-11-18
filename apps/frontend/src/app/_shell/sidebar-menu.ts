@@ -7,6 +7,7 @@ import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-
 import { buildProgramListHref } from '@/features/programs/catalog/program-list-url-state';
 import {
   currentRankingYear,
+  parseRankingYearSearchParam,
   RANKING_YEAR_ALL,
   rankingListHref,
 } from '@/features/ranking/types';
@@ -100,18 +101,25 @@ export function programSidebarGroup(
 export function rankingSidebarGroup(
   years: readonly number[] = [],
   counts?: Partial<Record<'all' | number, number>>,
+  { currentYear = currentRankingYear(), search = '' } = {},
 ): SidebarGroup {
+  const options = [
+    currentYear,
+    ...[...new Set(years)]
+      .filter((year) => year < currentYear)
+      .sort((left, right) => right - left),
+  ];
   const items: SidebarItem[] = [
     {
       label: '전체',
-      href: rankingListHref(RANKING_YEAR_ALL),
+      href: rankingListHref(RANKING_YEAR_ALL, search),
       icon: 'chart',
       depth: 0,
       count: counts?.all,
     },
-    ...years.map((year) => ({
+    ...options.map((year) => ({
       label: String(year),
-      href: rankingListHref(year),
+      href: rankingListHref(year, search),
       icon: 'chart' as const,
       depth: 0 as const,
       count: counts?.[year],
@@ -162,11 +170,7 @@ export function shellSectionFromPathname(pathname: string): ShellSection {
 export function sidebarGroupsFor(
   section: ShellSection,
   access: MemberAccess | null,
-  options?: {
-    readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
-    readonly rankingYears?: readonly number[];
-    readonly rankingCounts?: Partial<Record<'all' | number, number>>;
-  },
+  options?: SectionFacetData,
 ): readonly SidebarGroup[] {
   if (section === 'dashboard') {
     if (access === null) return [];
@@ -187,12 +191,7 @@ export function sidebarGroupsFor(
   const spec = SECTION_FACETS[section];
   if (!spec) return [];
 
-  const data: SectionFacetData | undefined = {
-    programCounts: options?.programCounts,
-    rankingYears: options?.rankingYears,
-    rankingCounts: options?.rankingCounts,
-  };
-  return [{ label: spec.groupLabel, items: spec.items(data) }];
+  return [{ label: spec.groupLabel, items: spec.items(options) }];
 }
 
 export function isCurrentSidebarItem(
@@ -213,14 +212,15 @@ export function isCurrentSidebarItem(
       return false;
     }
 
-    const missingYearFallback =
-      facetSection === 'ranking' ? String(currentRankingYear()) : 'all';
-    const want =
-      new URLSearchParams(hrefQuery).get(spec.param) ?? missingYearFallback;
-    const have =
-      new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
+    const want = new URLSearchParams(hrefQuery).get(spec.param);
+    const have = new URLSearchParams(search).get(spec.param);
+    if (facetSection === 'ranking') {
+      return (
+        parseRankingYearSearchParam(want) === parseRankingYearSearchParam(have)
+      );
+    }
 
-    return want === have;
+    return (want ?? 'all') === (have ?? 'all');
   }
 
   if (pathname === hrefPath) return true;

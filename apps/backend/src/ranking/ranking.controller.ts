@@ -1,5 +1,6 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { OptionalSession, Public } from '../auth/auth-route.decorator';
 import {
@@ -8,6 +9,7 @@ import {
 } from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,
+  RankingAllTimelineResponseDto,
   RankingTimelineResponseDto,
   RankingYearsResponseDto,
 } from './dto/ranking-page-response.dto';
@@ -40,12 +42,22 @@ export class RankingController {
   @Get('timeline')
   @Public()
   @Header('Cache-Control', 'no-store')
+  @ApiExtraModels(RankingTimelineResponseDto, RankingAllTimelineResponseDto)
+  @ApiOkResponse({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(RankingTimelineResponseDto) },
+        { $ref: getSchemaPath(RankingAllTimelineResponseDto) },
+      ],
+    },
+  })
   async findTimeline(
     @Query() query: RankingTimelineRequestDto,
-  ): Promise<RankingTimelineResponseDto> {
-    return RankingTimelineResponseDto.from(
-      await this.rankingTimeline.findTimelineFromRequest(query),
-    );
+  ): Promise<RankingTimelineResponseDto | RankingAllTimelineResponseDto> {
+    const timeline = await this.rankingTimeline.findTimelineFromRequest(query);
+    return timeline.year === 'all'
+      ? RankingAllTimelineResponseDto.from(timeline)
+      : RankingTimelineResponseDto.from(timeline);
   }
 
   @Get('years')

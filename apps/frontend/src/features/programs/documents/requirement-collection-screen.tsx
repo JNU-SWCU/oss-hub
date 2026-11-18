@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useUrlSearchDraft } from '@/lib/list-url-state';
 import { useRequirementCollectionUrlState } from './requirement-collection-url-state';
 import {
   useRequirementCollectionQuery,
@@ -40,12 +47,15 @@ import type { RequirementReviewDecision } from './requirement-review-dto';
 export function RequirementCollectionScreen({
   programId,
   milestoneId,
+  headerActions,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
+  readonly headerActions?: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const { state: query, navigate } = useRequirementCollectionUrlState();
+  const [search, setSearch] = useUrlSearchDraft(query.q);
   const result = useRequirementCollectionQuery(programId, milestoneId, query);
   const [conflictFailed, setConflictFailed] = useState(false);
   const isLoading = result.isFetching;
@@ -208,7 +218,18 @@ export function RequirementCollectionScreen({
   return (
     <RequirementCollectionView
       programId={programId}
+      headerActions={headerActions}
       data={data}
+      search={search}
+      searchQuery={query.q}
+      onSearchChange={setSearch}
+      onSearch={() => {
+        discardPendingReview();
+        setReview(null);
+        setReviewNotice(null);
+        setConflictFailed(false);
+        navigate({ q: search.trim(), page: 1 }, 'replace');
+      }}
       filter={query.filter}
       documentSelection={query.document ?? null}
       onDocumentSelectionChange={(document) => {
@@ -232,7 +253,8 @@ export function RequirementCollectionScreen({
         setReview(null);
         setReviewNotice(null);
         setConflictFailed(false);
-        navigate({ document: undefined, filter: 'ALL', page: 1 });
+        setSearch('');
+        navigate({ document: undefined, filter: 'ALL', page: 1, q: '' });
       }}
       onArchiveGroupingChange={setArchiveGrouping}
       onFilterChange={(filter: RequirementCollectionFilter) => {

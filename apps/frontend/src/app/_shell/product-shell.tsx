@@ -221,9 +221,8 @@ function SidebarProductShell({
   const groups = programDetailId
     ? []
     : sidebarGroupsFor(section, shellSidebarAccess(session), {
-        programCounts: facetData?.programCounts,
-        rankingYears: facetData?.rankingYears,
-        rankingCounts: facetData?.rankingCounts,
+        ...facetData,
+        rankingSearch: search,
       });
 
   let viewerDocuments:

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { currentRankingYear } from './types';
 import {
   parseRankingSearchParams,
   buildRankingSearchParams,
@@ -11,24 +10,23 @@ describe('Ranking URL state', () => {
       'page=abc&sort=bad&status=bad&filter=bad&year=bad&granularity=bad&from=bad&to=bad&action=bad',
     );
     expect(parseRankingSearchParams(input)).toEqual({
-      year: currentRankingYear(),
+      year: 'all',
       page: 1,
     });
   });
 
-  it('omits defaults from the address', () => {
-    expect(
-      buildRankingSearchParams({
-        year: currentRankingYear(),
-        page: 1,
-      }).toString(),
-    ).toBe('');
-  });
-
-  it('round trips nondefault shareable state', () => {
-    const input = { year: 'all', page: 2 } as const;
-    const params = buildRankingSearchParams(input);
-    expect(params.toString()).toBe('year=all&page=2');
-    expect(parseRankingSearchParams(params)).toEqual(input);
-  });
+  it.each([
+    ['', 'all', 1, ''],
+    ['year=', 'all', 1, ''],
+    ['year=ALL&page=2', 'all', 2, 'page=2'],
+    ['year=2026', 2026, 1, 'year=2026'],
+    ['year=2025&page=2', 2025, 2, 'year=2025&page=2'],
+  ] as const)(
+    'parses and serializes ranking query %s',
+    (query, year, page, canonical) => {
+      const state = parseRankingSearchParams(new URLSearchParams(query));
+      expect(state).toEqual({ year, page });
+      expect(buildRankingSearchParams(state).toString()).toBe(canonical);
+    },
+  );
 });

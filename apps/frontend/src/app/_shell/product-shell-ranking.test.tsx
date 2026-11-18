@@ -95,6 +95,7 @@ describe('ProductShell ranking fetch', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
   it('dashboard does not GET /ranking', async () => {
@@ -156,15 +157,27 @@ describe('ProductShell ranking fetch', () => {
     await mountRankingPage();
   };
 
-  it('ranking page renders year chips from the shell facets', async () => {
+  it('adds the new Seoul year without refreshing the open ranking page', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    vi.setSystemTime(new Date('2026-12-31T14:59:59.000Z'));
     await renderRankingPage(null);
 
-    const labels = [
-      ...container.querySelectorAll(
-        'main [data-slot="section-facet-chips"] button',
-      ),
-    ].map((chip) => chip.textContent);
-    expect(labels).toEqual(['전체', '2026']);
+    const labels = () =>
+      [
+        ...container.querySelectorAll(
+          'main [data-slot="section-facet-chips"] button',
+        ),
+      ].map((chip) => chip.textContent);
+    expect(labels()).toEqual(['전체', '2026']);
+
+    await act(async () => vi.advanceTimersByTime(1000));
+
+    expect(labels()).toEqual(['전체', '2027', '2026']);
+    expect(
+      container.querySelector(
+        'main [data-slot="section-facet-chips"] button[aria-pressed="true"]',
+      )?.textContent,
+    ).toBe('전체');
     expect(mocks.getRankingYears).toHaveBeenCalledTimes(1);
   });
 

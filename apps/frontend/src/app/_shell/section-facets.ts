@@ -8,6 +8,8 @@ export type SectionFacetData = {
   readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
   readonly rankingYears?: readonly number[];
   readonly rankingCounts?: Partial<Record<'all' | number, number>>;
+  readonly rankingCurrentYear?: number;
+  readonly rankingSearch?: string;
 };
 
 export interface SectionFacetSpec {
@@ -55,7 +57,10 @@ export const SECTION_FACETS: Partial<
     param: 'year',
     load: loadRankingFacets,
     items: (data) =>
-      rankingSidebarGroup(data?.rankingYears ?? [], data?.rankingCounts).items,
+      rankingSidebarGroup(data?.rankingYears, data?.rankingCounts, {
+        currentYear: data?.rankingCurrentYear,
+        search: data?.rankingSearch,
+      }).items,
   },
 };
 

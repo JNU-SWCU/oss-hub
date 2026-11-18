@@ -19,6 +19,8 @@ export const REQUIREMENT_COLLECTION_FILTERS: readonly RequirementCollectionFilte
 
 export const REQUIREMENT_COLLECTION_PAGE_SIZE = 20;
 
+export const REQUIREMENT_COLLECTION_SEARCH_PAGE_SIZE = 100;
+
 function documentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
 }

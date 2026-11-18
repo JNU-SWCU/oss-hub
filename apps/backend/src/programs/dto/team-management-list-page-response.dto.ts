@@ -38,6 +38,7 @@ class TeamManagementTeamResponseDto {
 export class TeamManagementListItemResponseDto {
   declare readonly id: string;
   declare readonly teamMinSize: number;
+  declare readonly teamMaxSize: number;
   declare readonly status: ApplicationStatus;
   declare readonly submittedAt: string;
   declare readonly applicant: {
@@ -50,6 +51,7 @@ export class TeamManagementListItemResponseDto {
     return {
       id: item.id,
       teamMinSize: item.teamMinSize,
+      teamMaxSize: item.teamMaxSize,
       status: item.status,
       submittedAt: item.submittedAt.toISOString(),
       applicant: {

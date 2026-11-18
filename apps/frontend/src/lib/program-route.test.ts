@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  documentsStageSearch,
   programDocumentsHref,
   programEditHref,
   programApplyHref,
-  programRequirementsHref,
   programMyTeamHref,
   programNewHref,
   programSubmissionReviewHref,
@@ -53,10 +53,25 @@ describe('program-route href helpers', () => {
     expect(href).not.toBe('/programs/prog-1/teams');
   });
 
-  it('서류 수합 경로는 두 세그먼트를 모두 인코딩한다', () => {
-    expect(programRequirementsHref('program:basic', 'final/report')).toBe(
-      '/programs/program%3Abasic/milestones/final%2Freport/documents',
-    );
+  it('다른 단계로 옮길 때 앞 단계의 서류 선택·페이지를 버린다', () => {
+    expect(
+      documentsStageSearch(
+        'milestoneId=m1&documentId=d1&submissionState=MISSING&page=3&q=hong',
+        'm2',
+      ),
+    ).toBe('milestoneId=m2&q=hong');
+  });
+
+  it('같은 단계를 가리킬 때는 서류 선택·페이지를 그대로 둔다', () => {
+    expect(
+      documentsStageSearch('milestoneId=m1&documentId=d1&page=3', 'm1'),
+    ).toBe('milestoneId=m1&documentId=d1&page=3');
+  });
+
+  it('모든 단계로 돌아갈 때도 단계에 매인 쿼리만 버린다', () => {
+    expect(
+      documentsStageSearch('milestoneId=m1&documentId=d1&page=2&q=hong', null),
+    ).toBe('q=hong');
   });
 
   it('팀 상세 경로는 programId와 teamId를 인코딩한다', () => {

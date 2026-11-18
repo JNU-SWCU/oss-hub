@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { documentsStageSearch } from '@/lib/program-route';
 import type {
   ProgramScopeSidebarGroup,
   ProgramScopeSidebarItem,
@@ -86,11 +87,10 @@ function stageHrefWithCurrentQuery(
 
   const nextSearch = new URLSearchParams(search);
   nextSearch.delete('view');
-  const milestoneId = new URLSearchParams(targetSearch).get('milestoneId');
-  if (milestoneId === null) nextSearch.delete('milestoneId');
-  else nextSearch.set('milestoneId', milestoneId);
-
-  const query = nextSearch.toString();
+  const query = documentsStageSearch(
+    nextSearch.toString(),
+    new URLSearchParams(targetSearch).get('milestoneId'),
+  );
   return `${targetPath}${query ? `?${query}` : ''}`;
 }
 

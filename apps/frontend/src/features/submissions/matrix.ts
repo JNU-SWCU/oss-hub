@@ -8,7 +8,6 @@ import type {
 } from './types';
 export {
   formatMatrixDueDate,
-  formatMatrixDueDateTime,
   formatSubmittedAt,
   notSubmittedDeadline,
 } from './matrix-format';
@@ -135,21 +134,6 @@ export function matrixRowAction(
 }
 
 export type MatrixQuickFilter = 'ALL' | Exclude<MatrixActionStatus, 'NONE'>;
-
-export function isMilestoneWithoutRequiredItems(
-  rows: readonly MatrixRow[],
-  milestone: MatrixMilestone,
-  now: Date,
-): boolean {
-  return (
-    rows.length > 0 &&
-    rows.every(
-      (row) =>
-        matrixCellAction(cellForMilestone(row, milestone.id), milestone, now)
-          .status === 'NONE',
-    )
-  );
-}
 
 export function matrixRowHasEmptyCell(
   row: MatrixRow,
