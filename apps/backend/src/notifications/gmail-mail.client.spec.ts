@@ -1,14 +1,11 @@
-import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createServer, type TLSSocket } from 'node:tls';
+import { generate } from 'selfsigned';
 import { GmailMailClient } from './gmail-mail.client';
 
 describe('GmailMailClient custom socket', () => {
   it('completes one verified implicit-TLS handshake and SMTP delivery', async () => {
-    const certificates = testCertificates();
+    const certificates = await testCertificates();
     let handshakes = 0;
     let messages = 0;
     const server = createServer(
@@ -56,7 +53,7 @@ describe('GmailMailClient custom socket', () => {
   });
 
   it('destroys the verified TLS socket when an operation is aborted', async () => {
-    const certificates = testCertificates();
+    const certificates = await testCertificates();
     const connected = deferred<TLSSocket>();
     const server = createServer(
       { key: certificates.key, cert: certificates.cert },
@@ -115,77 +112,38 @@ function deferred<Value>(): {
   return { promise, resolve };
 }
 
-function testCertificates(): {
+async function testCertificates(): Promise<{
   readonly ca: string;
   readonly cert: string;
   readonly key: string;
-} {
-  const directory = mkdtempSync(join(tmpdir(), 'oss-hub-smtp-'));
-  try {
-    const ca = join(directory, 'ca.pem');
-    const caKey = join(directory, 'ca-key.pem');
-    const key = join(directory, 'server-key.pem');
-    const request = join(directory, 'server.csr');
-    const extension = join(directory, 'server.ext');
-    const cert = join(directory, 'server-cert.pem');
-    const openssl = (arguments_: readonly string[]) =>
-      execFileSync('openssl', arguments_, { stdio: 'ignore' });
-    openssl([
-      'req',
-      '-x509',
-      '-newkey',
-      'rsa:2048',
-      '-nodes',
-      '-days',
-      '1',
-      '-subj',
-      '/CN=oss-hub test SMTP CA',
-      '-keyout',
-      caKey,
-      '-out',
-      ca,
-    ]);
-    openssl([
-      'req',
-      '-newkey',
-      'rsa:2048',
-      '-nodes',
-      '-subj',
-      '/CN=localhost',
-      '-keyout',
-      key,
-      '-out',
-      request,
-    ]);
-    writeFileSync(
-      extension,
-      'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\n',
-    );
-    openssl([
-      'x509',
-      '-req',
-      '-in',
-      request,
-      '-CA',
-      ca,
-      '-CAkey',
-      caKey,
-      '-CAcreateserial',
-      '-days',
-      '1',
-      '-extfile',
-      extension,
-      '-out',
-      cert,
-    ]);
-    return {
-      ca: readFileSync(ca, 'utf8'),
-      cert: readFileSync(cert, 'utf8'),
-      key: readFileSync(key, 'utf8'),
-    };
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+}> {
+  const ca = await generate(
+    [{ name: 'commonName', value: 'oss-hub test SMTP CA' }],
+    {
+      algorithm: 'sha256',
+      extensions: [
+        { name: 'basicConstraints', cA: true, critical: true },
+        {
+          name: 'keyUsage',
+          keyCertSign: true,
+          cRLSign: true,
+          critical: true,
+        },
+      ],
+    },
+  );
+  const server = await generate([{ name: 'commonName', value: 'localhost' }], {
+    algorithm: 'sha256',
+    ca: { key: ca.private, cert: ca.cert },
+    extensions: [
+      {
+        name: 'subjectAltName',
+        altNames: [{ type: 2, value: 'localhost' }],
+      },
+      { name: 'extKeyUsage', serverAuth: true },
+    ],
+  });
+  return { ca: ca.cert, cert: server.cert, key: server.private };
 }
 
 function serveSmtp(socket: TLSSocket, onMessage: () => void): void {
