@@ -11,6 +11,7 @@ import {
   PageBody,
   PageHeader,
   StatusBadge,
+  TeamSearchForm,
 } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ import {
   isCollectionProgramMismatch,
   REQUIREMENT_COLLECTION_FILTER_LABELS,
   requirementCollectionPageState,
+  searchCollectionRows,
   type RequirementCollectionLoadPhase,
 } from './requirement-collection';
 import {
@@ -87,6 +89,10 @@ export interface RequirementCollectionViewProps {
   readonly programId: string;
   readonly headerActions?: ReactNode;
   readonly data: RequirementCollection | null;
+  readonly search: string;
+  readonly searchQuery: string;
+  readonly onSearchChange: (value: string) => void;
+  readonly onSearch: () => void;
   readonly filter: RequirementCollectionFilter;
   readonly documentSelection: RequirementCollectionSelection | null;
   readonly onDocumentSelectionChange: (
@@ -618,12 +624,14 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
 
   const { milestone, documents, rows, page, pageSize, total, filterCounts } =
     props.data;
+  const searching = props.searchQuery.trim() !== '';
+  const visibleRows = searchCollectionRows(rows, props.searchQuery);
   const empty = collectionEmptyKind({
     programId: props.programId,
     milestoneProgramId: milestone.programId,
     documentCount: documents.length,
     applicationCount: filterCounts.all,
-    filteredCount: total,
+    filteredCount: searching ? visibleRows.length : total,
   });
 
   if (empty === 'wrong-program') {
@@ -754,11 +762,21 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
         id={SCROLL_HINT_ID}
         className="break-keep text-small text-muted-foreground"
       >
-        이 페이지 {rows.length}개 팀(조건에 맞는 전체 {total}개) · 표는 좌우로{' '}
+        {searching
+          ? `검색 결과 ${visibleRows.length}개 팀(조건에 맞는 전체 ${total}개 중) · 표는 좌우로 `
+          : `이 페이지 ${rows.length}개 팀(조건에 맞는 전체 ${total}개) · 표는 좌우로 `}
         <span className="whitespace-nowrap">스크롤해 확인하세요.</span>
       </p>
+      {searching && total > rows.length ? (
+        <Alert data-testid="milestone-document-search-bound">
+          <AlertDescription className="break-keep">
+            검색은 먼저 불러온 {rows.length}개 팀까지만 훑습니다. 빠른 필터로
+            범위를 줄인 뒤 다시 검색해 주세요.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <CollectionTable
-        data={props.data}
+        data={searching ? { ...props.data, rows: visibleRows } : props.data}
         loadPhase={props.loadPhase}
         review={props.review}
         onReviewOpen={props.onReviewOpen}
@@ -768,11 +786,13 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
         onReviewSubmit={props.onReviewSubmit}
         onReviewHistoryMore={props.onReviewHistoryMore}
       />
-      <CollectionPagination
-        page={page}
-        totalPages={totalPages}
-        onPageChange={props.onPageChange}
-      />
+      {searching ? null : (
+        <CollectionPagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={props.onPageChange}
+        />
+      )}
     </>
   );
 }
@@ -804,6 +824,18 @@ export function RequirementCollectionView(
         }
       />
       <div className={SECTION_BODY}>
+        <TeamSearchForm
+          inputId="collection-search"
+          search={props.search}
+          resettable={
+            props.search.trim() !== '' ||
+            props.filter !== 'ALL' ||
+            props.documentSelection !== null
+          }
+          onSearchChange={props.onSearchChange}
+          onSearch={props.onSearch}
+          onReset={props.onResetFilters}
+        />
         {props.errorMessage !== null ? (
           <Alert variant="destructive">
             <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

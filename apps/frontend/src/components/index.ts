@@ -27,6 +27,7 @@ export { ListCard } from './list-card';
 
 export { DialogShell } from './dialog-shell';
 export { FilterChip, FilterChipGroup } from './filter-chip';
+export { TeamSearchForm } from './team-search-form';
 export { FailureState } from './failure-state';
 
 export { AppShell } from './app-shell';

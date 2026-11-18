@@ -468,7 +468,7 @@ describe('수합 표에서 판정하기', () => {
     );
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { page: 1, pageSize: 20, filter: 'ALL' },
+      { q: '', page: 1, pageSize: 20, filter: 'ALL' },
     );
   });
 
@@ -594,7 +594,7 @@ describe('수합 표에서 판정하기', () => {
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { page: 1, pageSize: 20, filter: 'HAS_MISSING' },
+      { q: '', page: 1, pageSize: 20, filter: 'HAS_MISSING' },
     );
   });
 
@@ -1017,7 +1017,7 @@ describe('수합 표에서 판정하기', () => {
     expect(reviewNotice()).toBeNull();
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { page: 1, pageSize: 20, filter: 'LATE' },
+      { q: '', page: 1, pageSize: 20, filter: 'LATE' },
     );
   });
 
