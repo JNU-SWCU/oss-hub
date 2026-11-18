@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   },
 
   eslint: { ignoreDuringBuilds: true },
+  experimental: { optimizePackageImports: ['radix-ui'] },
 
   devIndicators: { position: 'bottom-right' },
   async rewrites() {
