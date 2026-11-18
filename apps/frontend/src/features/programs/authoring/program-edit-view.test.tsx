@@ -495,7 +495,8 @@ describe('ProgramEditView contract', () => {
     expect(formEnd).toBeGreaterThan(-1);
     const footer = html.slice(footerStart, formEnd);
     expect(footer).not.toContain('justify-between');
-    expect(footer).toContain('프로그램 정보 저장');
+    expect(footer).toContain('aria-label="프로그램 정보 저장"');
+    expect(footer).toContain('>저장</button>');
   });
 
   it('권한이 있으면 삭제 섹션만 보여준다', () => {

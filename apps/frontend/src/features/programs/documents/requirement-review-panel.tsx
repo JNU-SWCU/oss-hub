@@ -278,7 +278,7 @@ export function RequirementReviewPanel(
           </AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-wrap justify-between gap-3">
+      <div className="flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           variant="outline"

@@ -55,7 +55,7 @@ describe('프로그램 편집의 초안 적용', () => {
     });
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain(
-      '날짜를 적용한 뒤 마일스톤 저장을 눌러야 저장됩니다.',
+      '날짜를 적용한 뒤 저장해야 반영됩니다.',
     );
     const apply = [...(dialog?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent === '날짜 적용',
