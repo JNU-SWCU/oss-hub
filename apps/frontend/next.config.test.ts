@@ -137,6 +137,18 @@ describe('nextConfig rewrites', () => {
   });
 });
 
+describe('nextConfig redirects', () => {
+  it('철거한 내 정보 경로를 설정으로 영구 이동시킨다', async () => {
+    if (nextConfig.redirects === undefined) {
+      throw new Error('redirect 설정이 필요합니다.');
+    }
+
+    await expect(nextConfig.redirects()).resolves.toEqual([
+      { source: '/dashboard/me', destination: '/settings', permanent: true },
+    ]);
+  });
+});
+
 describe('nextConfig poweredByHeader', () => {
   it('X-Powered-By 배너를 끈다', () => {
     expect(nextConfig.poweredByHeader).toBe(false);

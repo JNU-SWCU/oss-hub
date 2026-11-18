@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
   experimental: { optimizePackageImports: ['radix-ui'] },
 
   devIndicators: { position: 'bottom-right' },
+  async redirects() {
+    return await Promise.resolve([
+      { source: '/dashboard/me', destination: '/settings', permanent: true },
+    ]);
+  },
   async rewrites() {
     originAuthorization();
 
