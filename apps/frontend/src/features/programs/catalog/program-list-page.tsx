@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { useDebouncedUrlSearch } from '@/lib/list-url-state';
 import { useProgramListQuery, useProgramEndedYearsQuery } from './list-queries';
+import {
+  programListInput,
+  type ProgramListAudience,
+} from './program-list-request';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
 import { ProgramCard, ProgramCardSkeleton } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -44,6 +48,9 @@ interface ProgramListPageProps {
   readonly viewerRole: ViewerRole;
 
   readonly filters?: ReactNode;
+  readonly audience?: ProgramListAudience;
+  readonly queryEnabled?: boolean;
+  readonly initialNow?: number;
 }
 
 type LoadState =
@@ -54,7 +61,6 @@ type LoadState =
     }
   | { readonly kind: 'error'; readonly message: string };
 
-const PAGE_SIZE = 20;
 const PRIORITY_COVER_COUNT = 2;
 
 function formatApplicationPeriod(program: ProgramListItem): string {
@@ -71,6 +77,9 @@ function ProgramListPage({
   canCreateProgram,
   viewerRole,
   filters,
+  audience = 'viewer',
+  queryEnabled = true,
+  initialNow,
 }: ProgramListPageProps) {
   const { state: urlState, navigate } = useProgramListUrlState();
   const { status, sort, direction, year, search, page } = urlState;
@@ -89,31 +98,28 @@ function ProgramListPage({
   const years = yearsQuery.data ?? [];
   const yearOptions =
     year !== undefined && !years.includes(year) ? [year, ...years] : years;
-  const listQuery = useProgramListQuery({
-    page,
-    pageSize: PAGE_SIZE,
-    search,
-    status: status === 'all' ? 'current' : status,
-    sort,
-    direction,
-    year,
-  });
-  const loadState: LoadState = listQuery.isPending
-    ? { kind: 'loading' }
-    : listQuery.isError
-      ? {
-          kind: 'error',
-          message:
-            listQuery.error instanceof ApiError
-              ? listQuery.error.message
-              : '프로그램 목록을 불러오지 못했습니다.',
-        }
-      : { kind: 'ready', programPage: listQuery.data };
+  const listQuery = useProgramListQuery(
+    programListInput(urlState),
+    audience,
+    queryEnabled,
+  );
+  const loadState: LoadState =
+    !queryEnabled || listQuery.isPending
+      ? { kind: 'loading' }
+      : listQuery.isError
+        ? {
+            kind: 'error',
+            message:
+              listQuery.error instanceof ApiError
+                ? listQuery.error.message
+                : '프로그램 목록을 불러오지 못했습니다.',
+          }
+        : { kind: 'ready', programPage: listQuery.data };
   const hasFilters =
     search !== '' ||
     year !== undefined ||
     (status !== 'all' && status !== 'ended');
-  const now = useMemo(() => new Date(), []);
+  const now = useMemo(() => new Date(initialNow ?? Date.now()), [initialNow]);
 
   const goSort = (nextSort: ProgramListSort | undefined) =>
     navigate(
