@@ -5,14 +5,14 @@ import { ActivityVisibility, Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { STANDING_SQL } from './contributor-read.config';
 
+const STANDING = Prisma.raw(STANDING_SQL);
+
 const boundedReads = new BoundedReadRepository();
 
 export interface StandingFilter {
   readonly year: number | null;
   readonly visibility: ActivityVisibility | null;
 }
-
-const STANDING = Prisma.raw(STANDING_SQL);
 
 function standingWhere(filter: StandingFilter): Prisma.Sql {
   const predicates: Prisma.Sql[] = [];

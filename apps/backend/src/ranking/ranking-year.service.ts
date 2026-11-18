@@ -2,40 +2,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class RankingYearService {
-  activityTotal(activity: ActivityCounts): number {
-    return (
-      activity.commitCount +
-      activity.pullRequestCount +
-      activity.issueCount +
-      activity.repositoryCount +
-      activity.starCount
-    );
-  }
-
-  compareRanked(left: RankedActivity, right: RankedActivity): number {
-    const normalizedLoginOrder = left.githubLogin
-      .normalize()
-      .toLocaleLowerCase('en-US')
-      .localeCompare(
-        right.githubLogin.normalize().toLocaleLowerCase('en-US'),
-        'en-US',
-      );
-    return (
-      right.total - left.total ||
-      right.commitCount - left.commitCount ||
-      right.pullRequestCount - left.pullRequestCount ||
-      right.issueCount - left.issueCount ||
-      right.repositoryCount - left.repositoryCount ||
-      right.starCount - left.starCount ||
-      normalizedLoginOrder ||
-      (left.githubId < right.githubId
-        ? -1
-        : left.githubId > right.githubId
-          ? 1
-          : 0)
-    );
-  }
-
   rankingMonthInAsiaSeoul(date: Date): number {
     return new Date(date.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCMonth() + 1;
   }
@@ -90,20 +56,6 @@ function parseYearParam(raw: string | undefined): RankingYear | undefined {
     );
   }
   return year;
-}
-
-export interface ActivityCounts {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-}
-
-export interface RankedActivity extends ActivityCounts {
-  readonly githubId: bigint;
-  readonly githubLogin: string;
-  readonly total: number;
 }
 
 export const RANKING_YEAR_ALL = 'all' as const;

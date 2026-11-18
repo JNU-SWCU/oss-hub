@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, UserType } from '@prisma/client';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
-import { STANDING_SQL } from '../platform/contributor-read.config';
+import {
+  RANKING_ORDER_BY_SQL,
+  STANDING_SQL,
+} from '../platform/contributor-read.config';
+
+const STANDING = Prisma.raw(STANDING_SQL);
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_AUTHORITY_SELECT,
@@ -62,19 +67,7 @@ const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
 
 const RANKING_MEMBER = Prisma.sql`member.type = 'STUDENT' AND member.login <> ''`;
 
-const STANDING = Prisma.raw(STANDING_SQL);
-
-const RANKING_ORDER = Prisma.sql`
-  ORDER BY
-    total DESC,
-    commit_count DESC,
-    pull_request_count DESC,
-    issue_count DESC,
-    repository_count DESC,
-    star_count DESC,
-    lower(login) COLLATE "C",
-    github_id
-`;
+const RANKING_ORDER = Prisma.sql`ORDER BY ${Prisma.raw(RANKING_ORDER_BY_SQL)}`;
 
 const TIMELINE_LEADERS = 10;
 

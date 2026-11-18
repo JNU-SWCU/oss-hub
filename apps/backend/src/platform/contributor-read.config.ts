@@ -36,3 +36,14 @@ export const STANDING_SQL = `(
       observation.observed_at DESC
   ) AS latest
 ) AS standing`;
+
+export const RANKING_ORDER_BY_SQL = `
+  total DESC,
+  commit_count DESC,
+  pull_request_count DESC,
+  issue_count DESC,
+  repository_count DESC,
+  star_count DESC,
+  lower(login) COLLATE "C",
+  github_id
+`;

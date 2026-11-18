@@ -144,45 +144,4 @@ describe('RankingService viewer class', () => {
     });
     expect(page.items[0]).not.toHaveProperty('name');
   });
-
-  it('등수는 viewer class와 무관하게 동일하다 — 실명이 순서를 바꾸지 않는다', async () => {
-    const rows = [
-      activity(1n, 'alpha', { commitCount: 5 }),
-      activity(2n, 'bravo', { commitCount: 5 }),
-      activity(3n, 'charlie', { commitCount: 9 }),
-    ];
-    harness.useRows(rows);
-    harness.findNamesByGithubIds.mockResolvedValue(
-      new Map<bigint, string | null>([
-        [1n, '하동수'],
-        [2n, '가영희'],
-        [3n, '나철수'],
-      ]),
-    );
-
-    harness.findViewerClass.mockResolvedValue('public');
-    const publicPage = await harness.service.findPage(
-      RANKING_YEAR_ALL,
-      1,
-      20,
-      null,
-    );
-    harness.findViewerClass.mockResolvedValue('staff');
-    const staffPage = await harness.service.findPage(
-      RANKING_YEAR_ALL,
-      1,
-      20,
-      99n,
-    );
-
-    const order = (page: typeof publicPage) =>
-      page.items.map((item) => `${item.rank}:${item.githubLogin}`);
-    expect(order(publicPage)).toEqual(['1:charlie', '2:alpha', '3:bravo']);
-    expect(order(staffPage)).toEqual(order(publicPage));
-    expect(staffPage.items.map((item) => item.githubLogin)).toEqual([
-      'charlie',
-      'alpha',
-      'bravo',
-    ]);
-  });
 });

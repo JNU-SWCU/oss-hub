@@ -29,9 +29,10 @@ export function activity(
     issueCount: number;
     repositoryCount: number;
     starCount: number;
+    total: number;
     department: string | null;
   }>,
-): RankingMetricRow {
+): RankingMetricRow & { readonly total: number } {
   return {
     githubId,
     githubLogin,
@@ -41,12 +42,15 @@ export function activity(
     issueCount: metrics.issueCount ?? 0,
     repositoryCount: metrics.repositoryCount ?? 0,
     starCount: metrics.starCount ?? 0,
+    total: metrics.total ?? 0,
   };
 }
 
 export function setupRankingService(): {
   readonly service: RankingService;
-  readonly useRows: (rows: readonly RankingMetricRow[]) => void;
+  readonly useRows: (
+    rows: readonly (RankingMetricRow & { readonly total: number })[],
+  ) => void;
   readonly findRankedPage: jest.Mock<
     Promise<RankedPage>,
     [RankingMetricsQuery, { offset: number; limit: number }, Date]
@@ -66,15 +70,16 @@ export function setupRankingService(): {
   >;
 } {
   const rankingYear = new RankingYearService();
-  let rows: readonly RankingMetricRow[] = [];
+  let rows: readonly (RankingMetricRow & { readonly total: number })[] = [];
   const findRankedPage = jest.fn<
     Promise<RankedPage>,
     [RankingMetricsQuery, { offset: number; limit: number }, Date]
   >((_query, window) => {
-    const ranked = rows
-      .map((row) => ({ ...row, total: rankingYear.activityTotal(row) }))
-      .sort((left, right) => rankingYear.compareRanked(left, right))
-      .map((row, index) => ({ ...row, rank: index + 1, previousRank: null }));
+    const ranked = rows.map((row, index) => ({
+      ...row,
+      rank: index + 1,
+      previousRank: null,
+    }));
     return Promise.resolve({
       rows: ranked.slice(window.offset, window.offset + window.limit),
       total: ranked.length,
