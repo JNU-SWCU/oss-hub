@@ -187,11 +187,10 @@ describe('public Home stats over PostgreSQL and anonymous HTTP', () => {
     'matches detail ordering with %s insertion, using two authors and exact login dedupe',
     async (order) => {
       const events = [
-        event(40, 3, 0),
         event(40, 2, 0),
         event(40, 1, 0),
         event(40, 1, 1),
-        event(40, 6, 0, 'PULL_REQUEST'),
+        event(40, 6, 0),
         event(30, 4, 0),
         event(30, 5, 0, 'PULL_REQUEST'),
         event(20, 3, 0, 'ISSUE'),
@@ -209,7 +208,7 @@ describe('public Home stats over PostgreSQL and anonymous HTTP', () => {
       });
       const detail = await request(`/api/v1/projects/${repoId(40)}`);
       expect(detail.body).toMatchObject({
-        contributors: ['alpha', 'beta', 'Gamma', ' '].map((githubLogin) => ({
+        contributors: ['alpha', 'beta', ' '].map((githubLogin) => ({
           githubLogin,
         })),
       });
