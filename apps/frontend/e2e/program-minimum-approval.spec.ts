@@ -29,6 +29,7 @@ const program: ProgramDetail = {
 };
 const row: TeamManagementListItem = {
   teamMinSize: 2,
+  teamMaxSize: 3,
   id: 'synthetic-minimum-application',
   status: 'SUBMITTED',
   submittedAt: '2026-08-15T00:00:00Z',
@@ -137,7 +138,10 @@ for (const width of [1440, 390]) {
     );
 
     await page.goto(`/programs/${programId}/teams`);
-    await expect(page.getByText('수락 1/2명', { exact: true })).toBeVisible();
+    await expect(page.getByText('팀원 1/3명', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('최소 2명 · 1명 부족', { exact: true }),
+    ).toBeVisible();
     const status = page.getByRole('combobox', {
       name: 'synthetic-applicant 신청 상태',
     });
