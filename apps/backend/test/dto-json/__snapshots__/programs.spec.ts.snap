@@ -170,9 +170,9 @@ exports[`programs response DTO JSON TeamInvitationInviteeResponseDto 1`] = `"{"i
 
 exports[`programs response DTO JSON TeamInvitationResponseDto 1`] = `"{"id":"invitation-1","invitee":{"id":"user-2","nickname":"cat","name":null}}"`;
 
-exports[`programs response DTO JSON TeamManagementListItemResponseDto 1`] = `"{"id":"application-1","teamMinSize":2,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","applicant":{"name":"Octo","nickname":"octo"},"team":{"id":"team-1","name":"Team A","memberCount":2,"members":[{"name":"Octo","nickname":"octo"},{"name":null,"nickname":"cat"}]}}"`;
+exports[`programs response DTO JSON TeamManagementListItemResponseDto 1`] = `"{"id":"application-1","teamMinSize":2,"teamMaxSize":4,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","applicant":{"name":"Octo","nickname":"octo"},"team":{"id":"team-1","name":"Team A","memberCount":2,"members":[{"name":"Octo","nickname":"octo"},{"name":null,"nickname":"cat"}]}}"`;
 
-exports[`programs response DTO JSON TeamManagementListPageResponseDto 1`] = `"{"items":[{"id":"application-1","teamMinSize":2,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","applicant":{"name":"Octo","nickname":"octo"},"team":{"id":"team-1","name":"Team A","memberCount":2,"members":[{"name":"Octo","nickname":"octo"},{"name":null,"nickname":"cat"}]}},{"id":"application-1","teamMinSize":2,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","applicant":{"name":"Octo","nickname":"octo"},"team":null}],"totalItems":2,"totalPages":1}"`;
+exports[`programs response DTO JSON TeamManagementListPageResponseDto 1`] = `"{"items":[{"id":"application-1","teamMinSize":2,"teamMaxSize":4,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","applicant":{"name":"Octo","nickname":"octo"},"team":{"id":"team-1","name":"Team A","memberCount":2,"members":[{"name":"Octo","nickname":"octo"},{"name":null,"nickname":"cat"}]}},{"id":"application-1","teamMinSize":2,"teamMaxSize":4,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","applicant":{"name":"Octo","nickname":"octo"},"team":null}],"totalItems":2,"totalPages":1}"`;
 
 exports[`programs response DTO JSON UploadedRequirementFileResponseDto 1`] = `"{"fileId":"file-1","fileName":"report.pdf","size":2048,"expiresAt":"2026-05-03T00:00:00.000Z"}"`;
 

@@ -577,6 +577,7 @@ const sentInvitation: SentTeamInvitationRecord = {
 };
 const teamManagementItem: TeamManagementListItem = {
   teamMinSize: 2,
+  teamMaxSize: 4,
   id: 'application-1',
   status: 'APPROVED',
   submittedAt: at('2026-01-05T00:00:00.000Z'),

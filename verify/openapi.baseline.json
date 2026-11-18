@@ -6777,6 +6777,9 @@
           "teamMinSize": {
             "type": "number"
           },
+          "teamMaxSize": {
+            "type": "number"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -6817,6 +6820,7 @@
         "required": [
           "id",
           "teamMinSize",
+          "teamMaxSize",
           "status",
           "submittedAt",
           "applicant",
