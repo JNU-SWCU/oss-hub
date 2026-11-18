@@ -72,18 +72,18 @@ export interface RankingTimelineSeries {
   readonly totals: readonly (number | null)[];
 }
 
-export interface RankingYearTimeline {
+interface RankingYearTimeline {
   readonly year: number;
   readonly months: readonly number[];
   readonly series: readonly RankingTimelineSeries[];
 }
 
-export interface RankingTimelinePeriod {
+interface RankingTimelinePeriod {
   readonly fromMonth: string;
   readonly toMonth: string;
 }
 
-export interface RankingAllTimeline {
+interface RankingAllTimeline {
   readonly year: typeof RANKING_YEAR_ALL;
   readonly periods: readonly RankingTimelinePeriod[];
   readonly series: readonly RankingTimelineSeries[];
