@@ -6,20 +6,24 @@ import type {
   ProgramActivity,
 } from './dto';
 import { apiClient, ApiError } from '@/lib/api-client';
+import { programListPath } from './program-list-request';
+import { parsePublicProgramList } from './public-program-list';
 
 export function listPrograms(
   params: ProgramListParams,
 ): Promise<ProgramListPage> {
-  const search = new URLSearchParams({
-    page: String(params.page),
-    pageSize: String(params.pageSize),
-    ...(params.search.trim() ? { search: params.search } : {}),
-    status: params.status,
+  return apiClient<ProgramListPage>(programListPath(params));
+}
+
+export async function listPublicPrograms(
+  params: ProgramListParams,
+  signal: AbortSignal,
+): Promise<ProgramListPage> {
+  const value = await apiClient<unknown>(programListPath(params), {
+    credentials: 'omit',
+    signal,
   });
-  if (params.sort) search.set('sort', params.sort);
-  if (params.direction) search.set('direction', params.direction);
-  if (params.year !== undefined) search.set('year', String(params.year));
-  return apiClient<ProgramListPage>('programs?' + search.toString());
+  return parsePublicProgramList(value);
 }
 
 export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {

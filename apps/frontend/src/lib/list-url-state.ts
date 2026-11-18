@@ -4,19 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useDebouncedValue } from './use-debounced-value';
 
-export function parseListPage(raw: string | null): number {
-  if (raw === null || !/^[1-9][0-9]*$/.test(raw)) return 1;
-  const page = Number(raw);
-  return Number.isSafeInteger(page) ? page : 1;
-}
-
-export function parseListEnum<T extends string>(
-  raw: string | null,
-  values: readonly T[],
-  fallback: T,
-): T {
-  return values.find((value) => value === raw) ?? fallback;
-}
+export { parseListPage, parseListEnum } from './list-url-params';
 
 export function setListPage(params: URLSearchParams, page: number) {
   if (page > 1) params.set('page', String(page));

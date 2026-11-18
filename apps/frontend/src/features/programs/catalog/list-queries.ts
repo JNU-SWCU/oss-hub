@@ -1,12 +1,25 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
-import { getProgramEndedYears, listPrograms } from './api';
+import { getProgramEndedYears, listPrograms, listPublicPrograms } from './api';
 import type { ProgramListParams } from './dto';
+import {
+  programListKey,
+  type ProgramListAudience,
+} from './program-list-request';
 
-export function useProgramListQuery(input: ProgramListParams) {
+export function useProgramListQuery(
+  input: ProgramListParams,
+  audience: ProgramListAudience,
+  enabled: boolean,
+) {
   return useQuery({
-    queryKey: featureKey('programs', input),
-    queryFn: () => listPrograms(input),
+    queryKey: programListKey(input, audience),
+    enabled,
+    queryFn: (context) =>
+      audience === 'public'
+        ? listPublicPrograms(input, context.signal)
+        : listPrograms(input),
+    ...(audience === 'public' ? { staleTime: 30_000 } : {}),
   });
 }
 

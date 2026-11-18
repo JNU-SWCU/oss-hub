@@ -66,6 +66,25 @@ it('caches through unstable_cache while every origin read bypasses the fetch cac
   expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ cache: 'no-store' });
 });
 
+it('can read the public catalog without storing a search in the shared cache', async () => {
+  const { unstableCache, serverApiClient } = await freshClient();
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockImplementation(async () =>
+      Response.json({ items: [], totalPages: 0 }),
+    );
+  vi.stubGlobal('fetch', fetchMock);
+
+  await serverApiClient('programs?search=synthetic');
+
+  expect(unstableCache).not.toHaveBeenCalled();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const [url, options] = fetchMock.mock.calls[0] ?? [];
+  expect(url).toBe('https://approved.example/api/v1/programs?search=synthetic');
+  expect(options?.cache).toBe('no-store');
+  expect(options?.headers).toBeUndefined();
+});
+
 it('aborts the origin read at the deadline', async () => {
   const { serverApiClient } = await freshClient();
   vi.useFakeTimers();

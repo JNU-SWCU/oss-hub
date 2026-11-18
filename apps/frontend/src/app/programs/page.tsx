@@ -1,32 +1,48 @@
-'use client';
+import {
+  dehydrate,
+  HydrationBoundary,
+  QueryClient,
+} from '@tanstack/react-query';
+import { cookies } from 'next/headers';
+import {
+  parseProgramListSearchParams,
+  programListInput,
+  programListKey,
+  programListPath,
+} from '@/features/programs/catalog/program-list-request';
+import { parsePublicProgramList } from '@/features/programs/catalog/public-program-list';
+import { serverApiClient } from '@/lib/server-api-client';
+import { ProgramsClient } from './programs-client';
 
-import { ProgramListPage } from '@/features/programs/catalog/program-list-page';
-import { hasStaffAudience } from '../_shell/member-access';
-import { SectionFacetChips } from '../_shell/section-facet-chips';
-import { useSessionRole } from '../_shell/use-session-role';
+export default async function ProgramsPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const jar = await cookies();
+  if (jar.has('__Host-oss_session') || jar.has('oss_session_dev')) {
+    return <ProgramsClient />;
+  }
 
-export default function ProgramsPage() {
-  const session = useSessionRole();
-  const canCreateProgram =
-    session.status === 'assigned' &&
-    session.isProfileComplete &&
-    hasStaffAudience(session);
-  const viewerRole =
-    session.status !== 'assigned'
-      ? null
-      : hasStaffAudience(session)
-        ? 'STAFF'
-        : session.memberKind === 'STUDENT'
-          ? 'STUDENT'
-          : null;
+  const params = await searchParams;
+  const input = programListInput(
+    parseProgramListSearchParams({
+      get(name) {
+        const value = params[name];
+        return (Array.isArray(value) ? value[0] : value) ?? null;
+      },
+    }),
+  );
+  const queryClient = new QueryClient();
+  await queryClient.prefetchQuery({
+    queryKey: programListKey(input, 'public'),
+    queryFn: async () =>
+      parsePublicProgramList(await serverApiClient(programListPath(input))),
+  });
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <ProgramListPage
-        canCreateProgram={canCreateProgram}
-        viewerRole={viewerRole}
-        filters={<SectionFacetChips />}
-      />
-    </main>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <ProgramsClient publicSnapshotTime={Date.now()} />
+    </HydrationBoundary>
   );
 }

@@ -1,5 +1,7 @@
 import { act, type ReactNode } from 'react';
 import {
+  dehydrate,
+  HydrationBoundary,
   useQuery,
   useQueryClient,
   type QueryClient,
@@ -16,6 +18,12 @@ import { featureKey, programFeatureKey, programKey } from '@/lib/query-keys';
 import { invalidateSession } from '@/lib/session-invalidation';
 import { fetchSession } from '@/features/auth/api';
 import { getProgramOverview } from '@/features/programs/catalog/program-overview-api';
+import { ProgramsClient } from '../programs/programs-client';
+import { programListKey } from '@/features/programs/catalog/program-list-request';
+import type {
+  ProgramListItem,
+  ProgramListParams,
+} from '@/features/programs/catalog/dto';
 import {
   createTestQueryClient,
   renderWithQuery,
@@ -28,6 +36,12 @@ vi.mock('@/features/auth/api', () => ({
 
 vi.mock('@/features/programs/catalog/program-overview-api', () => ({
   getProgramOverview: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/programs',
+  useRouter: () => ({}),
 }));
 
 const user: Me = {
@@ -108,6 +122,7 @@ describe('QueryProvider', () => {
     view = undefined;
     client?.clear();
     resetSessionStore();
+    vi.unstubAllGlobals();
   });
 
   function tree(children: ReactNode = null) {
@@ -218,6 +233,100 @@ describe('QueryProvider', () => {
 
     await changeSession(session(user));
     expect(client.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it('preserves public hydration while session is pending and isolates viewer data through logout', async () => {
+    const input = {
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'current',
+    } satisfies ProgramListParams;
+    const publicKey = programListKey(input, 'public');
+    const viewerKey = programListKey(input, 'viewer');
+    const item = {
+      id: 'synthetic-program',
+      name: 'Synthetic catalog',
+      organizers: [],
+      trackType: null,
+      applicationStartAt: '2025-01-01T00:00:00.000Z',
+      applicationEndAt: '2099-02-01T00:00:00.000Z',
+      endAt: '2099-03-01T00:00:00.000Z',
+    } satisfies ProgramListItem;
+    const studentNote = 'Synthetic student status';
+    const staffNote = '지원 8건 · 승인 대기 2건';
+    const pending = Promise.withResolvers<AuthSession>();
+    vi.mocked(fetchSession).mockReturnValueOnce(pending.promise);
+    const seed = createTestQueryClient();
+    seed.setQueryData(publicKey, { items: [item], totalPages: 1 });
+    const catalog = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (_url, init) => {
+        const auth = getSessionSnapshot();
+        const viewerItem =
+          init?.credentials === 'omit' || auth.status !== 'authenticated'
+            ? item
+            : auth.user?.hasStaffAccess
+              ? { ...item, note: { text: staffNote } }
+              : {
+                  ...item,
+                  note: { text: studentNote },
+                  viewerApplicationStatus: 'APPROVED',
+                };
+        return Response.json({ items: [viewerItem], totalPages: 1 });
+      });
+    vi.stubGlobal('fetch', catalog);
+
+    view = await renderWithQuery(
+      tree(
+        <HydrationBoundary state={dehydrate(seed)}>
+          <ProgramsClient publicSnapshotTime={Date.now()} />
+        </HydrationBoundary>,
+      ),
+    );
+    expect(view.container.textContent).toContain(item.name);
+    expect(catalog).not.toHaveBeenCalled();
+
+    const anonymous = nextSession('anonymous');
+    await act(async () => {
+      pending.resolve({ isAuthenticated: false });
+      await anonymous;
+    });
+    expect(catalog).not.toHaveBeenCalled();
+
+    await changeSession(session(user));
+    await vi.waitFor(() => {
+      expect(view?.container.textContent).toContain(studentNote);
+    });
+    expect(client.getQueryData(viewerKey)).toMatchObject({
+      items: [{ viewerApplicationStatus: 'APPROVED' }],
+    });
+    expect(view.container.querySelector('a[href="/programs/new"]')).toBeNull();
+
+    await changeSession(
+      session({
+        ...user,
+        nickname: 'synthetic-staff',
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+      }),
+    );
+    expect(view.container.textContent).not.toContain(studentNote);
+    await vi.waitFor(() => {
+      expect(view?.container.textContent).toContain(staffNote);
+    });
+    expect(
+      view.container.querySelector('a[href="/programs/new"]'),
+    ).not.toBeNull();
+
+    await changeSession({ isAuthenticated: false });
+    expect(view.container.textContent).not.toContain(staffNote);
+    await vi.waitFor(() => {
+      expect(view?.container.textContent).toContain(item.name);
+    });
+    expect(view.container.querySelector('a[href="/programs/new"]')).toBeNull();
+    expect(client.getQueryData(viewerKey)).toBeUndefined();
+    expect(catalog.mock.calls.at(-1)?.[1]?.credentials).toBe('omit');
   });
 
   it('loading과 같은 identity의 세션 갱신은 캐시를 유지한다', async () => {

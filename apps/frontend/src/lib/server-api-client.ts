@@ -79,13 +79,14 @@ async function fetchPublicJson(
 
 export async function serverApiClient(
   path: string,
-  cache: { readonly revalidate: number; readonly tags: readonly string[] },
+  cache?: { readonly revalidate: number; readonly tags: readonly string[] },
 ): Promise<unknown> {
   target ??= publicApiTarget();
   const credential = target.sendsCredential
     ? process.env.ORIGIN_BASIC_AUTH
     : undefined;
   const url = `${target.origin}/api/v1/${path}`;
+  if (!cache) return fetchPublicJson(url, credential);
   return unstable_cache(
     () => fetchPublicJson(url, credential),
     ['server-api', url],
