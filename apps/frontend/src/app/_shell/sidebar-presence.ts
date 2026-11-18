@@ -37,6 +37,18 @@ export function hasShellSidebar(
   );
 }
 
+const ALL_SHELL_ACCESS: ShellSession = {
+  status: 'assigned',
+  memberKind: 'STUDENT',
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  isProfileComplete: true,
+};
+
+export function canHaveShellSidebar(pathname: string): boolean {
+  return hasShellSidebar(pathname, ALL_SHELL_ACCESS);
+}
+
 export type ShellSheetKind = 'program' | 'dashboard';
 
 export function shellSheetKind(

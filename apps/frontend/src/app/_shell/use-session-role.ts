@@ -140,6 +140,10 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
   return useMemo(() => ({ ...state, retry }), [retry, state]);
 }
 
+export function useIndependentSessionRole(): SessionRoleResult {
+  return useOwnedSessionRole(true);
+}
+
 export function useSessionRole(): SessionRoleResult {
   const shared = useOptionalSharedSessionRole();
   const owned = useOwnedSessionRole(shared === null);
