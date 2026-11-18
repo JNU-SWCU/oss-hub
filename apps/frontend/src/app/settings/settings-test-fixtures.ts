@@ -17,7 +17,7 @@ export const SETTINGS_SAVED_STUDENT_PROFILE = {
   studentId: '260001',
   staffNumber: null,
   department: '인공지능학부',
-  phone: '01012345678',
+  phone: '1'.repeat(10),
   isComplete: true,
   participations: [
     {
