@@ -3,10 +3,8 @@ import 'server-only';
 import { ServerApiError, serverApiClient } from '@/lib/server-api-client';
 import { programOverviewHref } from '@/lib/program-route';
 import { COSMOS_PROGRAM_COUNT } from '../cosmos/cosmos-graph';
-import { buildPublicLandingGraph } from '../landing-graph';
 import {
-  parseLandingProjectDetail,
-  parseLandingProjectPage,
+  parseLandingStatsCounts,
   parseLandingProgramNamePage,
   parseLandingProgramPage,
 } from '../landing-overview';
@@ -23,20 +21,6 @@ export interface LandingData {
 
 const landingJson = (path: string): Promise<unknown> =>
   serverApiClient(path, { revalidate: 300, tags: ['landing'] });
-
-async function loadStats(): Promise<LandingStatsDisplay> {
-  const projects = parseLandingProjectPage(
-    await landingJson('projects?pageSize=3'),
-  );
-  const details = await Promise.all(
-    projects.map(async ({ projectId }) =>
-      parseLandingProjectDetail(
-        await landingJson(`projects/${encodeURIComponent(projectId)}`),
-      ),
-    ),
-  );
-  return deriveLandingStats(buildPublicLandingGraph(projects, details));
-}
 
 function arrived<T>(
   result: PromiseSettledResult<T>,
@@ -78,7 +62,9 @@ export async function loadLandingData(): Promise<LandingData> {
     landingJson(`programs?${namesQuery.toString()}`).then(
       parseLandingProgramNamePage,
     ),
-    loadStats(),
+    landingJson('projects/landing-stats')
+      .then(parseLandingStatsCounts)
+      .then(deriveLandingStats),
   ]);
   return {
     recruiting: arrived(recruiting, [], 'recruiting'),

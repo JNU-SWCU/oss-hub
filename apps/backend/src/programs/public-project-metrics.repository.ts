@@ -1,5 +1,6 @@
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
+import { ReadCapExceededError } from '../platform/read-cap.error';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
@@ -7,6 +8,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 const boundedReads = new BoundedReadRepository();
+const CONTRIBUTION_DAYS = 'Public project contribution days';
 
 interface ContributionCountsRow {
   readonly commitCount: number;
@@ -88,14 +90,75 @@ export class PublicProjectMetricsRepository {
     }));
   }
 
+  async findLandingContributorLogins(
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly string[]> {
+    if (repositoryIds.length === 0) return [];
+    const cap = READ_CAP.contributionRows;
+    const rows = await this.prisma.$queryRaw<
+      readonly {
+        readonly overflow: boolean;
+        readonly githubLogin: string | null;
+      }[]
+    >`
+      WITH selected AS (
+        SELECT unnest(ARRAY[${Prisma.join([...repositoryIds])}]::bigint[]) AS repo_id
+      ), days AS MATERIALIZED (
+        SELECT daily."githubRepositoryId", daily."githubId", daily."commitCount",
+               daily."pullRequestCount", daily."releaseCount"
+        FROM selected
+        CROSS JOIN LATERAL (
+          ${contributionDays(Prisma.sql`event.repo_id = selected.repo_id`, cap + 1)}
+        ) AS daily
+      ), day_counts AS (
+        SELECT "githubRepositoryId", count(*) > ${cap} AS overflow
+        FROM days
+        GROUP BY "githubRepositoryId"
+      ), ranked AS (
+        SELECT days."githubRepositoryId", days."githubId", row_number() OVER (
+          PARTITION BY days."githubRepositoryId"
+          ORDER BY sum(days."commitCount") DESC, days."githubId" ASC
+        ) AS position
+        FROM days
+        JOIN day_counts USING ("githubRepositoryId")
+        WHERE NOT day_counts.overflow
+        GROUP BY days."githubRepositoryId", days."githubId"
+        HAVING sum(days."commitCount"::bigint + days."pullRequestCount" + days."releaseCount") > 0
+      )
+      SELECT coalesce(day_counts.overflow, false) AS overflow,
+             CASE WHEN ranked.position IS NOT NULL THEN coalesce(author.login, '') END AS "githubLogin"
+      FROM selected
+      LEFT JOIN day_counts ON day_counts."githubRepositoryId" = selected.repo_id
+      LEFT JOIN ranked ON ranked."githubRepositoryId" = selected.repo_id AND ranked.position <= 2
+      LEFT JOIN "User" AS author ON author."githubId" = ranked."githubId"
+      LIMIT ${repositoryIds.length * 2}
+    `;
+    if (rows.some(({ overflow }) => overflow)) {
+      throw new ReadCapExceededError(CONTRIBUTION_DAYS, cap);
+    }
+    return rows.flatMap(({ githubLogin }) =>
+      githubLogin === null ? [] : [githubLogin],
+    );
+  }
+
   private readRepoContribution(
     repositoryIds: readonly bigint[],
   ): Promise<readonly RepoContributionSqlRow[]> {
     return boundedReads.readCapped(
       READ_CAP.contributionRows,
-      'Public project contribution days',
-      (take) =>
-        this.prisma.$queryRaw<RepoContributionSqlRow[]>`
+      CONTRIBUTION_DAYS,
+      (take) => {
+        const scope = Prisma.sql`event.repo_id IN (${Prisma.join([...repositoryIds])})`;
+        return this.prisma.$queryRaw<RepoContributionSqlRow[]>(
+          contributionDays(scope, take),
+        );
+      },
+    );
+  }
+}
+
+function contributionDays(scope: Prisma.Sql, take: number): Prisma.Sql {
+  return Prisma.sql`
       SELECT
         event.repo_id AS "githubRepositoryId",
         event.author_github_id AS "githubId",
@@ -106,7 +169,7 @@ export class PublicProjectMetricsRepository {
       FROM "contribution" AS event
       JOIN repo AS repository
         ON repository.github_repo_id = event.repo_id
-      WHERE event.repo_id IN (${Prisma.join([...repositoryIds])})
+      WHERE ${scope}
         AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
         AND repository.visibility = 'PUBLIC'::"RepositoryVisibility"
         AND repository.presence = 'PRESENT'::"CollectionRepositoryPresence"
@@ -123,10 +186,8 @@ export class PublicProjectMetricsRepository {
         event.repo_id,
         event.author_github_id,
         (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
-        LIMIT ${take}
-    `,
-    );
-  }
+      LIMIT ${take}
+    `;
 }
 
 interface RepoContributionSqlRow extends ContributionCountsRow {

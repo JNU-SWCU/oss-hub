@@ -84,6 +84,17 @@ const LIVE_PROGRAM_TEAM = {
   program: { lifecycle: { not: 'DELETED' } },
 } satisfies Prisma.TeamWhereInput;
 
+const PUBLIC_PROJECT_WHERE = {
+  visibility: 'PUBLIC',
+  teamRepos: { some: { team: LIVE_PROGRAM_TEAM } },
+} satisfies Prisma.RepoWhereInput;
+
+const PROJECT_ROW_CAP = {
+  teamRepos: {
+    nested: { team: { nested: { members: READ_CAP.membersPerTeam } } },
+  },
+};
+
 function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
   return [
     new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
@@ -142,8 +153,7 @@ export class PublicProjectsRepository {
     const rows = await this.prisma.repo
       .findMany({
         where: {
-          visibility: 'PUBLIC',
-          teamRepos: { some: { team: LIVE_PROGRAM_TEAM } },
+          ...PUBLIC_PROJECT_WHERE,
           publishedAt: publishedAtWhere,
           ...(cursor === null
             ? {}
@@ -164,13 +174,7 @@ export class PublicProjectsRepository {
       .then((result) =>
         this.boundedReads.assertNestedWithin(
           result,
-          {
-            teamRepos: {
-              nested: {
-                team: { nested: { members: READ_CAP.membersPerTeam } },
-              },
-            },
-          },
+          PROJECT_ROW_CAP,
           'Repo.findMany',
         ),
       );
@@ -187,8 +191,7 @@ export class PublicProjectsRepository {
       .findFirst({
         where: {
           githubRepoId: BigInt(projectId),
-          visibility: 'PUBLIC',
-          teamRepos: { some: { team: LIVE_PROGRAM_TEAM } },
+          ...PUBLIC_PROJECT_WHERE,
           publishedAt: { not: null },
         },
         select: PROJECT_ROW_SELECT,
@@ -196,17 +199,32 @@ export class PublicProjectsRepository {
       .then((result) =>
         this.boundedReads.assertNestedWithin(
           result,
-          {
-            teamRepos: {
-              nested: {
-                team: { nested: { members: READ_CAP.membersPerTeam } },
-              },
-            },
-          },
+          PROJECT_ROW_CAP,
           'Repo.findFirst',
         ),
       );
     return row === null ? null : toProjectRow(row);
+  }
+
+  async findByIds(
+    repositoryIds: readonly bigint[],
+  ): Promise<PublicProjectRow[]> {
+    if (repositoryIds.length === 0) return [];
+    const rows = await this.prisma.repo.findMany({
+      where: {
+        ...PUBLIC_PROJECT_WHERE,
+        githubRepoId: { in: [...repositoryIds] },
+        publishedAt: { not: null },
+      },
+      take: repositoryIds.length,
+      select: PROJECT_ROW_SELECT,
+    });
+    return this.boundedReads
+      .assertNestedWithin(rows, PROJECT_ROW_CAP, 'Repo.findMany')
+      .flatMap((row) => {
+        const project = toProjectRow(row);
+        return project === null ? [] : [project];
+      });
   }
 
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
@@ -238,13 +256,7 @@ export class PublicProjectsRepository {
           .then((result) =>
             this.boundedReads.assertNestedWithin(
               result,
-              {
-                teamRepos: {
-                  nested: {
-                    team: { nested: { members: READ_CAP.membersPerTeam } },
-                  },
-                },
-              },
+              PROJECT_ROW_CAP,
               'Repo.findMany',
             ),
           ),

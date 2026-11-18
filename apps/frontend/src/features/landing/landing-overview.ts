@@ -1,27 +1,5 @@
 import { isRecord } from '@/lib/is-record';
 
-export type LandingGraphNodeKind = 'program' | 'repository' | 'student';
-
-export interface LandingGraphNode {
-  readonly id: string;
-  readonly kind: LandingGraphNodeKind;
-  readonly label: string;
-  readonly href: string | null;
-  readonly x: number;
-  readonly y: number;
-}
-
-export interface LandingGraphEdge {
-  readonly sourceId: string;
-  readonly targetId: string;
-  readonly label: '기여' | '운영';
-}
-
-export interface LandingGraph {
-  readonly nodes: readonly LandingGraphNode[];
-  readonly edges: readonly LandingGraphEdge[];
-}
-
 export interface LandingProgram {
   readonly coverImageUrl?: string | null;
   readonly id: string;
@@ -36,18 +14,10 @@ export interface LandingProgramName {
   readonly name: string;
 }
 
-export interface LandingProjectItem {
-  readonly projectId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly displayName: string;
-  readonly detailUrl: string;
-}
-
-export interface LandingProjectDetail {
-  readonly projectId: string;
-
-  readonly contributors: readonly { readonly githubLogin: string }[];
+interface LandingStatsCounts {
+  readonly programCount: number;
+  readonly repositoryCount: number;
+  readonly contributorCount: number;
 }
 
 const INVALID_RESPONSE_MESSAGE = '랜딩 공개 응답 형식이 올바르지 않습니다';
@@ -143,35 +113,22 @@ export function parseLandingProgramNamePage(
   });
 }
 
-export function parseLandingProjectPage(
-  value: unknown,
-): readonly LandingProjectItem[] {
-  const page = record(value);
-  if (!Array.isArray(page.items)) return invalidResponse();
-  return page.items.slice(0, 3).map((item) => {
-    const input = record(item);
-
-    const projectId = publicId(input.projectId);
-    return {
-      projectId,
-      programId: publicId(input.programId),
-      programName: nonEmptyString(input.programName),
-      displayName: nonEmptyString(input.displayName),
-      detailUrl: `/projects/${projectId}`,
-    };
-  });
+function boundedCount(value: unknown, max: number): number {
+  if (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= max
+  )
+    return value;
+  return invalidResponse();
 }
 
-export function parseLandingProjectDetail(
-  value: unknown,
-): LandingProjectDetail {
+export function parseLandingStatsCounts(value: unknown): LandingStatsCounts {
   const input = record(value);
-  if (!Array.isArray(input.contributors)) return invalidResponse();
   return {
-    projectId: publicId(input.projectId),
-    contributors: input.contributors.slice(0, 2).map((contributor) => {
-      const parsed = record(contributor);
-      return { githubLogin: nonEmptyString(parsed.githubLogin) };
-    }),
+    programCount: boundedCount(input.programCount, 3),
+    repositoryCount: boundedCount(input.repositoryCount, 3),
+    contributorCount: boundedCount(input.contributorCount, 6),
   };
 }

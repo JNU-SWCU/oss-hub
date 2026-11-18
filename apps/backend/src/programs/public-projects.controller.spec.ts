@@ -42,7 +42,11 @@ function row(
 
 describe('PublicProjectsController', () => {
   it('공개 목록·상세는 저장소 공개 회수 뒤 이전 응답을 저장하지 않는다', () => {
-    for (const methodName of ['findPage', 'findDetail'] as const) {
+    for (const methodName of [
+      'findPage',
+      'findLandingStats',
+      'findDetail',
+    ] as const) {
       const handler: unknown = Object.getOwnPropertyDescriptor(
         PublicProjectsController.prototype,
         methodName,

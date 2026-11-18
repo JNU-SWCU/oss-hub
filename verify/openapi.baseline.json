@@ -3265,6 +3265,27 @@
         ]
       }
     },
+    "/api/v1/projects/landing-stats": {
+      "get": {
+        "operationId": "PublicProjectsController_findLandingStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProjectLandingStatsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PublicProjects"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}": {
       "get": {
         "operationId": "PublicProjectsController_findDetail",
@@ -9749,6 +9770,31 @@
           "items",
           "pageSize",
           "nextPageId"
+        ]
+      },
+      "PublicProjectLandingStatsResponseDto": {
+        "type": "object",
+        "properties": {
+          "programCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "repositoryCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "contributorCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "programCount",
+          "repositoryCount",
+          "contributorCount"
         ]
       },
       "PublicProjectMetricsResponseDto": {
