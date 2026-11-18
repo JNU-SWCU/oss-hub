@@ -367,29 +367,6 @@ export interface RepositoryProvisionJobSnapshot {
   readonly repoId: bigint | null;
 }
 
-export type ApplicationDecisionResult =
-  | {
-      readonly kind: 'APPROVED';
-      readonly teamId: string;
-      readonly status: ApplicationStatus;
-      readonly repositoryProvisioning: {
-        readonly enabled: boolean;
-        readonly eventId: string | null;
-        readonly jobStatus: RepositoryProvisionJobStatus | null;
-      };
-    }
-  | {
-      readonly kind: 'REJECTED';
-      readonly teamId: string;
-      readonly status: ApplicationStatus;
-      readonly rejectionReason: string | null;
-    }
-  | {
-      readonly kind: 'REVERTED';
-      readonly teamId: string;
-      readonly status: ApplicationStatus;
-    };
-
 export type ApplicationDecisionCommand = {
   readonly action: string;
   readonly reason?: string;
@@ -938,6 +915,8 @@ export class ApplicationsRepository {
         archivedAt: null,
       },
       _count: { _all: true },
+      orderBy: [{ programId: 'asc' }, { status: 'asc' }],
+      take: programs.length * Object.keys(ApplicationStatus).length,
     });
 
     type MutableCounts = {

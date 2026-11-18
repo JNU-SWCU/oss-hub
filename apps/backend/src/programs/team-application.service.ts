@@ -12,7 +12,6 @@ import {
   type StaffDashboardSummaryQuery,
   type TeamManagementListPage,
   type CreateApplicationInput,
-  type ApplicationDecisionResult,
   type ApplicationDecisionTarget,
   type ApplicationTransition,
   type RepositoryProvisionJobSnapshot,
@@ -601,7 +600,7 @@ export class TeamApplicationService {
     actor: { readonly id: string; readonly githubId: bigint },
     teamId: string,
     input: ApplicationDecisionCommand,
-  ): Promise<ApplicationDecisionResult> {
+  ): Promise<void> {
     const actorId = actor.id;
     const action =
       this.applicationAnswersService.applicationDecisionAction(input);
@@ -720,12 +719,7 @@ export class TeamApplicationService {
                 this.parseProvisionHistoryPayload,
               );
             }
-            return {
-              kind: 'REJECTED',
-              teamId,
-              status: plan.nextStatus,
-              rejectionReason: plan.rejectionReason,
-            };
+            return;
           }
           case 'REVERT': {
             if (!provisioningCompleted) {
@@ -735,48 +729,21 @@ export class TeamApplicationService {
                 this.parseProvisionHistoryPayload,
               );
             }
-            return {
-              kind: 'REVERTED',
-              teamId,
-              status: plan.nextStatus,
-            };
+            return;
           }
           case 'APPROVE': {
-            if (!application.repositoryProvisioningEnabled) {
-              return {
-                kind: 'APPROVED',
-                teamId,
-                status: plan.nextStatus,
-                repositoryProvisioning: {
-                  enabled: false,
-                  eventId: null,
-                  jobStatus: null,
-                },
-              };
+            if (
+              !application.repositoryProvisioningEnabled ||
+              provisioningCompleted
+            ) {
+              return;
             }
-
-            if (provisioningCompleted) {
-              const existing =
-                await store.findRepositoryProvisionEvent(idempotencyKey);
-              return {
-                kind: 'APPROVED',
-                teamId,
-                status: plan.nextStatus,
-                repositoryProvisioning: {
-                  enabled: true,
-                  eventId: existing?.id ?? null,
-                  jobStatus: plan.provisionJob?.status ?? null,
-                },
-              };
-            }
-
             await store.discardRepositoryProvisionRequest(
               teamId,
               processedAt,
               this.parseProvisionHistoryPayload,
             );
-
-            const event = await store.createRepositoryProvisionEvent(
+            await store.createRepositoryProvisionEvent(
               {
                 teamId,
                 programId: application.programId,
@@ -789,16 +756,7 @@ export class TeamApplicationService {
               },
               this.parseProvisionHistoryPayload,
             );
-            return {
-              kind: 'APPROVED',
-              teamId,
-              status: plan.nextStatus,
-              repositoryProvisioning: {
-                enabled: true,
-                eventId: event.id,
-                jobStatus: RepositoryProvisionJobStatus.PENDING,
-              },
-            };
+            return;
           }
           default: {
             const exhaustivePlan: never = plan;

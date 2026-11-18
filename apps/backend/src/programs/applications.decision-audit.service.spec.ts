@@ -137,7 +137,7 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
     const { service, appendReviewHistory } = createHarness();
     await expect(
       service.decide(ACTOR, APPLICATION_ID, { action: 'REJECT', reason }),
-    ).resolves.toMatchObject({ status: 'REJECTED', rejectionReason: null });
+    ).resolves.toBeUndefined();
     expect(appendReviewHistory).toHaveBeenCalledWith({
       teamId: APPLICATION_ID,
       eventKind: 'REJECTED',
@@ -189,16 +189,7 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
     });
     expect(approvedNotification?.decidedAt).toBeInstanceOf(Date);
 
-    expect(result).toEqual({
-      kind: 'APPROVED',
-      teamId: APPLICATION_ID,
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: false,
-        eventId: null,
-        jobStatus: null,
-      },
-    });
+    expect(result).toBeUndefined();
   });
 
   it('거절을 APPLICATION_REJECTED로 기록하되 사유 원문은 감사 metadata에 담지 않는다', async () => {
@@ -227,12 +218,7 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
       }),
     );
 
-    expect(result).toEqual({
-      kind: 'REJECTED',
-      teamId: APPLICATION_ID,
-      status: ApplicationStatus.REJECTED,
-      rejectionReason: '제출 서류 누락',
-    });
+    expect(result).toBeUndefined();
   });
 
   it('반려 사유는 팀 심사 이력에 보존한다', async () => {
@@ -335,11 +321,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
-    expect(result).toEqual({
-      kind: 'REVERTED',
-      teamId: APPLICATION_ID,
-      status: ApplicationStatus.SUBMITTED,
-    });
+    expect(result).toBeUndefined();
     expect(transitionApplication).toHaveBeenCalledWith({
       teamId: APPLICATION_ID,
       expectedStatus: ApplicationStatus.REJECTED,
@@ -380,11 +362,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
-    expect(result).toEqual({
-      kind: 'REVERTED',
-      teamId: APPLICATION_ID,
-      status: ApplicationStatus.SUBMITTED,
-    });
+    expect(result).toBeUndefined();
     expect(transitionApplication).toHaveBeenCalledWith(
       expect.objectContaining({
         expectedStatus: ApplicationStatus.APPROVED,
@@ -447,10 +425,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       });
 
-      expect(result).toMatchObject({
-        kind: 'REVERTED',
-        status: ApplicationStatus.SUBMITTED,
-      });
+      expect(result).toBeUndefined();
       expect(transitionApplication).toHaveBeenCalled();
       expect(appendReviewHistory).toHaveBeenCalled();
       expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
@@ -551,12 +526,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
 
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledTimes(2);
     expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
-    expect(reapprove).toMatchObject({
-      kind: 'APPROVED',
-      teamId: APPLICATION_ID,
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: { enabled: true },
-    });
+    expect(reapprove).toBeUndefined();
   });
 
   it('OWN + repositoryUrl 없음 승인: 400 OWN_REPOSITORY_URL_REQUIRED', async () => {
@@ -628,10 +598,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
       service.decide(ACTOR, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       }),
-    ).resolves.toMatchObject({
-      kind: 'REVERTED',
-      status: ApplicationStatus.SUBMITTED,
-    });
+    ).resolves.toBeUndefined();
   });
 
   it('OWN은 프로비저닝 SUCCEEDED여도 되돌리기를 허용하고 완료된 연결을 보존한다', async () => {
@@ -657,10 +624,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
       service.decide(ACTOR, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       }),
-    ).resolves.toMatchObject({
-      kind: 'REVERTED',
-      status: ApplicationStatus.SUBMITTED,
-    });
+    ).resolves.toBeUndefined();
 
     expect(findRepositoryProvisionJob).toHaveBeenCalledWith(APPLICATION_ID);
     expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
@@ -696,12 +660,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
       reason: '합성 반려 사유',
     });
 
-    expect(result).toEqual({
-      kind: 'REJECTED',
-      teamId: APPLICATION_ID,
-      status: ApplicationStatus.REJECTED,
-      rejectionReason: '합성 반려 사유',
-    });
+    expect(result).toBeUndefined();
 
     expect(transitionApplication).toHaveBeenCalledTimes(1);
     expect(transitionApplication).toHaveBeenCalledWith(
@@ -761,15 +720,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    expect(result).toMatchObject({
-      kind: 'APPROVED',
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: 'synthetic-event',
-        jobStatus: RepositoryProvisionJobStatus.PENDING,
-      },
-    });
+    expect(result).toBeUndefined();
     expect(transitionApplication).toHaveBeenCalledTimes(1);
     expect(transitionApplication).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -863,10 +814,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
         reason: '합성 반려 사유',
       });
 
-      expect(result).toMatchObject({
-        kind: 'REJECTED',
-        status: ApplicationStatus.REJECTED,
-      });
+      expect(result).toBeUndefined();
       expect(transitionApplication).toHaveBeenCalled();
       expect(appendReviewHistory).toHaveBeenCalled();
       expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
@@ -930,10 +878,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유',
       }),
-    ).resolves.toMatchObject({
-      kind: 'REJECTED',
-      status: ApplicationStatus.REJECTED,
-    });
+    ).resolves.toBeUndefined();
 
     expect(findRepositoryProvisionJob).toHaveBeenCalledWith(APPLICATION_ID);
     expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();

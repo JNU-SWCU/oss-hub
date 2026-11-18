@@ -630,7 +630,7 @@ describe('TeamApplicationService integration', () => {
         application.id,
         { action: APPLICATION_DECISION_ACTIONS.APPROVE },
       ),
-    ).resolves.toMatchObject({ kind: 'APPROVED' });
+    ).resolves.toBeUndefined();
     expect(
       await prisma.teamMember.count({
         where: { teamId: application.teamId },
@@ -782,9 +782,9 @@ describe('TeamApplicationService integration', () => {
             kind: 'completed',
             value: { kind: 'ok' },
           });
-          expect(await approval).toMatchObject({
+          expect(await approval).toEqual({
             kind: 'approved',
-            value: { kind: 'APPROVED' },
+            value: undefined,
           });
           const event = await prisma.outboxEvent.findFirstOrThrow({
             where: { aggregateId: teamId },
@@ -829,14 +829,7 @@ describe('TeamApplicationService integration', () => {
       processedById: ACTOR_ID,
     });
     expect(application.processedAt).toBeInstanceOf(Date);
-    expect(result).toMatchObject({
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: event.id,
-        jobStatus: RepositoryProvisionJobStatus.PENDING,
-      },
-    });
+    expect(result).toBeUndefined();
     expect(event.payload).toMatchObject({
       teamId,
       programId: `${teamId}-program`,
@@ -930,14 +923,7 @@ describe('TeamApplicationService integration', () => {
       },
     );
 
-    expect(result).toMatchObject({
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: false,
-        eventId: null,
-        jobStatus: null,
-      },
-    });
+    expect(result).toBeUndefined();
     await expect(
       prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).resolves.toBe(0);
@@ -1089,15 +1075,14 @@ describe('TeamApplicationService integration', () => {
       },
     );
 
-    const approved = await decision;
-    expect(approved).toMatchObject({
-      kind: 'APPROVED',
-      repositoryProvisioning: { enabled: true },
-    });
+    await decision;
     expect(
-      approved.kind === 'APPROVED'
-        ? approved.repositoryProvisioning.eventId
-        : null,
+      (
+        await prisma.outboxEvent.findUniqueOrThrow({
+          where: { idempotencyKey: `repository-provision:${teamId}` },
+          select: { id: true },
+        })
+      ).id,
     ).not.toBe(existing.id);
     await expect(
       prisma.repositoryIssuanceHistory.findUniqueOrThrow({
@@ -1293,11 +1278,7 @@ describe('TeamApplicationService integration', () => {
       },
     );
 
-    expect(result).toMatchObject({
-      kind: 'REJECTED',
-      status: ApplicationStatus.REJECTED,
-      rejectionReason: '합성 재판정 사유',
-    });
+    expect(result).toBeUndefined();
     await expect(
       prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
     ).resolves.toMatchObject({
@@ -1345,18 +1326,10 @@ describe('TeamApplicationService integration', () => {
       },
     );
 
-    const event = await prisma.outboxEvent.findUniqueOrThrow({
+    await prisma.outboxEvent.findUniqueOrThrow({
       where: { idempotencyKey: `repository-provision:${teamId}` },
     });
-    expect(result).toMatchObject({
-      kind: 'APPROVED',
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: event.id,
-        jobStatus: RepositoryProvisionJobStatus.PENDING,
-      },
-    });
+    expect(result).toBeUndefined();
     const application = await prisma.team.findUniqueOrThrow({
       where: { id: teamId },
     });
@@ -1391,7 +1364,7 @@ describe('TeamApplicationService integration', () => {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유',
       }),
-    ).resolves.toMatchObject({ kind: 'REJECTED' });
+    ).resolves.toBeUndefined();
 
     await expect(
       prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
@@ -1414,7 +1387,7 @@ describe('TeamApplicationService integration', () => {
       service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       }),
-    ).resolves.toMatchObject({ kind: 'REVERTED' });
+    ).resolves.toBeUndefined();
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { teamId },
@@ -1429,14 +1402,13 @@ describe('TeamApplicationService integration', () => {
       },
     );
 
-    expect(reapproved).toMatchObject({
-      kind: 'APPROVED',
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: provisionedEvent.id,
-        jobStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      },
-    });
+    expect(reapproved).toBeUndefined();
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: { idempotencyKey: `repository-provision:${teamId}` },
+        select: { id: true },
+      }),
+    ).resolves.toEqual({ id: provisionedEvent.id });
     await expect(
       prisma.outboxEvent.count({
         where: { aggregateId: teamId, aggregateType: 'Team' },

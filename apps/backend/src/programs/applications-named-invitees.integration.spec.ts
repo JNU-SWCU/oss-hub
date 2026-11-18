@@ -201,7 +201,7 @@ describe('application named invitees integration', () => {
       service.decide({ id: staff, githubId: 9_100_005n }, application.id, {
         action: 'APPROVE',
       }),
-    ).resolves.toMatchObject({ kind: 'APPROVED' });
+    ).resolves.toBeUndefined();
   });
 
   it.each([
@@ -271,7 +271,7 @@ describe('application named invitees integration', () => {
       service.decide({ id: staff, githubId: 9_100_005n }, application.id, {
         action: 'APPROVE',
       }),
-    ).resolves.toMatchObject({ kind: 'APPROVED' });
+    ).resolves.toBeUndefined();
     expect(
       await prisma.teamMember.findMany({
         take: TEST_READ_LIMIT,
