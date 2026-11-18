@@ -29,6 +29,7 @@ import { SETTINGS_ONBOARDING_NOTICE_HEADING } from './settings-onboarding-notice
 import {
   SETTINGS_SAVED_NOTIFICATION as SAVED_NOTIFICATION,
   SETTINGS_SAVED_PROFILE as SAVED_PROFILE,
+  SETTINGS_SAVED_STUDENT_PROFILE as SAVED_STUDENT_PROFILE,
 } from './settings-test-fixtures';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -42,6 +43,7 @@ describe('설정 화면', () => {
   let requests: { url: string; method: string; body: unknown }[];
 
   let notificationResponder: () => Response;
+  let profileResponder: () => Response;
 
   function jsonResponse(value: unknown): Response {
     return new Response(JSON.stringify(value), {
@@ -55,6 +57,7 @@ describe('설정 화면', () => {
     mocks.useSessionRole.mockReset();
     requests = [];
     notificationResponder = () => jsonResponse(SAVED_NOTIFICATION);
+    profileResponder = () => jsonResponse(SAVED_PROFILE);
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -66,9 +69,9 @@ describe('설정 화면', () => {
             : null;
         requests.push({ url, method, body });
         if (url.endsWith('/users/me/profile')) {
-          return jsonResponse(
-            method === 'GET' ? SAVED_PROFILE : { ...SAVED_PROFILE, ...body },
-          );
+          return method === 'GET'
+            ? profileResponder()
+            : jsonResponse({ ...SAVED_PROFILE, ...body });
         }
         if (url.endsWith('/users/me/notification-email')) {
           return notificationResponder();
@@ -159,6 +162,33 @@ describe('설정 화면', () => {
       expect(container.textContent).toContain('저장되었습니다');
     },
   );
+
+  it('이미 불러온 프로필로 참여 프로그램을 그리고 더 요청하지 않는다', async () => {
+    profileResponder = () => jsonResponse(SAVED_STUDENT_PROFILE);
+
+    await render({
+      status: 'assigned',
+      ...accessFor('STUDENT'),
+      isProfileComplete: true,
+    });
+
+    const list = container.querySelector(
+      '[data-slot="user-participation-list"]',
+    );
+    expect(container.textContent).toContain('참여 프로그램');
+    expect(list?.textContent).toContain('합성 오픈소스 프로그램');
+    expect(list?.textContent).toContain('합성 팀 · 팀장');
+    expect(list?.querySelector('a')?.getAttribute('href')).toBe(
+      '/programs/seed%3Ae2e%3Asynthetic-program',
+    );
+    expect(
+      requests.filter(
+        (request) =>
+          !request.url.endsWith('/users/me/profile') &&
+          !request.url.endsWith('/users/me/notification-email'),
+      ),
+    ).toEqual([]);
+  });
 
   it('역할을 기다리는 교직원에게 학번 칸을 보여 주지 않는다', async () => {
     await renderStaffAwaitingRole();
