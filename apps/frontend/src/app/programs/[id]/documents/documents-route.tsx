@@ -7,7 +7,10 @@ import { hasStaffAudience } from '../../../_shell/member-access';
 import { PageBody } from '@/components/page-body';
 import { RequirementChecklistPage } from '../requirement-checklist';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
-import { programDocumentsHref } from '@/lib/program-route';
+import {
+  documentsStageSearch,
+  programDocumentsHref,
+} from '@/lib/program-route';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
 import { ProgramDocumentArchivePanel } from '@/features/programs/documents/program-document-archive-panel';
 import { ProgramDocumentChangeRequestPanel } from '@/features/programs/documents/program-document-change-request-panel';
@@ -18,13 +21,7 @@ function withMilestoneQuery(
   searchParams: URLSearchParams,
   milestoneId: string | null,
 ): string {
-  const next = new URLSearchParams(searchParams.toString());
-  if (milestoneId === null) {
-    next.delete('milestoneId');
-  } else {
-    next.set('milestoneId', milestoneId);
-  }
-  const query = next.toString();
+  const query = documentsStageSearch(searchParams.toString(), milestoneId);
   return `${programDocumentsHref(programId)}${query ? `?${query}` : ''}`;
 }
 

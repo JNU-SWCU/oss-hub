@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  documentsStageSearch,
   programDocumentsHref,
   programEditHref,
   programApplyHref,
@@ -50,6 +51,27 @@ describe('program-route href helpers', () => {
     expect(href).not.toBe(programApplyHref('prog-1'));
 
     expect(href).not.toBe('/programs/prog-1/teams');
+  });
+
+  it('다른 단계로 옮길 때 앞 단계의 서류 선택·페이지를 버린다', () => {
+    expect(
+      documentsStageSearch(
+        'milestoneId=m1&documentId=d1&submissionState=MISSING&page=3&q=hong',
+        'm2',
+      ),
+    ).toBe('milestoneId=m2&q=hong');
+  });
+
+  it('같은 단계를 가리킬 때는 서류 선택·페이지를 그대로 둔다', () => {
+    expect(
+      documentsStageSearch('milestoneId=m1&documentId=d1&page=3', 'm1'),
+    ).toBe('milestoneId=m1&documentId=d1&page=3');
+  });
+
+  it('모든 단계로 돌아갈 때도 단계에 매인 쿼리만 버린다', () => {
+    expect(
+      documentsStageSearch('milestoneId=m1&documentId=d1&page=2&q=hong', null),
+    ).toBe('q=hong');
   });
 
   it('팀 상세 경로는 programId와 teamId를 인코딩한다', () => {

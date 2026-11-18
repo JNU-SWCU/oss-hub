@@ -277,6 +277,43 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('href="/programs/prog-1/documents"');
   });
 
+  it('다른 단계로 가는 링크는 앞 단계의 서류 선택·페이지를 버리고 검색어는 남긴다', () => {
+    const twoStageGroups = programScopeSidebarGroups({
+      programId: 'prog-1',
+      viewerRole: 'STAFF',
+      teamCount: 47,
+      boardPostCount: 3,
+      milestones: [
+        { milestoneId: 'm3', title: '계획서', submissionEnabled: true },
+        { milestoneId: 'm4', title: '중간 보고', submissionEnabled: true },
+      ],
+    });
+    const html = render({
+      groups: twoStageGroups,
+      pathname: '/programs/prog-1/documents',
+      search:
+        'milestoneId=m3&documentId=d1&submissionState=MISSING&page=3&q=hong',
+    });
+
+    expect(html).toContain(
+      'href="/programs/prog-1/documents?milestoneId=m4&amp;q=hong"',
+    );
+    expect(html).not.toMatch(/href="[^"]*milestoneId=m4[^"]*documentId/);
+    expect(html).not.toMatch(/href="[^"]*milestoneId=m4[^"]*page=3/);
+  });
+
+  it('같은 단계를 다시 누르는 링크는 지금 보는 서류 선택을 그대로 둔다', () => {
+    const html = render({
+      groups: staffGroups,
+      pathname: '/programs/prog-1/documents',
+      search: 'milestoneId=m3&documentId=d1&page=3',
+    });
+
+    expect(html).toContain(
+      'href="/programs/prog-1/documents?milestoneId=m3&amp;documentId=d1&amp;page=3"',
+    );
+  });
+
   it('단계 목록이 비어도 오류 문구 없이 나머지 내비게이션을 그대로 그린다', () => {
     const html = render({ groups: staffGroups });
 
