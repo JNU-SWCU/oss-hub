@@ -108,20 +108,17 @@ const systemStatus: SystemStatusResult = {
     },
     { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 1, target: null },
   ],
-  collectionRepositories: [
-    {
-      repositoryName: 'org/repo',
-      programName: 'Program A',
-      lastSuccessAt: at('2026-05-01T00:30:00.000Z'),
-      stale: false,
-    },
-    {
-      repositoryName: 'org/late',
-      programName: null,
-      lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
-      stale: true,
-    },
-  ],
+  staleRepositories: {
+    items: [
+      {
+        repositoryName: 'org/late',
+        programName: null,
+        lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
+      },
+    ],
+    total: 1,
+  },
+
   externalCollection: {
     trackedRepositoryCount: 12,
     lastSuccessAt: at('2026-05-01T00:55:00.000Z'),
@@ -208,7 +205,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           nextCycleAt: null,
           currentRunStatus: 'IDLE',
         },
-        collectionRepositories: [],
+        staleRepositories: { items: [], total: 0 },
         externalCollection: {
           ...systemStatus.externalCollection,
           lastSuccessAt: null,

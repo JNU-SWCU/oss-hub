@@ -5,6 +5,7 @@ import {
   SystemStatusRepository,
   type AdminChangeEventDto,
   type BulkRemovalEventDto,
+  type CollectionRepositoryStatusDto,
   type MailStatusDto,
   type ProvisioningStatusDto,
 } from './system-status.repository';
@@ -42,11 +43,14 @@ interface SystemStatusAnomalyResult {
   } | null;
 }
 
-interface SystemStatusCollectionRepositoryResult {
-  readonly repositoryName: string;
-  readonly programName: string | null;
-  readonly lastSuccessAt: Date | null;
-  readonly stale: boolean;
+interface SystemStatusStaleRepositoryPage {
+  readonly items: readonly CollectionRepositoryStatusDto[];
+  readonly total: number;
+}
+
+export interface SystemStatusQuery {
+  readonly staleRepositoryPage?: number;
+  readonly staleRepositoryLimit?: number;
 }
 
 interface SystemStatusExternalCollectionResult {
@@ -59,11 +63,12 @@ export interface SystemStatusResult {
   readonly provisioning: ProvisioningStatusDto;
   readonly mail: MailStatusDto;
   readonly anomalies: readonly SystemStatusAnomalyResult[];
-  readonly collectionRepositories: readonly SystemStatusCollectionRepositoryResult[];
+  readonly staleRepositories: SystemStatusStaleRepositoryPage;
   readonly externalCollection: SystemStatusExternalCollectionResult;
 }
 
 const ANOMALY_WINDOW_MS = 7 * 24 * 60 * 60_000;
+const STALE_REPOSITORY_PAGE_SIZE = 10;
 const BULK_REMOVAL_WINDOW_MS = 10 * 60_000;
 const BULK_REMOVAL_THRESHOLD = 10;
 const KST_OFFSET_MS = 9 * 60 * 60_000;
@@ -83,12 +88,14 @@ export class SystemStatusService {
     private readonly collectionSchedule: CollectionScheduleService,
   ) {}
 
-  async getStatus(): Promise<SystemStatusResult> {
+  async getStatus(query: SystemStatusQuery = {}): Promise<SystemStatusResult> {
     const now = this.clock();
+    const staleBefore = new Date(now.getTime() - COLLECTION_STALE_AFTER_MS);
     const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(now);
     const since = new Date(now.getTime() - ANOMALY_WINDOW_MS);
     const [
-      repositories,
+      summary,
+      staleRepositories,
       running,
       provisioning,
       externalCollection,
@@ -96,7 +103,11 @@ export class SystemStatusService {
       removals,
       adminChanges,
     ] = await Promise.all([
-      this.repository.getCollectionRepositories(),
+      this.repository.getCollectionRepositorySummary(staleBefore),
+      this.repository.listStaleCollectionRepositories(staleBefore, {
+        page: query.staleRepositoryPage ?? 1,
+        limit: query.staleRepositoryLimit ?? STALE_REPOSITORY_PAGE_SIZE,
+      }),
       this.repository.hasActiveCollectionRun(now),
       this.repository.getProvisioningStatus(),
       this.repository.getExternalCollectionStatus(),
@@ -104,26 +115,9 @@ export class SystemStatusService {
       this.repository.findBulkRemovalEvents(since),
       this.repository.findAdminChangeEvents(since),
     ]);
-    const collectionRepositories = repositories.map((repository) => ({
-      ...repository,
-      stale:
-        repository.lastSuccessAt !== null &&
-        now.getTime() - repository.lastSuccessAt.getTime() >
-          COLLECTION_STALE_AFTER_MS,
-    }));
-    const staleRepositoryCount = collectionRepositories.filter(
-      (repository) => repository.stale,
-    ).length;
-    const lastSuccessAt = collectionRepositories.reduce<Date | null>(
-      (latest, repository) =>
-        repository.lastSuccessAt !== null &&
-        (latest === null || latest < repository.lastSuccessAt)
-          ? repository.lastSuccessAt
-          : latest,
-      null,
-    );
+    const { staleRepositoryCount, lastSuccessAt } = summary;
     const health: CollectionHealthResult =
-      collectionRepositories.length === 0
+      summary.trackedRepositoryCount === 0
         ? 'EMPTY'
         : staleRepositoryCount > 0
           ? 'DELAYED'
@@ -131,7 +125,7 @@ export class SystemStatusService {
     return {
       collection: {
         health,
-        trackedRepositoryCount: collectionRepositories.length,
+        trackedRepositoryCount: summary.trackedRepositoryCount,
         staleRepositoryCount,
         lastSuccessAt,
         nextCycleAt,
@@ -162,7 +156,10 @@ export class SystemStatusService {
         (left, right) =>
           SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity],
       ),
-      collectionRepositories,
+      staleRepositories: {
+        items: staleRepositories,
+        total: staleRepositoryCount,
+      },
       externalCollection,
     };
   }

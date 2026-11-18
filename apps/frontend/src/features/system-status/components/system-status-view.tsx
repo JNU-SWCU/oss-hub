@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type {
   ActionNotice,
   ProvisioningFailedTeam,
+  StaleRepositoryPager,
   SystemStatusViewState,
 } from '../types';
 import { AreaStatusList } from './area-status-list';
@@ -22,6 +23,7 @@ interface SystemStatusViewProps {
   readonly onRetryProvisioning: (team: ProvisioningFailedTeam) => void;
   readonly retryingTeamIds: readonly string[];
   readonly notice: ActionNotice | null;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 }
 
 const PAGE =
@@ -88,6 +90,7 @@ export function SystemStatusView({
   onRetryProvisioning,
   retryingTeamIds,
   notice,
+  staleRepositoryPager,
 }: SystemStatusViewProps) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onReload={onReload} />;
@@ -134,9 +137,8 @@ export function SystemStatusView({
         anomalies={status.anomalies}
         failedTeams={status.provisioning.failedTeams}
         failedTeamsHasMore={status.provisioning.failedTeamsHasMore}
-        staleRepositories={status.collectionRepositories.filter(
-          (repository) => repository.stale,
-        )}
+        staleRepositories={status.staleRepositories}
+        staleRepositoryPager={staleRepositoryPager}
         retryingTeamIds={retryingTeamIds}
         onRetry={onRetryProvisioning}
       />

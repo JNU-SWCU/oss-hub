@@ -513,7 +513,13 @@ describe('Audience authorization HTTP characterization', () => {
           provide: SystemStatusRepository,
           useValue: {
             findActor,
-            getCollectionRepositories: () => Promise.resolve([]),
+            getCollectionRepositorySummary: () =>
+              Promise.resolve({
+                trackedRepositoryCount: 0,
+                staleRepositoryCount: 0,
+                lastSuccessAt: null,
+              }),
+            listStaleCollectionRepositories: () => Promise.resolve([]),
             hasActiveCollectionRun: () => Promise.resolve(false),
             getProvisioningStatus: () =>
               Promise.resolve({

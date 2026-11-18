@@ -8,6 +8,7 @@ import type {
   ActionNotice,
   ProvisioningFailedTeam,
   SystemStatus,
+  StaleRepositoryPager,
   SystemStatusViewState,
 } from '../types';
 
@@ -17,6 +18,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 const api = vi.hoisted(() => ({
+  STALE_REPOSITORY_PAGE_SIZE: 10,
   fetchSystemStatus: vi.fn(),
   triggerCollection: vi.fn(),
   retryProvisioning: vi.fn(),
@@ -32,6 +34,7 @@ type CapturedViewProps = {
   readonly onRetryProvisioning: (team: ProvisioningFailedTeam) => void;
   readonly retryingTeamIds: readonly string[];
   readonly notice: ActionNotice | null;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 };
 
 const captured = vi.hoisted(() => ({
@@ -99,7 +102,7 @@ function statusWith(
               target: null,
             },
           ],
-    collectionRepositories: [],
+    staleRepositories: { items: [], total: 0 },
     externalCollection: { trackedRepositoryCount: 0, lastSuccessAt: null },
   };
 }
@@ -447,48 +450,54 @@ describe('SystemStatusScreen', () => {
   });
 
   describe('지연 저장소', () => {
-    it('더 보기를 누르면 접어 둔 지연 저장소를 펼치고 다시 누르면 접는다', async () => {
-      const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(
-        (name) => `jnu-oss/${name}`,
-      );
-      api.fetchSystemStatus.mockResolvedValue({
-        ...statusWith([]),
-        anomalies: [
-          {
-            rule: 'COLLECTION_STALE',
-            severity: 'MEDIUM',
-            count: names.length,
-            target: null,
-          },
-        ],
-        collectionRepositories: names.map((repositoryName, index) => ({
-          repositoryName,
-          programName: null,
-          lastSuccessAt: new Date(Date.UTC(2026, 10, 16, index)).toISOString(),
-          stale: true,
-        })),
-      } satisfies SystemStatus);
-      await renderScreen();
-      const listed = () =>
-        names.filter((name) => container.textContent?.includes(name));
-      const toggle = (): HTMLButtonElement => {
-        const button = container.querySelector<HTMLButtonElement>(
-          'button[aria-expanded]',
+    it('다음 페이지를 누르면 그 페이지의 지연 저장소를 다시 불러온다', async () => {
+      const total = 12;
+      const pageOf = (page: number) =>
+        Array.from(
+          { length: page === 1 ? 10 : total - 10 },
+          (_, index) => `jnu-oss/p${page}-${index}`,
         );
-        if (button === null) throw new Error('stale repository toggle missing');
-        return button;
+      api.fetchSystemStatus.mockImplementation((page: number) =>
+        Promise.resolve({
+          ...statusWith([]),
+          anomalies: [
+            {
+              rule: 'COLLECTION_STALE',
+              severity: 'MEDIUM',
+              count: total,
+              target: null,
+            },
+          ],
+          staleRepositories: {
+            items: pageOf(page).map((repositoryName) => ({
+              repositoryName,
+              programName: null,
+              lastSuccessAt: '2026-11-16T00:00:00.000Z',
+            })),
+            total,
+          },
+        } satisfies SystemStatus),
+      );
+      await renderScreen();
+      const button = (label: string): HTMLButtonElement => {
+        const found = [
+          ...container.querySelectorAll<HTMLButtonElement>('button'),
+        ].find((candidate) => candidate.textContent === label);
+        if (found === undefined) throw new Error(`${label} button missing`);
+        return found;
       };
 
-      expect(listed()).toEqual(names.slice(0, 5));
-      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(api.fetchSystemStatus).toHaveBeenLastCalledWith(1);
+      expect(container.textContent).toContain('1 / 2 페이지');
+      expect(button('이전').disabled).toBe(true);
 
-      await act(async () => toggle().click());
-      expect(listed()).toEqual(names);
-      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      await act(async () => button('다음').click());
 
-      await act(async () => toggle().click());
-      expect(listed()).toEqual(names.slice(0, 5));
-      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(api.fetchSystemStatus).toHaveBeenLastCalledWith(2);
+      expect(container.textContent).toContain('jnu-oss/p2-1');
+      expect(container.textContent).not.toContain('jnu-oss/p1-0');
+      expect(container.textContent).toContain('2 / 2 페이지');
+      expect(button('다음').disabled).toBe(true);
     });
   });
 

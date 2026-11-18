@@ -7,6 +7,8 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { SystemStatusRepository } from '../admin/system-status.repository';
+import { SystemStatusService } from '../admin/system-status.service';
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { READ_BATCH_SIZE } from '../platform/bounded-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -24,7 +26,17 @@ const systemStatus = new SystemStatusRepository(
   new PlatformRepository(),
 );
 
+const systemStatusService = new SystemStatusService(
+  systemStatus,
+  () => new Date(),
+  new CollectionScheduleService(),
+);
+
 const COUNT = READ_BATCH_SIZE + 1;
+const STALE_PAGE_LIMIT = 10;
+const lastSuccessAt = (index: number) =>
+  new Date(Date.UTC(1971, 0, 1) + index * 60_000);
+let staleBeforeSeed = 0;
 const PREFIX = 'growing-reads-it';
 const APPLICANT_ID = `${PREFIX}-applicant`;
 const FIRST_GITHUB_ID = 8_971_000_000_000n;
@@ -46,6 +58,8 @@ async function purge(): Promise<void> {
 
 beforeAll(async () => {
   await purge();
+  staleBeforeSeed = (await systemStatusService.getStatus()).staleRepositories
+    .total;
   await prisma.user.createMany({
     data: [
       {
@@ -110,6 +124,7 @@ beforeAll(async () => {
       githubRepoId: FIRST_REPO_ID + BigInt(index),
       ownerName: `synthetic-org/${PREFIX}-${String(index).padStart(4, '0')}`,
       source: RepositorySource.ORG_PROVISIONED,
+      lastSuccessAt: lastSuccessAt(index),
     })),
   });
   await prisma.teamRepo.createMany({
@@ -148,10 +163,18 @@ it('reads every published program and its application counts past one batch', as
   expect(counts.every((row) => row.appliedCount === 1)).toBe(true);
 });
 
-it('lists every organization repository past one batch on the system status page', async () => {
-  const repositories = (await systemStatus.getCollectionRepositories()).filter(
-    (repository) => repository.repositoryName.includes(PREFIX),
+it('pages stale organization repositories on the system status page with the full total', async () => {
+  const { staleRepositories, collection } = await systemStatusService.getStatus(
+    { staleRepositoryPage: 1, staleRepositoryLimit: STALE_PAGE_LIMIT },
   );
 
-  expect(repositories).toHaveLength(COUNT);
+  expect(staleRepositories.items).toEqual(
+    indexes.slice(0, STALE_PAGE_LIMIT).map((index) => ({
+      repositoryName: `synthetic-org/${PREFIX}-${String(index).padStart(4, '0')}`,
+      programName: programId(index),
+      lastSuccessAt: lastSuccessAt(index),
+    })),
+  );
+  expect(staleRepositories.total).toBe(staleBeforeSeed + COUNT);
+  expect(collection.staleRepositoryCount).toBe(staleRepositories.total);
 });

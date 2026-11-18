@@ -50,7 +50,8 @@ async function requestRetry(
 }
 
 export function SystemStatusScreen() {
-  const query = useSystemStatusQuery();
+  const [staleRepositoryPage, setStaleRepositoryPage] = useState(1);
+  const query = useSystemStatusQuery(staleRepositoryPage);
   const { refetch } = query;
   const state: SystemStatusViewState =
     query.data !== undefined
@@ -134,6 +135,11 @@ export function SystemStatusScreen() {
       onRetryProvisioning={(team) => void handleRetry(team)}
       retryingTeamIds={retryingTeamIds}
       notice={notice}
+      staleRepositoryPager={{
+        page: staleRepositoryPage,
+        isLoading: query.isPlaceholderData,
+        onPageChange: setStaleRepositoryPage,
+      }}
     />
   );
 }

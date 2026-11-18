@@ -1,12 +1,13 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
 import { fetchSystemStatus } from './api';
 
-export function useSystemStatusQuery() {
+export function useSystemStatusQuery(staleRepositoryPage: number) {
   return useQuery({
-    queryKey: featureKey('system-status'),
-    queryFn: fetchSystemStatus,
+    queryKey: featureKey('system-status', staleRepositoryPage),
+    queryFn: () => fetchSystemStatus(staleRepositoryPage),
+    placeholderData: keepPreviousData,
   });
 }

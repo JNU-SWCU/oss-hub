@@ -10,8 +10,9 @@ import type {
   Anomaly,
   AnomalyRule,
   AnomalySeverity,
-  CollectionRepository,
   ProvisioningFailedTeam,
+  StaleRepositoryPage,
+  StaleRepositoryPager,
 } from '../types';
 import { StaleRepositoryList } from './stale-repository-list';
 
@@ -76,7 +77,8 @@ interface AttentionCardProps extends RetryProps {
   readonly anomalies: readonly Anomaly[];
   readonly failedTeams: readonly ProvisioningFailedTeam[];
   readonly failedTeamsHasMore: boolean;
-  readonly staleRepositories: readonly CollectionRepository[];
+  readonly staleRepositories: StaleRepositoryPage;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 }
 
 function targetLink({
@@ -158,6 +160,7 @@ function AnomalyRow({
   failedTeams,
   failedTeamsHasMore,
   staleRepositories,
+  staleRepositoryPager,
   retryingTeamIds,
   onRetry,
   cardRef,
@@ -165,7 +168,8 @@ function AnomalyRow({
   readonly anomaly: Anomaly;
   readonly failedTeams: readonly ProvisioningFailedTeam[];
   readonly failedTeamsHasMore: boolean;
-  readonly staleRepositories: readonly CollectionRepository[];
+  readonly staleRepositories: StaleRepositoryPage;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 }) {
   const severity = SEVERITY[anomaly.severity];
   const label = RULE_LABEL[anomaly.rule];
@@ -197,8 +201,12 @@ function AnomalyRow({
           </li>
         ) : null}
       </ul>
-    ) : anomaly.rule === 'COLLECTION_STALE' && staleRepositories.length > 0 ? (
-      <StaleRepositoryList repositories={staleRepositories} />
+    ) : anomaly.rule === 'COLLECTION_STALE' &&
+      staleRepositories.items.length > 0 ? (
+      <StaleRepositoryList
+        repositories={staleRepositories}
+        pager={staleRepositoryPager}
+      />
     ) : null;
 
   if (detail === null) {
@@ -231,6 +239,7 @@ export function AttentionCard({
   failedTeams,
   failedTeamsHasMore,
   staleRepositories,
+  staleRepositoryPager,
   retryingTeamIds,
   onRetry,
 }: AttentionCardProps) {
@@ -264,6 +273,7 @@ export function AttentionCard({
                 failedTeams={failedTeams}
                 failedTeamsHasMore={failedTeamsHasMore}
                 staleRepositories={staleRepositories}
+                staleRepositoryPager={staleRepositoryPager}
                 retryingTeamIds={retryingTeamIds}
                 onRetry={onRetry}
                 cardRef={cardRef}

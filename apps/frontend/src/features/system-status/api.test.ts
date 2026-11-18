@@ -32,14 +32,16 @@ const sections = {
   anomalies: [
     { rule: 'PROVISIONING_FAILED', severity: 'HIGH', count: 1, target: null },
   ],
-  collectionRepositories: [
-    {
-      repositoryName: 'jnu-oss/repo-a',
-      programName: null,
-      lastSuccessAt: '2026-07-25T06:00:00.000Z',
-      stale: true,
-    },
-  ],
+  staleRepositories: {
+    items: [
+      {
+        repositoryName: 'jnu-oss/repo-a',
+        programName: null,
+        lastSuccessAt: '2026-07-25T06:00:00.000Z',
+      },
+    ],
+    total: 1,
+  },
   externalCollection: {
     trackedRepositoryCount: 3,
     lastSuccessAt: '2026-07-24T10:00:00.000Z',
@@ -61,16 +63,20 @@ describe('system status api', () => {
   it('GET system-status의 저장소 목록과 외부 수집까지 여섯 구역을 반환한다', async () => {
     const request = stubResponse(sections);
 
-    await expect(fetchSystemStatus()).resolves.toEqual(sections);
-    expect(request).toHaveBeenCalledWith(apiPath('system-status'), undefined);
+    await expect(fetchSystemStatus(2)).resolves.toEqual(sections);
+    expect(request).toHaveBeenCalledWith(
+      apiPath('system-status?staleRepositoryPage=2&staleRepositoryLimit=10'),
+      undefined,
+    );
   });
 
   it('이상 징후와 저장소 목록이 빈 배열이어도 정상 응답으로 받는다', async () => {
-    stubResponse({ ...sections, anomalies: [], collectionRepositories: [] });
+    const emptyPage = { items: [], total: 0 };
+    stubResponse({ ...sections, anomalies: [], staleRepositories: emptyPage });
 
-    await expect(fetchSystemStatus()).resolves.toMatchObject({
+    await expect(fetchSystemStatus(1)).resolves.toMatchObject({
       anomalies: [],
-      collectionRepositories: [],
+      staleRepositories: emptyPage,
     });
   });
 
@@ -79,14 +85,14 @@ describe('system status api', () => {
     'provisioning',
     'mail',
     'anomalies',
-    'collectionRepositories',
+    'staleRepositories',
     'externalCollection',
   ] as const)(
     '%s 구역이 없는 응답은 이상 없음으로 위장하지 않고 거부한다',
     async (missing) => {
       stubResponse({ ...sections, [missing]: undefined });
 
-      await expect(fetchSystemStatus()).rejects.toThrow(
+      await expect(fetchSystemStatus(1)).rejects.toThrow(
         '시스템 상태 응답 형식이 올바르지 않습니다',
       );
     },
@@ -95,7 +101,7 @@ describe('system status api', () => {
   it('본문이 없는 성공 응답도 거부한다', async () => {
     stubResponse(undefined);
 
-    await expect(fetchSystemStatus()).rejects.toThrow(
+    await expect(fetchSystemStatus(1)).rejects.toThrow(
       '시스템 상태 응답 형식이 올바르지 않습니다',
     );
   });
@@ -103,7 +109,7 @@ describe('system status api', () => {
   it('전송 오류를 성공 상태로 위장하지 않고 전파한다', async () => {
     const failure = new TypeError('synthetic transport failure');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(failure));
-    await expect(fetchSystemStatus()).rejects.toBe(failure);
+    await expect(fetchSystemStatus(1)).rejects.toBe(failure);
   });
 });
 

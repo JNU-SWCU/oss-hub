@@ -5,8 +5,10 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { SystemStatusRequestDto } from './dto/system-status-request.dto';
 import { SystemStatusResponseDto } from './dto/system-status-response.dto';
 import { SystemStatusService } from './system-status.service';
 import { Protected } from '../auth/auth-route.decorator';
@@ -28,8 +30,10 @@ export class SystemStatusController {
   @Get()
   @Protected()
   @Roles(ADMIN_AUDIENCE, adminRequired)
-  async getStatus(): Promise<SystemStatusResponseDto> {
-    return SystemStatusResponseDto.from(await this.service.getStatus());
+  async getStatus(
+    @Query() query: SystemStatusRequestDto,
+  ): Promise<SystemStatusResponseDto> {
+    return SystemStatusResponseDto.from(await this.service.getStatus(query));
   }
 
   @Post('provisioning/:teamId/retry')

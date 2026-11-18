@@ -120,20 +120,34 @@ export class SystemStatusAnomalyResponseDto {
   }
 }
 
-export class SystemStatusCollectionRepositoryResponseDto {
+class SystemStatusStaleRepositoryResponseDto {
   declare readonly repositoryName: string;
   declare readonly programName: string | null;
   declare readonly lastSuccessAt: string | null;
-  declare readonly stale: boolean;
 
   static from(
-    repository: SystemStatusResult['collectionRepositories'][number],
-  ): SystemStatusCollectionRepositoryResponseDto {
+    repository: SystemStatusResult['staleRepositories']['items'][number],
+  ): SystemStatusStaleRepositoryResponseDto {
     return {
       repositoryName: repository.repositoryName,
       programName: repository.programName,
       lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
-      stale: repository.stale,
+    };
+  }
+}
+
+export class SystemStatusStaleRepositoryPageResponseDto {
+  declare readonly items: SystemStatusStaleRepositoryResponseDto[];
+  declare readonly total: number;
+
+  static from(
+    page: SystemStatusResult['staleRepositories'],
+  ): SystemStatusStaleRepositoryPageResponseDto {
+    return {
+      items: page.items.map((repository) =>
+        SystemStatusStaleRepositoryResponseDto.from(repository),
+      ),
+      total: page.total,
     };
   }
 }
@@ -157,7 +171,7 @@ export class SystemStatusResponseDto {
   declare readonly provisioning: ProvisioningSystemStatusResponseDto;
   declare readonly mail: MailSystemStatusResponseDto;
   declare readonly anomalies: SystemStatusAnomalyResponseDto[];
-  declare readonly collectionRepositories: SystemStatusCollectionRepositoryResponseDto[];
+  declare readonly staleRepositories: SystemStatusStaleRepositoryPageResponseDto;
   declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
   static from(result: SystemStatusResult): SystemStatusResponseDto {
@@ -170,8 +184,8 @@ export class SystemStatusResponseDto {
       anomalies: result.anomalies.map((anomaly) =>
         SystemStatusAnomalyResponseDto.from(anomaly),
       ),
-      collectionRepositories: result.collectionRepositories.map((repository) =>
-        SystemStatusCollectionRepositoryResponseDto.from(repository),
+      staleRepositories: SystemStatusStaleRepositoryPageResponseDto.from(
+        result.staleRepositories,
       ),
       externalCollection: SystemStatusExternalCollectionResponseDto.from(
         result.externalCollection,

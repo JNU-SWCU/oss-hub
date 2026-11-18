@@ -10,6 +10,12 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 
+export interface CollectionRepositorySummaryDto {
+  readonly trackedRepositoryCount: number;
+  readonly staleRepositoryCount: number;
+  readonly lastSuccessAt: Date | null;
+}
+
 export interface CollectionRepositoryStatusDto {
   readonly repositoryName: string;
   readonly programName: string | null;
@@ -216,58 +222,64 @@ export class SystemStatusRepository {
     return active > 0;
   }
 
-  async getCollectionRepositories(): Promise<
-    readonly CollectionRepositoryStatusDto[]
-  > {
-    const repositories = await this.boundedReads.readAllInBatches(
-      (
-        after:
-          | { readonly ownerName: string; readonly githubRepoId: bigint }
-          | undefined,
-        take,
-      ) =>
-        this.prisma.repo.findMany({
-          take,
-          where: {
-            presence: 'PRESENT',
-            source: 'ORG_PROVISIONED',
-            ...this.platform.collectionTargetRepoWhere(),
-            ...(after === undefined
-              ? {}
-              : {
-                  OR: [
-                    { ownerName: { gt: after.ownerName } },
-                    {
-                      ownerName: after.ownerName,
-                      githubRepoId: { gt: after.githubRepoId },
-                    },
-                  ],
-                }),
-          },
-          orderBy: [{ ownerName: 'asc' }, { githubRepoId: 'asc' }],
-          select: {
-            githubRepoId: true,
-            ownerName: true,
-            lastSuccessAt: true,
-            teamRepos: {
-              where: { validTo: null },
-              take: 1,
-              select: {
-                team: { select: { program: { select: { name: true } } } },
-              },
-            },
-          },
-        }),
-      (repository) => ({
-        ownerName: repository.ownerName,
-        githubRepoId: repository.githubRepoId,
+  async getCollectionRepositorySummary(
+    staleBefore: Date,
+  ): Promise<CollectionRepositorySummaryDto> {
+    const where = this.orgRepositoryWhere();
+    const [tracked, stale] = await Promise.all([
+      this.prisma.repo.aggregate({
+        where,
+        _count: { _all: true },
+        _max: { lastSuccessAt: true },
       }),
-    );
+      this.prisma.repo.count({
+        where: { ...where, lastSuccessAt: { lt: staleBefore } },
+      }),
+    ]);
+    return {
+      trackedRepositoryCount: tracked._count._all,
+      staleRepositoryCount: stale,
+      lastSuccessAt: tracked._max.lastSuccessAt,
+    };
+  }
+
+  async listStaleCollectionRepositories(
+    staleBefore: Date,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<readonly CollectionRepositoryStatusDto[]> {
+    const repositories = await this.prisma.repo.findMany({
+      take: page.limit,
+      skip: (page.page - 1) * page.limit,
+      where: {
+        ...this.orgRepositoryWhere(),
+        lastSuccessAt: { lt: staleBefore },
+      },
+      orderBy: [{ lastSuccessAt: 'asc' }, { githubRepoId: 'asc' }],
+      select: {
+        ownerName: true,
+        lastSuccessAt: true,
+        teamRepos: {
+          where: { validTo: null },
+          take: 1,
+          select: {
+            team: { select: { program: { select: { name: true } } } },
+          },
+        },
+      },
+    });
     return repositories.map((repository) => ({
       repositoryName: repository.ownerName,
       programName: repository.teamRepos[0]?.team.program.name ?? null,
       lastSuccessAt: repository.lastSuccessAt,
     }));
+  }
+
+  private orgRepositoryWhere() {
+    return {
+      presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
+      ...this.platform.collectionTargetRepoWhere(),
+    } satisfies Prisma.RepoWhereInput;
   }
 
   async getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto> {

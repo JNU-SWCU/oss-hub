@@ -312,15 +312,12 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     );
     const trackedCount = async (): Promise<number> =>
       source === 'ORG_PROVISIONED'
-        ? (await status.getCollectionRepositories()).length
+        ? (await status.getCollectionRepositorySummary(observedAt))
+            .trackedRepositoryCount
         : (await status.getExternalCollectionStatus()).trackedRepositoryCount;
     const beforeTracked = await trackedCount();
     expect(beforeTracked).toBeGreaterThan(0);
-    if (source === 'ORG_PROVISIONED') {
-      expect(await status.getCollectionRepositories()).toEqual(
-        expect.arrayContaining([expect.objectContaining({ repositoryName })]),
-      );
-    } else {
+    if (source === 'EXTERNAL_PUBLIC') {
       expect(await collection.listCollectionTargets('EXTERNAL_PUBLIC')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ githubRepositoryId: targetGithubId + 1n }),
@@ -363,12 +360,7 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       }),
     ).rejects.toThrow('team_repo_team_id_period_excl');
     expect(await trackedCount()).toBe(beforeTracked - 1);
-    if (source === 'ORG_PROVISIONED') {
-      const repositories = await status.getCollectionRepositories();
-      expect(
-        repositories.some((row) => row.repositoryName === repositoryName),
-      ).toBe(false);
-    } else {
+    if (source === 'EXTERNAL_PUBLIC') {
       expect(
         (await collection.listCollectionTargets('EXTERNAL_PUBLIC')).some(
           (row) => row.githubRepositoryId === targetGithubId + 1n,

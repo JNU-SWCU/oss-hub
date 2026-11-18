@@ -810,7 +810,27 @@
     "/api/v1/system-status": {
       "get": {
         "operationId": "SystemStatusController_getStatus",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "staleRepositoryPage",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "staleRepositoryLimit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "type": "number"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -6431,7 +6451,7 @@
           "target"
         ]
       },
-      "SystemStatusCollectionRepositoryResponseDto": {
+      "SystemStatusStaleRepositoryResponseDto": {
         "type": "object",
         "properties": {
           "repositoryName": {
@@ -6444,16 +6464,30 @@
           "lastSuccessAt": {
             "type": "string",
             "nullable": true
-          },
-          "stale": {
-            "type": "boolean"
           }
         },
         "required": [
           "repositoryName",
           "programName",
-          "lastSuccessAt",
-          "stale"
+          "lastSuccessAt"
+        ]
+      },
+      "SystemStatusStaleRepositoryPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemStatusStaleRepositoryResponseDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total"
         ]
       },
       "SystemStatusExternalCollectionResponseDto": {
@@ -6490,11 +6524,8 @@
               "$ref": "#/components/schemas/SystemStatusAnomalyResponseDto"
             }
           },
-          "collectionRepositories": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SystemStatusCollectionRepositoryResponseDto"
-            }
+          "staleRepositories": {
+            "$ref": "#/components/schemas/SystemStatusStaleRepositoryPageResponseDto"
           },
           "externalCollection": {
             "$ref": "#/components/schemas/SystemStatusExternalCollectionResponseDto"
@@ -6505,7 +6536,7 @@
           "provisioning",
           "mail",
           "anomalies",
-          "collectionRepositories",
+          "staleRepositories",
           "externalCollection"
         ]
       },

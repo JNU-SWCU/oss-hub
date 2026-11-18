@@ -24,6 +24,7 @@ function repository(
 }
 
 const SEVEN_DAYS_AGO = new Date('2026-07-18T12:00:00.000Z');
+const TWO_HOURS_AGO = new Date('2026-07-25T10:00:00.000Z');
 
 function provisioning(
   overrides: Partial<ProvisioningStatusDto> = {},
@@ -67,7 +68,8 @@ function externalStatus(
 }
 
 describe('SystemStatusService', () => {
-  const getCollectionRepositories = jest.fn();
+  const getCollectionRepositorySummary = jest.fn();
+  const listStaleCollectionRepositories = jest.fn();
   const hasActiveCollectionRun = jest.fn();
   const getExternalCollectionStatus = jest.fn();
   const getProvisioningStatus = jest.fn();
@@ -80,7 +82,8 @@ describe('SystemStatusService', () => {
       getMailStatus,
       findBulkRemovalEvents,
       findAdminChangeEvents,
-      getCollectionRepositories,
+      getCollectionRepositorySummary,
+      listStaleCollectionRepositories,
       hasActiveCollectionRun,
       getExternalCollectionStatus,
     } as unknown as SystemStatusRepository,
@@ -89,12 +92,12 @@ describe('SystemStatusService', () => {
   );
 
   beforeEach(() => {
-    getCollectionRepositories
-      .mockReset()
-      .mockResolvedValue([
-        repository('org/alpha', new Date('2026-07-25T11:55:00.000Z')),
-        repository('org/beta', new Date('2026-07-25T11:00:00.000Z')),
-      ]);
+    getCollectionRepositorySummary.mockReset().mockResolvedValue({
+      trackedRepositoryCount: 2,
+      staleRepositoryCount: 0,
+      lastSuccessAt: new Date('2026-07-25T11:55:00.000Z'),
+    });
+    listStaleCollectionRepositories.mockReset().mockResolvedValue([]);
     hasActiveCollectionRun.mockReset().mockResolvedValue(false);
     nextScheduledAt
       .mockReset()
@@ -106,7 +109,7 @@ describe('SystemStatusService', () => {
     findAdminChangeEvents.mockReset().mockResolvedValue([]);
   });
 
-  it('저장소마다 repo.last_success_at과 지연 여부를 돌려준다', async () => {
+  it('수집 요약과 지연 저장소 페이지를 돌려준다', async () => {
     await expect(service.getStatus()).resolves.toEqual({
       collection: {
         health: 'NORMAL',
@@ -119,19 +122,18 @@ describe('SystemStatusService', () => {
       provisioning: provisioning(),
       mail: mail(),
       anomalies: [],
-      collectionRepositories: [
-        {
-          ...repository('org/alpha', new Date('2026-07-25T11:55:00.000Z')),
-          stale: false,
-        },
-        {
-          ...repository('org/beta', new Date('2026-07-25T11:00:00.000Z')),
-          stale: false,
-        },
-      ],
+      staleRepositories: { items: [], total: 0 },
       externalCollection: { trackedRepositoryCount: 0, lastSuccessAt: null },
     });
     expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
+    expect(getCollectionRepositorySummary).toHaveBeenCalledWith(TWO_HOURS_AGO);
+    expect(listStaleCollectionRepositories).toHaveBeenCalledWith(
+      TWO_HOURS_AGO,
+      {
+        page: 1,
+        limit: 10,
+      },
+    );
     expect(hasActiveCollectionRun).toHaveBeenCalledWith(NOW);
     expect(getMailStatus).toHaveBeenCalledWith(SEVEN_DAYS_AGO);
     expect(findBulkRemovalEvents).toHaveBeenCalledWith(SEVEN_DAYS_AGO);
@@ -139,7 +141,11 @@ describe('SystemStatusService', () => {
   });
 
   it('추적 중인 저장소가 없으면 EMPTY다', async () => {
-    getCollectionRepositories.mockResolvedValue([]);
+    getCollectionRepositorySummary.mockResolvedValue({
+      trackedRepositoryCount: 0,
+      staleRepositoryCount: 0,
+      lastSuccessAt: null,
+    });
 
     const { collection } = await service.getStatus();
 
@@ -150,39 +156,37 @@ describe('SystemStatusService', () => {
     });
   });
 
-  it('마지막 성공이 2시간보다 오래된 저장소가 하나라도 있으면 DELAYED다', async () => {
-    getCollectionRepositories.mockResolvedValue([
-      repository('org/alpha', new Date('2026-07-25T11:55:00.000Z')),
+  it('지연 저장소가 하나라도 있으면 DELAYED이고 요청한 페이지와 총수를 싣는다', async () => {
+    getCollectionRepositorySummary.mockResolvedValue({
+      trackedRepositoryCount: 30,
+      staleRepositoryCount: 12,
+      lastSuccessAt: new Date('2026-07-25T11:55:00.000Z'),
+    });
+    listStaleCollectionRepositories.mockResolvedValue([
       repository('org/beta', new Date('2026-07-25T09:59:59.999Z')),
     ]);
 
-    const result = await service.getStatus();
+    const result = await service.getStatus({
+      staleRepositoryPage: 2,
+      staleRepositoryLimit: 11,
+    });
 
     expect(result.collection).toMatchObject({
       health: 'DELAYED',
-      staleRepositoryCount: 1,
+      trackedRepositoryCount: 30,
+      staleRepositoryCount: 12,
     });
-    expect(
-      result.collectionRepositories.map(({ repositoryName, stale }) => [
-        repositoryName,
-        stale,
-      ]),
-    ).toEqual([
-      ['org/alpha', false],
-      ['org/beta', true],
-    ]);
-  });
-
-  it('정확히 2시간 된 성공과 아직 수집되지 않은 저장소는 지연이 아니다', async () => {
-    getCollectionRepositories.mockResolvedValue([
-      repository('org/alpha', new Date('2026-07-25T10:00:00.000Z')),
-      repository('org/new', null),
-    ]);
-
-    const { collection, collectionRepositories } = await service.getStatus();
-
-    expect(collection.health).toBe('NORMAL');
-    expect(collectionRepositories.every((row) => !row.stale)).toBe(true);
+    expect(result.staleRepositories).toEqual({
+      items: [repository('org/beta', new Date('2026-07-25T09:59:59.999Z'))],
+      total: 12,
+    });
+    expect(listStaleCollectionRepositories).toHaveBeenCalledWith(
+      TWO_HOURS_AGO,
+      {
+        page: 2,
+        limit: 11,
+      },
+    );
   });
 
   it('만료되지 않은 수집 잠금이 있으면 PROCESSING이다', async () => {
@@ -332,9 +336,11 @@ describe('SystemStatusService', () => {
     });
 
     it('최종 실패한 발급, 지연된 수집, 실패한 메일을 대상 없이 내고 HIGH를 먼저 둔다', async () => {
-      getCollectionRepositories.mockResolvedValue([
-        repository('org/late', new Date('2026-07-25T09:00:00.000Z')),
-      ]);
+      getCollectionRepositorySummary.mockResolvedValue({
+        trackedRepositoryCount: 1,
+        staleRepositoryCount: 1,
+        lastSuccessAt: new Date('2026-07-25T09:00:00.000Z'),
+      });
       getMailStatus.mockResolvedValue(mail({ failed7d: 2 }));
       getProvisioningStatus.mockResolvedValue(provisioning({ failedFinal: 3 }));
 

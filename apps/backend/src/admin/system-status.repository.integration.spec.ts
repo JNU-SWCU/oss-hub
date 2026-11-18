@@ -139,12 +139,13 @@ afterAll(async () => {
 });
 
 it('drops a detached organization repository from the tracked set', async () => {
-  const before = await status.getCollectionRepositories();
+  const now = new Date();
+  const before = await status.getCollectionRepositorySummary(now);
 
   await service.updateMine(githubId, programId, input);
 
-  const after = await status.getCollectionRepositories();
-  expect(after).toHaveLength(before.length - 1);
+  const after = await status.getCollectionRepositorySummary(now);
+  expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount - 1);
 });
 
 it('reads each tracked organization repository success time from the repo ledger', async () => {
@@ -154,13 +155,9 @@ it('reads each tracked organization repository success time from the repo ledger
     data: { lastSuccessAt: succeededAt },
   });
 
-  const repositories = await status.getCollectionRepositories();
-
   expect(
-    repositories
-      .filter((repository) => repository.repositoryName === tracked.ownerName)
-      .map((repository) => repository.lastSuccessAt),
-  ).toContainEqual(succeededAt);
+    (await status.getCollectionRepositorySummary(succeededAt)).lastSuccessAt,
+  ).toEqual(tracked.lastSuccessAt);
   expect((await statusService.getStatus()).collection.lastSuccessAt).toEqual(
     succeededAt,
   );
