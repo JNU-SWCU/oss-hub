@@ -18,9 +18,10 @@ import {
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailController } from './program-mail.controller';
+import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailRateLimitService } from './program-mail-rate-limit.service';
 import { ProgramMailRepository } from './program-mail.repository';
+import { ProgramMailSendRepository } from './program-mail-send.repository';
 import { ProgramMailService } from './program-mail.service';
 import { ProgramMailTemplateService } from './program-mail-template.service';
 
@@ -41,8 +42,9 @@ import { ProgramMailTemplateService } from './program-mail-template.service';
     DeadlineDigestMailService,
     ProgramMailAuditRepository,
     ProgramMailRepository,
+    ProgramMailDeliveryRepository,
+    ProgramMailSendRepository,
     ProgramMailDeliveryService,
-    ProgramMailRateLimitService,
     ProgramMailService,
     ProgramMailTemplateService,
     mailSenderProvider,

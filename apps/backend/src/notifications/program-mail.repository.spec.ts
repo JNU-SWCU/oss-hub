@@ -2,7 +2,6 @@ import { Test } from '@nestjs/testing';
 import { ApplicationStatus, type Prisma } from '@prisma/client';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailRepository } from './program-mail.repository';
 
 const findUnique = jest.fn<Promise<unknown>, [Prisma.ProgramFindUniqueArgs]>();
@@ -37,10 +36,6 @@ it('reads every team status and nested applicant data in one bounded query', asy
   const moduleRef = await Test.createTestingModule({
     providers: [
       ProgramMailRepository,
-      {
-        provide: ProgramMailAuditRepository,
-        useValue: { recordSend: jest.fn() },
-      },
       {
         provide: PrismaService,
         useValue: { program: { findUnique } },

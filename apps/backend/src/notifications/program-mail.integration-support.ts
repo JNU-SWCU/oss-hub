@@ -10,6 +10,8 @@ import { AuthService } from '../auth/auth.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { OriginGuard } from '../platform/origin.guard';
+import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
+import type { MailSender } from './gmail-mail.client';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import type { PrismaService } from '../platform/prisma.service';
 import {
@@ -19,12 +21,13 @@ import {
 } from './deadline-digest.integration-support';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailController } from './program-mail.controller';
+import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailRateLimitService } from './program-mail-rate-limit.service';
 import {
   ProgramMailRepository,
   type ProgramMailAudience,
 } from './program-mail.repository';
+import { ProgramMailSendRepository } from './program-mail-send.repository';
 import { ProgramMailService } from './program-mail.service';
 import { ProgramMailTemplateService } from './program-mail-template.service';
 
@@ -44,6 +47,8 @@ type ConfirmedProgramMail = {
 export type ProgramMailIntegrationWorld = {
   readonly prisma: PrismaService;
   readonly mailSender: RecordingMailSender;
+  createService(mailSender: MailSender): ProgramMailService;
+  principal(githubId: bigint): Promise<ActiveAccountPrincipal>;
   endpoint(action: 'recipients' | 'preview' | 'send'): string;
   sessionCookie(githubId: bigint): Promise<string>;
   cookieForUser(userId: string): Promise<string>;
@@ -68,19 +73,21 @@ export type ProgramMailIntegrationWorld = {
 export async function startProgramMailIntegration(): Promise<ProgramMailIntegrationWorld> {
   const harness = createDeadlineDigestIntegrationHarness();
   const mailSender = new RecordingMailSender();
-  const repository = new ProgramMailRepository(
-    harness.prisma,
-    new ProgramMailAuditRepository(harness.prisma),
-  );
-  const service = new ProgramMailService(
-    repository,
-    new ProgramMailDeliveryService(
-      repository,
-      mailSender,
-      new ProgramMailTemplateService(),
-    ),
-    new ProgramMailRateLimitService(),
-  );
+  const repository = new ProgramMailRepository(harness.prisma);
+  const createService = (sender: MailSender) =>
+    new ProgramMailService(
+      new ProgramMailRepository(harness.prisma),
+      new ProgramMailDeliveryService(
+        new ProgramMailSendRepository(
+          harness.prisma,
+          new ProgramMailAuditRepository(),
+          new ProgramMailDeliveryRepository(harness.prisma),
+        ),
+        sender,
+        new ProgramMailTemplateService(),
+      ),
+    );
+  const service = createService(mailSender);
   const sessions = new AuthSessionService();
   const sessionSecret = new Uint8Array(32).fill(8);
   await harness.connect();
@@ -147,6 +154,8 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
   return {
     prisma: harness.prisma,
     mailSender,
+    createService,
+    principal: (githubId) => databaseSessionPrincipal(harness.prisma, githubId),
     endpoint,
     sessionCookie,
     cookieForUser: async (userId) => {
@@ -196,7 +205,7 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
     reset: async () => {
       mailSender.sent.length = 0;
       await harness.prisma.notification.deleteMany({
-        where: { type: 'PROGRAM_MAIL' },
+        where: { type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] } },
       });
       await harness.prisma.team.updateMany({
         where: {

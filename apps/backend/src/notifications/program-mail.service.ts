@@ -14,7 +14,6 @@ import {
 } from './program-mail.repository';
 import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailRateLimitService } from './program-mail-rate-limit.service';
 
 const PREVIEW_TTL_MS = 10 * 60 * 1000;
 const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
@@ -80,8 +79,8 @@ export class ProgramMailService {
   constructor(
     @Inject(ProgramMailRepository)
     private readonly repository: ProgramMailRepositoryPort,
-    private readonly delivery: ProgramMailDeliveryService,
-    private readonly rateLimit: ProgramMailRateLimitService,
+    @Inject(ProgramMailDeliveryService)
+    private readonly delivery: Pick<ProgramMailDeliveryService, 'send'>,
   ) {}
 
   async recipients(
@@ -139,30 +138,20 @@ export class ProgramMailService {
     if (prepared.previewVersion !== request.previewVersion) {
       this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
     }
-    const release = this.rateLimit.begin({
-      actorId: sender.id,
-      programId,
-      idempotencyKey: prepared.previewVersion,
-      now,
-    });
-    try {
-      return {
-        ...(await this.delivery.send({
-          actorId: sender.id,
-          programId,
-          programName: prepared.programName,
-          senderName: prepared.senderName,
-          subject: prepared.subject,
-          body: prepared.body,
-          previewVersion: prepared.previewVersion,
-          occurredAt: now,
-          recipients: prepared.recipients,
-        })),
+    return {
+      ...(await this.delivery.send({
+        actorId: sender.id,
+        programId,
+        programName: prepared.programName,
+        senderName: prepared.senderName,
+        subject: prepared.subject,
+        body: prepared.body,
         previewVersion: prepared.previewVersion,
-      };
-    } finally {
-      release();
-    }
+        occurredAt: now,
+        recipients: prepared.recipients,
+      })),
+      previewVersion: prepared.previewVersion,
+    };
   }
 
   private async requireAudience(

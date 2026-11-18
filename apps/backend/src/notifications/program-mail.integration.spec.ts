@@ -2,6 +2,9 @@ import { createAuditLogReadService } from '../platform/audit-log-mapping.fixture
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
+import { registerProgramMailActiveLimitCase } from './program-mail-active-limit.integration-fixtures';
+import { registerProgramMailAuditRecoveryCase } from './program-mail-audit-recovery.integration-fixtures';
+import { registerProgramMailConcurrencyCases } from './program-mail-concurrency.integration-fixtures';
 import {
   startProgramMailIntegration,
   type ProgramMailIntegrationWorld,
@@ -175,6 +178,10 @@ it('rejects a recipient who belongs to another program', async () => {
     await world.prisma.user.delete({ where: { id: externalUserId } });
   }
 });
+
+registerProgramMailConcurrencyCases(() => world);
+registerProgramMailActiveLimitCase(() => world);
+registerProgramMailAuditRecoveryCase(() => world);
 
 it('revalidates program membership at send time', async () => {
   const cookie = await world.sessionCookie(DIGEST_FIXTURE.staffOnGithub);

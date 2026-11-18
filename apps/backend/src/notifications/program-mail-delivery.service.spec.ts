@@ -1,6 +1,7 @@
 import type { MailSender } from './gmail-mail.client';
+import type { ProgramMailDeliveryStore } from './program-mail-delivery.repository';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import type { ProgramMailRepositoryPort } from './program-mail.repository';
+import type { ProgramMailSendRepository } from './program-mail-send.repository';
 import { ProgramMailTemplateService } from './program-mail-template.service';
 
 function deferred(): {
@@ -38,12 +39,16 @@ async function bounded(event: Promise<void>): Promise<void> {
   }
 }
 
-it('delivers recipients in sequential batches of ten and writes one audit', async () => {
-  const repository: jest.Mocked<ProgramMailRepositoryPort> = {
-    findAudience: jest.fn(),
+it('delivers recipients in sequential batches of ten', async () => {
+  const transaction: jest.Mocked<ProgramMailDeliveryStore> = {
+    key: jest.fn(
+      (previewVersion, userId) => `program-mail:${previewVersion}:${userId}`,
+    ),
     claimNotification: jest.fn().mockResolvedValue(true),
     completeNotification: jest.fn().mockResolvedValue(undefined),
-    recordSendAudit: jest.fn().mockResolvedValue(undefined),
+  };
+  const repository: jest.Mocked<Pick<ProgramMailSendRepository, 'run'>> = {
+    run: jest.fn((_input, deliver) => deliver(transaction)),
   };
   const reached = new Map([
     [10, deferred()],
@@ -105,5 +110,5 @@ it('delivers recipients in sequential batches of ten and writes one audit', asyn
     failedCount: 0,
   });
   expect(maxActive).toBe(10);
-  expect(repository.recordSendAudit.mock.calls).toHaveLength(1);
+  expect(repository.run.mock.calls).toHaveLength(1);
 });

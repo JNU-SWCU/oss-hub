@@ -3,10 +3,6 @@ import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  ProgramMailAuditRepository,
-  type ProgramMailAuditInput,
-} from './program-mail-audit.repository';
 
 export type ProgramMailApplicant = {
   readonly id: string;
@@ -30,24 +26,11 @@ export type ProgramMailAudience = {
   readonly teams: readonly ProgramMailTeam[];
 };
 
-export type ProgramMailNotificationStatus = 'SENT' | 'FAILED';
-
 export interface ProgramMailRepositoryPort {
   findAudience(
     programId: string,
     window: { readonly from: Date; readonly to: Date },
   ): Promise<ProgramMailAudience | null>;
-  claimNotification(
-    userId: string,
-    idempotencyKey: string,
-    payload: Prisma.InputJsonValue,
-  ): Promise<boolean>;
-  completeNotification(
-    idempotencyKey: string,
-    status: ProgramMailNotificationStatus,
-    payload: Prisma.InputJsonValue,
-  ): Promise<void>;
-  recordSendAudit(input: ProgramMailAuditInput): Promise<void>;
 }
 
 const applicantSelect = {
@@ -66,7 +49,6 @@ export class ProgramMailRepository implements ProgramMailRepositoryPort {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
-    private readonly audit: ProgramMailAuditRepository,
   ) {}
 
   async findAudience(
@@ -177,54 +159,5 @@ export class ProgramMailRepository implements ProgramMailRepositoryPort {
         };
       }),
     };
-  }
-
-  async claimNotification(
-    userId: string,
-    idempotencyKey: string,
-    payload: Prisma.InputJsonValue,
-  ): Promise<boolean> {
-    try {
-      await this.prisma.notification.create({
-        data: {
-          userId,
-          idempotencyKey,
-          type: 'PROGRAM_MAIL',
-          payload,
-          channel: 'EMAIL',
-          status: 'PENDING',
-        },
-      });
-      return true;
-    } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2002'
-      ) {
-        return false;
-      }
-      throw error;
-    }
-  }
-
-  async completeNotification(
-    idempotencyKey: string,
-    status: ProgramMailNotificationStatus,
-    payload: Prisma.InputJsonValue,
-  ): Promise<void> {
-    await this.prisma.notification.update({
-      where: { idempotencyKey },
-      data: {
-        status,
-        payload,
-        sentAt: status === 'SENT' ? new Date() : null,
-      },
-    });
-  }
-
-  recordSendAudit(input: ProgramMailAuditInput): Promise<void> {
-    return this.audit.recordSend(input);
   }
 }

@@ -1,19 +1,15 @@
-import { createHash } from 'node:crypto';
 import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
-import type { MailSender } from './gmail-mail.client';
 import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
 } from './notifications-error-code.error';
+import type { ProgramMailDeliveryService } from './program-mail-delivery.service';
 import type {
   ProgramMailAudience,
   ProgramMailRepositoryPort,
 } from './program-mail.repository';
-import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailRateLimitService } from './program-mail-rate-limit.service';
 import { ProgramMailService } from './program-mail.service';
-import { ProgramMailTemplateService } from './program-mail-template.service';
 
 const sender: ActiveAccountPrincipal = {
   id: 'staff-1',
@@ -54,30 +50,23 @@ const audience: ProgramMailAudience = {
 function harness() {
   const repository: jest.Mocked<ProgramMailRepositoryPort> = {
     findAudience: jest.fn().mockResolvedValue(audience),
-    claimNotification: jest.fn().mockResolvedValue(true),
-    completeNotification: jest.fn().mockResolvedValue(undefined),
-    recordSendAudit: jest.fn().mockResolvedValue(undefined),
   };
-  const mailSender: jest.Mocked<MailSender> = {
-    send: jest.fn().mockResolvedValue(undefined),
+  const delivery: jest.Mocked<Pick<ProgramMailDeliveryService, 'send'>> = {
+    send: jest.fn().mockResolvedValue({
+      sentCount: 1,
+      duplicateCount: 0,
+      failedCount: 0,
+    }),
   };
   return {
     repository,
-    mailSender,
-    service: new ProgramMailService(
-      repository,
-      new ProgramMailDeliveryService(
-        repository,
-        mailSender,
-        new ProgramMailTemplateService(),
-      ),
-      new ProgramMailRateLimitService(),
-    ),
+    delivery,
+    service: new ProgramMailService(repository, delivery),
   };
 }
 
-it('rejects an applicant id that does not belong to the program before claiming mail', async () => {
-  const { service, repository, mailSender } = harness();
+it('rejects an applicant id that does not belong to the program before delivery', async () => {
+  const { service, delivery } = harness();
 
   await expect(
     service.preview('program-1', sender, {
@@ -91,8 +80,7 @@ it('rejects an applicant id that does not belong to the program before claiming 
         NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_INVALID
       ],
   });
-  expect(repository.claimNotification.mock.calls).toHaveLength(0);
-  expect(mailSender.send.mock.calls).toHaveLength(0);
+  expect(delivery.send.mock.calls).toHaveLength(0);
 });
 
 it('rejects a selected applicant whose notification settings do not permit mail', async () => {
@@ -152,8 +140,8 @@ it('rejects a send that exceeds the bounded recipient limit', async () => {
   });
 });
 
-it('sends the confirmed preview once and deduplicates a repeated confirmation', async () => {
-  const { service, repository, mailSender } = harness();
+it('passes a confirmed preview to the durable delivery owner', async () => {
+  const { service, delivery } = harness();
   const now = new Date('2026-11-18T00:00:00.000Z');
   const draft = {
     subject: '안내 제목',
@@ -162,41 +150,28 @@ it('sends the confirmed preview once and deduplicates a repeated confirmation', 
   };
   const preview = await service.preview('program-1', sender, draft, now);
 
-  const first = await service.send(
-    'program-1',
-    sender,
-    { ...draft, ...preview },
-    now,
-  );
-  repository.claimNotification.mockResolvedValue(false);
-  const repeated = await service.send(
+  const result = await service.send(
     'program-1',
     sender,
     { ...draft, ...preview },
     now,
   );
 
-  expect(first).toMatchObject({ sentCount: 1, duplicateCount: 0 });
-  expect(repeated).toMatchObject({ sentCount: 0, duplicateCount: 1 });
-  expect(mailSender.send.mock.calls).toHaveLength(1);
-  const sentMail = mailSender.send.mock.calls[0]?.[0];
-  expect(sentMail?.to).toBe('student@example.com');
-  expect(sentMail?.subject).toBe('[oss-hub] 안내 제목');
-  expect(sentMail?.body).toContain('보낸 사람: 담당 교직원');
-  expect(sentMail?.html).toContain('이 메일은 oss-hub에서 발송했습니다.');
-  const audit = repository.recordSendAudit.mock.calls[0]?.[0];
-  expect(audit).toMatchObject({
-    actorId: 'staff-1',
-    programId: 'program-1',
-    recipientIds: ['student-1'],
-    subject: '안내 제목',
-    bodyLength: 5,
-    bodyHash: createHash('sha256').update('안내 본문').digest('hex'),
-    sentCount: 1,
-    duplicateCount: 0,
-    failedCount: 0,
-  });
-  expect(audit?.idempotencyKey).toBe(
-    `program-mail-send:${preview.previewVersion}`,
-  );
+  expect(result).toMatchObject({ sentCount: 1, duplicateCount: 0 });
+  expect(delivery.send.mock.calls).toEqual([
+    [
+      expect.objectContaining({
+        actorId: 'staff-1',
+        programId: 'program-1',
+        previewVersion: preview.previewVersion,
+        occurredAt: now,
+        recipients: [
+          expect.objectContaining({
+            id: 'student-1',
+            notificationEmail: 'student@example.com',
+          }),
+        ],
+      }),
+    ],
+  ]);
 });
