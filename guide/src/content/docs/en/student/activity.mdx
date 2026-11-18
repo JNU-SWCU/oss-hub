@@ -37,11 +37,14 @@ Teams without a repository or collected activity show a reason instead of a char
 
 ## Rankings
 
-You can open `랭킹` (Rankings) at the top without signing in. Rankings total Commit, PR, Issue, Repo, and Star. Star combines two counts: stars on your own public repositories, and stars on your organization's public repositories to which you personally committed or submitted a PR that year.
+You can open `랭킹` (Rankings) at the top without signing in. Rankings total commits, PRs, issues, repositories and stars. The tooltip beside the title says `스타는 직접 커밋·PR한 공개 저장소의 것만 인정됩니다.` — only stars on public repositories you committed to or raised a PR on are counted.
 
-In the `순위 변화` (Ranking changes) chart, each of the top ten participants has a different colored line with a profile photo at its end. Other participants appear as faint gray lines. Hover over a name in the legend to emphasize that person's line; click it to hide or show the line and profile photo.
+Choose the period in the left list. It opens on `전체` (all time) and adds up every score collected so far. Below it, the current year comes first, then earlier years. Choosing a year counts January to December of that year only. The chosen period stays in the address, so browser back and forward move between periods.
 
-<Shot src="intro/ranking.webp" alt="Rankings screen with a monthly rank-change chart beside the yearly list. Profile photos appear at the ends of the top ten participants' lines." caption="Rankings" />
+The `순위 변화` (Ranking changes) chart follows the chosen period: `전체` groups the whole collected span, and a year shows that year month by month. Each of the top ten participants has a different colored line with a profile photo at its end. Other participants appear as faint gray lines. Hover over a name in the legend to emphasize that person's line; click it to hide or show the line and profile photo.
+
+<Shot src="intro/ranking.webp" alt="Rankings screen on all time, with all time and the year list on the left and a rank-change chart whose axis is grouped into periods." caption="Rankings over all time" />
+<Shot src="intro/ranking-years.webp" alt="Left list on the rankings screen. Below all time the current year comes first, then the earlier year. Marker ① points to all time and ② to the chosen year." caption="① All time ② The chosen year" />
 <Shot src="intro/ranking-table.webp" alt="Ranking table with rank, participant, Commit, PR, Issue, Repo, Star, and total columns." caption="Ranking table" />
 
 <Success>
