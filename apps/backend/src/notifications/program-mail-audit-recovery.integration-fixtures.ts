@@ -1,93 +1,140 @@
+import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
 import {
-  DIGEST_FIXTURE,
-  RecordingMailSender,
-} from './deadline-digest.integration-support';
-import {
-  ProgramMailAuditRepository,
-  type ProgramMailAuditInput,
-} from './program-mail-audit.repository';
-import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
-import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailRepository } from './program-mail.repository';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
+  NOTIFICATIONS_ERROR_CODES,
+  NotificationsErrorCode,
+} from './notifications-error-code.error';
+import { ProgramMailAuditRepository } from './program-mail-audit.repository';
+import { PROGRAM_MAIL_LEASE_MS } from './program-mail.config';
+import type {
+  ProgramMailSendRequest,
+  ProgramMailService,
+} from './program-mail.service';
 import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
-import { ProgramMailService } from './program-mail.service';
-import { ProgramMailTemplateService } from './program-mail-template.service';
 
-class SyntheticAuditFailure extends Error {
-  constructor() {
-    super('Synthetic program mail audit failure');
-    this.name = 'SyntheticAuditFailure';
-  }
-}
+class FailingOnceAuditRepository extends ProgramMailAuditRepository {
+  private shouldFail = true;
 
-class FailingOnceProgramMailAuditRepository extends ProgramMailAuditRepository {
-  private pendingFailure = true;
-
-  override recordSend(
-    input: ProgramMailAuditInput,
-    transaction: Parameters<ProgramMailAuditRepository['recordSend']>[1],
+  override recordResult(
+    command: Parameters<ProgramMailAuditRepository['recordResult']>[0],
+    transaction: Parameters<ProgramMailAuditRepository['recordResult']>[1],
   ): Promise<unknown> {
-    if (this.pendingFailure) {
-      this.pendingFailure = false;
-      return Promise.reject(new SyntheticAuditFailure());
+    if (this.shouldFail) {
+      this.shouldFail = false;
+      throw new Error('injected audit completion failure');
     }
-    return super.recordSend(input, transaction);
+    return super.recordResult(command, transaction);
   }
 }
 
 export function registerProgramMailAuditRecoveryCase(
   currentWorld: () => ProgramMailIntegrationWorld,
 ): void {
-  it('recovers the owner result after audit persistence fails without resending', async () => {
+  it('keeps failed completion rate accounting and recovers one audit result', async () => {
     const world = currentWorld();
-    const mailSender = new RecordingMailSender();
-    const first = new ProgramMailService(
-      new ProgramMailRepository(world.prisma),
-      new ProgramMailDeliveryService(
-        new ProgramMailSendRepository(
-          world.prisma,
-          new FailingOnceProgramMailAuditRepository(),
-          new ProgramMailDeliveryRepository(world.prisma),
-        ),
-        mailSender,
-        new ProgramMailTemplateService(),
+    const principal = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const regular = world.createRuntime(world.mailSender);
+    const failing = world.createRuntime(
+      world.mailSender,
+      new FailingOnceAuditRepository(),
+    );
+    await send(regular.service, principal, 'rate-1');
+    await send(regular.service, principal, 'rate-2');
+
+    const third = await request(failing.service, principal, 'rate-3');
+    await expect(
+      failing.service.send(
+        DIGEST_FIXTURE.notifyProgram,
+        principal,
+        third,
+        DIGEST_FIXTURE.now,
       ),
-    );
-    const retry = world.createService(mailSender);
-    const actor = await world.principal(DIGEST_FIXTURE.staffOnGithub);
-    const now = new Date();
-    const draft = {
-      subject: '감사 복구',
-      body: '감사 실패 뒤 결과 복구 본문',
-      applicantIds: [DIGEST_FIXTURE.studentMissing],
-    };
-    const preview = await first.preview(
-      DIGEST_FIXTURE.notifyProgram,
-      actor,
-      draft,
-      now,
-    );
-    const request = { ...draft, ...preview };
+    ).rejects.toThrow('injected audit completion failure');
+    expect(world.mailSender.sent).toHaveLength(3);
 
     await expect(
-      first.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
-    ).rejects.toBeInstanceOf(SyntheticAuditFailure);
-    expect(mailSender.sent).toHaveLength(1);
-
-    await expect(
-      retry.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
-    ).resolves.toMatchObject({
-      sentCount: 1,
-      duplicateCount: 0,
-      failedCount: 0,
+      send(regular.service, principal, 'rate-4'),
+    ).rejects.toMatchObject({
+      errorCode:
+        NOTIFICATIONS_ERROR_CODES[
+          NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED
+        ],
     });
-    expect(mailSender.sent).toHaveLength(1);
-    const batchKey = `program-mail-send:${preview.previewVersion}`;
-    expect(
-      await world.prisma.userHistory.count({
-        where: { sourceTable: 'ProgramMail', sourceId: batchKey },
-      }),
-    ).toBe(1);
+    await expect(
+      failing.service.send(
+        DIGEST_FIXTURE.notifyProgram,
+        principal,
+        third,
+        DIGEST_FIXTURE.now,
+      ),
+    ).resolves.toMatchObject({ status: 'IN_PROGRESS', sentCount: 0 });
+
+    const batchKey = `program-mail-send:${third.previewVersion}`;
+    const recovered = await failing.worker.process(
+      batchKey,
+      new Date(DIGEST_FIXTURE.now.getTime() + PROGRAM_MAIL_LEASE_MS + 1),
+    );
+    expect(recovered).toEqual({
+      kind: 'COMPLETED',
+      batchKey,
+      result: { sentCount: 1, duplicateCount: 0, failedCount: 0 },
+    });
+    expect(world.mailSender.sent).toHaveLength(3);
+
+    await expect(
+      failing.service.send(
+        DIGEST_FIXTURE.notifyProgram,
+        principal,
+        third,
+        DIGEST_FIXTURE.now,
+      ),
+    ).resolves.toMatchObject({ status: 'COMPLETED', sentCount: 1 });
+    const audit = await world.prisma.userHistory.findMany({
+      take: 3,
+      where: { sourceTable: 'ProgramMail', sourceId: batchKey },
+      select: { sourcePart: true },
+      orderBy: { sourcePart: 'asc' },
+    });
+    expect(audit).toEqual([
+      { sourcePart: 'attempt' },
+      { sourcePart: 'result' },
+    ]);
   });
+}
+
+async function send(
+  service: ProgramMailService,
+  principal: Awaited<ReturnType<ProgramMailIntegrationWorld['principal']>>,
+  subject: string,
+): Promise<Awaited<ReturnType<ProgramMailService['send']>>> {
+  const prepared = await request(service, principal, subject);
+  return service.send(
+    DIGEST_FIXTURE.notifyProgram,
+    principal,
+    prepared,
+    DIGEST_FIXTURE.now,
+  );
+}
+
+async function request(
+  service: ProgramMailService,
+  principal: Awaited<ReturnType<ProgramMailIntegrationWorld['principal']>>,
+  subject: string,
+): Promise<ProgramMailSendRequest> {
+  const recipients = await service.recipients(
+    DIGEST_FIXTURE.notifyProgram,
+    DIGEST_FIXTURE.now,
+  );
+  const applicant = recipients.teams
+    .flatMap((team) => team.applicants)
+    .find((candidate) => candidate.mailAvailable);
+  if (applicant === undefined)
+    throw new Error('Missing mail recipient fixture');
+  const draft = { subject, body: '본문', applicantIds: [applicant.id] };
+  const preview = await service.preview(
+    DIGEST_FIXTURE.notifyProgram,
+    principal,
+    draft,
+    DIGEST_FIXTURE.now,
+  );
+  return { ...draft, ...preview };
 }

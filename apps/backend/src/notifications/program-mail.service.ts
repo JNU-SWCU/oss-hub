@@ -60,6 +60,7 @@ export type ProgramMailSendRequest = ProgramMailDraft & {
 };
 
 export type ProgramMailSendResult = {
+  readonly status: 'IN_PROGRESS' | 'COMPLETED';
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;
@@ -138,18 +139,22 @@ export class ProgramMailService {
     if (prepared.previewVersion !== request.previewVersion) {
       this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
     }
+    const delivery = await this.delivery.send({
+      actorId: sender.id,
+      programId,
+      programName: prepared.programName,
+      senderName: prepared.senderName,
+      subject: prepared.subject,
+      body: prepared.body,
+      previewVersion: prepared.previewVersion,
+      occurredAt: now,
+      recipients: prepared.recipients,
+    });
     return {
-      ...(await this.delivery.send({
-        actorId: sender.id,
-        programId,
-        programName: prepared.programName,
-        senderName: prepared.senderName,
-        subject: prepared.subject,
-        body: prepared.body,
-        previewVersion: prepared.previewVersion,
-        occurredAt: now,
-        recipients: prepared.recipients,
-      })),
+      status: delivery.kind,
+      ...(delivery.kind === 'COMPLETED'
+        ? delivery.result
+        : { sentCount: 0, duplicateCount: 0, failedCount: 0 }),
       previewVersion: prepared.previewVersion,
     };
   }

@@ -1,10 +1,6 @@
-import { ProgramMailAuditRepository } from './program-mail-audit.repository';
-import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
-import {
-  NOTIFICATIONS_ERROR_CODES,
-  NotificationsErrorCode,
-} from './notifications-error-code.error';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
+import type { MailSender } from './gmail-mail.client';
+import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
+import type { ProgramMailService } from './program-mail.service';
 import type { ProgramMailIntegrationWorld } from './program-mail.integration-support';
 
 function deferred(): {
@@ -18,16 +14,16 @@ function deferred(): {
   return { promise, resolve };
 }
 
-async function bounded(event: Promise<unknown>): Promise<void> {
+async function bounded<T>(event: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(
-      () => reject(new Error('Program mail active-limit event timed out')),
+      () => reject(new Error('Program mail worker event timed out')),
       5000,
     );
   });
   try {
-    await Promise.race([event, timeout]);
+    return await Promise.race([event, timeout]);
   } finally {
     clearTimeout(timer);
   }
@@ -36,49 +32,81 @@ async function bounded(event: Promise<unknown>): Promise<void> {
 export function registerProgramMailActiveLimitCase(
   currentWorld: () => ProgramMailIntegrationWorld,
 ): void {
-  it('shares the two-send active limit across repository instances', async () => {
+  it('keeps mail I/O outside transactions and shares active leases', async () => {
     const world = currentWorld();
     const entered = deferred();
     const release = deferred();
-    let active = 0;
-    const run = (index: number, actorId: string) =>
-      new ProgramMailSendRepository(
-        world.prisma,
-        new ProgramMailAuditRepository(),
-        new ProgramMailDeliveryRepository(world.prisma),
-      ).run(
-        {
-          actorId,
-          programId: `active-program-${index}`,
-          programName: `Active program ${index}`,
-          recipientIds: [],
-          subject: `Active subject ${index}`,
-          bodyHash: 'a'.repeat(64),
-          bodyLength: 1,
-          previewVersion: `active-preview-${index}`,
-          occurredAt: new Date(),
-        },
-        async () => {
-          active += 1;
-          if (active === 2) entered.resolve();
-          await release.promise;
-          return { sentCount: 0, duplicateCount: 0, failedCount: 0 };
-        },
-      );
-    const first = run(1, 'test:notifications:staff-on');
-    const second = run(2, 'test:notifications:staff-off');
+    let activeDeliveries = 0;
+    const sender: MailSender = {
+      send: async () => {
+        activeDeliveries += 1;
+        if (activeDeliveries === 2) entered.resolve();
+        await release.promise;
+      },
+    };
+    const principal = await world.principal(DIGEST_FIXTURE.staffOnGithub);
+    const [firstService, secondService, thirdService] = [
+      world.createService(sender),
+      world.createService(sender),
+      world.createService(sender),
+    ] as const;
+    const first = send(firstService, principal, 'active-1');
+    const second = send(secondService, principal, 'active-2');
     await bounded(entered.promise);
 
-    await expect(run(3, 'test:notifications:admin-on')).rejects.toMatchObject({
-      errorCode:
-        NOTIFICATIONS_ERROR_CODES[
-          NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED
-        ],
-    });
+    const [poolState] = await bounded(
+      world.prisma.$queryRaw<readonly { readonly idleInTransaction: number }[]>`
+        SELECT count(*)::int AS "idleInTransaction"
+        FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND state = 'idle in transaction'
+        LIMIT 1
+      `,
+    );
+    expect(poolState?.idleInTransaction).toBe(0);
+    await expect(
+      send(thirdService, principal, 'active-3'),
+    ).resolves.toMatchObject({ status: 'IN_PROGRESS', sentCount: 0 });
+
     release.resolve();
     await expect(Promise.all([first, second])).resolves.toEqual([
-      { sentCount: 0, duplicateCount: 0, failedCount: 0 },
-      { sentCount: 0, duplicateCount: 0, failedCount: 0 },
+      expect.objectContaining({ status: 'COMPLETED', sentCount: 1 }),
+      expect.objectContaining({ status: 'COMPLETED', sentCount: 1 }),
     ]);
   });
+}
+
+async function send(
+  service: ProgramMailService,
+  principal: Awaited<ReturnType<ProgramMailIntegrationWorld['principal']>>,
+  subject: string,
+): Promise<Awaited<ReturnType<ProgramMailService['send']>>> {
+  const now = DIGEST_FIXTURE.now;
+  const recipients = await service.recipients(
+    DIGEST_FIXTURE.notifyProgram,
+    now,
+  );
+  const applicant = recipients.teams
+    .flatMap((team) => team.applicants)
+    .find((candidate) => candidate.mailAvailable);
+  if (applicant === undefined)
+    throw new Error('Missing mail recipient fixture');
+  const preview = await service.preview(
+    DIGEST_FIXTURE.notifyProgram,
+    principal,
+    { subject, body: '본문', applicantIds: [applicant.id] },
+    now,
+  );
+  return service.send(
+    DIGEST_FIXTURE.notifyProgram,
+    principal,
+    {
+      subject,
+      body: '본문',
+      applicantIds: [applicant.id],
+      previewedAt: preview.previewedAt,
+      previewVersion: preview.previewVersion,
+    },
+    now,
+  );
 }

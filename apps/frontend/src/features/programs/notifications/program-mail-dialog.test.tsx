@@ -82,6 +82,7 @@ describe('ProgramMailDialog', () => {
     getProgramMailRecipientsMock.mockReset().mockResolvedValue(recipients);
     previewProgramMailMock.mockReset().mockResolvedValue(preview);
     sendProgramMailMock.mockReset().mockResolvedValue({
+      status: 'COMPLETED',
       sentCount: 1,
       duplicateCount: 0,
       failedCount: 0,

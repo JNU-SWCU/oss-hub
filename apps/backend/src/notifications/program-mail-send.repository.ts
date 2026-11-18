@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -7,154 +7,120 @@ import {
   NotificationsErrorCode,
 } from './notifications-error-code.error';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
-import {
-  ProgramMailDeliveryRepository,
-  type ProgramMailDeliveryResult,
-  type ProgramMailDeliveryStore,
-} from './program-mail-delivery.repository';
-import { ProgramMailStoredResultError } from './program-mail-send-state.error';
+import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import {
   PROGRAM_MAIL_PROGRAM_SEND_LIMIT,
   PROGRAM_MAIL_RATE_WINDOW_MS,
   PROGRAM_MAIL_STAFF_SEND_LIMIT,
 } from './program-mail.config';
-
-export type { ProgramMailDeliveryResult };
-
-type ProgramMailBatchInput = {
-  readonly actorId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly recipientIds: readonly string[];
-  readonly subject: string;
-  readonly bodyHash: string;
-  readonly bodyLength: number;
-  readonly previewVersion: string;
-  readonly occurredAt: Date;
-};
+import {
+  type ProgramMailBatchContent,
+  type ProgramMailDeliveryResult,
+  type ProgramMailReservation,
+} from './program-mail-send.types';
 
 @Injectable()
 export class ProgramMailSendRepository {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly audit: ProgramMailAuditRepository,
-    private readonly deliveries: ProgramMailDeliveryRepository,
+    private readonly keys: ProgramMailKeyRepository,
   ) {}
 
-  run(
-    input: ProgramMailBatchInput,
-    deliver: (
-      transaction: ProgramMailDeliveryStore,
-    ) => Promise<ProgramMailDeliveryResult>,
-  ): Promise<ProgramMailDeliveryResult> {
-    const idempotencyKey = `program-mail-send:${input.previewVersion}`;
-    return this.prisma.$transaction(
-      async (transaction) => {
-        await this.lock(transaction, `batch:${idempotencyKey}`);
-        const existing = await transaction.notification.findUnique({
-          where: { idempotencyKey },
-          select: { status: true, payload: true },
-        });
-        if (existing !== null) {
-          const result = this.storedResult(existing.status, existing.payload);
-          if (result === null) {
-            throw new ProgramMailStoredResultError(idempotencyKey);
-          }
-          return result;
-        }
+  reserve(input: ProgramMailBatchContent): Promise<ProgramMailReservation> {
+    const batchKey = `program-mail-send:${input.previewVersion}`;
+    return this.prisma.$transaction(async (transaction) => {
+      await this.lock(transaction, `batch:${batchKey}`);
+      const existing = await transaction.notification.findUnique({
+        where: { idempotencyKey: batchKey },
+        select: { status: true, payload: true },
+      });
+      if (existing !== null) {
+        const result = this.storedResult(existing.status, existing.payload);
+        return result === null
+          ? { kind: 'IN_PROGRESS', batchKey }
+          : { kind: 'COMPLETED', batchKey, result };
+      }
 
-        await this.lock(transaction, `actor:${input.actorId}`);
-        await this.lock(transaction, `program:${input.programId}`);
-        const threshold = new Date(
-          input.occurredAt.getTime() - PROGRAM_MAIL_RATE_WINDOW_MS,
-        );
-        const [staffAttempts, programAttempts] = await Promise.all([
-          transaction.notification.count({
-            where: {
-              type: 'PROGRAM_MAIL_SEND',
-              userId: input.actorId,
-              createdAt: { gte: threshold },
-            },
-          }),
-          transaction.notification.count({
-            where: {
-              type: 'PROGRAM_MAIL_SEND',
-              createdAt: { gte: threshold },
-              payload: { path: ['programId'], equals: input.programId },
-            },
-          }),
-        ]);
-        if (
-          staffAttempts >= PROGRAM_MAIL_STAFF_SEND_LIMIT ||
-          programAttempts >= PROGRAM_MAIL_PROGRAM_SEND_LIMIT
-        ) {
-          this.fail(NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED);
-        }
-        const slots = await transaction.$queryRaw<
-          readonly { readonly slot: number | null }[]
-        >`
-          SELECT CASE
-            WHEN pg_try_advisory_xact_lock(hashtextextended('program-mail:slot:0', 0)) THEN 0
-            WHEN pg_try_advisory_xact_lock(hashtextextended('program-mail:slot:1', 0)) THEN 1
-            ELSE NULL
-          END AS slot
-          LIMIT 1
-        `;
-        if (slots[0]?.slot === null || slots[0] === undefined) {
-          this.fail(NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED);
-        }
+      await this.lock(transaction, `actor:${input.actorId}`);
+      await this.lock(transaction, `program:${input.programId}`);
+      const threshold = new Date(
+        input.occurredAt.getTime() - PROGRAM_MAIL_RATE_WINDOW_MS,
+      );
+      const staffAttempts = await transaction.notification.count({
+        where: {
+          type: 'PROGRAM_MAIL_SEND',
+          userId: input.actorId,
+          createdAt: { gte: threshold },
+        },
+      });
+      const programAttempts = await transaction.notification.count({
+        where: {
+          type: 'PROGRAM_MAIL_SEND',
+          createdAt: { gte: threshold },
+          payload: { path: ['programId'], equals: input.programId },
+        },
+      });
+      if (
+        staffAttempts >= PROGRAM_MAIL_STAFF_SEND_LIMIT ||
+        programAttempts >= PROGRAM_MAIL_PROGRAM_SEND_LIMIT
+      ) {
+        this.fail(NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED);
+      }
 
-        await transaction.notification.create({
-          data: {
-            userId: input.actorId,
-            idempotencyKey,
-            type: 'PROGRAM_MAIL_SEND',
-            channel: 'EMAIL',
-            status: 'PENDING',
-            payload: {
-              schemaVersion: 1,
-              programId: input.programId,
-              previewVersion: input.previewVersion,
-            },
+      await transaction.notification.create({
+        data: {
+          userId: input.actorId,
+          idempotencyKey: batchKey,
+          type: 'PROGRAM_MAIL_SEND',
+          channel: 'INTERNAL',
+          status: 'PENDING',
+          payload: this.batchPayload(input),
+        },
+      });
+      await transaction.notification.createMany({
+        data: input.recipients.map((recipient) => ({
+          userId: recipient.id,
+          idempotencyKey: this.keys.delivery(
+            input.previewVersion,
+            recipient.id,
+          ),
+          type: 'PROGRAM_MAIL',
+          channel: 'EMAIL',
+          status: 'PENDING',
+          payload: {
+            schemaVersion: 1,
+            batchKey,
+            previewVersion: input.previewVersion,
+            displayName: recipient.displayName,
+            notificationEmail: recipient.notificationEmail,
+            workerId: null,
+            leaseExpiresAt: null,
           },
-        });
-        await deliver(this.deliveries);
-        const result = await this.deliveries.result(
-          input.previewVersion,
-          input.recipientIds,
-        );
-        await this.audit.recordSend(
-          {
-            actorId: input.actorId,
-            programId: input.programId,
-            programName: input.programName,
-            recipientIds: input.recipientIds,
-            subject: input.subject,
-            bodyHash: input.bodyHash,
-            bodyLength: input.bodyLength,
-            idempotencyKey,
-            occurredAt: input.occurredAt,
-            ...result,
-          },
-          transaction,
-        );
-        await transaction.notification.update({
-          where: { idempotencyKey },
-          data: {
-            status: 'SENT',
-            sentAt: input.occurredAt,
-            payload: {
-              schemaVersion: 1,
-              programId: input.programId,
-              previewVersion: input.previewVersion,
-              result,
-            },
-          },
-        });
-        return result;
-      },
-      { maxWait: 10_000, timeout: 120_000 },
-    );
+        })),
+      });
+      await this.audit.recordAttempt({ input, batchKey }, transaction);
+      return { kind: 'OWNER', batchKey };
+    });
+  }
+
+  private batchPayload(input: ProgramMailBatchContent): Prisma.InputJsonObject {
+    return {
+      schemaVersion: 1,
+      actorId: input.actorId,
+      programId: input.programId,
+      programName: input.programName,
+      senderName: input.senderName,
+      subject: input.subject,
+      body: input.body,
+      bodyHash: input.bodyHash,
+      bodyLength: input.bodyLength,
+      previewVersion: input.previewVersion,
+      recipients: input.recipients.map((recipient) => ({ ...recipient })),
+      occurredAt: input.occurredAt.toISOString(),
+      workerId: null,
+      leaseExpiresAt: null,
+    };
   }
 
   private lock(
@@ -172,7 +138,7 @@ export class ProgramMailSendRepository {
     payload: Prisma.JsonValue,
   ): ProgramMailDeliveryResult | null {
     if (
-      status !== 'SENT' ||
+      status !== 'COMPLETED' ||
       payload === null ||
       typeof payload !== 'object' ||
       Array.isArray(payload) ||

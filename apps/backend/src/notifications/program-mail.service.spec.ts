@@ -53,9 +53,9 @@ function harness() {
   };
   const delivery: jest.Mocked<Pick<ProgramMailDeliveryService, 'send'>> = {
     send: jest.fn().mockResolvedValue({
-      sentCount: 1,
-      duplicateCount: 0,
-      failedCount: 0,
+      kind: 'COMPLETED',
+      batchKey: 'program-mail-send:preview',
+      result: { sentCount: 1, duplicateCount: 0, failedCount: 0 },
     }),
   };
   return {

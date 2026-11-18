@@ -41,6 +41,7 @@ export type ProgramMailPreview = ProgramMailDraft & {
 };
 
 export type ProgramMailSendResult = {
+  readonly status: 'IN_PROGRESS' | 'COMPLETED';
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;

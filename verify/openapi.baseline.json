@@ -11837,6 +11837,13 @@
       "ProgramMailSendResponseDto": {
         "type": "object",
         "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "COMPLETED",
+              "IN_PROGRESS"
+            ]
+          },
           "sentCount": {
             "type": "number"
           },
@@ -11851,6 +11858,7 @@
           }
         },
         "required": [
+          "status",
           "sentCount",
           "duplicateCount",
           "failedCount",

@@ -1,5 +1,4 @@
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
-import { SequentialRepository } from '../platform/sequential.repository';
 import {
   DIGEST_FIXTURE,
   RecordingMailSender,
@@ -76,26 +75,6 @@ class BarrierMailSender implements MailSender {
   }
 }
 
-async function waitForAdvisoryWaiter(
-  world: ProgramMailIntegrationWorld,
-): Promise<void> {
-  let found = false;
-  await new SequentialRepository().repeat(100, async () => {
-    const [row] = await world.prisma.$queryRaw<
-      readonly { readonly count: number }[]
-    >`
-      SELECT count(*)::int AS count
-      FROM pg_locks
-      WHERE locktype = 'advisory' AND NOT granted
-      LIMIT 1
-    `;
-    if ((row?.count ?? 0) === 0) return;
-    found = true;
-    return 'stop';
-  });
-  if (!found) throw new Error('Second send did not wait on the advisory lock');
-}
-
 export function registerProgramMailConcurrencyCases(
   currentWorld: () => ProgramMailIntegrationWorld,
 ): void {
@@ -166,7 +145,7 @@ export function registerProgramMailConcurrencyCases(
     ).toBe(5);
   });
 
-  it('makes an overlapping duplicate wait for the owner final result and audit', async () => {
+  it('returns in-progress to an overlapping duplicate and final state later', async () => {
     const world = currentWorld();
     const actor = await world.principal(DIGEST_FIXTURE.staffOnGithub);
     const barrier = new BarrierMailSender();
@@ -192,36 +171,41 @@ export function registerProgramMailConcurrencyCases(
       now,
     );
     await bounded(barrier.entered.promise);
-    const duplicate = secondService.send(
-      DIGEST_FIXTURE.notifyProgram,
-      actor,
-      request,
-      now,
-    );
-    await bounded(waitForAdvisoryWaiter(world));
-
-    barrier.released.resolve();
-    const [firstResult, duplicateResult] = await Promise.all([
-      first,
-      duplicate,
-    ]);
-
-    expect(firstResult).toEqual({
-      sentCount: 1,
+    await expect(
+      secondService.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
+    ).resolves.toEqual({
+      status: 'IN_PROGRESS',
+      sentCount: 0,
       duplicateCount: 0,
       failedCount: 0,
       previewVersion: preview.previewVersion,
     });
-    expect(duplicateResult).toEqual(firstResult);
-    expect(barrier.attempts).toBe(1);
     const batchKey = `program-mail-send:${preview.previewVersion}`;
     expect(
       await world.prisma.userHistory.count({
         where: { sourceTable: 'ProgramMail', sourceId: batchKey },
       }),
     ).toBe(1);
+
+    barrier.released.resolve();
+    await expect(first).resolves.toEqual({
+      status: 'COMPLETED',
+      sentCount: 1,
+      duplicateCount: 0,
+      failedCount: 0,
+      previewVersion: preview.previewVersion,
+    });
+    await expect(
+      secondService.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
+    ).resolves.toMatchObject({ status: 'COMPLETED', sentCount: 1 });
+    expect(barrier.attempts).toBe(1);
+    expect(
+      await world.prisma.userHistory.count({
+        where: { sourceTable: 'ProgramMail', sourceId: batchKey },
+      }),
+    ).toBe(2);
     const audit = await world.prisma.userHistory.findUnique({
-      where: { id: `user:program-mail:${batchKey}` },
+      where: { id: `user:program-mail-result:${batchKey}` },
       select: { data: true },
     });
     expect(audit?.data).toMatchObject({

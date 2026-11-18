@@ -184,11 +184,17 @@ export function ProgramMailDialog({
         />
       ) : result ? (
         <Alert>
-          <AlertTitle>{result.sentCount}명에게 메일을 보냈습니다.</AlertTitle>
-          <AlertDescription>
-            중복 생략 {result.duplicateCount}명 · 발송 실패 {result.failedCount}
-            명
-          </AlertDescription>
+          <AlertTitle>
+            {result.status === 'IN_PROGRESS'
+              ? '메일 발송을 처리 중입니다.'
+              : `${result.sentCount}명에게 메일을 보냈습니다.`}
+          </AlertTitle>
+          {result.status === 'COMPLETED' ? (
+            <AlertDescription>
+              중복 생략 {result.duplicateCount}명 · 발송 실패{' '}
+              {result.failedCount}명
+            </AlertDescription>
+          ) : null}
         </Alert>
       ) : preview ? (
         <ProgramMailPreviewView preview={preview} />
