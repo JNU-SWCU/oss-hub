@@ -6,8 +6,9 @@ import { invalidateProgram } from '../catalog/queries';
 import { useUrlSearchDraft } from '@/lib/list-url-state';
 import { useStaffTeamsUrlState } from './staff-teams-url-state';
 import { useStaffTeamsQuery } from './queries';
+import { teamMemberCountText } from './team-member-count';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, RotateCcw } from 'lucide-react';
+import { AlertCircle, RotateCcw, TriangleAlert } from 'lucide-react';
 import {
   DataTable,
   EmptyState,
@@ -233,6 +234,14 @@ export function ProgramStaffTeamsPage({
         header: '상태',
         cell: (item) => {
           const notice = notices[item.id] ?? null;
+          const size =
+            item.team === null
+              ? null
+              : teamMemberCountText({
+                  memberCount: item.team.memberCount,
+                  minSize: item.teamMinSize,
+                  maxSize: item.teamMaxSize,
+                });
           return (
             <div className="grid min-w-[9rem] gap-1">
               <ApplicationStatusControl
@@ -243,9 +252,18 @@ export function ProgramStaffTeamsPage({
                 disabled={busyId === item.id || (notice?.blocked ?? false)}
                 onChange={(next) => onSelectStatus(item, next)}
               />
-              {item.team !== null && item.teamMinSize !== undefined ? (
+              {size !== null ? (
                 <span className="text-xs text-muted-foreground">
-                  수락 {item.team.memberCount}/{item.teamMinSize}명
+                  {size.label}
+                </span>
+              ) : null}
+              {size !== null && size.shortage !== null ? (
+                <span className="flex items-center gap-1 text-xs break-keep text-status-pending-fg">
+                  <TriangleAlert
+                    aria-hidden="true"
+                    className="size-3 shrink-0"
+                  />
+                  {size.shortage}
                 </span>
               ) : null}
               {notice !== null ? (

@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
   experimental: { optimizePackageImports: ['radix-ui'] },
 
   devIndicators: { position: 'bottom-right' },
+  async redirects() {
+    return await Promise.resolve([
+      { source: '/dashboard/me', destination: '/settings', permanent: true },
+      {
+        source: '/programs/:id/milestones/:milestoneId/documents',
+        destination: '/programs/:id/documents?milestoneId=:milestoneId',
+        permanent: true,
+      },
+    ]);
+  },
   async rewrites() {
     originAuthorization();
 

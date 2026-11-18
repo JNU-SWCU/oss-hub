@@ -19,11 +19,26 @@ import {
   notificationUnavailableMessage,
   validateSettingsForm,
 } from './settings-state';
+import type { UserParticipation } from '@/lib/user-participation';
 import type { ProfileRole } from '../profile-requirements';
 import type { SettingsFormValues } from './types';
 
 const noOp = () => undefined;
 const TEN_DIGIT_PHONE = '1'.repeat(10);
+const PARTICIPATIONS: readonly UserParticipation[] = [
+  {
+    programId: 'program-1',
+    programName: '합성 오픈소스 프로그램',
+    teamName: '합성 팀',
+    isLeader: true,
+  },
+  {
+    programId: 'program/2',
+    programName: '두 번째 프로그램',
+    teamName: '혼자 하는 팀',
+    isLeader: false,
+  },
+];
 
 function values(
   overrides: Partial<SettingsFormValues> = {},
@@ -52,6 +67,7 @@ function renderForm(
     readonly toastMessage?: string | null;
     readonly notificationAvailable?: boolean;
     readonly isRetryingNotification?: boolean;
+    readonly participations?: readonly UserParticipation[];
   } = {},
 ) {
   const notificationAvailable = options.notificationAvailable ?? true;
@@ -61,6 +77,7 @@ function renderForm(
     <SettingsForm
       memberKind={memberKind}
       hasAdminAccess={role === 'ADMIN'}
+      participations={options.participations ?? []}
       values={formValues}
       errors={validateSettingsForm(formValues, notificationAvailable, role)}
       showValidationErrors={options.showValidationErrors ?? false}
@@ -82,6 +99,49 @@ function renderForm(
     />,
   );
 }
+
+describe('settings form — 참여 프로그램', () => {
+  it('프로그램을 개요 주소로 잉고 팀 이름과 팀장 여부를 결들인다', () => {
+    const html = renderForm(values(), {
+      role: 'STUDENT',
+      participations: PARTICIPATIONS,
+    });
+
+    expect(html).toContain('참여 프로그램');
+    expect(html).toContain('href="/programs/program-1"');
+    expect(html).toContain('href="/programs/program%2F2"');
+    expect(html).toContain('합성 팀 · 팀장');
+    expect(html).toContain('혼자 하는 팀');
+    expect(html).not.toContain('혼자 하는 팀 · 팀장');
+    expect(html).not.toContain('참여 프로그램·팀');
+  });
+
+  it('참여 이력이 없는 학생에게는 없다고만 알린다', () => {
+    const html = renderForm(values(), { role: 'STUDENT', participations: [] });
+
+    expect(html).toContain('참여 프로그램이 없습니다.');
+    expect(html).not.toContain('data-slot="user-participation-list"');
+  });
+
+  it('참여 이력이 없는 교직원에게는 구역을 그리지 않는다', () => {
+    const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
+      role: 'STAFF',
+      participations: [],
+    });
+
+    expect(html).not.toContain('참여 프로그램');
+  });
+
+  it('참여 중인 교직원에게는 같은 구역을 보여 준다', () => {
+    const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
+      role: 'STAFF',
+      participations: PARTICIPATIONS,
+    });
+
+    expect(html).toContain('참여 프로그램');
+    expect(html).toContain('href="/programs/program-1"');
+  });
+});
 
 describe('settings form view', () => {
   it('조회 중 설정 Skeleton을 표시한다', () => {

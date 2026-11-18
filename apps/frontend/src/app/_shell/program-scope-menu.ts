@@ -157,17 +157,6 @@ export function programScopeSidebarGroups(
           : undefined,
       };
 
-  const allStagesItem: readonly ProgramScopeSidebarItem[] =
-    isStaffView && navigationMilestones.length > 0
-      ? [
-          {
-            label: '모든 단계',
-            href: programDocumentsHref(programId),
-            icon: 'inbox',
-            depth: 1,
-          },
-        ]
-      : [];
   const milestoneItems: readonly ProgramScopeSidebarItem[] =
     navigationMilestones.map((milestone) => {
       const summary = requirementSummaryByMilestone.get(milestone.milestoneId);
@@ -185,11 +174,9 @@ export function programScopeSidebarGroups(
           : undefined,
       };
     });
-  const documentsChildren = [...allStagesItem, ...milestoneItems];
-
   const documentsGroup: ProgramScopeSidebarGroup = {
     label: documentsParent.label,
-    items: [documentsParent, ...documentsChildren],
+    items: [documentsParent, ...milestoneItems],
   };
 
   const boardGroup: ProgramScopeSidebarGroup = {

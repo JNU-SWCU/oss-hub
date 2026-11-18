@@ -46,6 +46,7 @@ describe('buildRequirementCollectionSearchParams', () => {
   it('page·pageSize·filter를 언제나 함께 싣는다', () => {
     expect(
       buildRequirementCollectionSearchParams({
+        q: '',
         page: 2,
         pageSize: 20,
         filter: 'HAS_MISSING',
@@ -57,6 +58,7 @@ describe('buildRequirementCollectionSearchParams', () => {
     for (const filter of REQUIREMENT_COLLECTION_FILTERS) {
       expect(
         buildRequirementCollectionSearchParams({
+          q: '',
           page: 1,
           pageSize: REQUIREMENT_COLLECTION_PAGE_SIZE,
           filter,
@@ -67,6 +69,7 @@ describe('buildRequirementCollectionSearchParams', () => {
           : filter,
       );
       const params = buildRequirementCollectionSearchParams({
+        q: '',
         page: 1,
         pageSize: 20,
         filter,
@@ -82,6 +85,7 @@ describe('buildRequirementCollectionSearchParams', () => {
 
 it('encodes the selected document and submission state alongside the existing filter', () => {
   const query = {
+    q: '',
     page: 2,
     pageSize: 20,
     filter: 'LATE',
@@ -133,6 +137,7 @@ describe('getRequirementCollection', () => {
 
     await expect(
       getRequirementCollection('milestone-1', {
+        q: '',
         page: 3,
         pageSize: 20,
         filter: 'ZERO_SUBMISSION',

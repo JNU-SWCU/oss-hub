@@ -72,6 +72,7 @@ export interface RequirementCollectionSelection {
 }
 export interface RequirementCollectionQueryInput {
   readonly document?: RequirementCollectionSelection;
+  readonly q: string;
   readonly page: number;
   readonly pageSize: number;
   readonly filter: RequirementCollectionFilter;

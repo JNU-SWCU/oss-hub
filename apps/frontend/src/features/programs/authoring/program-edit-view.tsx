@@ -230,9 +230,10 @@ export function ProgramEditView({
               <Button
                 type="submit"
                 disabled={isSaving}
+                aria-label={`프로그램 정보 ${isSaving ? '저장 중…' : '저장'}`}
                 aria-describedby="program-save-scope"
               >
-                {isSaving ? '저장 중…' : '프로그램 정보 저장'}
+                {isSaving ? '저장 중…' : '저장'}
               </Button>
             </div>
           </div>

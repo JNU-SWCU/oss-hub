@@ -6,15 +6,23 @@ import {
   useListUrlNavigation,
   useParsedListUrlState,
 } from '@/lib/list-url-state';
-import { REQUIREMENT_COLLECTION_PAGE_SIZE } from './requirement-collection-api';
+import {
+  REQUIREMENT_COLLECTION_PAGE_SIZE,
+  REQUIREMENT_COLLECTION_SEARCH_PAGE_SIZE,
+} from './requirement-collection-api';
 import type { RequirementCollectionQueryInput } from './requirement-collection-dto';
 export function parseRequirementCollectionSearchParams(
   params: URLSearchParams,
 ): RequirementCollectionQueryInput {
   const documentId = params.get('documentId')?.trim();
+  const q = params.get('q')?.trim() ?? '';
   return {
+    q,
     page: parseListPage(params.get('page')),
-    pageSize: REQUIREMENT_COLLECTION_PAGE_SIZE,
+    pageSize:
+      q === ''
+        ? REQUIREMENT_COLLECTION_PAGE_SIZE
+        : REQUIREMENT_COLLECTION_SEARCH_PAGE_SIZE,
     filter: parseListEnum(
       params.get('filter'),
       [
@@ -45,6 +53,7 @@ export function buildRequirementCollectionSearchParams(
   state: RequirementCollectionQueryInput,
 ) {
   const params = new URLSearchParams();
+  if (state.q.trim()) params.set('q', state.q.trim());
   if (state.filter !== 'ALL') params.set('filter', state.filter);
   if (state.document) {
     params.set('documentId', state.document.id);
@@ -56,6 +65,7 @@ export function buildRequirementCollectionSearchParams(
 }
 
 const OWNED_PARAMS = [
+  'q',
   'page',
   'filter',
   'documentId',
