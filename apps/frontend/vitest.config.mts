@@ -14,7 +14,7 @@ const happyDomTests = [
   'src/lib/navigation-notices.test.tsx',
   'e2e/support/confirmation-cancel-label.test.tsx',
   'src/app/error.test.tsx',
-  'src/app/_shell/{app-frame-sheet.test.tsx,app-sidebar.test.tsx,app-frame.login-destination.test.tsx,bottom-tab-bar.test.tsx,landing-entry-action.return-to.test.tsx,onboarding-gate.test.tsx,onboarding-rejection-reach.test.tsx,product-shell-countdown.interaction.test.tsx,product-shell-participant-menu.test.tsx,product-shell-ranking.test.tsx,program-scope-sidebar-keys.test.tsx,role-gate.test.tsx,route-notice.test.tsx,section-facet-chips.test.tsx,shell-menu-sheet.test.tsx,sidebar-toggle.test.tsx,sign-in-entries.test.tsx,use-product-shell-data.test.tsx,use-session-role.test.tsx,zero-surface-member-classification.test.tsx,zero-surface-member-reach.test.tsx}',
+  'src/app/_shell/{app-frame-hydration.test.tsx,app-frame-sheet.test.tsx,app-sidebar.test.tsx,app-frame.login-destination.test.tsx,bottom-tab-bar.test.tsx,landing-entry-action.return-to.test.tsx,onboarding-gate.test.tsx,onboarding-rejection-reach.test.tsx,product-shell-countdown.interaction.test.tsx,product-shell-participant-menu.test.tsx,product-shell-ranking.test.tsx,program-scope-sidebar-keys.test.tsx,role-gate.test.tsx,route-notice.test.tsx,section-facet-chips.test.tsx,shell-menu-sheet.test.tsx,sidebar-toggle.test.tsx,sign-in-entries.test.tsx,use-product-shell-data.test.tsx,use-session-role.test.tsx,zero-surface-member-classification.test.tsx,zero-surface-member-reach.test.tsx}',
 
   'src/app/onboarding/pending/role-request-count.test.tsx',
   'src/app/onboarding/role/role-selection-route.test.tsx',
@@ -35,6 +35,7 @@ const happyDomTests = [
   'src/features/staff-insights/groups-panel.test.tsx',
   'src/features/staff-insights/program-scorecard.test.tsx',
   'src/features/auth/login-destination.test.ts',
+  'src/features/auth/session-store.browser.test.ts',
   'src/features/auth/components/{github-sign-in-link.test.tsx,login-button.logout.test.tsx}',
   'src/features/board/components/{board-delete-list-refetch.test.tsx,board-field-focus.test.tsx,board-query-invalidation.test.tsx}',
   'src/features/consents/components/{consent-flow-navigation.test.tsx,consent-required-dialog.test.tsx}',
