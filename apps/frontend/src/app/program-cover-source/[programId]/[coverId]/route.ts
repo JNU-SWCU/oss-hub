@@ -19,11 +19,9 @@ export async function GET(
   try {
     const upstream = await fetchProgramCover(programId, coverId);
     const contentType = upstream.headers.get('content-type');
-    if (
-      upstream.status === 200 &&
-      upstream.body &&
-      (contentType === 'image/png' || contentType === 'image/jpeg')
-    ) {
+    const imageTypeAllowed =
+      contentType === 'image/png' || contentType === 'image/jpeg';
+    if (upstream.status === 200 && upstream.body && imageTypeAllowed) {
       return new Response(upstream.body, {
         headers: {
           'Content-Type': contentType,
@@ -33,7 +31,19 @@ export async function GET(
       });
     }
 
-    await upstream.body?.cancel();
+    const hasBody = upstream.body !== null;
+    let stage: 'upstream_rejected' | 'upstream_cancel' = 'upstream_cancel';
+    try {
+      await upstream.body?.cancel();
+      stage = 'upstream_rejected';
+    } finally {
+      console.warn('program.cover_source.failed', {
+        stage,
+        upstreamStatus: upstream.status,
+        imageTypeAllowed,
+        hasBody,
+      });
+    }
     return new Response(null, {
       status: upstream.status === 404 ? 404 : 502,
       headers: errorHeaders,
