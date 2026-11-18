@@ -32,7 +32,8 @@ const api = vi.hoisted(() => ({
 vi.mock('@/features/staff-insights/api', () => ({
   getStaffInsights: api.insights,
 }));
-vi.mock('@/features/system-status/api', () => ({
+vi.mock('@/features/system-status/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/system-status/api')>()),
   fetchSystemStatus: api.system,
   triggerCollection: vi.fn(),
   retryProvisioning: vi.fn(),
@@ -159,7 +160,7 @@ const cases = [
     name: 'system',
     render: () => <SystemStatusScreen />,
     load: api.system,
-    data: {},
+    data: { staleRepositories: { items: [], total: 0 } },
     ready: '[data-kind="success"]',
   },
   {
