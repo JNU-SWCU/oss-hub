@@ -17,21 +17,21 @@ Collection runs automatically at the top of every hour, and every Sunday at 03:0
 ## Read the screen
 
 <Steps>
-1. Open `시스템 상태` (System status) in the `관리자` (Administrator) group on the left.
+1. Open ① `시스템 상태` (System status) in the `관리자` (Administrator) group on the left.
 2. Check the card at the top. If it says `이상 없음` (No issues), there's nothing to do.
 3. If you see `주의 필요` (Needs attention), handle each item as described below.
 4. Check the numbers for each area in `구역 현황` (Area status) below.
 </Steps>
-<Shot src="admin/status-full.webp" alt="The full system status screen. The needs attention card is at the top, the area status list with repository provisioning, activity collection, and notification mail rows is below, and the Run collection now button is at the top right." caption="Full screen" />
+<Shot src="admin/status-full.webp" alt="Full system status screen. ① marks System status in the sidebar and ② marks Run collection now at the top right. Area status is below the needs attention card." caption="① System status ② Run collection now" />
 
 ## Needs attention
 
 This card appears only when something needs work. Each item has a `심각` (Severe) or `주의` (Warning) badge and a count, and severe items come first.
 
-<Shot src="admin/status-attention.webp" alt="The needs attention card. Under final repository provisioning failure, each team has a Retry button. Under delayed activity collection, five delayed repositories and a show more button are listed. Notification mail failure is at the bottom." caption="Needs attention" />
+<Shot src="admin/status-attention.webp" alt="Delayed activity collection in the needs attention card. ① marks a row with the repository, team, and program names; ② marks Next. Ten repositories appear on the page." caption="① Repository, team, and program ② Next page" />
 
 - `저장소 발급 최종 실패` (Repository provisioning failed): Teams whose repository could not be created. Each row shows the team, program, error code, and last attempt time. Click `다시 시도` (Retry) to request provisioning again.
-- `활동 수집 지연` (Activity collection delayed): Repositories whose last successful collection is more than 2 hours old. The five most delayed repositories are shown, and `지연 저장소 N개 더 보기` (Show N more delayed repositories) expands the rest. If they're still delayed after the next hourly collection, ask the operator to check the GitHub collection app's installation and repository permissions.
+- `활동 수집 지연` (Activity collection delayed): Repositories whose last successful collection is more than 2 hours old. Repositories appear from most delayed first, ten per page. As shown at ①, each repository name is followed by its team and program names. If there are more than ten, use `이전` (Previous) and ② `다음` (Next) below the list. If they're still delayed after the next hourly collection, ask the operator to check the GitHub collection app's installation and repository permissions.
 - `알림 메일 발송 실패` (Notification mail failed): The number of notification emails that couldn't be sent in the last 7 days.
 - Items that point to a person, such as administrator permission changes or bulk rejections and deletions, have a `감사 로그 보기` (View audit log) link that searches the audit log for that person. If searchable account information is unavailable, `사용자 보기` (View user) opens the user details instead.
 
@@ -53,7 +53,7 @@ Each area has one row with a status badge and its numbers.
 
 ## Run collection now
 
-When it can't wait for the next hour, start collection right away. Click `지금 수집 실행` (Run collection now) at the top right. Collection takes time, so one click is enough.
+When it can't wait for the next hour, start collection right away. Click ② `지금 수집 실행` (Run collection now) at the top right of the full-screen image. Collection takes time, so one click is enough.
 
 While `활동 수집` (Activity collection) shows the `수집 중` (Collecting) badge, the button is gray. Try again after it finishes. While the request is being sent, `실행 요청 중…` (Requesting…) appears briefly.
 
