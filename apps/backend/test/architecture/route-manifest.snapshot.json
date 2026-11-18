@@ -400,6 +400,11 @@
     "path": "/api/v1/projects/:projectId",
     "access": "PUBLIC"
   },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/landing-stats",
+    "access": "PUBLIC"
+  },
   { "method": "GET", "path": "/api/v1/ranking", "access": "OPTIONAL_SESSION" },
   { "method": "GET", "path": "/api/v1/ranking/timeline", "access": "PUBLIC" },
   { "method": "GET", "path": "/api/v1/ranking/years", "access": "PUBLIC" },

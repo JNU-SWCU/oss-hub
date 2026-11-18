@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildPublicLandingGraph } from './landing-graph';
 import {
-  parseLandingProjectDetail,
-  parseLandingProjectPage,
+  parseLandingStatsCounts,
   parseLandingProgramNamePage,
   parseLandingProgramPage,
 } from './landing-overview';
@@ -100,48 +98,6 @@ describe('landing public overview boundary', () => {
     expect(page[0]?.id).toBe('seed:intake:program-seven-templates:BASIC');
   });
 
-  it('builds a typed graph only from public project projections', () => {
-    const projects = parseLandingProjectPage({
-      items: [
-        {
-          projectId: 'repo_public_01',
-          programId: 'seed:program_public_01',
-          programName: '공개 OSS 기여 프로그램',
-          displayName: 'campus-map',
-        },
-      ],
-      pageSize: 3,
-      nextPageId: null,
-    });
-    const detail = parseLandingProjectDetail({
-      projectId: 'repo_public_01',
-      contributors: [{ githubLogin: 'sample-dev-01' }],
-    });
-
-    const graph = buildPublicLandingGraph(projects, [detail]);
-
-    expect(graph.nodes).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'program',
-          label: '공개 OSS 기여 프로그램',
-          href: '/programs/seed%3Aprogram_public_01',
-        }),
-        expect.objectContaining({
-          kind: 'repository',
-          label: 'campus-map',
-          href: '/projects/repo_public_01',
-        }),
-        expect.objectContaining({
-          kind: 'student',
-          label: '@sample-dev-01',
-          href: 'https://github.com/sample-dev-01',
-        }),
-      ]),
-    );
-    expect(graph.edges).toHaveLength(2);
-  });
-
   it('parses program names for the constellation and drops every other field', () => {
     const names = parseLandingProgramNamePage({
       items: [
@@ -174,19 +130,20 @@ describe('landing public overview boundary', () => {
     ).toThrow('랜딩 공개 응답 형식이 올바르지 않습니다');
   });
 
-  it('rejects project ids that could escape the public app routes', () => {
+  it.each([
+    { programCount: 4 },
+    { repositoryCount: -1 },
+    { contributorCount: 7 },
+    { repositoryCount: 1.5 },
+    { contributorCount: '2' },
+    { contributorCount: undefined },
+  ])('rejects invalid sampled counts %o', (override) => {
     expect(() =>
-      parseLandingProjectPage({
-        items: [
-          {
-            projectId: '../../evil',
-            programId: 'program_public_01',
-            programName: '공개 OSS 기여 프로그램',
-            displayName: 'campus-map',
-          },
-        ],
-        pageSize: 3,
-        nextPageId: null,
+      parseLandingStatsCounts({
+        programCount: 2,
+        repositoryCount: 3,
+        contributorCount: 2,
+        ...override,
       }),
     ).toThrow('랜딩 공개 응답 형식이 올바르지 않습니다');
   });

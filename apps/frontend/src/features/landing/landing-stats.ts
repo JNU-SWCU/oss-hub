@@ -1,4 +1,4 @@
-import type { LandingGraph, LandingGraphNodeKind } from './landing-overview';
+import type { parseLandingStatsCounts } from './landing-overview';
 
 interface LandingStatItem {
   readonly key: string;
@@ -10,15 +10,15 @@ export interface LandingStatsDisplay {
   readonly note: string | null;
 }
 
-function countByKind(graph: LandingGraph, kind: LandingGraphNodeKind): number {
-  return graph.nodes.filter((node) => node.kind === kind).length;
-}
-
-export function deriveLandingStats(graph: LandingGraph): LandingStatsDisplay {
+export function deriveLandingStats({
+  programCount,
+  repositoryCount,
+  contributorCount,
+}: ReturnType<typeof parseLandingStatsCounts>): LandingStatsDisplay {
   const counts: readonly (readonly [string, number])[] = [
-    ['공개 프로그램', countByKind(graph, 'program')],
-    ['공개 저장소', countByKind(graph, 'repository')],
-    ['공개 기여자', countByKind(graph, 'student')],
+    ['공개 프로그램', programCount],
+    ['공개 저장소', repositoryCount],
+    ['공개 기여자', contributorCount],
   ];
   const items = counts.flatMap(([key, count]) =>
     count ? [{ key, value: String(count) }] : [],

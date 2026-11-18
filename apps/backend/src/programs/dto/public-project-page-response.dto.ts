@@ -1,7 +1,9 @@
 import { type ProgramTrackType } from '@prisma/client';
+import { ApiProperty } from '@nestjs/swagger';
 import type {
   PublicProjectContributor,
   PublicProjectDetailResult,
+  PublicProjectLandingStats,
   PublicProjectListItem,
   PublicProjectMetrics,
   PublicProjectPageResult,
@@ -46,6 +48,27 @@ export class PublicProjectPageResponseDto {
       ),
       pageSize: page.pageSize,
       nextPageId: page.nextPageId,
+    };
+  }
+}
+
+export class PublicProjectLandingStatsResponseDto implements PublicProjectLandingStats {
+  @ApiProperty({ type: 'integer', minimum: 0, maximum: 3 })
+  declare readonly programCount: number;
+
+  @ApiProperty({ type: 'integer', minimum: 0, maximum: 3 })
+  declare readonly repositoryCount: number;
+
+  @ApiProperty({ type: 'integer', minimum: 0, maximum: 6 })
+  declare readonly contributorCount: number;
+
+  static from(
+    stats: PublicProjectLandingStats,
+  ): PublicProjectLandingStatsResponseDto {
+    return {
+      programCount: stats.programCount,
+      repositoryCount: stats.repositoryCount,
+      contributorCount: stats.contributorCount,
     };
   }
 }
