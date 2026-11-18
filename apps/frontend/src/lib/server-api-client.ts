@@ -87,15 +87,52 @@ export async function serverApiClient(
   )();
 }
 
-export function fetchProgramCover(programId: string, coverId: string) {
-  const credential = originAuthorization();
-  return fetch(
-    `${backendOrigin()}${apiPath(`/programs/${programId}/cover/${coverId}`)}`,
-    {
+export async function fetchProgramCover(programId: string, coverId: string) {
+  let stage:
+    | 'origin_authorization'
+    | 'origin_validation'
+    | 'origin_hash_read'
+    | 'fetch_transport' = 'origin_authorization';
+  try {
+    const credential = originAuthorization();
+    stage = 'origin_validation';
+    const url = `${backendOrigin()}${apiPath(`/programs/${programId}/cover/${coverId}`)}`;
+    stage = 'fetch_transport';
+    return await fetch(url, {
       cache: 'no-store',
       redirect: 'manual',
       signal: AbortSignal.timeout(COVER_DEADLINE_MS),
       ...(credential ? { headers: { Authorization: credential } } : {}),
-    },
-  );
+    });
+  } catch (error) {
+    const cause =
+      error instanceof Error && error.cause instanceof Error
+        ? error.cause
+        : error;
+    const code = cause instanceof Error && 'code' in cause ? cause.code : null;
+    if (
+      stage === 'origin_validation' &&
+      cause instanceof Error &&
+      'syscall' in cause &&
+      (cause.syscall === 'open' || cause.syscall === 'read')
+    ) {
+      stage = 'origin_hash_read';
+    }
+    const errorCode =
+      error instanceof DOMException &&
+      (error.name === 'AbortError' || error.name === 'TimeoutError')
+        ? error.name
+        : code === 'ENOENT' ||
+            code === 'EACCES' ||
+            code === 'ENOTFOUND' ||
+            code === 'EAI_AGAIN' ||
+            code === 'ECONNRESET' ||
+            code === 'ECONNREFUSED' ||
+            code === 'ETIMEDOUT' ||
+            code === 'UND_ERR_CONNECT_TIMEOUT'
+          ? code
+          : undefined;
+    console.warn('program.cover_source.failed', { stage, errorCode });
+    throw error;
+  }
 }
