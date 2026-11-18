@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
+import type { UserParticipation } from '@/lib/user-participation';
 import {
   classifyProfileApiError,
   getMyProfile,
@@ -40,6 +41,9 @@ export function SettingsScreen({
 }) {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<SettingsFormValues | null>(null);
+  const [participations, setParticipations] = useState<
+    readonly UserParticipation[]
+  >([]);
   const [notificationLoad, setNotificationLoad] =
     useState<SettingsNotificationLoadState>({ kind: 'ready' });
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -86,6 +90,8 @@ export function SettingsScreen({
           );
           return;
         }
+
+        setParticipations(profileResult.value.participations);
 
         if (notificationResult.status === 'fulfilled') {
           setNotificationLoad({ kind: 'ready' });
@@ -283,6 +289,7 @@ export function SettingsScreen({
     <SettingsForm
       memberKind={memberKind}
       hasAdminAccess={hasAdminAccess}
+      participations={participations}
       values={values}
       errors={errors}
       showValidationErrors={hasSubmitted}

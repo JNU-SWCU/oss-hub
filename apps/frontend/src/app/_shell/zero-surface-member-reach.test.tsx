@@ -139,6 +139,7 @@ describe('면이 없는 회원의 화면 도달', () => {
       studentId: null,
       department: '인공지능학부',
       isComplete: true,
+      participations: [],
     });
     mocks.getMyNotificationChannel.mockResolvedValue({
       channel: null,
