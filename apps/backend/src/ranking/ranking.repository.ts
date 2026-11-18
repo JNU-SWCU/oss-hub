@@ -5,6 +5,10 @@ import {
   RANKING_ORDER_BY_SQL,
   STANDING_SQL,
 } from '../platform/contributor-read.config';
+import {
+  RankingAllTimelineRepository,
+  type RankingAllTimelineRow,
+} from './ranking-all-timeline.repository';
 
 const STANDING = Prisma.raw(STANDING_SQL);
 import { PrismaService } from '../platform/prisma.service';
@@ -164,10 +168,11 @@ function previousRows(query: RankingMetricsQuery, before: Date): Prisma.Sql {
   `;
 }
 
-function foldedActivity(rows: Prisma.Sql): Prisma.Sql {
+function foldedActivity(rows: Prisma.Sql, byPeriod = false): Prisma.Sql {
+  const period = byPeriod ? Prisma.sql`from_month,` : Prisma.empty;
   return Prisma.sql`
     SELECT
-      github_id,
+      ${period} github_id,
       SUM(commit_count)::int AS commit_count,
       SUM(pull_request_count)::int AS pull_request_count,
       SUM(issue_count)::int AS issue_count,
@@ -178,20 +183,25 @@ function foldedActivity(rows: Prisma.Sql): Prisma.Sql {
         0
       )::int AS star_count
     FROM (${rows}) AS activity_rows
-    GROUP BY github_id
+    GROUP BY ${period} github_id
   `;
 }
 
-function rankedMembers(folded: Prisma.Sql): Prisma.Sql {
+function rankedMembers(folded: Prisma.Sql, byPeriod = false): Prisma.Sql {
+  const partition = byPeriod
+    ? Prisma.sql`PARTITION BY scored.from_month`
+    : Prisma.empty;
   return Prisma.sql`
     SELECT
       scored.*,
-      (ROW_NUMBER() OVER (${RANKING_ORDER}))::int AS rank
+      (ROW_NUMBER() OVER (${partition} ${RANKING_ORDER}))::int AS rank
     FROM (
       SELECT
+        ${byPeriod ? Prisma.sql`grid.from_month,` : Prisma.empty}
         member."githubId" AS github_id,
         member.login,
         member.department,
+        folded.github_id IS NOT NULL AS has_observation,
         COALESCE(folded.commit_count, 0) AS commit_count,
         COALESCE(folded.pull_request_count, 0) AS pull_request_count,
         COALESCE(folded.issue_count, 0) AS issue_count,
@@ -201,9 +211,22 @@ function rankedMembers(folded: Prisma.Sql): Prisma.Sql {
           + COALESCE(folded.issue_count, 0) + COALESCE(folded.repository_count, 0)
           + COALESCE(folded.star_count, 0))::int AS total
       FROM "User" AS member
+      ${byPeriod ? Prisma.sql`CROSS JOIN historical_grid AS grid` : Prisma.empty}
       LEFT JOIN ${folded} AS folded ON folded.github_id = member."githubId"
+        ${byPeriod ? Prisma.sql`AND folded.from_month = grid.from_month` : Prisma.empty}
       WHERE ${RANKING_MEMBER}
     ) AS scored
+  `;
+}
+
+function timelineCohort(query: RankingMetricsQuery, viewer: string | null) {
+  return Prisma.sql`
+    WITH current_folded AS (${foldedActivity(currentRows(query))}),
+    final_ranked AS (${rankedMembers(Prisma.sql`current_folded`)})
+    SELECT github_id, login, rank, total
+    FROM final_ranked
+    WHERE total > 0
+      AND (rank <= ${TIMELINE_LEADERS} OR lower(login) = lower(${viewer ?? ''}))
   `;
 }
 
@@ -220,7 +243,12 @@ const seoulDayStart = (instant: Date): Date =>
 export class RankingRepository {
   private readonly contributors: ContributorReadRepository;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly allTimeline: RankingAllTimelineRepository = new RankingAllTimelineRepository(
+      prisma,
+    ),
+  ) {
     this.contributors = new ContributorReadRepository(prisma);
   }
 
@@ -297,12 +325,8 @@ export class RankingRepository {
     viewerLogin: string | null,
   ): Promise<RankingTimelineRows> {
     const selected = await this.prisma.$queryRaw<RankingTimelineSelectedRow[]>`
-      WITH current_folded AS (${foldedActivity(currentRows({ currentYear: year }))}),
-      final_ranked AS (${rankedMembers(Prisma.sql`current_folded`)})
       SELECT github_id AS "githubId", login AS "githubLogin", rank, total
-      FROM final_ranked
-      WHERE total > 0
-        AND (rank <= ${TIMELINE_LEADERS} OR lower(login) = lower(${viewerLogin ?? ''}))
+      FROM (${timelineCohort({ currentYear: year }, viewerLogin)}) AS selected
       ORDER BY rank
       LIMIT ${TIMELINE_LEADERS + 1}
     `;
@@ -358,6 +382,26 @@ export class RankingRepository {
       LIMIT ${12 * (TIMELINE_LEADERS + 1)}
     `;
     return { selected, points };
+  }
+
+  findAllTimelineSeries(
+    viewer: string | null,
+  ): Promise<RankingAllTimelineRow[]> {
+    return this.allTimeline.readRows({
+      member: RANKING_MEMBER,
+      cohort: timelineCohort({}, viewer),
+      foldedHistory: foldedActivity(
+        Prisma.sql`
+          SELECT grid.from_month, changes.*
+          FROM historical_grid AS grid
+          JOIN changes ON changes.observed_at < grid.cutoff
+            AND (changes.superseded_at IS NULL OR grid.cutoff <= changes.superseded_at)
+        `,
+        true,
+      ),
+      rankedHistory: rankedMembers(Prisma.sql`historical_folded`, true),
+      cohortLimit: TIMELINE_LEADERS + 1,
+    });
   }
 
   async findNamesByGithubIds(

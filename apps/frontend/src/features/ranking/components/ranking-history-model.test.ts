@@ -37,19 +37,58 @@ function changeText(
   return change === undefined ? 'MISSING' : formatRankChange(change);
 }
 
-test('행 하나가 지점 하나다 — 계열별 누적 점수를 키로 싣고 빈 달은 null 로 두며 월 이름표를 붙인다', () => {
+test('기록 사이와 연말까지 비어 있는 달을 실제 관측값과 구분한다', () => {
   const chart = buildRankingHistoryChart(
-    timelineOf([
-      { githubLogin: 'mina', ranks: [1, 1], totals: [10, 40] },
-      { githubLogin: 'suho', ranks: [null, 2], totals: [null, 20] },
-    ]),
+    {
+      year: 2026,
+      months: [1, 3],
+      series: [
+        { githubLogin: 'mina', ranks: [1, 1], totals: [10, 40] },
+        { githubLogin: 'suho', ranks: [null, 2], totals: [null, 20] },
+      ],
+    },
     null,
   );
 
   expect(chart.rows).toEqual([
     { label: '1월', s0: 10, s1: null },
-    { label: '2월', s0: 40, s1: 20 },
+    { label: '2월', s0: null, s1: null },
+    { label: '3월', s0: 40, s1: 20 },
+    ...[4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => ({
+      label: `${month}월`,
+      s0: null,
+      s1: null,
+    })),
   ]);
+  expect(chart.legend[1]).toMatchObject({
+    finalRank: 2,
+    ranks: [null, null, 2, ...Array<null>(9).fill(null)],
+    tipIndex: 2,
+  });
+});
+
+test('전체 그래프는 연도가 바뀌어도 연결된 달력 범위와 데이터 공백을 표시한다', () => {
+  const chart = buildRankingHistoryChart(
+    {
+      year: 'all',
+      periods: [
+        { fromMonth: '2025-11', toMonth: '2026-01' },
+        { fromMonth: '2026-02', toMonth: '2026-04' },
+        { fromMonth: '2026-05', toMonth: '2026-05' },
+      ],
+      series: [
+        { githubLogin: 'mina', ranks: [1, null, 1], totals: [90, null, 110] },
+      ],
+    },
+    null,
+  );
+
+  expect(chart.rows).toEqual([
+    { label: '2025.11–2026.01', s0: 90 },
+    { label: '2026.02–2026.04', s0: null },
+    { label: '2026.05', s0: 110 },
+  ]);
+  expect(chart.legend[0]?.showDot).toBe(true);
 });
 
 test('범례는 상위 10명과 열람자만 담고, 열람자 선은 전용 색으로 가장 마지막에 그려진다', () => {
@@ -91,10 +130,9 @@ test('상위 10명은 색이 모두 다르다', () => {
   expect(colors).not.toContain('var(--chart-3)');
 });
 
-test('계열이 없으면 행도 없다', () => {
+test('빈 타임라인에는 계열이나 범례를 생성하지 않는다', () => {
   const chart = buildRankingHistoryChart(timelineOf([], 0), null);
 
-  expect(chart.rows).toEqual([]);
   expect(chart.lines).toEqual([]);
   expect(chart.legend).toEqual([]);
 });
@@ -139,7 +177,7 @@ test('로그 보기는 0점을 1로 올리고 빈 달은 비워 두며, 눈금�
     null,
   );
 
-  expect(rankingHistoryLogRows(chart.rows)).toEqual([
+  expect(rankingHistoryLogRows(chart.rows).slice(0, 2)).toEqual([
     { label: '1월', s0: 1, s1: null },
     { label: '2월', s0: 1200, s1: 40 },
   ]);

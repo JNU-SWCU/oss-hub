@@ -15,7 +15,7 @@ export function RankingPageHeader() {
       title="랭킹"
       description={
         <span className="inline-flex items-center gap-1">
-          올해 GitHub에서 활동한 만큼 점수가 쌓입니다.
+          GitHub 활동에 따라 점수가 쌓입니다.
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -37,7 +37,7 @@ export function RankingPageHeader() {
                   커밋·PR·이슈·저장소·스타를 모두 합산합니다.
                 </span>{' '}
                 <span className="inline-block">
-                  스타는 올해 직접 커밋·PR한 공개 저장소의 것만 인정됩니다.
+                  스타는 직접 커밋·PR한 공개 저장소의 것만 인정됩니다.
                 </span>
               </TooltipContent>
             </Tooltip>

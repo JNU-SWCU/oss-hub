@@ -1,6 +1,7 @@
 'use client';
 
 import { skipToken, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import {
   useProgramNavigationMilestonesQuery,
   useProgramOverviewQuery,
@@ -8,6 +9,7 @@ import {
 } from '@/features/programs/catalog/queries';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 import type { ProgramNavigationMilestone } from '@/features/programs/catalog/program-navigation-dto';
+import { currentRankingYear } from '@/features/ranking/types';
 import { featureKey } from '@/lib/query-keys';
 import { SECTION_FACETS, type SectionFacetData } from './section-facets';
 import type { ProgramScopeViewerRole, ShellSection } from './sidebar-menu';
@@ -70,9 +72,20 @@ export function useProductShellData({
     queryKey: featureKey('shell-facets', section),
     queryFn: facetLoader ? ({ signal }) => facetLoader(signal) : skipToken,
   });
+  const [rankingCurrentYear, setRankingCurrentYear] =
+    useState(currentRankingYear);
+  useEffect(() => {
+    if (section !== 'ranking') return;
+    const updateYear = () => setRankingCurrentYear(currentRankingYear());
+    updateYear();
+    const interval = setInterval(updateYear, 1000);
+    return () => clearInterval(interval);
+  }, [section]);
 
+  const facetData = facetLoader ? facets.data : undefined;
   return {
-    facetData: facetLoader ? facets.data : undefined,
+    facetData:
+      section === 'ranking' ? { ...facetData, rankingCurrentYear } : facetData,
     facetStatus: facetLoader ? facets.status : 'idle',
     scopeOverview: scopeViewReady ? overview.data : undefined,
     scopeOverviewStatus: scopedProgramId === null ? 'idle' : overview.status,

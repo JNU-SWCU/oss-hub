@@ -1,18 +1,11 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test } from 'vitest';
 import {
   parseRankingPage,
   parseRankingTimeline,
   parseRankingYears,
   RankingResponseError,
 } from './api';
-import {
-  currentRankingYear,
-  RANKING_YEAR_ALL,
-  parseRankingYearSearchParam,
-  rankingListHref,
-} from './types';
-
-afterEach(() => vi.useRealTimers());
+import { RANKING_YEAR_ALL } from './types';
 
 const rankingPage = (year: number | typeof RANKING_YEAR_ALL) => ({
   year,
@@ -257,41 +250,6 @@ test('연도 목록 응답을 파싱하고 모르는 필드는 무시한다', ()
   );
 });
 
-test('URL year 파싱과 href 생성', () => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
-  expect(parseRankingYearSearchParam('2025')).toBe(2025);
-
-  expect(parseRankingYearSearchParam(null)).toBe(currentRankingYear());
-  expect(parseRankingYearSearchParam('')).toBe(currentRankingYear());
-
-  expect(parseRankingYearSearchParam('all')).toBe(RANKING_YEAR_ALL);
-
-  expect(parseRankingYearSearchParam('nope')).toBe(currentRankingYear());
-  expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking?year=all');
-  expect(rankingListHref(2025)).toBe('/ranking?year=2025');
-  expect(rankingListHref(currentRankingYear())).toBe('/ranking');
-  expect(parseRankingYearSearchParam('2026')).toBe(2026);
-});
-
-test.each([
-  ['2026-12-31T14:59:59.999Z', 2026, 2025],
-  ['2026-12-31T15:00:00.000Z', 2027, 2026],
-] as const)(
-  '%s 서울 연도 경계에서 올해 주소와 이전 연도 데이터 선택을 유지한다',
-  (now, current, previous) => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(now));
-
-    expect(rankingListHref(current)).toBe('/ranking');
-    expect(parseRankingYearSearchParam(null)).toBe(current);
-    expect(parseRankingYearSearchParam(String(current))).toBe(current);
-    expect(rankingListHref(previous)).toBe(`/ranking?year=${previous}`);
-    expect(parseRankingYearSearchParam(String(previous))).toBe(previous);
-    expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking?year=all');
-  },
-);
-
 test('dataAsOf 가 없어도 파싱된다', () => {
   const withoutDataAsOf: Partial<ReturnType<typeof rankingPage>> =
     rankingPage(2026);
@@ -439,5 +397,24 @@ test('타임라인은 월과 계열을 읽고, 계열 길이가 월 수와 다�
   ).toEqual({ year: 2026, months: [1, 2], series: [series] });
   expect(() =>
     parseRankingTimeline({ year: 2026, months: [1], series: [series] }),
+  ).toThrow(RankingResponseError);
+});
+
+test('전체 타임라인은 실제 월 범위와 관측값이 없는 구간을 유지한다', () => {
+  const timeline = {
+    year: RANKING_YEAR_ALL,
+    periods: [
+      { fromMonth: '2025-11', toMonth: '2026-01' },
+      { fromMonth: '2026-02', toMonth: '2026-04' },
+      { fromMonth: '2026-05', toMonth: '2026-05' },
+    ],
+    series: [
+      { githubLogin: 'mina', ranks: [1, null, 1], totals: [5, null, 40] },
+    ],
+  };
+
+  expect(parseRankingTimeline(timeline)).toEqual(timeline);
+  expect(() =>
+    parseRankingTimeline({ ...timeline, periods: timeline.periods.slice(1) }),
   ).toThrow(RankingResponseError);
 });

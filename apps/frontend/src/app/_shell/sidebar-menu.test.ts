@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-list-labels';
 import { programMyTeamHref } from '@/lib/program-route';
 import { isProgramScopedWorkspacePath } from './program-shell-policy';
-import { currentRankingYear } from '@/features/ranking/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import type { MemberAccess } from './member-access';
 import { STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -306,7 +305,7 @@ describe('sidebarGroupsFor (context)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
     const groups = sidebarGroupsFor('ranking', null, {
-      rankingYears: [2026, 2025],
+      rankingYears: [2025, 2027, 2026, 2025],
     });
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('랭킹');
@@ -317,16 +316,10 @@ describe('sidebarGroupsFor (context)', () => {
         depth: i.depth,
       })),
     ).toEqual([
-      { label: '전체', href: '/ranking?year=all', depth: 0 },
-      { label: '2026', href: '/ranking', depth: 0 },
+      { label: '전체', href: '/ranking', depth: 0 },
+      { label: '2026', href: '/ranking?year=2026', depth: 0 },
       { label: '2025', href: '/ranking?year=2025', depth: 0 },
     ]);
-  });
-
-  it('ranking without years still has 전체', () => {
-    const items = rankingSidebarGroup().items;
-    expect(items).toHaveLength(1);
-    expect(items[0]?.label).toBe('전체');
   });
 });
 
@@ -371,26 +364,14 @@ describe('isCurrentSidebarItem', () => {
     );
   });
 
-  it('/ranking 은 전체가 아니라 올해 항목을 강조한다', () => {
-    const thisYear = String(currentRankingYear());
-
-    expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
-      false,
-    );
-    expect(
-      isCurrentSidebarItem('/ranking', `/ranking?year=${thisYear}`, ''),
-    ).toBe(true);
+  it('/ranking 및 전체 별칭은 전체 항목을 강조한다', () => {
     expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
     expect(
-      isCurrentSidebarItem('/ranking', '/ranking', `year=${thisYear}`),
-    ).toBe(true);
-
-    expect(
-      isCurrentSidebarItem('/ranking', '/ranking?year=all', 'year=all'),
+      isCurrentSidebarItem('/ranking', '/ranking', 'year=ALL&page=2'),
     ).toBe(true);
   });
 
-  describe('`year` 부재 강조는 기기 시간대를 타지 않는다', () => {
+  describe('랭킹 연도 선택지는 서울 달력을 따른다', () => {
     const originalTz = process.env.TZ;
 
     afterEach(() => {
@@ -406,51 +387,21 @@ describe('isCurrentSidebarItem', () => {
       vi.setSystemTime(new Date(isoUtc));
     }
 
-    it('새해가 되면 전년도 링크는 명시적인 연도를 유지하고 올해만 canonical 주소를 쓴다', () => {
-      freezeAt('UTC', '2026-12-31T15:00:00.000Z');
-      const items = rankingSidebarGroup([2027, 2026]).items;
-      expect(items.map(({ href }) => href)).toEqual([
-        '/ranking?year=all',
-        '/ranking',
-        '/ranking?year=2026',
-      ]);
-      expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
-      expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2027')).toBe(
-        true,
-      );
-      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
-        false,
-      );
-      expect(
-        isCurrentSidebarItem('/ranking', '/ranking?year=2026', 'year=2026'),
-      ).toBe(true);
-    });
-
-    it('UTC 기기에서 1월 1일 00:30 KST 면 서울 연도가 강조된다', () => {
+    it('UTC 기기에서 1월 1일 00:30 KST 면 서울 연도를 포함한다', () => {
       freezeAt('UTC', '2025-12-31T15:30:00.000Z');
 
       expect(new Date().getFullYear()).toBe(2025);
-
-      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
-        true,
-      );
-      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2025', '')).toBe(
-        false,
-      );
-      expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
-        false,
+      expect(rankingSidebarGroup([2025]).items.map(({ href }) => href)).toEqual(
+        ['/ranking', '/ranking?year=2026', '/ranking?year=2025'],
       );
     });
 
-    it('KST 보다 앞선 기기의 자정 직후에도 서울 연도가 강조된다', () => {
+    it('KST 보다 앞선 기기의 자정 직후에도 미래 연도를 숨긴다', () => {
       freezeAt('Pacific/Kiritimati', '2026-12-31T10:10:00.000Z');
       expect(new Date().getFullYear()).toBe(2027);
 
-      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
-        true,
-      );
-      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2027', '')).toBe(
-        false,
+      expect(rankingSidebarGroup([2027]).items.map(({ href }) => href)).toEqual(
+        ['/ranking', '/ranking?year=2026'],
       );
     });
   });
@@ -499,11 +450,14 @@ describe('isCurrentSidebarItem', () => {
 });
 
 describe('SECTION_FACETS registry (U4)', () => {
-  it('ranking.items(undefined) returns only 전체', () => {
+  it('ranking.items(undefined) includes the current year without data', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
     const items = SECTION_FACETS.ranking?.items(undefined) ?? [];
-    expect(items).toHaveLength(1);
-    expect(items[0]?.label).toBe('전체');
-    expect(items[0]?.href).toBe('/ranking?year=all');
+    expect(items.map(({ href }) => href)).toEqual([
+      '/ranking',
+      '/ranking?year=2026',
+    ]);
   });
 
   it('registry params match peer-filter keys', () => {
