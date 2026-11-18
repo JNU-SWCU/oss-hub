@@ -462,6 +462,7 @@ describe('SystemStatusScreen', () => {
         ],
         collectionRepositories: names.map((repositoryName, index) => ({
           repositoryName,
+          teamName: null,
           programName: null,
           lastSuccessAt: new Date(Date.UTC(2026, 10, 16, index)).toISOString(),
           stale: true,

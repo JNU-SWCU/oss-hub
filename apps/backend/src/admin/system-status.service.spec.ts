@@ -20,7 +20,12 @@ function repository(
   repositoryName: string,
   lastSuccessAt: Date | null,
 ): CollectionRepositoryStatusDto {
-  return { repositoryName, programName: '2026 오픈소스', lastSuccessAt };
+  return {
+    repositoryName,
+    teamName: '합성 팀',
+    programName: '2026 오픈소스',
+    lastSuccessAt,
+  };
 }
 
 const SEVEN_DAYS_AGO = new Date('2026-07-18T12:00:00.000Z');

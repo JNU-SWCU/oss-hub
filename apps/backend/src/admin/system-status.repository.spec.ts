@@ -23,7 +23,9 @@ describe('SystemStatusRepository', () => {
       {
         ownerName: 'org/alpha',
         lastSuccessAt: new Date('2026-07-25T11:00:00Z'),
-        teamRepos: [{ team: { program: { name: '2026 오픈소스' } } }],
+        teamRepos: [
+          { team: { name: '합성 팀', program: { name: '2026 오픈소스' } } },
+        ],
       },
       { ownerName: 'org/beta', lastSuccessAt: null, teamRepos: [] },
     ]);
@@ -31,10 +33,16 @@ describe('SystemStatusRepository', () => {
     await expect(repository.getCollectionRepositories()).resolves.toEqual([
       {
         repositoryName: 'org/alpha',
+        teamName: '합성 팀',
         programName: '2026 오픈소스',
         lastSuccessAt: new Date('2026-07-25T11:00:00Z'),
       },
-      { repositoryName: 'org/beta', programName: null, lastSuccessAt: null },
+      {
+        repositoryName: 'org/beta',
+        teamName: null,
+        programName: null,
+        lastSuccessAt: null,
+      },
     ]);
     expect(repoFindMany).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -6593,6 +6593,10 @@
           "repositoryName": {
             "type": "string"
           },
+          "teamName": {
+            "type": "string",
+            "nullable": true
+          },
           "programName": {
             "type": "string",
             "nullable": true
@@ -6607,6 +6611,7 @@
         },
         "required": [
           "repositoryName",
+          "teamName",
           "programName",
           "lastSuccessAt",
           "stale"

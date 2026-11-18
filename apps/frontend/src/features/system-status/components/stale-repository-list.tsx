@@ -29,29 +29,34 @@ export function StaleRepositoryList({
   return (
     <div className="grid gap-2">
       <ul id={listId} className="grid">
-        {visible.map((repository) => (
-          <li key={repository.repositoryName} className={REPOSITORY_ROW}>
-            <p className="font-semibold [overflow-wrap:anywhere]">
-              {repository.repositoryName}
-              {repository.programName ? (
-                <>
-                  {' '}
-                  <span className="inline-block font-normal text-muted-foreground">
-                    {repository.programName}
-                  </span>
-                </>
-              ) : null}
-            </p>
-            {repository.lastSuccessAt ? (
-              <p className="text-small text-muted-foreground tabular-nums">
-                마지막 수집 성공{' '}
-                <time dateTime={repository.lastSuccessAt}>
-                  {formatRelativeTime(repository.lastSuccessAt, now)}
-                </time>
+        {visible.map((repository) => {
+          const owner = [repository.teamName, repository.programName]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <li key={repository.repositoryName} className={REPOSITORY_ROW}>
+              <p className="font-semibold [overflow-wrap:anywhere]">
+                {repository.repositoryName}
+                {owner ? (
+                  <>
+                    {' '}
+                    <span className="inline-block font-normal text-muted-foreground">
+                      {owner}
+                    </span>
+                  </>
+                ) : null}
               </p>
-            ) : null}
-          </li>
-        ))}
+              {repository.lastSuccessAt ? (
+                <p className="text-small text-muted-foreground tabular-nums">
+                  마지막 수집 성공{' '}
+                  <time dateTime={repository.lastSuccessAt}>
+                    {formatRelativeTime(repository.lastSuccessAt, now)}
+                  </time>
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
       {foldedCount > 0 ? (
         <Button

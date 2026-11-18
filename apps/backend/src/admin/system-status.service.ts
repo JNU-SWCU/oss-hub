@@ -48,6 +48,7 @@ interface SystemStatusAnomalyResult {
 
 interface SystemStatusCollectionRepositoryResult {
   readonly repositoryName: string;
+  readonly teamName: string | null;
   readonly programName: string | null;
   readonly lastSuccessAt: Date | null;
   readonly stale: boolean;
