@@ -2,7 +2,10 @@ export type ProgramMailDeliveryResult = {
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;
+  readonly unknownCount: number;
 };
+
+export type ProgramMailClock = () => Date;
 
 export type ProgramMailRecipient = {
   readonly id: string;
@@ -44,5 +47,7 @@ export type ProgramMailProcessResult =
 export type ProgramMailBatchWork = ProgramMailBatchContent & {
   readonly batchKey: string;
   readonly workerId: string;
+  readonly leaseToken: string;
   readonly leaseExpiresAt: Date;
+  readonly deliveryAllowed: boolean;
 };

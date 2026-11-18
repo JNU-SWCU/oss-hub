@@ -1,5 +1,6 @@
 import { Logger, Injectable } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
+import { PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS } from './program-mail.config';
 
 export interface DeadlineDigestMail {
   readonly to: string;
@@ -28,6 +29,9 @@ export class GmailMailClient implements MailSender {
   constructor(private readonly config: GmailSenderConfig) {
     this.transporter = createTransport({
       service: 'gmail',
+      connectionTimeout: PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS,
+      greetingTimeout: PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS,
+      socketTimeout: PROGRAM_MAIL_TRANSPORT_TIMEOUT_MS,
       auth: {
         type: 'OAuth2',
         user: config.sender,

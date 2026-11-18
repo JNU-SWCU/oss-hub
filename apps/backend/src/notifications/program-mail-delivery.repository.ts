@@ -4,16 +4,17 @@ import { PrismaService } from '../platform/prisma.service';
 import { PROGRAM_MAIL_LEASE_MS } from './program-mail.config';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailStoredResultError } from './program-mail-send-state.error';
-import {
-  type ProgramMailBatchWork,
-  type ProgramMailDeliveryResult,
-  type ProgramMailRecipient,
+import type {
+  ProgramMailBatchWork,
+  ProgramMailDeliveryResult,
+  ProgramMailRecipient,
 } from './program-mail-send.types';
 
 export type ProgramMailRecipientDeliveryState = {
   readonly key: string;
   readonly recipient: ProgramMailRecipient;
   readonly status: string;
+  readonly code: string | null;
   readonly leaseExpiresAt: Date | null;
 };
 
@@ -51,6 +52,7 @@ export class ProgramMailDeliveryRepository {
           key,
           recipient,
           status: row.status,
+          code: this.code(row.payload),
           leaseExpiresAt: this.leaseExpiry(row.payload),
         },
       ];
@@ -63,22 +65,37 @@ export class ProgramMailDeliveryRepository {
     now: Date,
   ): Promise<boolean> {
     const leaseExpiresAt = new Date(now.getTime() + PROGRAM_MAIL_LEASE_MS);
-    const updated = await this.prisma.notification.updateMany({
-      where: { idempotencyKey: state.key, status: 'PENDING' },
-      data: {
-        status: 'PROCESSING',
-        payload: {
-          schemaVersion: 1,
-          batchKey: work.batchKey,
-          previewVersion: work.previewVersion,
-          displayName: state.recipient.displayName,
-          notificationEmail: state.recipient.notificationEmail,
-          workerId: work.workerId,
-          leaseExpiresAt: leaseExpiresAt.toISOString(),
-        },
-      },
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      batchKey: work.batchKey,
+      previewVersion: work.previewVersion,
+      displayName: state.recipient.displayName,
+      notificationEmail: state.recipient.notificationEmail,
+      workerId: work.workerId,
+      leaseToken: work.leaseToken,
+      leaseExpiresAt: leaseExpiresAt.toISOString(),
     });
-    return updated.count === 1;
+    const updated = await this.prisma.$executeRaw`
+      UPDATE "Notification" AS recipient
+      SET "status" = 'PROCESSING', payload = ${payload}::jsonb
+      WHERE recipient."idempotencyKey" = ${state.key}
+        AND recipient."type" = 'PROGRAM_MAIL'
+        AND recipient."status" = 'PENDING'
+        AND EXISTS (
+          SELECT 1
+          FROM "Notification" AS batch
+          INNER JOIN "Program" AS program
+            ON program.id = batch.payload->>'programId'
+          WHERE batch."idempotencyKey" = ${work.batchKey}
+            AND batch."type" = 'PROGRAM_MAIL_SEND'
+            AND batch."status" = 'PROCESSING'
+            AND batch.payload->>'workerId' = ${work.workerId}
+            AND batch.payload->>'leaseToken' = ${work.leaseToken}
+            AND (batch.payload->>'leaseExpiresAt')::timestamptz > ${now}
+            AND program.lifecycle <> 'DELETED'
+        )
+    `;
+    return updated === 1;
   }
 
   async complete(command: {
@@ -86,46 +103,67 @@ export class ProgramMailDeliveryRepository {
     readonly state: ProgramMailRecipientDeliveryState;
     readonly status: 'SENT' | 'FAILED';
     readonly now: Date;
-  }): Promise<void> {
-    const updated = await this.prisma.notification.updateMany({
-      where: {
-        idempotencyKey: command.state.key,
-        status: 'PROCESSING',
-        payload: { path: ['workerId'], equals: command.work.workerId },
-      },
-      data: {
-        status: command.status,
-        sentAt: command.status === 'SENT' ? command.now : null,
-        payload: {
-          schemaVersion: 1,
-          batchKey: command.work.batchKey,
-          previewVersion: command.work.previewVersion,
-          code: command.status === 'SENT' ? null : 'MAIL_DELIVERY_FAILED',
-        },
-      },
+  }): Promise<boolean> {
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      batchKey: command.work.batchKey,
+      previewVersion: command.work.previewVersion,
+      code: command.status === 'SENT' ? null : 'MAIL_DELIVERY_FAILED',
     });
-    if (updated.count !== 1) {
-      throw new ProgramMailStoredResultError(command.work.batchKey);
-    }
+    const updated = await this.prisma.$executeRaw`
+      UPDATE "Notification" AS recipient
+      SET "status" = ${command.status},
+          "sentAt" = ${command.status === 'SENT' ? command.now : null},
+          payload = ${payload}::jsonb
+      WHERE recipient."idempotencyKey" = ${command.state.key}
+        AND recipient."type" = 'PROGRAM_MAIL'
+        AND recipient."status" = 'PROCESSING'
+        AND recipient.payload->>'workerId' = ${command.work.workerId}
+        AND recipient.payload->>'leaseToken' = ${command.work.leaseToken}
+        AND EXISTS (
+          SELECT 1
+          FROM "Notification" AS batch
+          WHERE batch."idempotencyKey" = ${command.work.batchKey}
+            AND batch."type" = 'PROGRAM_MAIL_SEND'
+            AND batch."status" = 'PROCESSING'
+            AND batch.payload->>'workerId' = ${command.work.workerId}
+            AND batch.payload->>'leaseToken' = ${command.work.leaseToken}
+            AND (batch.payload->>'leaseExpiresAt')::timestamptz > ${command.now}
+        )
+    `;
+    return updated === 1;
   }
 
   async markUnknown(
     work: ProgramMailBatchWork,
     state: ProgramMailRecipientDeliveryState,
-  ): Promise<void> {
-    await this.prisma.notification.updateMany({
-      where: { idempotencyKey: state.key, status: 'PROCESSING' },
-      data: {
-        status: 'FAILED',
-        sentAt: null,
-        payload: {
-          schemaVersion: 1,
-          batchKey: work.batchKey,
-          previewVersion: work.previewVersion,
-          code: 'MAIL_DELIVERY_UNKNOWN',
-        },
-      },
+    now: Date,
+  ): Promise<boolean> {
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      batchKey: work.batchKey,
+      previewVersion: work.previewVersion,
+      code: 'MAIL_DELIVERY_UNKNOWN',
     });
+    const updated = await this.prisma.$executeRaw`
+      UPDATE "Notification" AS recipient
+      SET "status" = 'FAILED', "sentAt" = NULL, payload = ${payload}::jsonb
+      WHERE recipient."idempotencyKey" = ${state.key}
+        AND recipient."type" = 'PROGRAM_MAIL'
+        AND recipient."status" = 'PROCESSING'
+        AND (recipient.payload->>'leaseExpiresAt')::timestamptz <= ${now}
+        AND EXISTS (
+          SELECT 1
+          FROM "Notification" AS batch
+          WHERE batch."idempotencyKey" = ${work.batchKey}
+            AND batch."type" = 'PROGRAM_MAIL_SEND'
+            AND batch."status" = 'PROCESSING'
+            AND batch.payload->>'workerId' = ${work.workerId}
+            AND batch.payload->>'leaseToken' = ${work.leaseToken}
+            AND (batch.payload->>'leaseExpiresAt')::timestamptz > ${now}
+        )
+    `;
+    return updated === 1;
   }
 
   async result(
@@ -140,10 +178,15 @@ export class ProgramMailDeliveryRepository {
       return null;
     }
     const sentCount = states.filter((state) => state.status === 'SENT').length;
-    const failedCount = states.filter(
-      (state) => state.status === 'FAILED',
+    const unknownCount = states.filter(
+      (state) =>
+        state.status === 'FAILED' && state.code === 'MAIL_DELIVERY_UNKNOWN',
     ).length;
-    return { sentCount, failedCount, duplicateCount: 0 };
+    const failedCount = states.filter(
+      (state) =>
+        state.status === 'FAILED' && state.code !== 'MAIL_DELIVERY_UNKNOWN',
+    ).length;
+    return { sentCount, failedCount, unknownCount, duplicateCount: 0 };
   }
 
   private leaseExpiry(value: Prisma.JsonValue): Date | null {
@@ -152,6 +195,15 @@ export class ProgramMailDeliveryRepository {
       !Array.isArray(value) &&
       typeof value.leaseExpiresAt === 'string'
       ? new Date(value.leaseExpiresAt)
+      : null;
+  }
+
+  private code(value: Prisma.JsonValue): string | null {
+    return value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      typeof value.code === 'string'
+      ? value.code
       : null;
   }
 }

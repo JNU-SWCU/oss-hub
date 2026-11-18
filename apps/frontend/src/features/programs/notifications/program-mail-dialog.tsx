@@ -192,7 +192,8 @@ export function ProgramMailDialog({
           {result.status === 'COMPLETED' ? (
             <AlertDescription>
               중복 생략 {result.duplicateCount}명 · 발송 실패{' '}
-              {result.failedCount}명
+              {result.failedCount}명 · 발송 결과 확인 불가{' '}
+              {result.unknownCount ?? 0}명
             </AlertDescription>
           ) : null}
         </Alert>

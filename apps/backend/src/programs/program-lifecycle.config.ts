@@ -18,6 +18,8 @@ const PURGE_RELATIONS = [
       'logical:Program->Notification[APPLICATION_DECISION,payload.programId]',
       'logical:Program->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
+      'logical:Program->Notification[PROGRAM_MAIL_SEND,payload.programId]',
+      'logical:Program->Notification[PROGRAM_MAIL,payload.batchKey]',
       'logical:Program->Notification[TEAM_DELETED,payload.programId]',
     ],
   },

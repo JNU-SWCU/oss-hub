@@ -66,9 +66,11 @@ export class ProgramMailBatchPayloadRepository {
     };
   }
 
-  lease(
-    value: Prisma.JsonValue,
-  ): { readonly workerId: string; readonly expiresAt: Date } | null {
+  lease(value: Prisma.JsonValue): {
+    readonly workerId: string;
+    readonly token: string | null;
+    readonly expiresAt: Date;
+  } | null {
     if (
       value === null ||
       typeof value !== 'object' ||
@@ -80,6 +82,7 @@ export class ProgramMailBatchPayloadRepository {
     }
     return {
       workerId: value.workerId,
+      token: typeof value.leaseToken === 'string' ? value.leaseToken : null,
       expiresAt: new Date(value.leaseExpiresAt),
     };
   }
@@ -108,6 +111,8 @@ export class ProgramMailBatchPayloadRepository {
           sentCount: result.sentCount,
           duplicateCount: result.duplicateCount,
           failedCount: result.failedCount,
+          unknownCount:
+            typeof result.unknownCount === 'number' ? result.unknownCount : 0,
         }
       : null;
   }

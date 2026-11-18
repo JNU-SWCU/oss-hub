@@ -43,7 +43,7 @@ export class ProgramMailDeliveryService {
       occurredAt: input.occurredAt,
     });
     return reservation.kind === 'OWNER'
-      ? this.worker.process(reservation.batchKey, input.occurredAt)
+      ? this.worker.process(reservation.batchKey)
       : reservation;
   }
 }

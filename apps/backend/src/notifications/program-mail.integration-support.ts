@@ -58,6 +58,8 @@ export type ProgramMailIntegrationWorld = {
   ): {
     readonly service: ProgramMailService;
     readonly worker: ProgramMailWorkerService;
+    readonly batches: ProgramMailBatchRepository;
+    readonly deliveries: ProgramMailDeliveryRepository;
   };
   createService(mailSender: MailSender): ProgramMailService;
   principal(githubId: bigint): Promise<ActiveAccountPrincipal>;
@@ -106,6 +108,8 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
     );
     return {
       worker,
+      batches,
+      deliveries,
       service: new ProgramMailService(
         new ProgramMailRepository(harness.prisma),
         new ProgramMailDeliveryService(

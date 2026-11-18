@@ -45,5 +45,6 @@ export type ProgramMailSendResult = {
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;
+  readonly unknownCount?: number;
   readonly previewVersion: string;
 };

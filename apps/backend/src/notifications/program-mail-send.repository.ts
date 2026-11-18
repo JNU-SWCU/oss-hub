@@ -161,6 +161,8 @@ export class ProgramMailSendRepository {
       sentCount: result.sentCount,
       duplicateCount: result.duplicateCount,
       failedCount: result.failedCount,
+      unknownCount:
+        typeof result.unknownCount === 'number' ? result.unknownCount : 0,
     };
   }
 

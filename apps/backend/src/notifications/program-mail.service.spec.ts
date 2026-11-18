@@ -55,7 +55,12 @@ function harness() {
     send: jest.fn().mockResolvedValue({
       kind: 'COMPLETED',
       batchKey: 'program-mail-send:preview',
-      result: { sentCount: 1, duplicateCount: 0, failedCount: 0 },
+      result: {
+        sentCount: 1,
+        duplicateCount: 0,
+        failedCount: 0,
+        unknownCount: 0,
+      },
     }),
   };
   return {

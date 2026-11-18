@@ -4,7 +4,6 @@ import {
   NotificationsErrorCode,
 } from './notifications-error-code.error';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
-import { PROGRAM_MAIL_LEASE_MS } from './program-mail.config';
 import type {
   ProgramMailSendRequest,
   ProgramMailService,
@@ -69,14 +68,29 @@ export function registerProgramMailAuditRecoveryCase(
     ).resolves.toMatchObject({ status: 'IN_PROGRESS', sentCount: 0 });
 
     const batchKey = `program-mail-send:${third.previewVersion}`;
-    const recovered = await failing.worker.process(
-      batchKey,
-      new Date(DIGEST_FIXTURE.now.getTime() + PROGRAM_MAIL_LEASE_MS + 1),
-    );
+    const batch = await world.prisma.notification.findUniqueOrThrow({
+      where: { idempotencyKey: batchKey },
+      select: { payload: true },
+    });
+    const leaseExpiresAt =
+      batch.payload !== null &&
+      typeof batch.payload === 'object' &&
+      !Array.isArray(batch.payload) &&
+      typeof batch.payload.leaseExpiresAt === 'string'
+        ? new Date(batch.payload.leaseExpiresAt)
+        : null;
+    if (leaseExpiresAt === null) throw new Error('Missing batch lease');
+    const recoveredAt = new Date(leaseExpiresAt.getTime() + 1);
+    const recovered = await failing.worker.process(batchKey, () => recoveredAt);
     expect(recovered).toEqual({
       kind: 'COMPLETED',
       batchKey,
-      result: { sentCount: 1, duplicateCount: 0, failedCount: 0 },
+      result: {
+        sentCount: 1,
+        duplicateCount: 0,
+        failedCount: 0,
+        unknownCount: 0,
+      },
     });
     expect(world.mailSender.sent).toHaveLength(3);
 

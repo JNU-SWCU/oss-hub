@@ -34,7 +34,12 @@ describe('ProgramMailDeliveryService', () => {
     process.mockResolvedValue({
       kind: 'COMPLETED',
       batchKey: 'program-mail-send:preview-1',
-      result: { sentCount: 1, duplicateCount: 0, failedCount: 0 },
+      result: {
+        sentCount: 1,
+        duplicateCount: 0,
+        failedCount: 0,
+        unknownCount: 0,
+      },
     });
     const service = new ProgramMailDeliveryService({ reserve }, { process });
 
@@ -47,10 +52,7 @@ describe('ProgramMailDeliveryService', () => {
     expect(reserved?.actorId).toBe(input.actorId);
     expect(reserved?.bodyHash).toMatch(/^[a-f0-9]{64}$/);
     expect(reserved?.bodyLength).toBe(input.body.length);
-    expect(process).toHaveBeenCalledWith(
-      'program-mail-send:preview-1',
-      input.occurredAt,
-    );
+    expect(process).toHaveBeenCalledWith('program-mail-send:preview-1');
   });
 
   it('returns stored in-progress state without starting another worker', async () => {

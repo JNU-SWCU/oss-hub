@@ -64,6 +64,7 @@ export type ProgramMailSendResult = {
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;
+  readonly unknownCount?: number;
   readonly previewVersion: string;
 };
 
@@ -154,7 +155,12 @@ export class ProgramMailService {
       status: delivery.kind,
       ...(delivery.kind === 'COMPLETED'
         ? delivery.result
-        : { sentCount: 0, duplicateCount: 0, failedCount: 0 }),
+        : {
+            sentCount: 0,
+            duplicateCount: 0,
+            failedCount: 0,
+            unknownCount: 0,
+          }),
       previewVersion: prepared.previewVersion,
     };
   }

@@ -6,6 +6,7 @@ import { registerProgramMailActiveLimitCase } from './program-mail-active-limit.
 import { registerProgramMailAuditRecoveryCase } from './program-mail-audit-recovery.integration-fixtures';
 import { registerProgramMailPendingRecoveryCase } from './program-mail-pending-recovery.integration-fixtures';
 import { registerProgramMailConcurrencyCases } from './program-mail-concurrency.integration-fixtures';
+import { registerProgramMailLeaseFencingCases } from './program-mail-lease-fencing.integration-fixtures';
 import {
   startProgramMailIntegration,
   type ProgramMailIntegrationWorld,
@@ -189,6 +190,7 @@ registerProgramMailConcurrencyCases(() => world);
 registerProgramMailActiveLimitCase(() => world);
 registerProgramMailAuditRecoveryCase(() => world);
 registerProgramMailPendingRecoveryCase(() => world);
+registerProgramMailLeaseFencingCases(() => world);
 
 it('revalidates program membership at send time', async () => {
   const cookie = await world.sessionCookie(DIGEST_FIXTURE.staffOnGithub);

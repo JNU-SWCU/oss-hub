@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { SequentialRepository } from '../platform/sequential.repository';
 import { ProgramMailBatchRepository } from './program-mail-batch.repository';
@@ -13,9 +13,12 @@ import {
 } from './program-mail-delivery.repository';
 import type {
   ProgramMailBatchWork,
+  ProgramMailClock,
   ProgramMailProcessResult,
 } from './program-mail-send.types';
 import { ProgramMailTransportService } from './program-mail-transport.service';
+
+const SYSTEM_CLOCK: ProgramMailClock = () => new Date();
 
 @Injectable()
 export class ProgramMailWorkerService {
@@ -25,9 +28,18 @@ export class ProgramMailWorkerService {
   private running = false;
 
   constructor(
-    private readonly batches: ProgramMailBatchRepository,
-    private readonly deliveries: ProgramMailDeliveryRepository,
-    private readonly transport: ProgramMailTransportService,
+    @Inject(ProgramMailBatchRepository)
+    private readonly batches: Pick<
+      ProgramMailBatchRepository,
+      'claim' | 'renew' | 'complete' | 'findRecoverableBatchKeys'
+    >,
+    @Inject(ProgramMailDeliveryRepository)
+    private readonly deliveries: Pick<
+      ProgramMailDeliveryRepository,
+      'states' | 'claim' | 'complete' | 'markUnknown' | 'result'
+    >,
+    @Inject(ProgramMailTransportService)
+    private readonly transport: Pick<ProgramMailTransportService, 'send'>,
   ) {}
 
   @Interval('program-mail-delivery', PROGRAM_MAIL_POLL_INTERVAL_MS)
@@ -46,27 +58,31 @@ export class ProgramMailWorkerService {
     }
   }
 
-  async runBatch(now = new Date()): Promise<void> {
-    const keys = await this.batches.findRecoverableBatchKeys(now);
+  async runBatch(clock: ProgramMailClock = SYSTEM_CLOCK): Promise<void> {
+    const keys = await this.batches.findRecoverableBatchKeys(clock());
     await this.sequential.forEach(keys, async (batchKey) => {
-      await this.process(batchKey, now);
+      await this.process(batchKey, clock);
     });
   }
 
   async process(
     batchKey: string,
-    now = new Date(),
+    clock: ProgramMailClock = SYSTEM_CLOCK,
   ): Promise<ProgramMailProcessResult> {
-    const claimed = await this.batches.claim(batchKey, this.workerId, now);
+    const claimed = await this.batches.claim(batchKey, this.workerId, clock());
     if ('kind' in claimed) return claimed;
-    await this.deliver(claimed, now);
-    const result = await this.deliveries.result(claimed);
+    const delivered = await this.deliver(claimed, clock);
+    if (delivered === null) return { kind: 'IN_PROGRESS', batchKey };
+    const result = await this.deliveries.result(delivered);
     return result === null
       ? { kind: 'IN_PROGRESS', batchKey }
-      : this.batches.complete(claimed, result, now);
+      : this.batches.complete(delivered, result, clock());
   }
 
-  private async deliver(work: ProgramMailBatchWork, now: Date): Promise<void> {
+  private async deliver(
+    work: ProgramMailBatchWork,
+    clock: ProgramMailClock,
+  ): Promise<ProgramMailBatchWork | null> {
     const states = await this.deliveries.states(work);
     const batches = Array.from(
       { length: Math.ceil(states.length / PROGRAM_MAIL_DELIVERY_BATCH_SIZE) },
@@ -76,38 +92,61 @@ export class ProgramMailWorkerService {
           (index + 1) * PROGRAM_MAIL_DELIVERY_BATCH_SIZE,
         ),
     );
+    let current = work;
+    let leaseOwned = true;
     await this.sequential.forEach(batches, async (batch) => {
-      await Promise.all(
-        batch.map((state) => this.deliverOne(work, state, now)),
+      const renewed = await this.batches.renew(current, clock());
+      if (renewed === null) {
+        leaseOwned = false;
+        return 'stop';
+      }
+      current = renewed;
+      const results = await Promise.all(
+        batch.map((state) => this.deliverOne(current, state, clock)),
       );
+      if (results.some((owned) => !owned)) {
+        leaseOwned = false;
+        return 'stop';
+      }
     });
+    return leaseOwned ? current : null;
   }
 
   private async deliverOne(
     work: ProgramMailBatchWork,
     state: ProgramMailRecipientDeliveryState,
-    now: Date,
-  ): Promise<void> {
-    if (state.status === 'SENT' || state.status === 'FAILED') return;
+    clock: ProgramMailClock,
+  ): Promise<boolean> {
+    if (state.status === 'SENT' || state.status === 'FAILED') return true;
     if (state.status === 'PROCESSING') {
-      if (state.leaseExpiresAt === null || state.leaseExpiresAt <= now) {
-        await this.deliveries.markUnknown(work, state);
-      }
-      return;
+      const now = clock();
+      return state.leaseExpiresAt === null || state.leaseExpiresAt <= now
+        ? this.deliveries.markUnknown(work, state, now)
+        : true;
     }
-    if (state.status !== 'PENDING') return;
-    if (!(await this.deliveries.claim(work, state, now))) return;
+    if (state.status !== 'PENDING' || !work.deliveryAllowed) return true;
+    if (!(await this.deliveries.claim(work, state, clock()))) return false;
     try {
       await this.transport.send(work, state);
     } catch {
-      await this.deliveries.complete({ work, state, status: 'FAILED', now });
+      const owned = await this.deliveries.complete({
+        work,
+        state,
+        status: 'FAILED',
+        now: clock(),
+      });
       this.logger.error({
         event: 'program-mail.delivery.failed',
         batchKey: work.batchKey,
         recipientId: state.recipient.id,
       });
-      return;
+      return owned;
     }
-    await this.deliveries.complete({ work, state, status: 'SENT', now });
+    return this.deliveries.complete({
+      work,
+      state,
+      status: 'SENT',
+      now: clock(),
+    });
   }
 }

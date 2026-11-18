@@ -3,6 +3,7 @@ export class ProgramMailSendResponseDto {
   declare readonly sentCount: number;
   declare readonly duplicateCount: number;
   declare readonly failedCount: number;
+  declare readonly unknownCount?: number;
   declare readonly previewVersion: string;
 
   static from(value: ProgramMailSendResponseDto): ProgramMailSendResponseDto {
@@ -11,6 +12,7 @@ export class ProgramMailSendResponseDto {
       sentCount: value.sentCount,
       duplicateCount: value.duplicateCount,
       failedCount: value.failedCount,
+      unknownCount: value.unknownCount,
       previewVersion: value.previewVersion,
     };
   }

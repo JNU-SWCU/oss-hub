@@ -793,6 +793,18 @@ export class ProgramDeletionScopeRepository {
               notification.type = 'DEADLINE_DIGEST'
               AND notification."idempotencyKey" LIKE CONCAT('%:', ${programId}::text, ':%')
             ) OR (
+              notification.type = 'PROGRAM_MAIL_SEND'
+              AND notification.payload->>'programId' = ${programId}
+            ) OR (
+              notification.type = 'PROGRAM_MAIL'
+              AND notification.payload->>'batchKey' IN (
+                SELECT batch."idempotencyKey"
+                FROM "Notification" AS batch
+                WHERE batch.type = 'PROGRAM_MAIL_SEND'
+                  AND batch.payload->>'programId' = ${programId}
+                  AND batch."idempotencyKey" IS NOT NULL
+              )
+            ) OR (
               notification.type = 'TEAM_DELETED'
               AND notification.payload->>'programId' = ${programId}
             )

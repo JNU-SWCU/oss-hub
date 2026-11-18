@@ -11853,6 +11853,9 @@
           "failedCount": {
             "type": "number"
           },
+          "unknownCount": {
+            "type": "number"
+          },
           "previewVersion": {
             "type": "string"
           }

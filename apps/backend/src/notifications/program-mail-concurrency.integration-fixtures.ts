@@ -178,6 +178,7 @@ export function registerProgramMailConcurrencyCases(
       sentCount: 0,
       duplicateCount: 0,
       failedCount: 0,
+      unknownCount: 0,
       previewVersion: preview.previewVersion,
     });
     const batchKey = `program-mail-send:${preview.previewVersion}`;
@@ -193,6 +194,7 @@ export function registerProgramMailConcurrencyCases(
       sentCount: 1,
       duplicateCount: 0,
       failedCount: 0,
+      unknownCount: 0,
       previewVersion: preview.previewVersion,
     });
     await expect(

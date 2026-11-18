@@ -86,6 +86,7 @@ describe('ProgramMailDialog', () => {
       sentCount: 1,
       duplicateCount: 0,
       failedCount: 0,
+      unknownCount: 2,
       previewVersion: preview.previewVersion,
     });
   });
@@ -144,6 +145,7 @@ describe('ProgramMailDialog', () => {
     expect(sendProgramMailMock).toHaveBeenCalledWith('program-1', preview);
     expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
     expect(document.body.textContent).toContain('1명에게 메일을 보냈습니다.');
+    expect(document.body.textContent).toContain('발송 결과 확인 불가 2명');
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });
 });

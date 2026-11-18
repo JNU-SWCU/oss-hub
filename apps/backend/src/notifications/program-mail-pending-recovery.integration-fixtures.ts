@@ -89,11 +89,16 @@ export function registerProgramMailPendingRecoveryCase(
     await expect(
       runtime.worker.process(
         `program-mail-send:${preview.previewVersion}`,
-        DIGEST_FIXTURE.now,
+        () => DIGEST_FIXTURE.now,
       ),
     ).resolves.toMatchObject({
       kind: 'COMPLETED',
-      result: { sentCount: 1, duplicateCount: 0, failedCount: 0 },
+      result: {
+        sentCount: 1,
+        duplicateCount: 0,
+        failedCount: 0,
+        unknownCount: 0,
+      },
     });
     expect(world.mailSender.sent).toHaveLength(1);
     await expect(
