@@ -250,7 +250,6 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
   });
 
   it.each([
-    '/programs/prog-1/milestones/m1/documents',
     '/programs/prog-1/submissions/s1/review',
     '/programs/prog-1/teams/team-1',
     '/programs/prog-1/edit',

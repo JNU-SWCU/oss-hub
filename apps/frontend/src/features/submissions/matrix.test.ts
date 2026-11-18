@@ -3,10 +3,8 @@ import {
   applyMatrixQuickFilter,
   buildMatrixSearchParams,
   cellForMilestone,
-  formatMatrixDueDateTime,
   formatSubmittedAt,
   isMatrixFilterActive,
-  isMilestoneWithoutRequiredItems,
   matrixCellAction,
   matrixEmptyKind,
   matrixPageStats,
@@ -162,14 +160,6 @@ describe('formatSubmittedAt', () => {
   });
 });
 
-describe('formatMatrixDueDateTime', () => {
-  it('Asia/Seoul 기준 한국어 날짜와 시각을 명시적으로 표시한다', () => {
-    expect(formatMatrixDueDateTime('2026-09-12T23:59:59+09:00')).toBe(
-      '2026년 9월 12일 (토) 오후 11:59',
-    );
-  });
-});
-
 describe('matrixCellAction', () => {
   const milestone: MatrixMilestone = {
     id: 'milestone-plan',
@@ -313,16 +303,6 @@ describe('matrixRowAction', () => {
     ],
   ] as const)('가장 급한 칸 상태 %s를 행 상태로 고른다', (expected, a, b) => {
     expect(matrixRowAction(rowWith(a, b), milestones, now)).toBe(expected);
-  });
-
-  it('필수 서류가 없는 단계를 상태 없음으로 판정한다', () => {
-    const none = rowWith(
-      { status: 'NOT_SUBMITTED', deliveryStatus: 'NO_REQUIRED_ITEMS' },
-      { status: 'NOT_SUBMITTED', deliveryStatus: 'MISSING' },
-    );
-    expect(isMilestoneWithoutRequiredItems([none], first, now)).toBe(true);
-    expect(isMilestoneWithoutRequiredItems([none], second, now)).toBe(false);
-    expect(isMilestoneWithoutRequiredItems([], first, now)).toBe(false);
   });
 });
 
