@@ -402,7 +402,7 @@ describe('ProgramEditPage 컴포넌트', () => {
 
   async function saveProgram() {
     await act(async () => {
-      getButton('프로그램 정보 저장').click();
+      labelledButton('프로그램 정보 저장').click();
     });
     await act(async () => {
       await Promise.resolve();
@@ -604,7 +604,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       await Promise.resolve();
     });
     await act(async () => getButton('추가').click());
-    await act(async () => getButton('마일스톤 저장').click());
+    await act(async () => labelledButton('마일스톤 저장').click());
 
     expect(container.textContent).toContain('마일스톤 이름을 입력해 주세요.');
     expect(container.textContent).toContain('유효한 시작일을 입력해 주세요.');
@@ -635,7 +635,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       setter?.set?.call(name, '새 마일스톤');
       name.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => getButton('마일스톤 저장').click());
+    await act(async () => labelledButton('마일스톤 저장').click());
 
     expect(document.activeElement).toBe(
       container.querySelector(
@@ -658,7 +658,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      getButton('프로그램 정보 저장').click();
+      labelledButton('프로그램 정보 저장').click();
     });
     await act(async () => {
       await Promise.resolve();
@@ -692,7 +692,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     expect(container.textContent).not.toContain('종료일 미정');
-    await act(async () => getButton('프로그램 정보 저장').click());
+    await act(async () => labelledButton('프로그램 정보 저장').click());
     await act(async () => {
       await Promise.resolve();
     });
@@ -724,7 +724,7 @@ describe('ProgramEditPage 컴포넌트', () => {
         ?.click(),
     );
     await act(async () => getButton('날짜 적용').click());
-    await act(async () => getButton('프로그램 정보 저장').click());
+    await act(async () => labelledButton('프로그램 정보 저장').click());
     await act(async () => {
       await Promise.resolve();
     });
@@ -809,7 +809,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     await act(async () => getButton('날짜 적용').click());
     expect(updateProgramMock).not.toHaveBeenCalled();
 
-    await act(async () => getButton('프로그램 정보 저장').click());
+    await act(async () => labelledButton('프로그램 정보 저장').click());
     await act(async () => {
       await Promise.resolve();
     });
@@ -850,7 +850,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await act(async () => {
-      getButton('프로그램 정보 저장').click();
+      labelledButton('프로그램 정보 저장').click();
     });
     await act(async () => {
       await Promise.resolve();
@@ -862,7 +862,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       container.querySelector<HTMLInputElement>('#program-name')?.value,
     ).toBe('저장 실패해도 남아야 하는 이름');
 
-    expect(getButton('프로그램 정보 저장')).toBeTruthy();
+    expect(labelledButton('프로그램 정보 저장')).toBeTruthy();
 
     expect(container.textContent).toContain(
       '저장에 실패했습니다. 다시 시도해 주세요.',
@@ -917,7 +917,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     await renderLoadedPage();
-    getButton('프로그램 정보 저장').focus();
+    labelledButton('프로그램 정보 저장').focus();
     await saveProgram();
 
     expect(updateProgramMock).not.toHaveBeenCalled();
@@ -962,7 +962,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
 
     await renderLoadedPage();
-    getButton('프로그램 정보 저장').focus();
+    labelledButton('프로그램 정보 저장').focus();
     await saveProgram();
 
     expect(

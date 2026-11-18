@@ -516,4 +516,16 @@ describe('판정 저장 중', () => {
     }
     expect(textareaTag(html)).not.toContain('disabled=""');
   });
+
+  it('닫기와 저장을 블록 오른쪽 아래에 모아 둔다', () => {
+    const html = render();
+    const footerStart = html.indexOf(
+      'class="flex flex-wrap justify-end gap-2"',
+    );
+
+    expect(footerStart).toBeGreaterThan(-1);
+    const footer = html.slice(footerStart);
+    expect(footer).not.toContain('justify-between');
+    expect(footer.indexOf('>닫기<')).toBeLessThan(footer.indexOf('>저장<'));
+  });
 });
