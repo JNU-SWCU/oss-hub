@@ -117,7 +117,6 @@ describe('independent authority mutation policy', () => {
     const source = detail({
       pendingRequest: {
         id: 'request-1',
-        status: 'PENDING',
         createdAt: '2026-08-21T00:00:00.000Z',
       },
     });
@@ -165,7 +164,6 @@ const OTHER_ROW: AdminAccessStaffAccessRequestHistoryItem = {
 const LOGIN_ROW: AdminAccessLoginHistoryItem = {
   id: 'login-1',
   event: 'LOGIN',
-  provider: 'github',
   success: true,
   loginAt: '2026-08-21T01:00:00.000Z',
 };

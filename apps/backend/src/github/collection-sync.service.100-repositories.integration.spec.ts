@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { seedRepos } from '../../test/repo-ledger.fixture';
 import { Logger } from '@nestjs/common';
@@ -137,6 +138,7 @@ describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', ()
     new Map(
       (
         await prisma.repo.findMany({
+          take: TEST_READ_LIMIT,
           where: { githubRepoId: { in: repoIds } },
           select: { githubRepoId: true, lastSuccessAt: true },
         })

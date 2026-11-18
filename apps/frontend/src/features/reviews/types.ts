@@ -14,9 +14,7 @@ interface ReviewRecord {
 export interface SubmissionRevisionFile {
   readonly fileId: string;
   readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
-  readonly expiresAt: string;
   readonly downloadUrl: string;
 }
 export interface SubmissionRevision {
@@ -31,7 +29,6 @@ export type ReviewRepository = RepositoryPublication;
 export interface ReviewContext {
   readonly latestReviewId: string | null;
   readonly requirementId: string;
-  readonly submissionId: string;
   readonly application: {
     readonly id: string;
     readonly applicationMode: ApplicationMode;

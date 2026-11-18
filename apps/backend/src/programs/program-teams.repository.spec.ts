@@ -160,6 +160,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
     },
     teamHistory: {
       create: jest.fn().mockResolvedValue({ id: 'synthetic-history' }),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     submission: { count: jest.fn().mockResolvedValue(0) },
     teamRepo: { count: jest.fn().mockResolvedValue(0) },
@@ -375,11 +376,13 @@ describe('TeamRepository.leave', () => {
         }) as unknown,
       }) as unknown,
     });
-    expect(tx.teamHistory.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        event: 'INVITATION_CANCELLED',
-        sourceId: 'synthetic-invitation',
-      }) as unknown,
+    expect(tx.teamHistory.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          event: 'INVITATION_CANCELLED',
+          sourceId: 'synthetic-invitation',
+        }) as unknown,
+      ],
     });
     expect(recordAudit).not.toHaveBeenCalled();
   });
@@ -739,6 +742,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     expect(result).toBe('removed');
 
     expect(teamFindMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,

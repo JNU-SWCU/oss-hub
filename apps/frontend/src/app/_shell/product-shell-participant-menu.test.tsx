@@ -69,10 +69,7 @@ vi.mock('@/features/programs/applications/student-application-api', () => ({
 import { ProductShell } from './product-shell';
 
 const OVERVIEW: ProgramOverview = {
-  programId: 'prog-1',
   name: '합성 기초 스터디',
-  trackType: 'EXTRACURRICULAR',
-  milestoneCount: 2,
   boardPostCount: 0,
   participantCount: 3,
   teamCount: 0,

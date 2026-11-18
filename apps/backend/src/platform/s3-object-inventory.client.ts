@@ -34,14 +34,13 @@ export class S3ObjectInventoryClient implements ObjectInventoryPort {
     prefixes: readonly string[],
   ): Promise<readonly ObjectInventoryEntry[]> {
     const { client, bucket } = this.connection.requireClient();
-    const objects: ObjectInventoryEntry[] = [];
     try {
-      for (const prefix of prefixes) {
-        objects.push(
-          ...(await this.listObjectsByPrefix(client, bucket, prefix)),
-        );
-      }
-      return objects;
+      const listed = await Promise.all(
+        prefixes.map((prefix) =>
+          this.listObjectsByPrefix(client, bucket, prefix),
+        ),
+      );
+      return listed.flat();
     } catch {
       throw new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.LIST_FAILED);
     }
@@ -54,8 +53,9 @@ export class S3ObjectInventoryClient implements ObjectInventoryPort {
   ): Promise<readonly ObjectInventoryEntry[]> {
     const objects: ObjectInventoryEntry[] = [];
     const seenContinuationTokens = new Set<string>();
-    let continuationToken: string | undefined;
-    do {
+    const listPage = async (
+      continuationToken: string | undefined,
+    ): Promise<void> => {
       const result = (await client.send(
         new ListObjectsV2Command({
           Bucket: bucket,
@@ -84,8 +84,9 @@ export class S3ObjectInventoryClient implements ObjectInventoryPort {
         throw new Error('invalid storage listing continuation');
       }
       if (nextToken) seenContinuationTokens.add(nextToken);
-      continuationToken = nextToken;
-    } while (continuationToken !== undefined);
+      if (nextToken !== undefined) await listPage(nextToken);
+    };
+    await listPage(undefined);
     return objects;
   }
 }

@@ -82,18 +82,23 @@ export class ConsentsService {
 
   async getCurrent(githubId: bigint): Promise<ConsentStatus> {
     const user = await this.requireUser(githubId);
-    for (const policyVersion of [
+    const policyVersions = [
       CURRENT_CONSENT_POLICY.policyVersion,
       ...COMPATIBLE_CONSENT_POLICY_VERSIONS,
-    ]) {
-      const consent = await this.repository.findConsent(user.id, policyVersion);
-      if (consent) {
-        return {
-          policy: CURRENT_CONSENT_POLICY,
-          consented: true,
-          acceptedPolicyVersion: policyVersion,
-        };
-      }
+    ];
+    const consents = await Promise.all(
+      policyVersions.map((policyVersion) =>
+        this.repository.findConsent(user.id, policyVersion),
+      ),
+    );
+    const acceptedIndex = consents.findIndex(Boolean);
+    const policyVersion = policyVersions[acceptedIndex];
+    if (policyVersion !== undefined) {
+      return {
+        policy: CURRENT_CONSENT_POLICY,
+        consented: true,
+        acceptedPolicyVersion: policyVersion,
+      };
     }
     return {
       policy: CURRENT_CONSENT_POLICY,

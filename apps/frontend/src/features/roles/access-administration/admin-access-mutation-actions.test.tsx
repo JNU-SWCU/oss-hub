@@ -316,7 +316,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
         detail={detail({
           pendingRequest: {
             id: 'req-1',
-            status: 'PENDING',
             createdAt: '2026-07-30T00:00:00.000Z',
           },
         })}
@@ -339,7 +338,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
           detail={detail({
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           })}
@@ -370,7 +368,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
           detail={detail({
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           })}
@@ -404,7 +401,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
             accountStatus: 'DEACTIVATED',
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           })}
@@ -440,7 +436,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
             accountStatus: 'DEACTIVATED',
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           })}
@@ -472,7 +467,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
             accountStatus: 'ACTIVE',
             pendingRequest: {
               id: 'req-1',
-              status: 'PENDING',
               createdAt: '2026-07-30T00:00:00.000Z',
             },
           })}
@@ -496,7 +490,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
         detail={detail({
           pendingRequest: {
             id: 'req-1',
-            status: 'PENDING',
             createdAt: '2026-07-30T00:00:00.000Z',
           },
         })}

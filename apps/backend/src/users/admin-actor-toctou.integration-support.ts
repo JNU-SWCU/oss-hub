@@ -19,7 +19,6 @@ import {
   type AdminProfileWriteFields,
 } from './admin-profile.repository';
 import {
-  type AdminAccessFacets,
   type AdminAccessListQuery,
   type AdminAccessLoginHistoryPage,
   type AdminAccessStaffAccessRequestHistoryPage,
@@ -85,9 +84,6 @@ export class PausingActorReadAdminAccessRepository implements AdminAccessReposit
   }
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
-  }
-  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
-    return this.repository.facets(query);
   }
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);

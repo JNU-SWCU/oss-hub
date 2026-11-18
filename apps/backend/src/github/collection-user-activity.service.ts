@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable, Logger } from '@nestjs/common';
 
 import { CollectionDiscoveryClient } from './collection-discovery.client';
@@ -28,6 +29,8 @@ const seoulYearOf = (instant: Date): number =>
 
 @Injectable()
 export class CollectionUserActivityService {
+  private readonly sequential = new SequentialRepository();
+
   private readonly logger = new Logger(CollectionUserActivityService.name);
   private inFlightRun: Promise<CollectionUserActivitySweepResult> | null = null;
 
@@ -119,35 +122,40 @@ export class CollectionUserActivityService {
     let skippedPastYearCount = 0;
     let failedUserCount = 0;
 
-    for (const user of users) {
-      let userFailed = false;
-      for (const year of targetYears) {
-        if (
-          year !== currentYear &&
-          (await this.repository.hasObservation(user.githubId, year))
-        ) {
-          skippedPastYearCount += 1;
-          continue;
-        }
-
-        try {
-          await this.observe(user, year, currentYear, startedAt);
-          upsertedRowCount += 1;
-        } catch (error) {
-          userFailed = true;
-
-          this.logger.warn({
-            event: 'collection.user_activity.user_failed',
-            year,
-            kind:
-              error instanceof CollectionDiscoveryClientError
-                ? error.kind
-                : 'UNKNOWN',
-          });
-        }
+    const observeYear = async (
+      user: CollectionActivityUserRow,
+      year: number,
+    ): Promise<boolean> => {
+      if (
+        year !== currentYear &&
+        (await this.repository.hasObservation(user.githubId, year))
+      ) {
+        skippedPastYearCount += 1;
+        return false;
       }
+      try {
+        await this.observe(user, year, currentYear, startedAt);
+        upsertedRowCount += 1;
+        return false;
+      } catch (error) {
+        this.logger.warn({
+          event: 'collection.user_activity.user_failed',
+          year,
+          kind:
+            error instanceof CollectionDiscoveryClientError
+              ? error.kind
+              : 'UNKNOWN',
+        });
+        return true;
+      }
+    };
+    await this.sequential.forEach(users, async (user) => {
+      let userFailed = false;
+      await this.sequential.forEach(targetYears, async (year) => {
+        if (await observeYear(user, year)) userFailed = true;
+      });
       if (userFailed) failedUserCount += 1;
-    }
+    });
 
     return {
       observedUserCount: users.length,

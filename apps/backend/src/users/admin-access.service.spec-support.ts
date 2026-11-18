@@ -167,18 +167,8 @@ export class InMemoryAdminAccessRepository
       page: query.page,
       limit: query.limit,
       total: target ? 1 : 0,
-      facets: {
-        roles: { unassigned: 0, student: target ? 1 : 0, staff: 0, admin: 0 },
-        accountStatuses: {
-          active: target ? 1 : 0,
-          deactivated: 0,
-        },
-        pendingRequests: { none: target ? 1 : 0, pending: 0 },
-      },
+      facets: { pendingRequests: { pending: 0 } },
     });
-  }
-  facets(query: AdminAccessListQuery) {
-    return this.list(query).then((page) => page.facets);
   }
   findById(): Promise<AdminAccessUserDetailRow | null> {
     const target = this.authoritativeTarget ?? this.target;

@@ -42,6 +42,7 @@ export interface TeamInvitationManagement {
   readonly sentLoading: boolean;
   readonly inviteQuery: string;
   readonly inviteCandidates: readonly InvitationCandidate[];
+  readonly moreCandidates: boolean;
   readonly searching: boolean;
   readonly searchError: string | null;
   readonly invitingUserId: string | null;
@@ -97,8 +98,10 @@ export function useTeamInvitationManagement(
     searchEnabled,
   );
   const inviteCandidates = searchEnabled
-    ? (candidatesQuery.data ?? NO_CANDIDATES)
+    ? (candidatesQuery.data?.items ?? NO_CANDIDATES)
     : NO_CANDIDATES;
+  const moreCandidates =
+    searchEnabled && (candidatesQuery.data?.hasMore ?? false);
   const searching = searchEnabled && candidatesQuery.isFetching;
   const searchError =
     searchEnabled && candidatesQuery.isError
@@ -278,6 +281,7 @@ export function useTeamInvitationManagement(
     sentLoading: identityKey !== null && sentQuery.isPending,
     inviteQuery,
     inviteCandidates,
+    moreCandidates,
     searching,
     searchError,
     invitingUserId,

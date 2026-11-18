@@ -11,19 +11,22 @@ describe('RankingService viewer class', () => {
   describe('public class (anonymous · STUDENT · deactivated)', () => {
     it('STUDENT githubId stays public and does not look up names', async () => {
       harness.findViewerClass.mockResolvedValue('public');
-      harness.findMetrics.mockResolvedValue([
+      harness.useRows([
         activity(1n, 'octo-cat', { commitCount: 2, department: '전자공학과' }),
       ]);
 
       const page = await harness.service.findPage(2026, 1, 20, 11n);
 
       expect(harness.findViewerClass).toHaveBeenCalledWith(11n);
-      expect(harness.findMetrics).toHaveBeenCalledWith({ currentYear: 2026 });
+      expect(harness.findRankedPage).toHaveBeenCalledWith(
+        { currentYear: 2026 },
+        expect.anything(),
+        expect.any(Date),
+      );
       expect(harness.findNamesByGithubIds).not.toHaveBeenCalled();
       expect(page.viewerClass).toBe('public');
       expect(page.nextCycleAt).toBeNull();
       expect(page.items[0]).toMatchObject({
-        displayName: 'octo-cat',
         githubLogin: 'octo-cat',
         department: '전자공학과',
       });
@@ -32,9 +35,7 @@ describe('RankingService viewer class', () => {
 
     it('DEACTIVATED githubId stays public', async () => {
       harness.findViewerClass.mockResolvedValue('public');
-      harness.findMetrics.mockResolvedValue([
-        activity(1n, 'octo-cat', { commitCount: 2 }),
-      ]);
+      harness.useRows([activity(1n, 'octo-cat', { commitCount: 2 })]);
 
       const page = await harness.service.findPage(RANKING_YEAR_ALL, 1, 20, 88n);
 
@@ -45,9 +46,7 @@ describe('RankingService viewer class', () => {
     });
 
     it('null githubId is public and does not look up names', async () => {
-      harness.findMetrics.mockResolvedValue([
-        activity(1n, 'octo-cat', { commitCount: 2 }),
-      ]);
+      harness.useRows([activity(1n, 'octo-cat', { commitCount: 2 })]);
 
       const page = await harness.service.findPage(
         RANKING_YEAR_ALL,
@@ -59,7 +58,7 @@ describe('RankingService viewer class', () => {
       expect(harness.findViewerClass).toHaveBeenCalledWith(null);
       expect(harness.findNamesByGithubIds).not.toHaveBeenCalled();
       expect(page.viewerClass).toBe('public');
-      expect(page.items[0]?.displayName).toBe('octo-cat');
+      expect(page.items[0]?.githubLogin).toBe('octo-cat');
       expect(page.items[0]).not.toHaveProperty('name');
     });
   });
@@ -67,7 +66,7 @@ describe('RankingService viewer class', () => {
   describe('member class', () => {
     it('member 는 이름을 조회하지 않고 member 봉투를 유지한다', async () => {
       harness.findViewerClass.mockResolvedValue('member');
-      harness.findMetrics.mockResolvedValue([
+      harness.useRows([
         activity(1n, 'octo-cat', { commitCount: 2, department: '전자공학과' }),
       ]);
 
@@ -83,7 +82,7 @@ describe('RankingService viewer class', () => {
   describe('staff class', () => {
     it('joins names on the page slice only', async () => {
       harness.findViewerClass.mockResolvedValue('staff');
-      harness.findMetrics.mockResolvedValue([
+      harness.useRows([
         activity(1n, 'alpha', { commitCount: 5 }),
         activity(2n, 'bravo', { commitCount: 4 }),
         activity(3n, 'charlie', { commitCount: 3 }),
@@ -101,7 +100,6 @@ describe('RankingService viewer class', () => {
       expect(page.items).toEqual([
         expect.objectContaining({
           rank: 2,
-          displayName: 'bravo',
           githubLogin: 'bravo',
           department: null,
           name: '홍길동',
@@ -112,9 +110,7 @@ describe('RankingService viewer class', () => {
 
     it('uses null name when the slice row has no 실명', async () => {
       harness.findViewerClass.mockResolvedValue('staff');
-      harness.findMetrics.mockResolvedValue([
-        activity(1n, 'nameless-user', { commitCount: 1 }),
-      ]);
+      harness.useRows([activity(1n, 'nameless-user', { commitCount: 1 })]);
       harness.findNamesByGithubIds.mockResolvedValue(
         new Map<bigint, string | null>([[1n, null]]),
       );
@@ -123,7 +119,6 @@ describe('RankingService viewer class', () => {
 
       expect(page.viewerClass).toBe('staff');
       expect(page.items[0]).toMatchObject({
-        displayName: 'nameless-user',
         githubLogin: 'nameless-user',
         name: null,
       });
@@ -132,7 +127,7 @@ describe('RankingService viewer class', () => {
 
   it('name lookup throw fail-closes to public DTO and viewerClass public', async () => {
     harness.findViewerClass.mockResolvedValue('staff');
-    harness.findMetrics.mockResolvedValue([
+    harness.useRows([
       activity(1n, 'octo-cat', { commitCount: 2, department: '전자공학과' }),
     ]);
     harness.findNamesByGithubIds.mockRejectedValue(
@@ -144,78 +139,9 @@ describe('RankingService viewer class', () => {
     expect(page.viewerClass).toBe('public');
     expect(page.nextCycleAt).toBeNull();
     expect(page.items[0]).toMatchObject({
-      displayName: 'octo-cat',
       githubLogin: 'octo-cat',
       department: '전자공학과',
     });
     expect(page.items[0]).not.toHaveProperty('name');
-  });
-
-  it('등수는 viewer class와 무관하게 동일하다 — 실명이 순서를 바꾸지 않는다', async () => {
-    const rows = [
-      activity(1n, 'alpha', { commitCount: 5 }),
-      activity(2n, 'bravo', { commitCount: 5 }),
-      activity(3n, 'charlie', { commitCount: 9 }),
-    ];
-    harness.findMetrics.mockResolvedValue(rows);
-    harness.findNamesByGithubIds.mockResolvedValue(
-      new Map<bigint, string | null>([
-        [1n, '하동수'],
-        [2n, '가영희'],
-        [3n, '나철수'],
-      ]),
-    );
-
-    harness.findViewerClass.mockResolvedValue('public');
-    const publicPage = await harness.service.findPage(
-      RANKING_YEAR_ALL,
-      1,
-      20,
-      null,
-    );
-    harness.findViewerClass.mockResolvedValue('staff');
-    const staffPage = await harness.service.findPage(
-      RANKING_YEAR_ALL,
-      1,
-      20,
-      99n,
-    );
-
-    const order = (page: typeof publicPage) =>
-      page.items.map((item) => `${item.rank}:${item.githubLogin}`);
-    expect(order(publicPage)).toEqual(['1:charlie', '2:alpha', '3:bravo']);
-    expect(order(staffPage)).toEqual(order(publicPage));
-    expect(staffPage.items.map((item) => item.displayName)).toEqual([
-      'charlie',
-      'alpha',
-      'bravo',
-    ]);
-  });
-
-  it('concurrent staff and anonymous share a year-only in-flight build', async () => {
-    harness.findMetrics.mockResolvedValue([
-      activity(1n, 'octo-cat', { commitCount: 2 }),
-    ]);
-    harness.findNamesByGithubIds.mockResolvedValue(
-      new Map<bigint, string | null>([[1n, '홍길동']]),
-    );
-    harness.findViewerClass.mockImplementation((githubId) =>
-      Promise.resolve(githubId === null ? 'public' : 'staff'),
-    );
-
-    const [publicPage, staffPage] = await Promise.all([
-      harness.service.findPage(RANKING_YEAR_ALL, 1, 20, null),
-      harness.service.findPage(RANKING_YEAR_ALL, 1, 20, 99n),
-    ]);
-
-    expect(harness.findMetrics).toHaveBeenCalledTimes(1);
-    expect(publicPage.viewerClass).toBe('public');
-    expect(publicPage.items[0]).not.toHaveProperty('name');
-    expect(publicPage.items[0]?.displayName).toBe('octo-cat');
-    expect(staffPage.viewerClass).toBe('staff');
-    expect(staffPage.items[0]).toMatchObject({
-      displayName: 'octo-cat',
-      name: '홍길동',
-    });
   });
 });

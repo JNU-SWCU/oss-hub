@@ -46,8 +46,6 @@ const STAFF_TEAM_DETAIL: StaffTeamDetailRecord = {
   leaderId: 'user-a',
   members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
   application: null,
-  repositoryContributions: null,
-  repositoryUrlHistory: { rows: [], hasMore: false },
 };
 
 const STAFF_USER = {
@@ -166,15 +164,12 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
 
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual({
-    teamId: TEAM_ID,
     name: '오픈소스팀',
     memberCount: 1,
     members: [
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
     ],
     application: null,
-    repositoryContributions: null,
-    repositoryUrlHistory: { items: [], nextCursor: null },
     deletionScope: DELETION_SCOPE,
   });
   expect(getForStaff).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);

@@ -27,7 +27,6 @@ import {
   ProgramListStatusFilterRepository,
   ProgramsRepository,
 } from './programs.repository';
-import { MilestoneCompletionService } from './submissions.service';
 import {
   SubmissionDashboardSummaryRepository,
   SubmissionsRepository,
@@ -86,7 +85,6 @@ const programCounts = new ProgramsRepository(
 );
 const submissionSummary = new SubmissionDashboardSummaryService(
   new SubmissionDashboardSummaryRepository(prisma),
-  new MilestoneCompletionService(),
 );
 const collection = new RequirementCollectionService(
   new RequirementCollectionReadRepository(prisma, files),
@@ -242,14 +240,13 @@ describe('archived teams leave staff and student aggregates', () => {
     const before = await readCounts();
     expect(before.dashboard).toEqual({
       total: 2,
-      submitted: 0,
+      pendingApproval: 0,
       approved: 2,
       rejected: 0,
     });
     expect(before.participants).toBe(5);
     expect(before.applications).toEqual({ total: 2, pending: 0 });
     expect(before.submissions).toEqual({
-      approvedApplications: 2,
       submitted: 1,
       notSubmitted: 1,
     });
@@ -265,14 +262,13 @@ describe('archived teams leave staff and student aggregates', () => {
     const after = await readCounts();
     expect(after.dashboard).toEqual({
       total: 1,
-      submitted: 0,
+      pendingApproval: 0,
       approved: 1,
       rejected: 0,
     });
     expect(after.participants).toBe(1);
     expect(after.applications).toEqual({ total: 1, pending: 0 });
     expect(after.submissions).toEqual({
-      approvedApplications: 1,
       submitted: 0,
       notSubmitted: 1,
     });
@@ -301,14 +297,13 @@ describe('archived teams leave staff and student aggregates', () => {
 async function readCounts(): Promise<{
   readonly dashboard: {
     readonly total: number;
-    readonly submitted: number;
+    readonly pendingApproval: number;
     readonly approved: number;
     readonly rejected: number;
   };
   readonly participants: number;
   readonly applications: { readonly total: number; readonly pending: number };
   readonly submissions: {
-    readonly approvedApplications: number;
     readonly submitted: number;
     readonly notSubmitted: number;
   };
@@ -316,7 +311,13 @@ async function readCounts(): Promise<{
   readonly changeRequestSubmitted: number;
   readonly changeRequestVersion: string;
 }> {
-  const dashboard = await applications.listStaffDashboardSummary();
+  const dashboard = await applications.listStaffDashboardSummary({
+    page: 1,
+    pageSize: 1000,
+    search: '',
+    status: 'all',
+    now: new Date(),
+  });
   const program = dashboard.programs.find((item) => item.id === programId);
   if (program === undefined) {
     throw new Error('missing dashboard program');
@@ -348,7 +349,6 @@ async function readCounts(): Promise<{
     participants: insightProgram?.participantCount ?? 0,
     applications: applicationsForProgram,
     submissions: {
-      approvedApplications: matrix.approvedApplications,
       submitted: matrix.submitted,
       notSubmitted: matrix.notSubmitted,
     },

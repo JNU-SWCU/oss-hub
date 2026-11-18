@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import {
@@ -114,7 +115,7 @@ async function expectSubmissionUnchanged(): Promise<void> {
     select: {
       status: true,
       revision: true,
-      histories: { select: { event: true } },
+      histories: { take: TEST_READ_LIMIT, select: { event: true } },
     },
   });
   expect(submission).toEqual({
@@ -221,6 +222,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
           select: {
             status: true,
             histories: {
+              take: TEST_READ_LIMIT,
               where: { event: 'APPROVED' },
               select: { actorId: true },
             },

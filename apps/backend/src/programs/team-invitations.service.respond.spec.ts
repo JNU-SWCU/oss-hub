@@ -146,10 +146,7 @@ describe('TeamInvitationsService.accept', () => {
       expect.any(Date),
       expect.any(Function),
     );
-    expect(result).toEqual({
-      teamId: syntheticTeamId,
-      programId: syntheticProgramId,
-    });
+    expect(result).toEqual({ programId: syntheticProgramId });
   });
 
   it('records the JOINED history inside the accept transaction, not after it resolves', async () => {
@@ -178,7 +175,9 @@ describe('TeamInvitationsService.accept', () => {
         ) => {
           if (onOk) {
             await onOk(
-              { historyWriter: { teamHistory: { create } } },
+              {
+                historyWriter: { teamHistory: { create, createMany: create } },
+              },
               {
                 teamId: syntheticTeamId,
                 programId: syntheticProgramId,
@@ -269,7 +268,10 @@ describe('acceptTeamInvitationTransaction', () => {
         count: jest.fn().mockResolvedValue(1),
         create: jest.fn().mockResolvedValue(undefined),
       },
-      teamHistory: { create: jest.fn().mockResolvedValue({}) },
+      teamHistory: {
+        create: jest.fn().mockResolvedValue({}),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: syntheticUserId,
@@ -330,10 +332,21 @@ describe('acceptTeamInvitationTransaction', () => {
     tx.teamInvitation.findMany.mockResolvedValue([
       invitationRow({ id: OTHER_TEAM_INVITATION_ID }),
     ]);
+    tx.$queryRaw.mockImplementation((query: unknown) =>
+      Promise.resolve(
+        (Array.isArray(query)
+          ? query.join('')
+          : String((query as { sql?: string }).sql ?? '')
+        ).includes('DELETE FROM "TeamInvitation"')
+          ? [{ id: OTHER_TEAM_INVITATION_ID }]
+          : [{ id: syntheticTeamId }],
+      ),
+    );
 
     await run(tx);
 
     expect(tx.teamInvitation.findMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         programId: syntheticProgramId,
         inviteeId: syntheticUserId,
@@ -341,21 +354,18 @@ describe('acceptTeamInvitationTransaction', () => {
       },
       orderBy: { id: 'asc' },
     });
-    expect(tx.teamInvitation.deleteMany).toHaveBeenCalledWith({
-      where: {
-        id: OTHER_TEAM_INVITATION_ID,
-      },
-    });
-    expect(tx.teamHistory.create).toHaveBeenCalledTimes(2);
-    expect(tx.teamHistory.create.mock.calls).toMatchObject([
-      [{}],
+    expect(tx.teamHistory.create).not.toHaveBeenCalled();
+    expect(tx.teamHistory.createMany.mock.calls).toMatchObject([
+      [{ data: [{ event: 'INVITATION_ACCEPTED' }] }],
       [
         {
-          data: {
-            event: 'INVITATION_CANCELLED',
-            sourceId: OTHER_TEAM_INVITATION_ID,
-            data: { reason: 'JOINED_ANOTHER_TEAM' },
-          },
+          data: [
+            {
+              event: 'INVITATION_CANCELLED',
+              sourceId: OTHER_TEAM_INVITATION_ID,
+              data: { reason: 'JOINED_ANOTHER_TEAM' },
+            },
+          ],
         },
       ],
     ]);
@@ -391,6 +401,7 @@ describe('acceptTeamInvitationTransaction', () => {
     });
 
     expect(tx.team.findMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,

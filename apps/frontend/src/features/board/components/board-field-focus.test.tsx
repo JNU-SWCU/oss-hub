@@ -60,14 +60,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const post: BoardPostDetail = {
   id: 'post-1',
-  programId: 'program-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '제출 마감일 문의드립니다',
   body: '중간 산출물 마감일이 정확히 언제인가요?',
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
-  updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 0,
   canEdit: true,
   canDelete: true,
@@ -77,8 +75,6 @@ const post: BoardPostDetail = {
 const emptyPage: BoardPostsPage = {
   items: [],
   total: 0,
-  page: 1,
-  limit: 20,
 };
 
 describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {

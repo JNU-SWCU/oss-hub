@@ -51,13 +51,10 @@ function item(
 ): TeamManagementListItem {
   return {
     id,
-    programId: PROGRAM_ID,
     teamMinSize: 2,
     status,
     submittedAt: '2026-08-05T05:32:00.000Z',
-    rejectionReason: null,
     applicant: {
-      id: `${id}-applicant`,
       name: '합성 신청자',
       nickname: `applicant-${id}`,
     },
@@ -66,8 +63,8 @@ function item(
       name: `합성 팀 ${id}`,
       memberCount: 2,
       members: [
-        { id: 'm1', name: '가나다', nickname: 'login-a' },
-        { id: 'm2', name: null, nickname: 'login-b' },
+        { name: '가나다', nickname: 'login-a' },
+        { name: null, nickname: 'login-b' },
       ],
     },
     ...overrides,
@@ -80,8 +77,6 @@ function page(
 ): TeamManagementListPage {
   return {
     items,
-    page: 1,
-    pageSize: 20,
     totalItems: items.length,
     totalPages: 1,
     ...overrides,
@@ -158,7 +153,7 @@ describe('ProgramStaffTeamsPage — 서버가 주는 순서와 페이지', () =>
             id: 'team-b',
             name: '나중에 낸 팀',
             memberCount: 1,
-            members: [{ id: 'm', name: '나', nickname: 'n' }],
+            members: [{ name: '나', nickname: 'n' }],
           },
         }),
         item('a', 'APPROVED', {
@@ -166,7 +161,7 @@ describe('ProgramStaffTeamsPage — 서버가 주는 순서와 페이지', () =>
             id: 'team-a',
             name: '먼저 낸 팀',
             memberCount: 1,
-            members: [{ id: 'm', name: '가', nickname: 'g' }],
+            members: [{ name: '가', nickname: 'g' }],
           },
         }),
       ]),
@@ -314,7 +309,7 @@ describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
         id: 'a-team',
         name: '합성 팀',
         memberCount: 1,
-        members: [{ id: 'm1', name: '합성 학생', nickname: 'student' }],
+        members: [{ name: '합성 학생', nickname: 'student' }],
       },
     });
     listTeamManagementApplicationsMock.mockResolvedValue(page([underMinimum]));

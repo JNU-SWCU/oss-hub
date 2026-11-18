@@ -17,7 +17,6 @@ export const PENDING_DETAIL: CanonicalAdminAccessDetail = adminDetail({
   name: '합성 대기 사용자',
   pendingRequest: {
     id: PENDING_REQUEST_ID,
-    status: 'PENDING',
     createdAt: '2026-08-21T00:00:00.000Z',
   },
 });

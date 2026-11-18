@@ -1,5 +1,4 @@
 import type {
-  RepositoryPublishResult,
   SubmissionReviewContext,
   SubmissionReviewFileRecord,
   SubmissionReviewRecord,
@@ -26,9 +25,7 @@ export class SubmissionReviewResponseDto {
 export class SubmissionReviewFileResponseDto {
   declare readonly fileId: string;
   declare readonly fileName: string;
-  declare readonly contentType: string;
   declare readonly size: number;
-  declare readonly expiresAt: string;
   declare readonly downloadUrl: string;
   static from(
     file: SubmissionReviewFileRecord,
@@ -36,9 +33,7 @@ export class SubmissionReviewFileResponseDto {
     return {
       fileId: file.fileId,
       fileName: file.fileName,
-      contentType: file.contentType,
       size: file.size,
-      expiresAt: file.expiresAt.toISOString(),
       downloadUrl: file.downloadUrl,
     };
   }
@@ -70,7 +65,6 @@ export class SubmissionRevisionResponseDto {
 export class SubmissionReviewContextResponseDto {
   declare readonly latestReviewId: string | null;
   declare readonly requirementId: string;
-  declare readonly submissionId: string;
   declare readonly application: {
     readonly id: string;
     readonly applicationMode: SubmissionReviewContext['application']['applicationMode'];
@@ -90,7 +84,6 @@ export class SubmissionReviewContextResponseDto {
     return {
       requirementId: context.requirementId,
       latestReviewId: context.latestReviewId,
-      submissionId: context.submissionId,
       application: context.application,
       milestone: context.milestone,
       currentRevision: SubmissionRevisionResponseDto.from(
@@ -119,18 +112,6 @@ export class CreateSubmissionReviewResponseDto {
     return {
       reviewId: result.reviewId,
       submissionStatus: result.submissionStatus,
-    };
-  }
-}
-export class RepositoryPublishResponseDto {
-  declare readonly repositoryId: string;
-  declare readonly visibility: RepositoryPublishResult['visibility'];
-  declare readonly publishedAt: string;
-  static from(result: RepositoryPublishResult): RepositoryPublishResponseDto {
-    return {
-      repositoryId: result.repositoryId,
-      visibility: result.visibility,
-      publishedAt: result.publishedAt.toISOString(),
     };
   }
 }

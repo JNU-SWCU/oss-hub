@@ -30,7 +30,7 @@ function requireProductionVercelOriginBasicAuth(): void {
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  outputFileTracingIncludes: { '/': ['./backend-origin.allowlist'] },
+  outputFileTracingIncludes: { '/': ['./backend-origin.hashes'] },
   poweredByHeader: false,
   images: {
     localPatterns: [{ pathname: '/api/v1/programs/*/cover/*', search: '' }],
@@ -45,7 +45,7 @@ const nextConfig: NextConfig = {
     return await Promise.resolve([
       {
         source: '/api/v1/:path*',
-        destination: `${backendOrigin(join(__dirname, 'backend-origin.allowlist'))}/api/v1/:path*`,
+        destination: `${backendOrigin(join(__dirname, 'backend-origin.hashes'))}/api/v1/:path*`,
       },
     ]);
   },

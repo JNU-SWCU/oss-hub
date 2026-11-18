@@ -8,9 +8,6 @@ export type CollectionHealthResponseDto = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
 export type CurrentRunStatusResponseDto = 'IDLE' | 'PROCESSING';
 
-export type SystemStatusSafeReasonResponseDto =
-  'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
-
 export class CollectionSystemStatusResponseDto {
   declare readonly health: CollectionHealthResponseDto;
   declare readonly trackedRepositoryCount: number;
@@ -18,7 +15,6 @@ export class CollectionSystemStatusResponseDto {
   declare readonly lastSuccessAt: string | null;
   declare readonly nextCycleAt: string | null;
   declare readonly currentRunStatus: CurrentRunStatusResponseDto;
-  declare readonly safeReason: SystemStatusSafeReasonResponseDto | null;
 
   static from(
     collection: SystemStatusResult['collection'],
@@ -30,7 +26,6 @@ export class CollectionSystemStatusResponseDto {
       lastSuccessAt: collection.lastSuccessAt?.toISOString() ?? null,
       nextCycleAt: collection.nextCycleAt?.toISOString() ?? null,
       currentRunStatus: collection.currentRunStatus,
-      safeReason: collection.safeReason,
     };
   }
 }
@@ -61,6 +56,7 @@ export class ProvisioningSystemStatusResponseDto {
   declare readonly retryable: number;
   declare readonly failedFinal: number;
   declare readonly failedTeams: ProvisioningFailedTeamResponseDto[];
+  declare readonly failedTeamsHasMore: boolean;
 
   static from(
     provisioning: SystemStatusResult['provisioning'],
@@ -73,6 +69,7 @@ export class ProvisioningSystemStatusResponseDto {
       failedTeams: provisioning.failedTeams.map((team) =>
         ProvisioningFailedTeamResponseDto.from(team),
       ),
+      failedTeamsHasMore: provisioning.failedTeamsHasMore,
     };
   }
 }
@@ -92,14 +89,13 @@ export class MailSystemStatusResponseDto {
 }
 
 class SystemStatusAnomalyTargetResponseDto {
-  declare readonly kind: 'USER';
   declare readonly id: string;
   declare readonly login: string | null;
 
   static from(
     target: NonNullable<SystemStatusResult['anomalies'][number]['target']>,
   ): SystemStatusAnomalyTargetResponseDto {
-    return { kind: target.kind, id: target.id, login: target.login };
+    return { id: target.id, login: target.login };
   }
 }
 
@@ -124,22 +120,36 @@ export class SystemStatusAnomalyResponseDto {
   }
 }
 
-export class SystemStatusCollectionRepositoryResponseDto {
+class SystemStatusStaleRepositoryResponseDto {
   declare readonly repositoryName: string;
   declare readonly teamName: string | null;
   declare readonly programName: string | null;
   declare readonly lastSuccessAt: string | null;
-  declare readonly stale: boolean;
 
   static from(
-    repository: SystemStatusResult['collectionRepositories'][number],
-  ): SystemStatusCollectionRepositoryResponseDto {
+    repository: SystemStatusResult['staleRepositories']['items'][number],
+  ): SystemStatusStaleRepositoryResponseDto {
     return {
       repositoryName: repository.repositoryName,
       teamName: repository.teamName,
       programName: repository.programName,
       lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
-      stale: repository.stale,
+    };
+  }
+}
+
+export class SystemStatusStaleRepositoryPageResponseDto {
+  declare readonly items: SystemStatusStaleRepositoryResponseDto[];
+  declare readonly total: number;
+
+  static from(
+    page: SystemStatusResult['staleRepositories'],
+  ): SystemStatusStaleRepositoryPageResponseDto {
+    return {
+      items: page.items.map((repository) =>
+        SystemStatusStaleRepositoryResponseDto.from(repository),
+      ),
+      total: page.total,
     };
   }
 }
@@ -163,7 +173,7 @@ export class SystemStatusResponseDto {
   declare readonly provisioning: ProvisioningSystemStatusResponseDto;
   declare readonly mail: MailSystemStatusResponseDto;
   declare readonly anomalies: SystemStatusAnomalyResponseDto[];
-  declare readonly collectionRepositories: SystemStatusCollectionRepositoryResponseDto[];
+  declare readonly staleRepositories: SystemStatusStaleRepositoryPageResponseDto;
   declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
   static from(result: SystemStatusResult): SystemStatusResponseDto {
@@ -176,8 +186,8 @@ export class SystemStatusResponseDto {
       anomalies: result.anomalies.map((anomaly) =>
         SystemStatusAnomalyResponseDto.from(anomaly),
       ),
-      collectionRepositories: result.collectionRepositories.map((repository) =>
-        SystemStatusCollectionRepositoryResponseDto.from(repository),
+      staleRepositories: SystemStatusStaleRepositoryPageResponseDto.from(
+        result.staleRepositories,
       ),
       externalCollection: SystemStatusExternalCollectionResponseDto.from(
         result.externalCollection,

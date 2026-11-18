@@ -27,7 +27,7 @@ function repositoryWith(
 }
 
 describe('RequirementFeedbackRepository', () => {
-  it('승인된 신청 중 지금 팀원인 신청의 판정을 기준 시각부터 최신순으로 최대 50건 읽는다', async () => {
+  it('승인된 신청 중 지금 팀원인 신청의 판정을 기준 시각부터 최신순으로 한 페이지(50건)와 다음 커서 판단용 1건을 읽는다', async () => {
     const { repository, findUnique, findMany } = repositoryWith(
       { id: 'synthetic-student' },
       [
@@ -53,9 +53,10 @@ describe('RequirementFeedbackRepository', () => {
       ],
     );
 
-    const reviews = await repository.findRecentForParticipant(
+    const page = await repository.findRecentForParticipant(
       34_290_100n,
       REVIEWED_SINCE,
+      null,
     );
 
     expect(findUnique).toHaveBeenCalledWith({
@@ -85,9 +86,10 @@ describe('RequirementFeedbackRepository', () => {
       },
     });
     expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
-    expect(args.take).toBe(50);
+    expect(args.take).toBe(51);
     expect(JSON.stringify(args.select)).not.toContain('reviewer');
-    expect(reviews).toEqual([
+    expect(page.nextCursor).toBeNull();
+    expect(page.reviews).toEqual([
       {
         id: 'review-1',
         decision: 'CHANGES_REQUESTED',
@@ -108,8 +110,46 @@ describe('RequirementFeedbackRepository', () => {
     const { repository, findMany } = repositoryWith(null);
 
     await expect(
-      repository.findRecentForParticipant(34_290_101n, REVIEWED_SINCE),
-    ).resolves.toEqual([]);
+      repository.findRecentForParticipant(34_290_101n, REVIEWED_SINCE, null),
+    ).resolves.toEqual({ reviews: [], nextCursor: null });
     expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('51번째 판정이 있으면 50건만 돌려주고 마지막 항목을 다음 커서로 알린다', async () => {
+    const row = (index: number) => ({
+      id: `review-${index}`,
+      event: 'APPROVED',
+      comment: null,
+      createdAt: REVIEWED_AT,
+      submission: {
+        id: `submission-${index}`,
+        status: SubmissionStatus.APPROVED,
+        teamId: 'application-1',
+        requirement: {
+          name: '합성 계획서',
+          milestone: {
+            id: 'milestone-1',
+            name: '중간 보고',
+            programId: 'program-1',
+          },
+        },
+      },
+    });
+    const { repository, findMany } = repositoryWith(
+      { id: 'synthetic-student' },
+      Array.from({ length: 51 }, (_, index) => row(index)),
+    );
+
+    const page = await repository.findRecentForParticipant(
+      34_290_102n,
+      REVIEWED_SINCE,
+      'review-cursor',
+    );
+
+    expect(page.reviews).toHaveLength(50);
+    expect(page.nextCursor).toBe('review-49');
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: { id: 'review-cursor' }, skip: 1 }),
+    );
   });
 });

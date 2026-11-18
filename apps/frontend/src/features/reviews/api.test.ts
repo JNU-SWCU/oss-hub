@@ -7,7 +7,6 @@ import type { ReviewContext } from './types';
 const context: ReviewContext = {
   latestReviewId: 'previous-review',
   requirementId: 'requirement-text',
-  submissionId: 'submission-existing',
   application: {
     id: 'application-personal',
     applicationMode: 'PERSONAL',
@@ -111,7 +110,6 @@ describe('reviews api', () => {
       const wireContext = {
         latestReviewId: 'previous-review',
         requirementId: 'legacy-file-item',
-        submissionId: context.submissionId,
         application: context.application,
         milestone: context.milestone,
         currentRevision: { ...context.currentRevision, content: null, files },
@@ -133,7 +131,7 @@ describe('reviews api', () => {
         );
       vi.stubGlobal('fetch', fetchMock);
 
-      const loaded = await getReviewContext(context.submissionId);
+      const loaded = await getReviewContext('synthetic-submission');
       expect(loaded.requirementId).toBe('legacy-file-item');
       expect(loaded.currentRevision.content).toBeNull();
       await createReview(loaded, { revision: 2, decision: 'REJECTED' });

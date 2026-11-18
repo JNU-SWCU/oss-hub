@@ -1,60 +1,67 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
-export interface ProgramRepositoryLink {
-  readonly programId: string;
-  readonly githubRepositoryId: bigint;
-}
+const boundedReads = new BoundedReadRepository();
 
-export interface ProgramActivitySummaryDataSource {
-  readonly teamRepo: {
-    findMany(args: {
-      readonly where: {
-        readonly validTo: null;
-        readonly team: { readonly programId: { readonly in: string[] } };
-      };
-      readonly select: {
-        readonly team: { readonly select: { readonly programId: true } };
-        readonly repoId: true;
-      };
-    }): Promise<
-      readonly {
-        team: { programId: string };
-        repoId: bigint;
-      }[]
-    >;
-  };
+export interface ProgramActivitySummaryRow {
+  readonly programId: string;
+  readonly repositoryCount: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly lastActivityAt: Date | null;
+  readonly dataAsOf: Date | null;
 }
 
 @Injectable()
 export class ProgramActivitySummaryRepository {
-  constructor(
-    @Inject(PrismaService)
-    private readonly prisma: ProgramActivitySummaryDataSource,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findRepositoryLinks(
+  async summarizePrograms(
     programIds: readonly string[],
-  ): Promise<readonly ProgramRepositoryLink[]> {
+  ): Promise<readonly ProgramActivitySummaryRow[]> {
     if (programIds.length === 0) return [];
-    const rows = await this.prisma.teamRepo.findMany({
-      where: {
-        validTo: null,
-        team: { programId: { in: [...programIds] } },
-      },
-      select: {
-        team: { select: { programId: true } },
-        repoId: true,
-      },
-    });
-
-    return rows.map((row) => ({
-      programId: row.team.programId,
-      githubRepositoryId: row.repoId,
-    }));
+    return this.prisma.$queryRaw<ProgramActivitySummaryRow[]>`
+      WITH links AS (
+        SELECT team."programId" AS program_id, link.repo_id
+        FROM "team_repo" AS link
+        JOIN "Team" AS team ON team."id" = link.team_id
+        WHERE link.valid_to IS NULL
+          AND team."programId" IN (${Prisma.join(programIds)})
+      ),
+      activity AS (
+        SELECT
+          event.repo_id,
+          (COUNT(*) FILTER (WHERE event.kind = 'commit'))::int AS commits,
+          (COUNT(*) FILTER (WHERE event.kind = 'pull_request'))::int AS pull_requests,
+          (COUNT(*) FILTER (WHERE event.kind = 'release'))::int AS releases,
+          MAX(event.occurred_at) FILTER (
+            WHERE event.kind IN ('commit', 'pull_request', 'release')
+          ) AS last_activity_at
+        FROM "contribution" AS event
+        WHERE event.repo_id IN (SELECT repo_id FROM links)
+          AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
+        GROUP BY event.repo_id
+      )
+      SELECT
+        links.program_id AS "programId",
+        COUNT(*)::int AS "repositoryCount",
+        COALESCE(SUM(activity.commits) FILTER (WHERE repo.github_repo_id IS NOT NULL), 0)::int AS "commitCount",
+        COALESCE(SUM(activity.pull_requests) FILTER (WHERE repo.github_repo_id IS NOT NULL), 0)::int AS "pullRequestCount",
+        COALESCE(SUM(activity.releases) FILTER (WHERE repo.github_repo_id IS NOT NULL), 0)::int AS "releaseCount",
+        MAX(activity.last_activity_at) FILTER (WHERE repo.github_repo_id IS NOT NULL) AS "lastActivityAt",
+        MAX(repo.last_success_at) AS "dataAsOf"
+      FROM links
+      LEFT JOIN "repo" AS repo ON repo.github_repo_id = links.repo_id
+      LEFT JOIN activity ON activity.repo_id = links.repo_id
+      GROUP BY links.program_id
+      LIMIT ${programIds.length}
+    `;
   }
 }
 
@@ -99,6 +106,8 @@ export interface ProgramRepositoryActivity {
 
 @Injectable()
 export class ProgramActivityRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -108,46 +117,67 @@ export class ProgramActivityRepository {
     programId: string,
     studentUserId: string | null,
   ): Promise<ProgramActivityApplication[]> {
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId,
-        archivedAt: null,
-        AND: [
-          {
-            OR: [
-              { teamRepos: { some: { validTo: null } } },
-              { status: 'APPROVED', teamRepos: { none: { validTo: null } } },
-            ],
-          },
-          ...(studentUserId
-            ? [
-                this.platformRepository.programApplicationParticipantWhere(
-                  studentUserId,
-                ),
-              ]
-            : []),
-        ],
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        members: {
-          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-          select: { user: { select: { githubId: true, nickname: true } } },
-        },
-        teamRepos: {
-          where: { validTo: null },
-          take: 1,
-          select: { repoId: true },
-        },
-      },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              archivedAt: null,
+              AND: [
+                {
+                  OR: [
+                    { teamRepos: { some: { validTo: null } } },
+                    {
+                      status: 'APPROVED',
+                      teamRepos: { none: { validTo: null } },
+                    },
+                  ],
+                },
+                ...(studentUserId
+                  ? [
+                      this.platformRepository.programApplicationParticipantWhere(
+                        studentUserId,
+                      ),
+                    ]
+                  : []),
+              ],
+            },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+                select: {
+                  user: { select: { githubId: true, nickname: true } },
+                },
+              },
+              teamRepos: {
+                where: { validTo: null },
+                take: 1,
+                select: { repoId: true },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
+    );
     const repositoryIds = applications.flatMap((application) =>
       application.teamRepos.map((link) => link.repoId),
     );
     const summaries = await readRepositorySummaries(this.prisma, repositoryIds);
     const ledger = await this.prisma.repo.findMany({
+      take: repositoryIds.length,
       where: { githubRepoId: { in: repositoryIds } },
       select: { githubRepoId: true, lastSuccessAt: true },
     });
@@ -185,6 +215,7 @@ export class ProgramActivityRepository {
     if (query.repositoryIds.length === 0) return [];
 
     const repositories = await this.prisma.repo.findMany({
+      take: query.repositoryIds.length,
       where: {
         githubRepoId: { in: [...query.repositoryIds] },
         ...this.platformRepository.linkedRepoWhere(),
@@ -248,7 +279,11 @@ const readRepositorySummaries = async (
   repositoryIds: readonly bigint[],
 ): Promise<ReadonlyMap<bigint, RepositorySummary>> => {
   if (repositoryIds.length === 0) return new Map();
-  const rows = await prisma.$queryRaw<readonly AuthorContributionRow[]>`
+  const rows = await boundedReads.readCapped(
+    READ_CAP.contributionRows,
+    'Contribution per repository author',
+    (take) =>
+      prisma.$queryRaw<readonly AuthorContributionRow[]>`
     SELECT
       event.repo_id AS "repositoryId",
       event.author_github_id AS "githubId",
@@ -259,7 +294,9 @@ const readRepositorySummaries = async (
     WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     GROUP BY event.repo_id, event.author_github_id
-  `;
+    LIMIT ${take}
+  `,
+  );
   const latest = await prisma.$queryRaw<
     readonly {
       readonly repositoryId: bigint;
@@ -278,6 +315,7 @@ const readRepositorySummaries = async (
       )
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     GROUP BY event.repo_id
+    LIMIT ${repositoryIds.length}
   `;
   const lastByRepository = new Map(
     latest.map((row) => [row.repositoryId, row.occurredAt]),
@@ -338,7 +376,11 @@ const readContributionEvents = async (
     authorGithubId === undefined
       ? Prisma.empty
       : Prisma.sql`AND event.author_github_id = ${authorGithubId}`;
-  const rows = await prisma.$queryRaw<readonly ContributionEventRow[]>`
+  const rows = await boundedReads.readCapped(
+    READ_CAP.contributionRows,
+    'Contribution events',
+    (take) =>
+      prisma.$queryRaw<readonly ContributionEventRow[]>`
     SELECT
       event.repo_id AS "repositoryId",
       event.kind::text AS kind,
@@ -347,7 +389,9 @@ const readContributionEvents = async (
     WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
       ${authorSql}
-  `;
+      LIMIT ${take}
+  `,
+  );
   return rows.map((row) => {
     if (
       typeof row.repositoryId !== 'bigint' ||

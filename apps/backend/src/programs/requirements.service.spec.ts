@@ -2345,13 +2345,11 @@ describe('RequirementsService.collectForStaff', () => {
         id: syntheticDocumentId,
         name: '개인정보 수집·이용 동의서',
         isRequired: true,
-        sortOrder: 1,
       },
       {
         id: secondDocumentId,
         name: '팀 활동 보고',
         isRequired: false,
-        sortOrder: 2,
       },
     ]);
   });
@@ -2482,7 +2480,7 @@ describe('RequirementsService.collectForStaff', () => {
         submittedAt: '2026-09-16T14:22:00.000Z',
 
         revision: 1,
-        file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+        file: { name: '최종_진짜최종.hwp' },
 
         content: null,
         status: SubmissionStatus.SUBMITTED,
@@ -2496,7 +2494,6 @@ describe('RequirementsService.collectForStaff', () => {
         file: null,
 
         content: {
-          type: 'TEXT',
           text: '3주차까지 인터뷰 8건을 마쳤습니다.',
         },
         status: SubmissionStatus.SUBMITTED,
@@ -2585,7 +2582,6 @@ describe('RequirementsService.collectForStaff', () => {
       .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.content).toEqual({
-      type: 'TEXT',
       text: longText,
     });
   });
@@ -3436,7 +3432,6 @@ describe('RequirementsService.collectForStaff — 페이지네이션·필터·�
       .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
-    expect(result.filterCounts.hasMissing).toBe(0);
     expect(result.filterCounts.zeroSubmission).toBe(4);
   });
 
@@ -3464,7 +3459,6 @@ describe('RequirementsService.collectForStaff — 페이지네이션·필터·�
 
     expect(result.filterCounts).toEqual({
       all: 4,
-      hasMissing: 2,
       zeroSubmission: 1,
     });
   });
@@ -3506,7 +3500,6 @@ describe('RequirementsService.collectForStaff — 페이지네이션·필터·�
 
     expect(result.filterCounts).toEqual({
       all: 4,
-      hasMissing: 2,
       zeroSubmission: 1,
     });
     expect(result.documentTotals).toEqual([

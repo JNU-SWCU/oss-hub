@@ -6,8 +6,6 @@ export class RequirementFeedbackItemResponseDto {
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
   declare readonly teamId: string;
-  declare readonly programId: string;
-  declare readonly milestoneId: string;
   declare readonly milestoneName: string;
   declare readonly itemName: string;
   declare readonly href: string;
@@ -20,8 +18,6 @@ export class RequirementFeedbackItemResponseDto {
       comment: item.comment,
       reviewedAt: item.reviewedAt.toISOString(),
       teamId: item.teamId,
-      programId: item.programId,
-      milestoneId: item.milestoneId,
       milestoneName: item.milestoneName,
       itemName: item.itemName,
       href: `/programs/${encodeURIComponent(item.programId)}/documents?milestoneId=${encodeURIComponent(item.milestoneId)}`,
@@ -30,6 +26,7 @@ export class RequirementFeedbackItemResponseDto {
 }
 export class RequirementFeedbackResponseDto {
   declare readonly items: RequirementFeedbackItemResponseDto[];
+  declare readonly nextCursor: string | null;
   static from(
     result: RequirementFeedbackResult,
   ): RequirementFeedbackResponseDto {
@@ -37,6 +34,7 @@ export class RequirementFeedbackResponseDto {
       items: result.items.map((item) =>
         RequirementFeedbackItemResponseDto.from(item),
       ),
+      nextCursor: result.nextCursor,
     };
   }
 }

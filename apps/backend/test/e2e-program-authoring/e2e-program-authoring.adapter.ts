@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
@@ -346,6 +347,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     });
     if (program === null) return;
     const files = await this.prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         OR: [
           { programId: program.id },

@@ -45,15 +45,10 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
       loginAt,
     },
   });
-  const [list, facets, detail, history] = await Promise.all([
+  const [list, detail, history] = await Promise.all([
     harness.request(
       'GET',
       `/users/access?page=1&limit=1&query=${readQuery}&sort=createdAt&direction=asc`,
-      actor.githubId,
-    ),
-    harness.request(
-      'GET',
-      `/users/access/facets?query=${readQuery}`,
       actor.githubId,
     ),
     harness.request('GET', `/users/${target.id}/access`, actor.githubId),
@@ -63,24 +58,11 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
       actor.githubId,
     ),
   ]);
-  expect([list.status, facets.status, detail.status, history.status]).toEqual([
-    200, 200, 200, 200,
-  ]);
+  expect([list.status, detail.status, history.status]).toEqual([200, 200, 200]);
   await expect(list.json()).resolves.toMatchObject({
     items: [expect.objectContaining({ id: actor.id })],
-    page: 1,
-    limit: 1,
     total: 2,
-    facets: {
-      roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
-      accountStatuses: { active: 2, deactivated: 0 },
-      pendingRequests: { none: 2, pending: 0 },
-    },
-  });
-  await expect(facets.json()).resolves.toMatchObject({
-    roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
-    accountStatuses: { active: 2, deactivated: 0 },
-    pendingRequests: { none: 2, pending: 0 },
+    facets: { pendingRequests: { pending: 0 } },
   });
   await expect(detail.json()).resolves.toMatchObject({
     id: target.id,
@@ -91,6 +73,76 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     loginHistory: { page: 1, limit: 1 },
   });
 });
+it('returns 200 for request history with unreadable imported timestamps and counts only readable requests', async () => {
+  const actor = await harness.createUser(
+    'history-range-actor',
+    'ADMIN',
+    AccountStatus.ACTIVE,
+  );
+  const target = await harness.createUser(
+    'history-range-target',
+    'STUDENT',
+    AccountStatus.ACTIVE,
+  );
+  const snapshot = (
+    id: string,
+    createdAt: string,
+    decidedAt: string | null,
+  ) => ({
+    userId: target.id,
+    event: 'LEGACY_IMPORT' as const,
+    source: 'APPLICATION' as const,
+    occurredAt: new Date('2026-01-01T00:00:00.000Z'),
+    recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+    data: {
+      schemaVersion: 1,
+      recordKind: 'REQUEST_SNAPSHOT',
+      original: {
+        id: `${target.id}:${id}`,
+        userId: target.id,
+        status: decidedAt === null ? 'PENDING' : 'REVOKED',
+        createdAt,
+        decidedAt,
+        decidedById: null,
+        rejectionReason: null,
+      },
+    },
+  });
+  await harness.prisma.userHistory.createMany({
+    data: [
+      snapshot('readable', '2026-01-02T00:00:00.000Z', null),
+      snapshot('infinity', 'infinity', null),
+      snapshot('negative-infinity', '-infinity', null),
+      snapshot('far-future', '294000-01-01T00:00:00Z', null),
+      snapshot('pre-epoch', '1969-12-31T23:59:59Z', null),
+      snapshot('relative-text', 'yesterday', null),
+      snapshot(
+        'decided-far-future',
+        '2026-01-02T00:00:00.000Z',
+        '294000-01-01T00:00:00Z',
+      ),
+    ],
+  });
+
+  const response = await harness.request(
+    'GET',
+    `/users/${target.id}/access/history?staffAccessRequestLimit=20&loginLimit=1`,
+    actor.githubId,
+  );
+
+  expect(response.status).toBe(200);
+  const body = (await response.json()) as {
+    readonly staffAccessRequests: {
+      readonly items: readonly { readonly id: string }[];
+      readonly total: number;
+    };
+  };
+  expect(body.staffAccessRequests.total).toBe(1);
+  expect(body.staffAccessRequests.items.map((item) => item.id)).toEqual([
+    `${target.id}:readable`,
+  ]);
+});
+
 it('executes PATCH /users/:id/access through the real transaction and audit path', async () => {
   const actor = await harness.createUser(
     'patch-actor',
@@ -421,7 +473,7 @@ it('withholds a pending applicant participations from STAFF and returns them to 
     expect(staffBody).toMatchObject({
       id: applicant.id,
       isSelf: false,
-      pendingRequest: { status: 'PENDING' },
+      pendingRequest: { id: `${applicant.id}:pending` },
       participations: null,
     });
     expect(asAdmin.status).toBe(200);

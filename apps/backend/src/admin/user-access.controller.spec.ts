@@ -35,7 +35,6 @@ describe('admin-access.controller', () => {
   describe('UserAccessController routes', () => {
     it.each([
       ['list', RequestMethod.GET, 'access', undefined],
-      ['facets', RequestMethod.GET, 'access/facets', undefined],
       ['patchAccess', RequestMethod.PATCH, ':id/access', [OriginGuard]],
       ['patchProfile', RequestMethod.PATCH, ':id/profile', [OriginGuard]],
     ] as const)(
@@ -340,9 +339,7 @@ function profileServiceHarness() {
 
 function emptyListFacets() {
   return {
-    roles: { unassigned: 0, student: 0, staff: 0, admin: 0 },
-    accountStatuses: { active: 0, deactivated: 0 },
-    pendingRequests: { none: 0, pending: 0 },
+    pendingRequests: { pending: 0 },
   };
 }
 

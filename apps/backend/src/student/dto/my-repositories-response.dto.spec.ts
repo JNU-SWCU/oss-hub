@@ -18,13 +18,13 @@ describe('MyRepositoriesResponseDto', () => {
         invitationStatus:
           connectionMode === 'NEW' ? 'REVOKE_FAILED_RETRYABLE' : null,
         visibility: 'PRIVATE',
-        lastErrorCode: 'GITHUB_UNAVAILABLE',
-        updatedAt: new Date('2026-09-10T00:00:00.000Z'),
       };
 
-      expect(MyRepositoriesResponseDto.from([item]).items).toEqual([
-        { ...item, updatedAt: '2026-09-10T00:00:00.000Z' },
-      ]);
+      const [response] = MyRepositoriesResponseDto.from([item]).items;
+      expect(response).not.toHaveProperty('applicationMode');
+      expect(response).toEqual(
+        expect.objectContaining({ connectionMode, teamId: item.teamId }),
+      );
     },
   );
 });

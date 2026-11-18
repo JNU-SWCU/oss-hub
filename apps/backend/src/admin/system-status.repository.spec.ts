@@ -18,39 +18,52 @@ describe('SystemStatusRepository', () => {
     leaseCount.mockReset();
   });
 
-  it('저장소마다 마지막 성공 시각과 열린 팀 연결의 프로그램을 repo 원장에서 읽는다', async () => {
+  it('지연 저장소 한 페이지를 오래된 성공 순으로 읽고 열린 팀 연결의 프로그램을 싣는다', async () => {
+    const staleBefore = new Date('2026-07-25T10:00:00Z');
     repoFindMany.mockResolvedValue([
       {
         ownerName: 'org/alpha',
-        lastSuccessAt: new Date('2026-07-25T11:00:00Z'),
+        lastSuccessAt: new Date('2026-07-25T08:00:00Z'),
         teamRepos: [
           { team: { name: '합성 팀', program: { name: '2026 오픈소스' } } },
         ],
       },
-      { ownerName: 'org/beta', lastSuccessAt: null, teamRepos: [] },
+      {
+        ownerName: 'org/beta',
+        lastSuccessAt: new Date('2026-07-25T09:00:00Z'),
+        teamRepos: [],
+      },
     ]);
 
-    await expect(repository.getCollectionRepositories()).resolves.toEqual([
+    await expect(
+      repository.listStaleCollectionRepositories(staleBefore, {
+        page: 3,
+        limit: 10,
+      }),
+    ).resolves.toEqual([
       {
         repositoryName: 'org/alpha',
         teamName: '합성 팀',
         programName: '2026 오픈소스',
-        lastSuccessAt: new Date('2026-07-25T11:00:00Z'),
+        lastSuccessAt: new Date('2026-07-25T08:00:00Z'),
       },
       {
         repositoryName: 'org/beta',
         teamName: null,
         programName: null,
-        lastSuccessAt: null,
+        lastSuccessAt: new Date('2026-07-25T09:00:00Z'),
       },
     ]);
     expect(repoFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        take: 10,
+        skip: 20,
         where: expect.objectContaining({
           presence: 'PRESENT',
           source: 'ORG_PROVISIONED',
+          lastSuccessAt: { lt: staleBefore },
         }) as unknown,
-        orderBy: { ownerName: 'asc' },
+        orderBy: [{ lastSuccessAt: 'asc' }, { githubRepoId: 'asc' }],
       }),
     );
   });

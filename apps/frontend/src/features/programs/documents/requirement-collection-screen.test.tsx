@@ -87,7 +87,6 @@ function collection(
         id: 'd1',
         name: '기획서',
         isRequired: true,
-        sortOrder: 1,
       },
     ],
     rows,
@@ -95,7 +94,7 @@ function collection(
     pageSize: 20,
     total: rows.length,
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
-    filterCounts: { all: 47, hasMissing: 12, zeroSubmission: 5 },
+    filterCounts: { all: 47, zeroSubmission: 5 },
     documentTotals: [{ documentId: 'd1', submitted: 30, total: 47 }],
     ...overrides,
   };
@@ -254,8 +253,8 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
         collection([row('a', '가팀')], {
           total: 47,
           documents: [
-            { id: 'd1', name: '기획서', isRequired: true, sortOrder: 1 },
-            { id: 'd2', name: '결과서', isRequired: true, sortOrder: 2 },
+            { id: 'd1', name: '기획서', isRequired: true },
+            { id: 'd2', name: '결과서', isRequired: true },
           ],
         }),
       );

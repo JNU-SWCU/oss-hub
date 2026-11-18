@@ -1,4 +1,3 @@
-export type RepositoryApplicationMode = 'PERSONAL' | 'TEAM';
 export type RepositoryConnectionMode = 'NEW' | 'OWN';
 export type RepositoryProvisionStatus =
   'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL';
@@ -17,7 +16,6 @@ export type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 export type MyRepositoryResponseItem = {
   readonly repositoryId: string | null;
   readonly teamId: string;
-  readonly applicationMode: RepositoryApplicationMode;
   readonly connectionMode: RepositoryConnectionMode;
   readonly programName: string;
   readonly displayName: string;
@@ -26,19 +24,13 @@ export type MyRepositoryResponseItem = {
   readonly provisionStatus: RepositoryProvisionStatus;
   readonly invitationStatus: RepositoryInvitationStatus;
   readonly visibility: RepositoryVisibility | null;
-  readonly lastErrorCode: string | null;
-  readonly updatedAt: string;
 };
 
 export type MyRepositoriesResponse = {
   readonly items: readonly MyRepositoryResponseItem[];
 };
 
-export type MyRepositoryItem = Omit<
-  MyRepositoryResponseItem,
-  'lastErrorCode'
-> & {
-  readonly modeLabel: string;
+export type MyRepositoryItem = MyRepositoryResponseItem & {
   readonly provisionLabel: string;
   readonly invitationLabel: string | null;
   readonly canOpenGithub: boolean;

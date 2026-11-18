@@ -15,7 +15,7 @@ const history: readonly RequirementCollectionHistory[] = [
     createdAt: '2026-09-16T14:22:00.000Z',
     fileName: null,
     downloadUrl: null,
-    content: { type: 'TEXT', text: '합성 제출 내용' },
+    content: { text: '합성 제출 내용' },
   },
 ];
 

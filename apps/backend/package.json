@@ -19,7 +19,7 @@
     "notifications:send-digest": "pnpm run db:guard && ts-node src/cli.ts send-deadline-digest",
     "submissions:retry-file-cleanup": "ts-node src/cli.ts retry-submission-file-cleanup",
     "storage:reconcile": "ts-node src/cli.ts reconcile-storage-orphans",
-    "query-lint:check": "ts-node prisma/check-query-lint-allowlist.ts"
+    "query-lint:check": "eslint --no-config-lookup -c eslint.query-lint.config.mjs \"src/**/*.ts\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1094.0",

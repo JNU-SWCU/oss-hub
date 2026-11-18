@@ -68,7 +68,7 @@ export class RepositoryProvisionJobRepository {
     SELECT "teamId", "currentEventId", "repo_id" AS "repoId", "status", "lockedBy"
     FROM "RepositoryProvisionJob"
     WHERE "id" = ${jobId}
-    FOR UPDATE
+    LIMIT 1 FOR UPDATE
   `);
     const row = rows[0];
     if (row === undefined) {

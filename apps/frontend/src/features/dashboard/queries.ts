@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
 import {
   fetchStudentDashboard,
@@ -19,9 +24,11 @@ export function useStudentDashboardQuery() {
 }
 
 export function useStudentFeedbackQuery() {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: featureKey('student-dashboard', 'feedback'),
-    queryFn: fetchStudentFeedback,
+    queryFn: ({ pageParam }) => fetchStudentFeedback(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
 }
 

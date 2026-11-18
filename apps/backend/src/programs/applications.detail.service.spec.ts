@@ -2,16 +2,10 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import {
-  ApplicationStatus,
-  OutboxEventStatus,
-  Prisma,
-  RepositoryProvisionJobStatus,
-  RepositoryVisibility,
-} from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import {
   ApplicationsRepository,
-  type ApplicationListSource,
+  type ApplicationListRow,
 } from './team.repository';
 import { ApplicationsErrorCode } from './teams.error';
 import {
@@ -23,14 +17,6 @@ import { RepositoryUrlService } from '../github/repository-url.service';
 const APPLICATION_ID = 'synthetic-application';
 const SUBMITTED_AT = new Date('2026-08-05T05:32:00.000Z');
 const UPDATED_AT = new Date('2026-08-06T01:00:00.000Z');
-
-const LIST_QUERY = {
-  page: 1,
-  pageSize: 20,
-  search: '',
-  status: 'all',
-  view: 'default',
-} as const;
 
 function applicationRow(
   overrides: Partial<Record<string, unknown>> = {},
@@ -49,23 +35,11 @@ function applicationRow(
     },
     isRepositoryPublicationPlanned: true,
     teamRepos: [],
-    program: { repositoryProvisioningEnabled: true },
     applicant: { id: 'synthetic-applicant', name: null, nickname: 'applicant' },
     name: '합성 팀',
     _count: { members: 3 },
     ...overrides,
   };
-}
-
-function readSelect(spy: jest.Mock): Record<string, unknown> {
-  const calls = spy.mock.calls as unknown as {
-    select: Record<string, unknown>;
-  }[][];
-  const args = calls[0]?.[0];
-  if (args === undefined) {
-    throw new Error('조회가 호출되지 않았다');
-  }
-  return args.select;
 }
 
 function buildRepository(transaction: Record<string, unknown>): {
@@ -79,7 +53,7 @@ function buildRepository(transaction: Record<string, unknown>): {
         operation(transaction),
     );
   const repository = new ApplicationsRepository(
-    { $transaction } as never,
+    { $transaction, ...transaction } as never,
     new TeamHistoryRepository(),
     new RepositoryProvisionGenerationRepository(),
     new PlatformRepository(),
@@ -87,32 +61,18 @@ function buildRepository(transaction: Record<string, unknown>): {
   return { repository, $transaction };
 }
 
-function detailTransaction(
-  row: Record<string, unknown> | null,
-  outbox: { status: OutboxEventStatus; createdAt: Date } | null = null,
-  job: {
-    status: RepositoryProvisionJobStatus;
-    updatedAt: Date;
-    lastErrorCode: string | null;
-  } | null = null,
-) {
-  return {
-    team: { findFirst: jest.fn().mockResolvedValue(row) },
-    outboxEvent: { findUnique: jest.fn().mockResolvedValue(outbox) },
-    repositoryProvisionJob: {
-      findUnique: jest.fn().mockResolvedValue(job),
-    },
-  };
+function detailTransaction(row: Record<string, unknown> | null) {
+  return { team: { findFirst: jest.fn().mockResolvedValue(row) } };
 }
 
-function mapItem(source: ApplicationListSource | null | undefined) {
-  return source
+function mapItem(row: ApplicationListRow | null | undefined) {
+  return row
     ? new TeamApplicationService(
         undefined as never,
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
         new RepositoryProvisionEventService(),
-      )['toApplicationListItem'](source.row, source.outbox, source.job)
+      )['toApplicationListItem'](row)
     : undefined;
 }
 
@@ -188,107 +148,20 @@ describe('TeamApplicationService.getForStaff', () => {
 });
 
 describe('ApplicationsRepository.findApplicationForStaff', () => {
-  it('없는 신청은 null 이고 outbox·job 을 읽지 않는다', async () => {
+  it('없는 신청은 null 이다', async () => {
     const transaction = detailTransaction(null);
     const { repository } = buildRepository(transaction);
 
     await expect(
       repository.findApplicationForStaff(APPLICATION_ID),
     ).resolves.toBeNull();
-    expect(transaction.outboxEvent.findUnique).not.toHaveBeenCalled();
-    expect(
-      transaction.repositoryProvisionJob.findUnique,
-    ).not.toHaveBeenCalled();
   });
 
-  it('상세와 목록이 같은 select 를 쓴다', async () => {
-    const detail = detailTransaction(applicationRow());
-    const { repository: detailRepository } = buildRepository(detail);
-    await detailRepository.findApplicationForStaff(APPLICATION_ID);
-
-    const list = {
-      team: {
-        findMany: jest.fn().mockResolvedValue([applicationRow()]),
-        count: jest.fn().mockResolvedValue(1),
-      },
-      outboxEvent: { findMany: jest.fn().mockResolvedValue([]) },
-      repositoryProvisionJob: { findMany: jest.fn().mockResolvedValue([]) },
-    };
-    const { repository: listRepository } = buildRepository(list);
-    await listRepository.listApplicationsForProgram('program', LIST_QUERY);
-
-    expect(readSelect(detail.team.findFirst)).toEqual(
-      readSelect(list.team.findMany),
-    );
-  });
-
-  it('신청·outbox·job 을 RepeatableRead 한 트랜잭션에서 읽는다', async () => {
-    const transaction = detailTransaction(applicationRow());
-    const { repository, $transaction } = buildRepository(transaction);
-
-    await repository.findApplicationForStaff(APPLICATION_ID);
-
-    expect($transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-    });
-  });
-
-  it('신청 id 로 outbox 멱등키와 provision job 을 찾는다', async () => {
-    const transaction = detailTransaction(applicationRow());
-    const { repository } = buildRepository(transaction);
-
-    await repository.findApplicationForStaff(APPLICATION_ID);
-
-    expect(transaction.outboxEvent.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { idempotencyKey: `repository-provision:${APPLICATION_ID}` },
-      }),
-    );
-    expect(transaction.repositoryProvisionJob.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { teamId: APPLICATION_ID } }),
-    );
-  });
-
-  it('provision job 상태를 저장소 프로비저닝 필드로 옮긴다', async () => {
-    const transaction = detailTransaction(
-      applicationRow({ status: ApplicationStatus.APPROVED }),
-      { status: OutboxEventStatus.PROCESSED, createdAt: UPDATED_AT },
-      {
-        status: RepositoryProvisionJobStatus.SUCCEEDED,
-        updatedAt: UPDATED_AT,
-        lastErrorCode: null,
-      },
-    );
-    const { repository } = buildRepository(transaction);
-
-    const item = mapItem(
-      await repository.findApplicationForStaff(APPLICATION_ID),
-    );
-
-    expect(item?.repositoryProvisioning).toEqual({
-      enabled: true,
-      jobStatus: 'SUCCEEDED',
-      updatedAt: UPDATED_AT,
-      safeErrorClass: null,
-    });
-  });
-
-  it('지원 내용과 저장소 주소를 목록과 같은 모양으로 옮긴다', async () => {
+  it('상세에 상태·반려 사유·신청자 이름만 옮긴다', async () => {
     const transaction = detailTransaction(
       applicationRow({
         status: ApplicationStatus.REJECTED,
         rejectionReason: '예산 항목이 비어 있습니다',
-        teamRepos: [
-          {
-            repo: {
-              githubRepoId: 1n,
-              ownerName: 'synthetic-org/team-1',
-              visibility: RepositoryVisibility.PRIVATE,
-              source: 'ORG_PROVISIONED',
-              publishedAt: null,
-            },
-          },
-        ],
       }),
     );
     const { repository } = buildRepository(transaction);
@@ -297,22 +170,12 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
       await repository.findApplicationForStaff(APPLICATION_ID),
     );
 
-    expect(item).toMatchObject({
-      id: APPLICATION_ID,
+    expect(item).toEqual({
       status: ApplicationStatus.REJECTED,
-      submittedAt: SUBMITTED_AT,
       rejectionReason: '예산 항목이 비어 있습니다',
-      participation: 'TEAM',
-      repository: {
-        url: 'https://github.com/synthetic-org/team-1',
-        visibility: RepositoryVisibility.PRIVATE,
-      },
-      team: { id: APPLICATION_ID, name: '합성 팀', memberCount: 3 },
-      answers: {
-        applicantName: '신청자',
-        title: '제목',
-        summary: '지원 동기와 계획',
-      },
+      applicant: expect.objectContaining({
+        nickname: expect.any(String) as unknown,
+      }) as unknown,
     });
   });
 });

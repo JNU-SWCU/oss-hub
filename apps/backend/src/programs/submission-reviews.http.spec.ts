@@ -3,7 +3,7 @@ import {
   type ExecutionContext,
   type INestApplication,
 } from '@nestjs/common';
-import { RepositoryVisibility, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -57,11 +57,7 @@ const service = {
     reviewId: 'review-1',
     submissionStatus: SubmissionStatus.APPROVED,
   }),
-  publishRepository: jest.fn().mockResolvedValue({
-    repositoryId: 'repository-1',
-    visibility: RepositoryVisibility.PUBLIC,
-    publishedAt: new Date('2026-07-23T00:00:00.000Z'),
-  }),
+  publishRepository: jest.fn().mockResolvedValue(undefined),
 };
 
 beforeAll(async () => {
@@ -176,7 +172,7 @@ it('폐기된 마일스톤 단위 심사 API는 404로 종료한다', async () =
   expect(service.review).not.toHaveBeenCalled();
 });
 
-it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async () => {
+it('저장소 공개 API가 본문 없이 204를 반환한다', async () => {
   const response = await fetch(
     `${baseUrl}/api/v1/repositories/repository-1/publish`,
     {
@@ -186,12 +182,8 @@ it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async 
     },
   );
 
-  expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toEqual({
-    repositoryId: 'repository-1',
-    visibility: RepositoryVisibility.PUBLIC,
-    publishedAt: '2026-07-23T00:00:00.000Z',
-  });
+  expect(response.status).toBe(204);
+  await expect(response.text()).resolves.toBe('');
   expect(service.publishRepository).toHaveBeenCalledWith(
     'repository-1',
     9_600_000_000_100_001n,

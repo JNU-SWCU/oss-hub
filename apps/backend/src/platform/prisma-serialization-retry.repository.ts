@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { SequentialRepository } from './sequential.repository';
 import { Prisma } from '@prisma/client';
 
 const SERIALIZATION_FAILURE_CODE = 'P2034';
@@ -14,6 +15,8 @@ function defaultBackoffMs(attempt: number): number {
 
 @Injectable()
 export class PrismaSerializationRetryRepository {
+  private readonly sequential = new SequentialRepository();
+
   isSerializationFailure(
     error: unknown,
   ): error is Prisma.PrismaClientKnownRequestError {
@@ -46,24 +49,30 @@ export class PrismaSerializationRetryRepository {
     const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     const backoffMs = options.backoffMs ?? defaultBackoffMs;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let outcome: { readonly value: T } | undefined;
+    await this.sequential.repeat(maxAttempts, async (index) => {
+      const count = index + 1;
       try {
-        return await run();
+        outcome = { value: await run() };
+        return 'stop';
       } catch (error) {
         if (!this.isSerializationFailure(error)) {
           throw error;
         }
-        if (attempt >= maxAttempts) {
+        if (count >= maxAttempts) {
           throw options.onExhausted ? options.onExhausted(error) : error;
         }
-        const delay = backoffMs(attempt);
+        const delay = backoffMs(count);
         if (delay > 0) {
           await sleep(delay);
         }
+        return undefined;
       }
+    });
+    if (outcome === undefined) {
+      throw new Error('Serialization retry ended without a result');
     }
-
-    throw new Error('withSerializationRetry: unreachable');
+    return outcome.value;
   }
 }
 

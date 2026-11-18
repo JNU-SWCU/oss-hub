@@ -16,9 +16,7 @@ function renderSubmission(needsLatestRevision: boolean) {
             {
               fileId: 'file-latest',
               fileName: 'latest-report.pdf',
-              contentType: 'application/pdf',
               size: 1024,
-              expiresAt: '2028-01-01T00:00:00.000Z',
               downloadUrl: apiPath('submission-files/file-latest'),
             },
           ],

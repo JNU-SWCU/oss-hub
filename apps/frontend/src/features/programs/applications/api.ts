@@ -10,7 +10,6 @@ import type {
   ApplicationListItem,
   ApplicationDetail,
   ApplicationDecisionInput,
-  ApplicationDecisionResponse,
 } from './dto';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -88,12 +87,9 @@ export async function getApplicationDetailWithHistory(
 export function decideApplication(
   teamId: string,
   input: ApplicationDecisionInput,
-): Promise<ApplicationDecisionResponse> {
-  return apiClient<ApplicationDecisionResponse>(
-    `teams/${encodeURIComponent(teamId)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(input),
-    },
-  );
+): Promise<void> {
+  return apiClient<void>(`teams/${encodeURIComponent(teamId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }

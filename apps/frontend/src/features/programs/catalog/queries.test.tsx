@@ -48,10 +48,7 @@ const detail: ProgramDetail = {
 };
 
 const overview: ProgramOverview = {
-  programId: detail.id,
   name: detail.name,
-  trackType: detail.trackType,
-  milestoneCount: 0,
   boardPostCount: 0,
   participantCount: 1,
   teamCount: 1,

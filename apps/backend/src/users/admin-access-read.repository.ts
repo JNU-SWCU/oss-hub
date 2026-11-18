@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import type { UserType } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import {
@@ -40,6 +42,7 @@ const STAFF_WHERE = {
 
 @Injectable()
 export class AdminAccessReadRepository {
+  private readonly boundedReads = new BoundedReadRepository();
   constructor(private readonly ordering: AdminAccessReadOrderingRepository) {}
   async listAdminAccessUsers(
     prisma: Pick<PrismaService, 'user' | '$queryRaw'>,
@@ -57,6 +60,7 @@ export class AdminAccessReadRepository {
       ids.length === 0
         ? []
         : await prisma.user.findMany({
+            take: ids.length,
             where: { AND: [where, { id: { in: ids } }] },
             select: this.ADMIN_ACCESS_USER_SELECT,
           });
@@ -76,53 +80,29 @@ export class AdminAccessReadRepository {
     prisma: Pick<PrismaService, 'user'>,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessFacets> {
-    const roleBase = adminAccessWhere(query, 'role');
-    const statusBase = adminAccessWhere(query, 'accountStatus');
-    const pendingBase = adminAccessWhere(query, 'pendingRequest');
-    const [
-      unassigned,
-      student,
-      staff,
-      admin,
-      active,
-      deactivated,
-      none,
-      pending,
-    ] = await Promise.all([
-      prisma.user.count({
-        where: { AND: [roleBase, roleWhere('UNASSIGNED')] },
-      }),
-      prisma.user.count({ where: { AND: [roleBase, roleWhere('STUDENT')] } }),
-      prisma.user.count({ where: { AND: [roleBase, roleWhere('STAFF')] } }),
-      prisma.user.count({ where: { AND: [roleBase, roleWhere('ADMIN')] } }),
-      prisma.user.count({ where: { ...statusBase, accountStatus: 'ACTIVE' } }),
-      prisma.user.count({
-        where: { ...statusBase, accountStatus: 'DEACTIVATED' },
-      }),
-      prisma.user.count({
-        where: { AND: [pendingBase, { NOT: PENDING_WHERE }] },
-      }),
-      prisma.user.count({ where: { AND: [pendingBase, PENDING_WHERE] } }),
-    ]);
-    return {
-      roles: {
-        unassigned: unassigned,
-        student: student,
-        staff: staff,
-        admin: admin,
+    const pending = await prisma.user.count({
+      where: {
+        AND: [adminAccessWhere(query, 'pendingRequest'), PENDING_WHERE],
       },
-      accountStatuses: { active: active, deactivated: deactivated },
-      pendingRequests: { none: none, pending: pending },
-    };
+    });
+    return { pendingRequests: { pending } };
   }
   async findAdminAccessUserById(
     prisma: Pick<PrismaService, 'user'>,
     userId: string,
   ): Promise<AdminAccessUserDetailRow | null> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: this.ADMIN_ACCESS_USER_DETAIL_SELECT,
-    });
+    const user = await prisma.user
+      .findUnique({
+        where: { id: userId },
+        select: this.ADMIN_ACCESS_USER_DETAIL_SELECT,
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { teamMemberships: READ_CAP.participationsPerUser },
+          'User.findUnique',
+        ),
+      );
     return user ? this.toAdminAccessUserDetailRow(user) : null;
   }
   toAdminAccessUserRow(user: AdminAccessUserSource): AdminAccessUserRow {
@@ -161,9 +141,6 @@ export class AdminAccessReadRepository {
     return {
       ...this.toAdminAccessUserRow(user),
       staffNumber: user.staffNumber,
-      adminGrant: user.admin
-        ? { origin: user.admin.origin, grantedAt: user.admin.grantedAt }
-        : null,
       participationMemberships: user.teamMemberships,
     };
   }
@@ -185,8 +162,10 @@ export class AdminAccessReadRepository {
   } as const satisfies Prisma.UserSelect;
   readonly ADMIN_ACCESS_USER_DETAIL_SELECT = {
     ...this.ADMIN_ACCESS_USER_SELECT,
-    admin: { select: { userId: true, origin: true, grantedAt: true } },
-    teamMemberships: USER_PARTICIPATION_MEMBERSHIPS,
+    teamMemberships: {
+      ...USER_PARTICIPATION_MEMBERSHIPS,
+      take: READ_CAP.participationsPerUser + 1,
+    },
   } as const satisfies Prisma.UserSelect;
 }
 function adminAccessWhere(
@@ -273,7 +252,6 @@ export type AdminAccessUserRow = Omit<
 
 export type AdminAccessUserDetailRow = AdminAccessUserRow & {
   readonly staffNumber: string | null;
-  readonly adminGrant: AdminAccessUserDetail['adminGrant'];
   readonly participationMemberships: readonly UserParticipationMembership[];
 };
 
@@ -358,7 +336,6 @@ export interface AdminAccessRepositoryPort {
     query: AdminAccessListQuery,
     sortContext?: 'directory' | 'requestQueue',
   ): Promise<AdminAccessUserPageRecord>;
-  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets>;
   findById(userId: string): Promise<AdminAccessUserDetailRow | null>;
   listStaffAccessRequestHistory(
     userId: string,

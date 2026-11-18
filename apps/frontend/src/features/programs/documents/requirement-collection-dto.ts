@@ -11,11 +11,9 @@ export interface RequirementCollectionDocument {
   readonly id: string;
   readonly name: string;
   readonly isRequired: boolean;
-  readonly sortOrder: number;
 }
 interface RequirementCollectionFile {
   readonly name: string;
-  readonly sizeBytes: number;
 }
 interface RequirementCollectionReview {
   readonly id: string;
@@ -41,7 +39,6 @@ export interface RequirementHistoryPage {
   readonly isComplete: boolean;
 }
 export type RequirementCollectionContent = {
-  readonly type: 'TEXT';
   readonly text: string;
 };
 export interface RequirementCollectionCell {
@@ -81,7 +78,6 @@ export interface RequirementCollectionQueryInput {
 }
 export interface RequirementCollectionFilterCounts {
   readonly all: number;
-  readonly hasMissing: number;
   readonly zeroSubmission: number;
 }
 export interface RequirementCollectionDocumentTotal {

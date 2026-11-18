@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileCleanupRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -140,6 +141,7 @@ async function cleanup(): Promise<void> {
     where: { programId: { startsWith: PREFIX } },
   });
   const tombstones = await prisma.file.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       kind: 'UPLOAD',
       OR: [
@@ -162,6 +164,7 @@ async function cleanup(): Promise<void> {
     },
   });
   const covers = await prisma.file.findMany({
+    take: TEST_READ_LIMIT,
     where: { kind: 'COVER', programId: { startsWith: PREFIX } },
     select: { storageKey: true },
   });
@@ -227,10 +230,12 @@ async function cleanup(): Promise<void> {
     where: { teamId: { startsWith: PREFIX } },
   });
   const purgeTeams = await prisma.team.findMany({
+    take: TEST_READ_LIMIT,
     where: { programId: { startsWith: PREFIX } },
     select: { id: true },
   });
   const purgeRepos = await prisma.repo.findMany({
+    take: TEST_READ_LIMIT,
     where: { ownerName: { startsWith: 'purge7-org/' } },
     select: { githubRepoId: true },
   });
@@ -1108,6 +1113,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(before.teamInvitations).toBe(1);
     expect(before.teamHistories).toBe(1);
     const invitationHistoryBefore = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { programId: fixture.programId },
     });
 
@@ -1158,6 +1164,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after).toEqual(before);
     await expect(
       prisma.teamHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { programId: fixture.programId },
       }),
     ).resolves.toEqual(invitationHistoryBefore);
@@ -1277,8 +1284,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
       source: RepositorySource.EXTERNAL_PUBLIC,
     });
     const provisionedRepositories = await prisma.repo.findMany({
+      take: TEST_READ_LIMIT,
       where: { ownerName: { startsWith: 'purge7-org/full-provisioned' } },
-      include: { teamRepos: { where: { validTo: null } } },
+      include: {
+        teamRepos: { take: TEST_READ_LIMIT, where: { validTo: null } },
+      },
     });
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({

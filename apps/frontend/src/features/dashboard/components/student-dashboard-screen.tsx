@@ -45,7 +45,12 @@ export function StudentDashboardScreen() {
 
   const feedback: StudentFeedbackState =
     feedbackQuery.data !== undefined
-      ? { status: 'success', items: feedbackQuery.data }
+      ? {
+          status: 'success',
+          items: feedbackQuery.data.pages.flatMap((page) => page.items),
+          hasMore: feedbackQuery.hasNextPage,
+          loadingMore: feedbackQuery.isFetchingNextPage,
+        }
       : feedbackQuery.isError
         ? { status: 'error' }
         : { status: 'loading' };
@@ -74,6 +79,7 @@ export function StudentDashboardScreen() {
       feedback={feedback}
       onRetry={() => void dashboard.refetch()}
       onRetryFeedback={() => void feedbackQuery.refetch()}
+      onLoadMoreFeedback={() => void feedbackQuery.fetchNextPage()}
     />
   );
 }

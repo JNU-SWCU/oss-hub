@@ -11,6 +11,11 @@ import { ApplicationAnswersService } from './team-application.service';
 describe('TeamApplicationService.staffSummary', () => {
   it('repository 요약을 그대로 반환한다', async () => {
     const summary: StaffDashboardSummary = {
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      catalogTotal: 1,
+      statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
       programs: [
         {
           id: 'program-1',
@@ -23,11 +28,10 @@ describe('TeamApplicationService.staffSummary', () => {
           endAt: new Date('2026-09-30T23:59:59.000Z'),
           applications: {
             total: 5,
-            submitted: 2,
+            pendingApproval: 2,
             approved: 2,
             rejected: 1,
           },
-          teamManagementPath: '/programs/program-1/teams',
         },
       ],
     };
@@ -42,8 +46,22 @@ describe('TeamApplicationService.staffSummary', () => {
       new RepositoryProvisionEventService(),
     );
 
-    await expect(service.staffSummary()).resolves.toEqual(summary);
-    expect(listStaffDashboardSummary).toHaveBeenCalledTimes(1);
+    await expect(
+      service.staffSummary({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+        now: new Date('2026-07-15T00:00:00.000Z'),
+      }),
+    ).resolves.toEqual(summary);
+    expect(listStaffDashboardSummary).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
+      now: new Date('2026-07-15T00:00:00.000Z'),
+    });
   });
 
   it('프로그램이 없으면 빈 programs 를 반환한다', async () => {
@@ -57,7 +75,15 @@ describe('TeamApplicationService.staffSummary', () => {
       new RepositoryProvisionEventService(),
     );
 
-    await expect(service.staffSummary()).resolves.toEqual({
+    await expect(
+      service.staffSummary({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all' as const,
+        now: new Date('2026-07-15T00:00:00.000Z'),
+      }),
+    ).resolves.toEqual({
       programs: [],
     });
   });

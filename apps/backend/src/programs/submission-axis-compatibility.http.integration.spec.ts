@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -149,7 +150,6 @@ it('keeps the existing public PK and history when the requirement API replaces a
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     requirementId: flowIds.document,
-    submissionId: publicId,
     currentRevision: { number: 2 },
     history: [{ number: 1 }],
   });
@@ -222,6 +222,7 @@ it('preserves the observed revision and optional comment when two requirement cl
     select: {
       revision: true,
       histories: {
+        take: TEST_READ_LIMIT,
         orderBy: { createdAt: 'asc' },
         select: { revision: true, comment: true },
       },
@@ -373,8 +374,9 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     }
     const where = { requirementId: flowIds.document };
     const before = await fixture.prisma.submission.findMany({
+      take: TEST_READ_LIMIT,
       where,
-      include: { histories: true },
+      include: { histories: { take: TEST_READ_LIMIT } },
     });
     await fixture.prisma.program.update({
       where: { id: flowIds.program },
@@ -412,8 +414,9 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     );
     expect(
       await fixture.prisma.submission.findMany({
+        take: TEST_READ_LIMIT,
         where,
-        include: { histories: true },
+        include: { histories: { take: TEST_READ_LIMIT } },
       }),
     ).toEqual(before);
   },

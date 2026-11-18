@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { seedRepo, unlinkRepo } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -219,6 +220,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
     );
     await expect(
       prisma.contributionEvent.findMany({
+        take: TEST_READ_LIMIT,
         where: { repoId: GITHUB_REPOSITORY_ID },
         orderBy: { githubKey: 'asc' },
         select: { kind: true, githubKey: true, authorGithubId: true },
@@ -284,6 +286,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
 
     await expect(
       prisma.contributionEvent.findMany({
+        take: TEST_READ_LIMIT,
         where: { repoId: GITHUB_REPOSITORY_ID },
         select: { githubKey: true, authorGithubId: true },
       }),

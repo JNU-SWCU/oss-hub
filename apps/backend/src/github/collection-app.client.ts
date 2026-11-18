@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable } from '@nestjs/common';
 import { CollectionAppConfigValues } from './collection-app.config';
 import { CollectionAppClientError } from './collection-app.error';
@@ -172,6 +173,8 @@ function dedupeByGithubKey(
 
 @Injectable()
 export class CollectionAppClient {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     private readonly config: CollectionAppConfigValues,
     private readonly tokens: CollectionAppClientTokenProvider,
@@ -297,22 +300,24 @@ export class CollectionAppClient {
       null,
       this.now() + this.config.deadlineMs,
     );
-    for (const kind of pending) {
-      let page = first.get(kind);
-      for (let pageIndex = 1; page !== undefined; pageIndex += 1) {
-        collected[kind].push(...page.contributions);
-        if (page.nextCursor === null) break;
-        if (pageIndex >= this.config.maxPages)
-          throw new CollectionAppClientError('PAGINATION');
-        page = (
-          await read(
-            [kind],
-            page.nextCursor,
-            this.now() + this.config.deadlineMs,
-          )
-        ).get(kind);
-      }
-    }
+    const collectPages = async (
+      kind: (typeof pending)[number],
+      page: ConnectionPage | undefined,
+      pageIndex: number,
+    ): Promise<void> => {
+      if (page === undefined) return;
+      collected[kind].push(...page.contributions);
+      if (page.nextCursor === null) return;
+      if (pageIndex >= this.config.maxPages)
+        throw new CollectionAppClientError('PAGINATION');
+      const next = (
+        await read([kind], page.nextCursor, this.now() + this.config.deadlineMs)
+      ).get(kind);
+      return collectPages(kind, next, pageIndex + 1);
+    };
+    await this.sequential.forEach(pending, async (kind) => {
+      await collectPages(kind, first.get(kind), 1);
+    });
 
     return {
       contributions: {
@@ -464,6 +469,42 @@ export class CollectionAppClient {
     return { cost: r.cost, remaining: r.remaining };
   }
 
+  private async fetchOnce(
+    url: string,
+    init: {
+      readonly method?: 'POST';
+      readonly headers: Readonly<Record<string, string>>;
+      readonly body?: string;
+    },
+    deadline: number,
+  ): Promise<{ readonly response: Response; readonly token: string }> {
+    const remaining = deadline - this.now();
+    if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
+    const signal = AbortSignal.timeout(Math.max(1, remaining));
+    const token = await this.tokens.getToken(signal);
+    if (deadline - this.now() <= 0)
+      throw new CollectionAppClientError('DEADLINE');
+    try {
+      return {
+        token,
+        response: await this.fetcher(url, {
+          ...init,
+          headers: {
+            Accept: ACCEPT,
+            Authorization: `Bearer ${token}`,
+            'User-Agent': USER_AGENT,
+            ...init.headers,
+          },
+          signal,
+        }),
+      };
+    } catch {
+      if (this.now() >= deadline)
+        throw new CollectionAppClientError('DEADLINE');
+      throw new CollectionAppClientError('UPSTREAM');
+    }
+  }
+
   private async send(
     url: string,
     init: {
@@ -474,65 +515,39 @@ export class CollectionAppClient {
     deadline: number,
     { notFound }: { readonly notFound: boolean },
   ): Promise<unknown> {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const remaining = deadline - this.now();
-      if (remaining <= 0) throw new CollectionAppClientError('DEADLINE');
-      const signal = AbortSignal.timeout(Math.max(1, remaining));
-      const token = await this.tokens.getToken(signal);
-      if (deadline - this.now() <= 0)
-        throw new CollectionAppClientError('DEADLINE');
-      let response: Response;
-      try {
-        response = await this.fetcher(url, {
-          ...init,
-          headers: {
-            Accept: ACCEPT,
-            Authorization: `Bearer ${token}`,
-            'User-Agent': USER_AGENT,
-            ...init.headers,
-          },
-          signal,
-        });
-      } catch {
-        if (this.now() >= deadline)
-          throw new CollectionAppClientError('DEADLINE');
-        throw new CollectionAppClientError('UPSTREAM');
-      }
-      if (response.status === 401) {
-        if (attempt === 0) {
-          this.tokens.clear(token);
-          continue;
-        }
-        throw new CollectionAppClientError('AUTH');
-      }
-      if (!response.ok) {
-        if (
-          response.status === 429 ||
-          (response.status === 403 &&
-            (response.headers.get('x-ratelimit-remaining') === '0' ||
-              response.headers.has('retry-after')))
-        ) {
-          throw new CollectionAppClientError(
-            'RATE_LIMITED',
-            this.retryAfter(response.headers),
-          );
-        }
-        if (response.status === 403) {
-          this.tokens.clear(token);
-          throw new CollectionAppClientError('PERMISSION');
-        }
-        if (notFound && response.status === 404) {
-          throw new CollectionAppClientError('NOT_FOUND');
-        }
-        throw new CollectionAppClientError('UPSTREAM');
-      }
-      try {
-        return (await response.json()) as unknown;
-      } catch {
-        throw new CollectionAppClientError('RESPONSE');
-      }
+    const first = await this.fetchOnce(url, init, deadline);
+    let { response, token } = first;
+    if (response.status === 401) {
+      this.tokens.clear(token);
+      ({ response, token } = await this.fetchOnce(url, init, deadline));
+      if (response.status === 401) throw new CollectionAppClientError('AUTH');
     }
-    throw new CollectionAppClientError('AUTH');
+    if (!response.ok) {
+      if (
+        response.status === 429 ||
+        (response.status === 403 &&
+          (response.headers.get('x-ratelimit-remaining') === '0' ||
+            response.headers.has('retry-after')))
+      ) {
+        throw new CollectionAppClientError(
+          'RATE_LIMITED',
+          this.retryAfter(response.headers),
+        );
+      }
+      if (response.status === 403) {
+        this.tokens.clear(token);
+        throw new CollectionAppClientError('PERMISSION');
+      }
+      if (notFound && response.status === 404) {
+        throw new CollectionAppClientError('NOT_FOUND');
+      }
+      throw new CollectionAppClientError('UPSTREAM');
+    }
+    try {
+      return (await response.json()) as unknown;
+    } catch {
+      throw new CollectionAppClientError('RESPONSE');
+    }
   }
 
   private async graphql(

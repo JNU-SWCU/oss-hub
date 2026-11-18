@@ -5,7 +5,6 @@ import type {
 import type { StudentDashboardItem } from '../student-dashboard.service';
 
 export class StudentDashboardMilestoneResponseDto {
-  declare readonly id: string;
   declare readonly name: string;
   declare readonly dueAt: string;
   declare readonly lateSubmissionDueAt: string | null;
@@ -15,19 +14,16 @@ export class StudentDashboardMilestoneResponseDto {
     | 'APPROVED'
     | 'CHANGES_REQUESTED'
     | 'REJECTED';
-  declare readonly requiredItemCount: number;
   declare readonly remainingItemCount: number;
 
   static from(
     milestone: NonNullable<StudentDashboardItem['nextMilestone']>,
   ): StudentDashboardMilestoneResponseDto {
     return {
-      id: milestone.id,
       name: milestone.name,
       dueAt: milestone.dueAt.toISOString(),
       lateSubmissionDueAt: milestone.lateSubmissionDueAt?.toISOString() ?? null,
       submissionStatus: milestone.submissionStatus,
-      requiredItemCount: milestone.requiredItemCount,
       remainingItemCount: milestone.remainingItemCount,
     };
   }
@@ -76,12 +72,10 @@ export class StudentDashboardItemResponseDto {
 
   declare readonly teamName: string;
 
-  declare readonly teamUrl: string;
   declare readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   declare readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
   declare readonly progress: StudentDashboardProgressResponseDto | null;
   declare readonly detailUrl: string;
-  declare readonly checklistUrl: string;
   declare readonly repository: StudentDashboardRepositoryResponseDto | null;
 
   static from(item: StudentDashboardItem): StudentDashboardItemResponseDto {
@@ -91,7 +85,6 @@ export class StudentDashboardItemResponseDto {
       programId: item.programId,
       programName: item.programName,
       teamName: item.teamName,
-      teamUrl: item.teamUrl,
       applicationStatus: item.applicationStatus,
       nextMilestone: item.nextMilestone
         ? StudentDashboardMilestoneResponseDto.from(item.nextMilestone)
@@ -100,7 +93,6 @@ export class StudentDashboardItemResponseDto {
         ? StudentDashboardProgressResponseDto.from(item.progress)
         : null,
       detailUrl: item.detailUrl,
-      checklistUrl: item.checklistUrl,
       repository: item.repository
         ? StudentDashboardRepositoryResponseDto.from(item.repository)
         : null,

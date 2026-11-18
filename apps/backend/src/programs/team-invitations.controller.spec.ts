@@ -11,8 +11,6 @@ const receivedRecord = {
   teamId: 'cuid-team',
   programId: 'cuid-program',
   inviteeId: 'cuid-invitee',
-  invitedById: 'cuid-leader',
-  invitedAt: new Date('2026-08-01T00:00:00.000Z'),
   teamName: '합성 팀',
   programName: '합성 프로그램',
   invitedByDisplayName: '합성 팀장',
@@ -25,8 +23,6 @@ const sentRecord = {
   teamId: 'cuid-team',
   programId: 'cuid-program',
   inviteeId: 'cuid-invitee',
-  invitedById: 'cuid-leader',
-  invitedAt: new Date('2026-08-01T00:00:00.000Z'),
   invitee: {
     id: 'cuid-invitee',
     nickname: 'synthetic-invitee',
@@ -66,7 +62,9 @@ function buildController(overrides: Partial<ServiceMocks> = {}): {
   const mocks: ServiceMocks = {
     listReceived: jest.fn().mockResolvedValue([]),
     listSentByTeam: jest.fn().mockResolvedValue([]),
-    searchCandidates: jest.fn().mockResolvedValue([]),
+    searchCandidates: jest
+      .fn()
+      .mockResolvedValue({ items: [], hasMore: false }),
     create: jest.fn(),
     cancel: jest.fn().mockResolvedValue(undefined),
     decline: jest.fn().mockResolvedValue(undefined),
@@ -112,10 +110,7 @@ describe('TeamInvitationsController', () => {
     expect(response).toEqual([
       {
         id: 'cuid-invitation',
-        teamId: 'cuid-team',
         programId: 'cuid-program',
-        invitedById: 'cuid-leader',
-        invitedAt: '2026-08-01T00:00:00.000Z',
         teamName: '합성 팀',
         programName: '합성 프로그램',
         invitedByDisplayName: '합성 팀장',
@@ -142,15 +137,10 @@ describe('TeamInvitationsController', () => {
     expect(response).toEqual([
       {
         id: 'cuid-invitation',
-        teamId: 'cuid-team',
-        programId: 'cuid-program',
-        invitedById: 'cuid-leader',
-        invitedAt: '2026-08-01T00:00:00.000Z',
         invitee: {
           id: 'cuid-invitee',
           nickname: 'synthetic-invitee',
           name: '합성 초대 대상',
-          avatarUrl: 'https://example.invalid/avatar.png',
         },
       },
     ]);
@@ -181,8 +171,6 @@ describe('TeamInvitationsController', () => {
       teamId: 'cuid-team',
       programId: 'cuid-program',
       inviteeId: 'cuid-invitee',
-      invitedById: 'cuid-leader',
-      invitedAt: new Date('2026-08-01T00:00:00.000Z'),
       invitee: {
         id: 'cuid-invitee',
         nickname: 'synthetic-invitee',
@@ -214,15 +202,10 @@ describe('TeamInvitationsController', () => {
     );
     expect(response).toEqual({
       id: 'cuid-invitation',
-      teamId: 'cuid-team',
-      programId: 'cuid-program',
-      invitedById: 'cuid-leader',
-      invitedAt: '2026-08-01T00:00:00.000Z',
       invitee: {
         id: 'cuid-invitee',
         nickname: 'synthetic-invitee',
         name: '합성 초대 대상',
-        avatarUrl: 'https://example.invalid/avatar.png',
       },
     });
   });
@@ -257,9 +240,7 @@ describe('TeamInvitationsController', () => {
 
   it('accept는 service 결과를 DTO로 반환한다', async () => {
     const { controller, mocks } = buildController({
-      accept: jest
-        .fn()
-        .mockResolvedValue({ teamId: 'cuid-team', programId: 'cuid-program' }),
+      accept: jest.fn().mockResolvedValue({ programId: 'cuid-program' }),
     });
 
     const response = await controller.accept(
@@ -271,9 +252,6 @@ describe('TeamInvitationsController', () => {
       syntheticGithubId,
       'cuid-invitation',
     );
-    expect(response).toEqual({
-      teamId: 'cuid-team',
-      programId: 'cuid-program',
-    });
+    expect(response).toEqual({ programId: 'cuid-program' });
   });
 });

@@ -3,33 +3,26 @@ import type { ProgramCategory } from '@prisma/client';
 import {
   StaffInsightsRepository,
   type StaffInsightsApplicationCountRecord,
-  type StaffInsightsBaselineRecord,
   type StaffInsightsCompletionRecord,
+  type StaffInsightsDepartmentMetricsRecord,
+  type StaffInsightsLeaderCandidateRecord,
   type StaffInsightsOutcomeRecord,
-  type StaffInsightsParticipationRecord,
+  type StaffInsightsParticipantCountRecord,
+  type StaffInsightsProgramDepartmentRecord,
   type StaffInsightsProgramRecord,
-  type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
-import {
-  RankingYearService,
-  type ActivityCounts,
-  type RankedActivity,
-} from '../ranking/ranking-year.service';
+import { RankingYearService } from '../ranking/ranking-year.service';
 import {
   StaffInsightsQueryService,
   DepartmentCohort,
   InsightsYearScope,
   DEPARTMENT_COHORTS,
+  SW_MAJOR_DEPARTMENTS,
 } from './staff-insights-query.service';
 
 export interface StaffInsightsMetrics {
   readonly studentCount: number;
   readonly activeStudentCount: number;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
   readonly total: number;
   readonly participantCount: number;
 }
@@ -58,7 +51,7 @@ export interface StaffInsightsRecentLeaderRow {
   readonly total: number;
 }
 
-export interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
+interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
   readonly starCount: number;
 }
 
@@ -90,7 +83,6 @@ export interface StaffInsightsProgramRow {
   readonly dueRequirementCount: number;
   readonly submittedRequirementCount: number;
   readonly completionRate: number | null;
-  readonly contributionCount: number;
   readonly activeTeamCount: number;
   readonly repoTeamCount: number;
   readonly contributionsPerParticipant: number | null;
@@ -120,41 +112,26 @@ export interface StaffInsightsSummary {
 
 interface ProgramScorecardInput {
   readonly programs: readonly StaffInsightsProgramRecord[];
-  readonly participations: readonly StaffInsightsParticipationRecord[];
+  readonly departments: readonly StaffInsightsProgramDepartmentRecord[];
   readonly applications: readonly StaffInsightsApplicationCountRecord[];
   readonly completion: readonly StaffInsightsCompletionRecord[];
   readonly outcomes: readonly StaffInsightsOutcomeRecord[];
-  readonly studentsById: ReadonlyMap<string, StaffInsightsStudentRecord>;
   readonly now: Date;
 }
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const LEADER_LIMIT = 10;
 const SMALL_SAMPLE_STUDENT_COUNT = 3;
+const UNREGISTERED_DEPARTMENT = '미등록';
 
 interface LeaderCandidate {
-  readonly student: StaffInsightsStudentRecord;
+  readonly record: StaffInsightsLeaderCandidateRecord;
   readonly cohort: DepartmentCohort;
-  readonly activity: ActivityCounts;
-  readonly total: number;
 }
-
-const EMPTY_ACTIVITY: ActivityCounts = {
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-  starCount: 0,
-};
 
 const EMPTY_METRICS: StaffInsightsMetrics = {
   studentCount: 0,
   activeStudentCount: 0,
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-  starCount: 0,
   total: 0,
   participantCount: 0,
 };
@@ -184,60 +161,50 @@ export class StaffInsightsService {
     now: Date = new Date(),
   ): Promise<StaffInsightsSummary> {
     const cutoff = new Date(now.getTime() - RECENT_WINDOW_MS);
-    const cutoffYear = this.rankingYearService.rankingYearInAsiaSeoul(cutoff);
-    const nowYear = this.rankingYearService.rankingYearInAsiaSeoul(now);
+    const yearFilter = this.staffInsightsQueryService.rankingYearFilter(scope);
     const [
-      students,
-      participations,
-      activity,
+      departmentMetrics,
+      periodCandidates,
+      recentCandidates,
       dataAsOf,
       years,
-      baselines,
-      cutoffYearActivity,
-      nowYearActivity,
       programs,
+      programDepartments,
+      participantCounts,
       applications,
       completion,
       outcomes,
     ] = await Promise.all([
-      this.repository.listStudents(),
-      this.repository.listApprovedParticipations(),
-      this.repository.listActivityTotals(
-        this.staffInsightsQueryService.rankingYearFilter(scope),
+      this.repository.listDepartmentMetrics(yearFilter),
+      this.repository.listPeriodLeaderCandidates(
+        yearFilter,
+        SW_MAJOR_DEPARTMENTS,
+      ),
+      this.repository.listRecentLeaderCandidates(
+        {
+          cutoff,
+          cutoffYear: this.rankingYearService.rankingYearInAsiaSeoul(cutoff),
+          nowYear: this.rankingYearService.rankingYearInAsiaSeoul(now),
+        },
+        SW_MAJOR_DEPARTMENTS,
       ),
       this.repository.findActivityDataAsOf(),
       this.repository.listActivityYears(),
-      this.repository.listActivityBaselines(cutoffYear, cutoff),
-      this.repository.listActivityByYear(cutoffYear),
-      nowYear === cutoffYear
-        ? Promise.resolve([])
-        : this.repository.listActivityByYear(nowYear),
       this.repository.listPublishedPrograms(),
+      this.repository.listProgramParticipantDepartments(),
+      this.repository.countPublishedParticipants(),
       this.repository.listProgramApplicationCounts(),
       this.repository.listProgramCompletion(now),
       this.repository.listProgramOutcomes(now),
     ]);
 
-    const activityByGithubId = new Map(
-      activity.map((row) => [row.githubId.toString(), row]),
-    );
-    const participantIds = new Set<string>();
-    for (const participation of participations) {
-      for (const userId of participation.userIds) {
-        participantIds.add(userId);
-      }
-    }
-
-    const studentsById = new Map(
-      students.map((student) => [student.id, student]),
-    );
+    const departments = this.buildDepartmentRows(departmentMetrics);
     const programRows = this.buildProgramRows({
       programs,
-      participations,
+      departments: programDepartments,
       applications,
       completion,
       outcomes,
-      studentsById,
       now,
     });
 
@@ -245,112 +212,31 @@ export class StaffInsightsService {
       scope,
       dataAsOf,
       years,
-      cohorts: this.buildCohortRows(
-        students,
-        activityByGithubId,
-        participantIds,
-      ),
-      departments: this.buildDepartmentRows(
-        students,
-        activityByGithubId,
-        participantIds,
-      ),
+      cohorts: buildCohortRows(departments),
+      departments,
       programs: programRows,
-      programSummary: summarizePrograms(programRows, participations),
+      programSummary: summarizePrograms(programRows, participantCounts),
       leaders: {
-        period: this.buildPeriodLeaders(students, activityByGithubId),
-        recent: this.buildRecentLeaders(
-          students,
-          byGithubId(baselines),
-          byGithubId(cutoffYearActivity),
-          byGithubId(nowYearActivity),
-        ),
+        period: this.rankLeaders(periodCandidates, (candidate, rank) => ({
+          ...leaderRow(candidate, rank),
+          starCount: candidate.record.starCount,
+        })),
+        recent: this.rankLeaders(recentCandidates, leaderRow),
       },
       recentWindow: { from: cutoff, to: now },
     };
   }
 
-  private buildPeriodLeaders(
-    students: readonly StaffInsightsStudentRecord[],
-    activityByGithubId: ReadonlyMap<string, ActivityCounts>,
-  ): StaffInsightsCohortLeaders<StaffInsightsLeaderRow> {
-    const candidates: LeaderCandidate[] = [];
-    for (const student of students) {
-      if (student.githubLogin === '') continue;
-      const activity = activityFor(student, activityByGithubId);
-      candidates.push(
-        this.candidate(
-          student,
-          activity,
-          this.rankingYearService.activityTotal(activity),
-        ),
-      );
-    }
-    return this.rankLeaders(candidates, (candidate, rank) => ({
-      ...leaderRow(candidate, rank),
-      starCount: candidate.activity.starCount,
-    }));
-  }
-
-  private buildRecentLeaders(
-    students: readonly StaffInsightsStudentRecord[],
-    baselines: ReadonlyMap<string, StaffInsightsBaselineRecord>,
-    cutoffYearActivity: ReadonlyMap<string, StaffInsightsBaselineRecord>,
-    nowYearActivity: ReadonlyMap<string, StaffInsightsBaselineRecord>,
-  ): StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow> {
-    const candidates: LeaderCandidate[] = [];
-    for (const student of students) {
-      if (student.githubLogin === '') continue;
-      const key = student.githubId.toString();
-      const current = cutoffYearActivity.get(key);
-      const baseline = baselines.get(key);
-      let sinceCutoff = EMPTY_ACTIVITY;
-      if (current !== undefined) {
-        if (baseline === undefined) continue;
-        sinceCutoff = recentDelta(current, baseline);
-      }
-      const activity = addCounts(
-        sinceCutoff,
-        nowYearActivity.get(key) ?? EMPTY_ACTIVITY,
-      );
-      candidates.push(
-        this.candidate(
-          student,
-          activity,
-          this.rankingYearService.activityTotal({ ...activity, starCount: 0 }),
-        ),
-      );
-    }
-    return this.rankLeaders(candidates, leaderRow);
-  }
-
-  private candidate(
-    student: StaffInsightsStudentRecord,
-    activity: ActivityCounts,
-    total: number,
-  ): LeaderCandidate {
-    return {
-      student,
-      cohort: this.staffInsightsQueryService.classifyDepartment(
-        student.department,
-      ),
-      activity,
-      total,
-    };
-  }
-
   private rankLeaders<Row>(
-    candidates: readonly LeaderCandidate[],
+    records: readonly StaffInsightsLeaderCandidateRecord[],
     toRow: (candidate: LeaderCandidate, rank: number) => Row,
   ): StaffInsightsCohortLeaders<Row> {
-    const ranked = candidates
-      .filter((candidate) => candidate.total > 0)
-      .sort((left, right) =>
-        this.rankingYearService.compareRanked(
-          rankedActivity(left),
-          rankedActivity(right),
-        ),
-      );
+    const ranked = records.map((record) => ({
+      record,
+      cohort: this.staffInsightsQueryService.classifyDepartment(
+        record.department,
+      ),
+    }));
     const top = (cohort?: DepartmentCohort): readonly Row[] =>
       ranked
         .filter(
@@ -365,93 +251,28 @@ export class StaffInsightsService {
     };
   }
 
-  private addStudent(
-    metrics: StaffInsightsMetrics,
-    activity: ActivityCounts,
-    isParticipant: boolean,
-  ): StaffInsightsMetrics {
-    const total = this.rankingYearService.activityTotal(activity);
-    return {
-      studentCount: metrics.studentCount + 1,
-      activeStudentCount: metrics.activeStudentCount + (total > 0 ? 1 : 0),
-      commitCount: metrics.commitCount + activity.commitCount,
-      pullRequestCount: metrics.pullRequestCount + activity.pullRequestCount,
-      issueCount: metrics.issueCount + activity.issueCount,
-      repositoryCount: metrics.repositoryCount + activity.repositoryCount,
-      starCount: metrics.starCount + activity.starCount,
-      total: metrics.total + total,
-      participantCount: metrics.participantCount + (isParticipant ? 1 : 0),
-    };
-  }
-
-  private buildCohortRows(
-    students: readonly StaffInsightsStudentRecord[],
-    activityByGithubId: ReadonlyMap<string, ActivityCounts>,
-    participantIds: ReadonlySet<string>,
-  ): readonly StaffInsightsCohortRow[] {
-    const byCohort = new Map<DepartmentCohort, StaffInsightsMetrics>([
-      [DEPARTMENT_COHORTS.SW_MAJOR, EMPTY_METRICS],
-      [DEPARTMENT_COHORTS.NON_SW, EMPTY_METRICS],
-      [DEPARTMENT_COHORTS.UNREGISTERED, EMPTY_METRICS],
-    ]);
-    for (const student of students) {
-      const cohort = this.staffInsightsQueryService.classifyDepartment(
-        student.department,
-      );
-      const current = byCohort.get(cohort);
-      if (current === undefined) {
-        throw new Error(`Unknown department cohort: ${cohort}`);
-      }
-      byCohort.set(
-        cohort,
-        this.addStudent(
-          current,
-          activityFor(student, activityByGithubId),
-          participantIds.has(student.id),
-        ),
-      );
-    }
-    return [
-      DEPARTMENT_COHORTS.SW_MAJOR,
-      DEPARTMENT_COHORTS.NON_SW,
-      DEPARTMENT_COHORTS.UNREGISTERED,
-    ].map((cohort) => {
-      const metrics = byCohort.get(cohort);
-      if (metrics === undefined) {
-        throw new Error(`Unknown department cohort: ${cohort}`);
-      }
-      return { cohort, ...metrics };
-    });
-  }
-
   private buildDepartmentRows(
-    students: readonly StaffInsightsStudentRecord[],
-    activityByGithubId: ReadonlyMap<string, ActivityCounts>,
-    participantIds: ReadonlySet<string>,
+    records: readonly StaffInsightsDepartmentMetricsRecord[],
   ): readonly StaffInsightsDepartmentRow[] {
     const byDepartment = new Map<
       string,
       { readonly cohort: DepartmentCohort; metrics: StaffInsightsMetrics }
     >();
-    for (const student of students) {
+    for (const record of records) {
       const cohort = this.staffInsightsQueryService.classifyDepartment(
-        student.department,
+        record.department,
       );
       const department =
-        cohort === DEPARTMENT_COHORTS.UNREGISTERED
-          ? '미등록'
-          : (student.department ?? '미등록');
+        cohort === DEPARTMENT_COHORTS.UNREGISTERED || record.department === null
+          ? UNREGISTERED_DEPARTMENT
+          : record.department;
       const current = byDepartment.get(department) ?? {
         cohort,
         metrics: EMPTY_METRICS,
       };
       byDepartment.set(department, {
         cohort,
-        metrics: this.addStudent(
-          current.metrics,
-          activityFor(student, activityByGithubId),
-          participantIds.has(student.id),
-        ),
+        metrics: addMetrics(current.metrics, record),
       });
     }
     return [...byDepartment.entries()]
@@ -475,7 +296,26 @@ export class StaffInsightsService {
   private buildProgramRows(
     input: ProgramScorecardInput,
   ): readonly StaffInsightsProgramRow[] {
-    const userIdsByProgram = participantsByProgram(input.participations);
+    const cohortCounts = new Map<
+      string,
+      { swMajor: number; nonSw: number; unregistered: number }
+    >();
+    for (const row of input.departments) {
+      const counts = cohortCounts.get(row.programId) ?? {
+        swMajor: 0,
+        nonSw: 0,
+        unregistered: 0,
+      };
+      const cohort = this.staffInsightsQueryService.classifyDepartment(
+        row.department,
+      );
+      if (cohort === DEPARTMENT_COHORTS.SW_MAJOR)
+        counts.swMajor += row.participantCount;
+      else if (cohort === DEPARTMENT_COHORTS.NON_SW)
+        counts.nonSw += row.participantCount;
+      else counts.unregistered += row.participantCount;
+      cohortCounts.set(row.programId, counts);
+    }
     const applications = new Map(
       input.applications.map((row) => [row.programId, row]),
     );
@@ -486,20 +326,11 @@ export class StaffInsightsService {
     const now = input.now.getTime();
     return input.programs
       .map((program) => {
-        const userIds = userIdsByProgram.get(program.id) ?? new Set<string>();
-        let swMajorCount = 0;
-        let nonSwCount = 0;
-        let unregisteredCount = 0;
-        for (const userId of userIds) {
-          const student = input.studentsById.get(userId);
-          const cohort = this.staffInsightsQueryService.classifyDepartment(
-            student?.department ?? null,
-          );
-          if (cohort === DEPARTMENT_COHORTS.SW_MAJOR) swMajorCount += 1;
-          else if (cohort === DEPARTMENT_COHORTS.NON_SW) nonSwCount += 1;
-          else unregisteredCount += 1;
-        }
-        const participantCount = userIds.size;
+        const counts = cohortCounts.get(program.id);
+        const swMajorCount = counts?.swMajor ?? 0;
+        const nonSwCount = counts?.nonSw ?? 0;
+        const unregisteredCount = counts?.unregistered ?? 0;
+        const participantCount = swMajorCount + nonSwCount + unregisteredCount;
         const appliedCount = applications.get(program.id)?.appliedCount ?? 0;
         const approvedCount = applications.get(program.id)?.approvedCount ?? 0;
         const due = completion.get(program.id)?.dueRequirementCount ?? 0;
@@ -544,51 +375,52 @@ export class StaffInsightsService {
   }
 }
 
-function participantsByProgram(
-  participations: readonly StaffInsightsParticipationRecord[],
-): ReadonlyMap<string, ReadonlySet<string>> {
-  const byProgram = new Map<string, Set<string>>();
-  for (const participation of participations) {
-    const current = byProgram.get(participation.programId) ?? new Set<string>();
-    for (const userId of participation.userIds) {
-      current.add(userId);
-    }
-    byProgram.set(participation.programId, current);
-  }
-  return byProgram;
+function addMetrics(
+  metrics: StaffInsightsMetrics,
+  record: StaffInsightsMetrics,
+): StaffInsightsMetrics {
+  return {
+    studentCount: metrics.studentCount + record.studentCount,
+    activeStudentCount: metrics.activeStudentCount + record.activeStudentCount,
+    total: metrics.total + record.total,
+    participantCount: metrics.participantCount + record.participantCount,
+  };
+}
+
+function buildCohortRows(
+  departments: readonly StaffInsightsDepartmentRow[],
+): readonly StaffInsightsCohortRow[] {
+  return [
+    DEPARTMENT_COHORTS.SW_MAJOR,
+    DEPARTMENT_COHORTS.NON_SW,
+    DEPARTMENT_COHORTS.UNREGISTERED,
+  ].map((cohort) => ({
+    cohort,
+    ...departments
+      .filter((row) => row.cohort === cohort)
+      .reduce<StaffInsightsMetrics>(addMetrics, EMPTY_METRICS),
+  }));
 }
 
 function summarizePrograms(
   rows: readonly StaffInsightsProgramRow[],
-  participations: readonly StaffInsightsParticipationRecord[],
+  participants: StaffInsightsParticipantCountRecord,
 ): StaffInsightsProgramSummary {
-  const programIds = new Set(rows.map((row) => row.programId));
-  const programCountByUser = new Map<string, number>();
-  for (const [programId, userIds] of participantsByProgram(participations)) {
-    if (!programIds.has(programId)) continue;
-    for (const userId of userIds) {
-      programCountByUser.set(userId, (programCountByUser.get(userId) ?? 0) + 1);
-    }
-  }
-  const uniqueParticipantCount = programCountByUser.size;
-  const repeatParticipantCount = [...programCountByUser.values()].filter(
-    (count) => count >= 2,
-  ).length;
   const sum = (pick: (row: StaffInsightsProgramRow) => number): number =>
     rows.reduce((total, row) => total + pick(row), 0);
   return {
     programCount: rows.length,
     recruitingCount: rows.filter((row) => row.recruiting).length,
     approvedParticipantCount: sum((row) => row.participantCount),
-    uniqueParticipantCount,
+    uniqueParticipantCount: participants.uniqueParticipantCount,
     competitionRatio: ratio(
       sum((row) => row.appliedCount),
       sum((row) => row.approvedCount),
     ),
-    repeatParticipantCount,
+    repeatParticipantCount: participants.repeatParticipantCount,
     repeatParticipantRate: percent(
-      repeatParticipantCount,
-      uniqueParticipantCount,
+      participants.repeatParticipantCount,
+      participants.uniqueParticipantCount,
     ),
   };
 }
@@ -603,74 +435,21 @@ function percent(numerator: number, denominator: number): number | null {
   return denominator === 0 ? null : Math.round((numerator / denominator) * 100);
 }
 
-function activityFor(
-  student: StaffInsightsStudentRecord,
-  activityByGithubId: ReadonlyMap<string, ActivityCounts>,
-): ActivityCounts {
-  return activityByGithubId.get(student.githubId.toString()) ?? EMPTY_ACTIVITY;
-}
-
-function byGithubId(
-  rows: readonly StaffInsightsBaselineRecord[],
-): ReadonlyMap<string, StaffInsightsBaselineRecord> {
-  return new Map(rows.map((row) => [row.githubId.toString(), row]));
-}
-
-function recentDelta(
-  current: StaffInsightsBaselineRecord,
-  baseline: StaffInsightsBaselineRecord,
-): ActivityCounts {
-  return {
-    commitCount: Math.max(0, current.commitCount - baseline.commitCount),
-    pullRequestCount: Math.max(
-      0,
-      current.pullRequestCount - baseline.pullRequestCount,
-    ),
-    issueCount: Math.max(0, current.issueCount - baseline.issueCount),
-    repositoryCount: Math.max(
-      0,
-      current.repositoryCount - baseline.repositoryCount,
-    ),
-    starCount: 0,
-  };
-}
-
-function addCounts(
-  left: ActivityCounts,
-  right: Omit<ActivityCounts, 'starCount'>,
-): ActivityCounts {
-  return {
-    commitCount: left.commitCount + right.commitCount,
-    pullRequestCount: left.pullRequestCount + right.pullRequestCount,
-    issueCount: left.issueCount + right.issueCount,
-    repositoryCount: left.repositoryCount + right.repositoryCount,
-    starCount: 0,
-  };
-}
-
-function rankedActivity(candidate: LeaderCandidate): RankedActivity {
-  return {
-    ...candidate.activity,
-    githubId: candidate.student.githubId,
-    githubLogin: candidate.student.githubLogin,
-    total: candidate.total,
-  };
-}
-
 function leaderRow(
   candidate: LeaderCandidate,
   rank: number,
 ): StaffInsightsRecentLeaderRow {
+  const record = candidate.record;
   return {
     rank,
-    name: candidate.student.name,
-    githubLogin: candidate.student.githubLogin,
-    department: candidate.student.department,
+    name: record.name,
+    githubLogin: record.githubLogin,
+    department: record.department,
     cohort: candidate.cohort,
-    commitCount: candidate.activity.commitCount,
-    pullRequestCount: candidate.activity.pullRequestCount,
-    issueCount: candidate.activity.issueCount,
-    repositoryCount: candidate.activity.repositoryCount,
-    total: candidate.total,
+    commitCount: record.commitCount,
+    pullRequestCount: record.pullRequestCount,
+    issueCount: record.issueCount,
+    repositoryCount: record.repositoryCount,
+    total: record.total,
   };
 }

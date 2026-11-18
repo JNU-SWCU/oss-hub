@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -127,6 +129,10 @@ export class ProgramListStatusFilterRepository {
       Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
     >;
     return whereByStatus[status];
+  }
+
+  programListStatusSql(now: Date): Prisma.Sql {
+    return programListStatusCaseSql(now);
   }
 
   programListSqlStatusPredicate(
@@ -295,8 +301,14 @@ export interface ProgramApplicationCounts {
   readonly total: number;
   readonly pending: number;
 }
+const PROGRAM_YEAR_MIN = 2000;
+const PROGRAM_YEAR_MAX = 2100;
+const PROGRAM_YEAR_SPAN = PROGRAM_YEAR_MAX - PROGRAM_YEAR_MIN + 1;
+
 @Injectable()
 export class ProgramsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -372,8 +384,9 @@ export class ProgramsRepository {
       SELECT DISTINCT ${programEndYearSql} AS year
       FROM "Program" AS p
       ${this.programListStatusFilterRepository.programListSqlWhere('ended', '', now)}
-      AND ${programEndYearSql} BETWEEN 2000 AND 2100
+      AND ${programEndYearSql} BETWEEN ${PROGRAM_YEAR_MIN} AND ${PROGRAM_YEAR_MAX}
       ORDER BY year DESC
+      LIMIT ${PROGRAM_YEAR_SPAN}
     `);
     return rows.map((row) => row.year);
   }
@@ -386,7 +399,9 @@ export class ProgramsRepository {
         readonly upcoming: number;
         readonly ended: number;
       }[]
-    >(this.programListStatusFilterRepository.programStatusCountsSql(now));
+    >(
+      Prisma.sql`${this.programListStatusFilterRepository.programStatusCountsSql(now)} LIMIT 1`,
+    );
     const row = rows[0];
     if (!row) return emptyProgramStatusCounts();
     return {
@@ -398,97 +413,144 @@ export class ProgramsRepository {
     };
   }
   findProgramDetail(programId: string) {
-    return this.prisma.program.findUnique({
-      where: { id: programId, lifecycle: { not: 'DELETED' } },
-      select: {
-        coverFileId: true,
-        coverImageUrl: true,
-        id: true,
-        name: true,
-        organizers: true,
-        trackType: true,
-        applicationTemplateKey: true,
-        teamMinSize: true,
-        teamMaxSize: true,
-        description: true,
-        repositoryProvisioningEnabled: true,
-        applicationStartAt: true,
-        applicationEndAt: true,
-        startAt: true,
-        endAt: true,
-        milestones: {
-          orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
-          select: {
-            id: true,
-            name: true,
-            startAt: true,
-            dueAt: true,
-            instructions: true,
-            _count: {
-              select: {
-                requirements: {
-                  where: {},
+    return this.prisma.program
+      .findUnique({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+        select: {
+          coverFileId: true,
+          coverImageUrl: true,
+          id: true,
+          name: true,
+          organizers: true,
+          trackType: true,
+          applicationTemplateKey: true,
+          teamMinSize: true,
+          teamMaxSize: true,
+          description: true,
+          repositoryProvisioningEnabled: true,
+          applicationStartAt: true,
+          applicationEndAt: true,
+          startAt: true,
+          endAt: true,
+          milestones: {
+            take: READ_CAP.milestonesPerProgram + 1,
+            orderBy: [{ dueAt: 'asc' as const }, { createdAt: 'asc' as const }],
+            select: {
+              id: true,
+              name: true,
+              startAt: true,
+              dueAt: true,
+              instructions: true,
+              _count: {
+                select: {
+                  requirements: {
+                    where: {},
+                  },
                 },
               },
-            },
-            requirements: {
-              where: {
-                required: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {
+                  required: true,
+                },
+                select: { id: true },
               },
-              select: { id: true },
             },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            milestones: {
+              cap: READ_CAP.milestonesPerProgram,
+              nested: { requirements: READ_CAP.requirementsPerMilestone },
+            },
+          },
+          'Program.findUnique',
+        ),
+      );
   }
   async findStudentApplication(programId: string, userId: string) {
-    return this.prisma.team.findFirst({
-      where: {
-        programId,
-        ...this.platformRepository.programApplicationParticipantWhere(userId),
-      },
-      select: {
-        id: true,
-        status: true,
-        submissions: {
-          select: {
-            status: true,
-            requirement: { select: { id: true, milestoneId: true } },
-          } satisfies Prisma.SubmissionSelect,
+    return this.prisma.team
+      .findFirst({
+        where: {
+          programId,
+          ...this.platformRepository.programApplicationParticipantWhere(userId),
         },
-      },
-    });
+        select: {
+          id: true,
+          status: true,
+          submissions: {
+            take: READ_CAP.requirementsPerProgram + 1,
+            select: {
+              status: true,
+              requirement: { select: { id: true, milestoneId: true } },
+            } satisfies Prisma.SubmissionSelect,
+          },
+        },
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { submissions: READ_CAP.requirementsPerProgram },
+          'Team.findFirst',
+        ),
+      );
   }
   async findApprovedApplications(programId: string) {
-    return this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      select: {
-        submissions: {
-          select: {
-            status: true,
-            requirement: { select: { id: true, milestoneId: true } },
-          } satisfies Prisma.SubmissionSelect,
-        },
-      },
-    });
+    return this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+            },
+            select: {
+              submissions: {
+                take: READ_CAP.requirementsPerProgram + 1,
+                select: {
+                  status: true,
+                  requirement: { select: { id: true, milestoneId: true } },
+                } satisfies Prisma.SubmissionSelect,
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { submissions: READ_CAP.requirementsPerProgram },
+              'Team.findMany',
+            ),
+          ),
+    );
   }
   async findViewerApplicationStatuses(
     programIds: readonly string[],
     userId: string,
   ): Promise<ReadonlyMap<string, ApplicationStatus>> {
     if (programIds.length === 0) return new Map();
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId: { in: [...programIds] },
-        ...this.platformRepository.programApplicationParticipantWhere(userId),
-      },
-      select: { programId: true, status: true },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerUser,
+      'Team per user',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId: { in: [...programIds] },
+            ...this.platformRepository.programApplicationParticipantWhere(
+              userId,
+            ),
+          },
+          select: { programId: true, status: true },
+        }),
+    );
     return new Map(
       applications.map((application) => [
         application.programId,
@@ -504,6 +566,8 @@ export class ProgramsRepository {
       by: ['programId', 'status'],
       where: { programId: { in: [...programIds] }, archivedAt: null },
       _count: { _all: true },
+      orderBy: [{ programId: 'asc' }, { status: 'asc' }],
+      take: programIds.length * Object.keys(ApplicationStatus).length,
     });
     const counts = new Map<
       string,
@@ -523,24 +587,29 @@ export class ProgramsRepository {
     return counts;
   }
   async findStudentActivityApplications(userId: string) {
-    return this.prisma.team
-      .findMany({
-        where: {
-          status: ApplicationStatus.APPROVED,
-          archivedAt: null,
-          ...this.platformRepository.programApplicationParticipantWhere(userId),
-        },
-        select: {
-          program: {
-            select: { id: true, name: true, applicationStartAt: true },
+    return this.boundedReads
+      .readCapped(READ_CAP.teamsPerUser, 'Team per user', (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+            ...this.platformRepository.programApplicationParticipantWhere(
+              userId,
+            ),
           },
-          teamRepos: {
-            where: { validTo: null },
-            take: 1,
-            select: { repoId: true },
+          select: {
+            program: {
+              select: { id: true, name: true, applicationStartAt: true },
+            },
+            teamRepos: {
+              where: { validTo: null },
+              take: 1,
+              select: { repoId: true },
+            },
           },
-        },
-      })
+        }),
+      )
       .then((teams) =>
         teams.map(({ teamRepos, ...team }) => ({
           ...team,
@@ -729,6 +798,7 @@ export class ProgramDeletionScopeRepository {
             )
           ) AS scope
         ) AS "scopeFingerprint"
+        LIMIT 1
     `);
     if (!row) throw new Error('Deletion scope count query returned no result.');
     return {
@@ -1028,7 +1098,6 @@ export interface ProgramOverviewRecord {
   programId: string;
   name: string;
   trackType: string | null;
-  milestoneCount: number;
   boardPostCount: number;
   participantCount: number;
   teamCount: number;
@@ -1074,6 +1143,7 @@ export interface RequirementCatalogEntry {
 const CURRENT_MILESTONE_SELECT = {
   id: true,
   requirements: {
+    take: READ_CAP.requirementsPerMilestone + 1,
     where: {},
     select: { id: true, required: true },
     orderBy: { sortOrder: 'asc' as const },
@@ -1106,6 +1176,8 @@ export interface SubmittedDocumentPairRow {
 }
 @Injectable()
 export class ProgramOverviewRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -1119,18 +1191,19 @@ export class ProgramOverviewRepository {
         id: true,
         name: true,
         trackType: true,
-        _count: { select: { milestones: true, boardPosts: true, teams: true } },
+        _count: { select: { boardPosts: true, teams: true } },
       },
     });
     if (!program) {
       return null;
     }
-    const [teamMemberRows, connectedRepositoryCount] = await Promise.all([
-      this.prisma.teamMember.findMany({
-        where: { programId },
-        select: { userId: true },
-        distinct: ['userId'],
-      }),
+    const [participantCount, connectedRepositoryCount] = await Promise.all([
+      this.prisma.$queryRaw<readonly { readonly count: number }[]>`
+        SELECT COUNT(DISTINCT member."userId")::int AS count
+        FROM "TeamMember" AS member
+        WHERE member."programId" = ${programId}
+        LIMIT 1
+      `.then((rows) => rows[0]?.count ?? 0),
       this.prisma.$queryRaw<readonly { readonly count: number }[]>`
         SELECT COUNT(*)::int AS count
         FROM team_repo AS link
@@ -1142,18 +1215,15 @@ export class ProgramOverviewRepository {
             WHERE later.repo_id = link.repo_id
               AND later.valid_from > link.valid_from
           )
+          LIMIT 1
       `.then((rows) => rows[0]?.count ?? 0),
     ]);
-    const participantIds = new Set<string>(
-      teamMemberRows.map((row) => row.userId),
-    );
     return {
       programId: program.id,
       name: program.name,
       trackType: program.trackType,
-      milestoneCount: program._count.milestones,
       boardPostCount: program._count.boardPosts,
-      participantCount: participantIds.size,
+      participantCount,
       teamCount: program._count.teams,
       connectedRepositoryCount,
     };
@@ -1189,35 +1259,57 @@ export class ProgramOverviewRepository {
     programId: string,
     now: Date,
   ): Promise<CurrentSubmissionMilestone | null> {
-    const upcoming = await this.prisma.milestone.findFirst({
-      where: {
-        programId,
-        dueAt: { gte: now },
-        requirements: { some: {} },
-      },
-      orderBy: { dueAt: 'asc' },
-      select: CURRENT_MILESTONE_SELECT,
-    });
-    const milestone =
-      upcoming ??
-      (await this.prisma.milestone.findFirst({
+    const upcoming = await this.prisma.milestone
+      .findFirst({
         where: {
           programId,
+          dueAt: { gte: now },
           requirements: { some: {} },
         },
-        orderBy: { dueAt: 'desc' },
+        orderBy: { dueAt: 'asc' },
         select: CURRENT_MILESTONE_SELECT,
-      }));
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { requirements: READ_CAP.requirementsPerMilestone },
+          'Milestone.findFirst',
+        ),
+      );
+    const milestone =
+      upcoming ??
+      (await this.prisma.milestone
+        .findFirst({
+          where: {
+            programId,
+            requirements: { some: {} },
+          },
+          orderBy: { dueAt: 'desc' },
+          select: CURRENT_MILESTONE_SELECT,
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { requirements: READ_CAP.requirementsPerMilestone },
+            'Milestone.findFirst',
+          ),
+        ));
     return milestone ? toCurrentSubmissionMilestone(milestone) : null;
   }
   async findMilestoneSchedules(
     programId: string,
   ): Promise<MilestoneSchedule[]> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: { programId },
-      orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-      select: { id: true, name: true, dueAt: true },
-    });
+    const milestones = await this.boundedReads.readCapped(
+      READ_CAP.milestonesPerProgram,
+      'Milestone per program',
+      (take) =>
+        this.prisma.milestone.findMany({
+          take,
+          where: { programId },
+          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+          select: { id: true, name: true, dueAt: true },
+        }),
+    );
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
       label: milestone.name,
@@ -1227,19 +1319,34 @@ export class ProgramOverviewRepository {
   async findRequirementCatalog(
     programId: string,
   ): Promise<RequirementCatalogEntry[]> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: { programId },
-      orderBy: { dueAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        requirements: {
-          where: {},
-          select: { id: true, required: true },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
+    const milestones = await this.boundedReads.readCapped(
+      READ_CAP.milestonesPerProgram,
+      'Milestone per program',
+      (take) =>
+        this.prisma.milestone
+          .findMany({
+            take,
+            where: { programId },
+            orderBy: { dueAt: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {},
+                select: { id: true, required: true },
+                orderBy: { sortOrder: 'asc' },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { requirements: READ_CAP.requirementsPerMilestone },
+              'Milestone.findMany',
+            ),
+          ),
+    );
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
       title: milestone.name,
@@ -1312,28 +1419,42 @@ export class ProgramOverviewRepository {
     const rows = await this.prisma.submission.groupBy({
       by: ['requirementId'],
       where: { teamId, requirementId: { in: documentIds } },
+      orderBy: { requirementId: 'asc' },
+      take: documentIds.length,
     });
     return new Set(rows.map((row) => row.requirementId));
   }
   findProgramApplications(
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
-    return this.prisma.team.findMany({
-      where: { programId, archivedAt: null },
-      select: { id: true },
-    });
+    return this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: { programId, archivedAt: null },
+          select: { id: true },
+        }),
+    );
   }
   findEligibleProgramTeams(
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
-    return this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      select: { id: true },
-    });
+    return this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team.findMany({
+          take,
+          where: {
+            programId,
+            status: ApplicationStatus.APPROVED,
+            archivedAt: null,
+          },
+          select: { id: true },
+        }),
+    );
   }
   async findSubmittedDocumentPairs(
     teamIds: readonly string[],
@@ -1348,6 +1469,8 @@ export class ProgramOverviewRepository {
         teamId: { in: [...teamIds] },
         requirementId: { in: [...documentIds] },
       },
+      orderBy: [{ requirementId: 'asc' }, { teamId: 'asc' }],
+      take: teamIds.length * documentIds.length,
     });
     return rows.map((row) => ({
       teamId: row.teamId,
@@ -1365,23 +1488,40 @@ export class ProgramOverviewRepository {
       by: ['teamId'],
       where: { programId, teamId: { in: [...teamIds] } },
       _count: { teamId: true },
+      orderBy: { teamId: 'asc' },
+      take: teamIds.length,
     });
     return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
   }
   async listPublicTeams(programId: string): Promise<PublicTeamRow[]> {
-    const teams = await this.prisma.team.findMany({
-      where: { programId, archivedAt: null },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        leaderId: true,
-        members: {
-          select: { userId: true, user: { select: { nickname: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-    });
+    const teams = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team
+          .findMany({
+            take,
+            where: { programId, archivedAt: null },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                select: { userId: true, user: { select: { nickname: true } } },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
+    );
     return teams.map((team) => ({
       teamId: team.id,
       name: team.name,

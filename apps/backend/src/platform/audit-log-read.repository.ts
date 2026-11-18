@@ -157,6 +157,7 @@ export class AuditLogReadRepository {
         OFFSET ${(query.page - 1) * query.limit} LIMIT ${query.limit}
       ) page ON true
       ORDER BY page."occurredAt" DESC, page."id" DESC
+      LIMIT ${query.limit}
     `;
     const totals = result[0];
     return {

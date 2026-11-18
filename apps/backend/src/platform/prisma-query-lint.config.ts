@@ -12,23 +12,20 @@ import { PROCESS_RUNTIME_CONFIG } from './runtime-config-instance.config';
 
 export type PrismaQueryLintRule =
   | 'LINT.NO_LIMIT'
+  | 'LINT.NESTED_NO_LIMIT'
   | 'LINT.DELETE_WITHOUT_WHERE'
   | 'LINT.UPDATE_WITHOUT_WHERE'
   | 'LINT.SELECT_STAR';
 
-type AllowlistEntry = Readonly<{
-  model: string;
-  operation: string;
-  file: string;
-  owner: string;
-  count: number;
-}>;
-
 type PrismaQueryLintPolicy = Readonly<{
   repoRoot: string;
-  allowlist: ReadonlyMap<string, AllowlistEntry>;
-  uniqueKeys: UniqueKeys;
+  relations: RelationFields;
 }>;
+
+type RelationFields = ReadonlyMap<
+  string,
+  ReadonlyMap<string, Readonly<{ model: string; isList: boolean }>>
+>;
 
 type PrismaInternalClient = {
   _request: (
@@ -37,7 +34,6 @@ type PrismaInternalClient = {
   ) => unknown;
 };
 
-const ALLOWLIST_FILE = 'verify/query-lint-allowlist.json';
 const ERROR_RULES: Readonly<Record<string, PrismaQueryLintRule>> = {
   findMany: 'LINT.NO_LIMIT',
   deleteMany: 'LINT.DELETE_WITHOUT_WHERE',
@@ -45,7 +41,9 @@ const ERROR_RULES: Readonly<Record<string, PrismaQueryLintRule>> = {
 };
 const RULE_MESSAGES: Readonly<Record<PrismaQueryLintRule, string>> = {
   'LINT.NO_LIMIT':
-    'take 없이 여러 행을 읽습니다. take를 지정하거나 기본/고유 키를 in·equals로 제한하세요.',
+    'take 없이 여러 행을 읽습니다. 상한, 페이지 크기, 배치 크기 중 하나로 take를 지정하세요.',
+  'LINT.NESTED_NO_LIMIT':
+    'take 없이 여러 행 관계를 함께 읽습니다. 상한(CAP + 1)으로 take를 지정하고 넘치면 실패시키세요.',
   'LINT.DELETE_WITHOUT_WHERE': 'where 없이 여러 행을 삭제합니다.',
   'LINT.UPDATE_WITHOUT_WHERE': 'where 없이 여러 행을 수정합니다.',
   'LINT.SELECT_STAR': 'select 없이 모든 열을 읽습니다.',
@@ -57,9 +55,6 @@ const SELECT_STAR_OPERATIONS = new Set([
   'findUnique',
   'findUniqueOrThrow',
 ]);
-const ALLOWLIST_KEY =
-  /^([A-Z]\w*)\.(findMany|deleteMany|updateMany)@(\S+\.ts)#(\S+)$/;
-
 const callsites = new AsyncLocalStorage<{ _error?: Error } | undefined>();
 const attachedClients = new WeakSet<object>();
 const warnedSelectStar = new Set<string>();
@@ -69,9 +64,7 @@ export class PrismaQueryLintError extends Error {
     readonly code: PrismaQueryLintRule,
     readonly key: string,
   ) {
-    super(
-      `[${code}] ${key}: ${RULE_MESSAGES[code]} 의도한 쿼리라면 ${ALLOWLIST_FILE}에 "${key}"와 reason을 추가하세요.`,
-    );
+    super(`[${code}] ${key}: ${RULE_MESSAGES[code]}`);
     this.name = 'PrismaQueryLintError';
   }
 }
@@ -106,28 +99,6 @@ export class PrismaQueryLintConfig {
     );
   }
 
-  auditAllowlist(): string[] {
-    const policy = this.policy;
-    if (!policy) return [];
-    return [...policy.allowlist].flatMap(
-      ([key, { model, operation, file, owner, count }]) => {
-        const absolute = join(policy.repoRoot, file);
-        if (!existsSync(absolute)) return [`${key}: ${file} 파일이 없습니다.`];
-        const found = unboundedCalls(absolute, policy.uniqueKeys).filter(
-          (call) =>
-            call.model === model &&
-            call.operation === operation &&
-            call.owner === owner,
-        ).length;
-        return found === count
-          ? []
-          : [
-              `${key}: ${owner} 안의 제한 없는 ${model}.${operation} 호출은 ${found}개인데 count는 ${count}입니다.`,
-            ];
-      },
-    );
-  }
-
   private inspect(
     policy: PrismaQueryLintPolicy,
     model: string,
@@ -136,10 +107,16 @@ export class PrismaQueryLintConfig {
   ): void {
     const query = isRecord(args) ? args : {};
     const rule = ERROR_RULES[operation];
-    if (rule && violates(rule, query, policy.uniqueKeys.get(model) ?? [])) {
+    if (rule && violates(rule, query)) {
       const key = `${model}.${operation}@${callerKey(policy.repoRoot)}`;
-      if (!policy.allowlist.has(key)) throw new PrismaQueryLintError(rule, key);
+      throw new PrismaQueryLintError(rule, key);
     }
+    const relation = unboundedRelation(policy.relations, model, query);
+    if (relation)
+      throw new PrismaQueryLintError(
+        'LINT.NESTED_NO_LIMIT',
+        `${model}.${operation}.${relation}@${callerKey(policy.repoRoot)}`,
+      );
     if (!SELECT_STAR_OPERATIONS.has(operation) || query.select !== undefined)
       return;
     const warning = `${model}.${operation}`;
@@ -153,23 +130,56 @@ export class PrismaQueryLintConfig {
 
 export function loadPrismaQueryLintConfig({
   nodeEnv = PROCESS_RUNTIME_CONFIG.NODE_ENV,
-  allowlistPath,
-}: { nodeEnv?: string; allowlistPath?: string } = {}): PrismaQueryLintConfig {
+}: { nodeEnv?: string } = {}): PrismaQueryLintConfig {
   if (nodeEnv === 'production') return new PrismaQueryLintConfig();
-  const repoRoot = findUp('pnpm-workspace.yaml');
-  const schema = readFileSync(
-    join(findUp('prisma/schema.prisma'), 'prisma/schema.prisma'),
-    'utf8',
-  );
-  const uniqueKeys = readUniqueKeys(schema);
   return new PrismaQueryLintConfig({
-    repoRoot,
-    uniqueKeys,
-    allowlist: readAllowlist(
-      allowlistPath ?? join(repoRoot, ALLOWLIST_FILE),
-      uniqueKeys,
-    ),
+    repoRoot: findUp('pnpm-workspace.yaml'),
+    relations: loadRelations(),
   });
+}
+
+function loadRelations(): RelationFields {
+  const schemaFile = join(
+    findUp('prisma/schema.prisma'),
+    'prisma/schema.prisma',
+  );
+  const schema = readFileSync(schemaFile, 'utf8');
+  const blocks = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)];
+  const models = new Set(blocks.map(([, name]) => name));
+  return new Map(
+    blocks.map(([, name = '', body = '']) => [
+      name,
+      new Map(
+        [...body.matchAll(/^\s+(\w+)\s+(\w+)(\[\])?/gm)]
+          .filter(([, , type]) => models.has(type ?? ''))
+          .map(([, field = '', type = '', list]) => [
+            field,
+            { model: type, isList: list !== undefined },
+          ]),
+      ),
+    ]),
+  );
+}
+
+function unboundedRelation(
+  relations: RelationFields,
+  model: string,
+  query: Record<string, unknown>,
+): string | undefined {
+  const fields = relations.get(model);
+  for (const selection of [query.select, query.include]) {
+    if (!isRecord(selection)) continue;
+    for (const [field, value] of Object.entries(selection)) {
+      const relation = fields?.get(field);
+      if (!relation || value === false || value == null) continue;
+      if (relation.isList && !(isRecord(value) && value.take != null))
+        return field;
+      if (!isRecord(value)) continue;
+      const nested = unboundedRelation(relations, relation.model, value);
+      if (nested) return `${field}.${nested}`;
+    }
+  }
+  return undefined;
 }
 
 function recordCallsites(client: PrismaClient): void {
@@ -190,34 +200,10 @@ function recordCallsites(client: PrismaClient): void {
 function violates(
   rule: PrismaQueryLintRule,
   query: Record<string, unknown>,
-  uniqueKeys: readonly (readonly string[])[],
 ): boolean {
   if (rule !== 'LINT.NO_LIMIT')
     return !isRecord(query.where) || Object.keys(query.where).length === 0;
-  if (query.take !== undefined && query.take !== null) return false;
-  const restricted = restrictedFields(query.where);
-  return !uniqueKeys.some((key) => key.every((field) => restricted.has(field)));
-}
-
-function restrictedFields(where: unknown): Set<string> {
-  const fields = new Set<string>();
-  if (!isRecord(where)) return fields;
-  for (const [field, condition] of Object.entries(where)) {
-    if (field === 'AND') {
-      for (const part of [condition].flat())
-        for (const nested of restrictedFields(part)) fields.add(nested);
-    } else if (isEqualityOrIn(condition)) fields.add(field);
-  }
-  return fields;
-}
-
-function isEqualityOrIn(condition: unknown): boolean {
-  if (condition === null || condition === undefined) return false;
-  if (!isRecord(condition)) return true;
-  return (
-    Array.isArray(condition.in) ||
-    (condition.equals !== undefined && condition.equals !== null)
-  );
+  return query.take === undefined || query.take === null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -280,72 +266,6 @@ function findUp(marker: string): string {
   }
 }
 
-function readUniqueKeys(schema: string): UniqueKeys {
-  const keys = new Map<string, string[][]>();
-  for (const [, model = '', body = ''] of schema.matchAll(
-    /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm,
-  )) {
-    const modelKeys: string[][] = [];
-    for (const line of body.split('\n').map((text) => text.trim())) {
-      const [, compound = ''] =
-        /^@@(?:id|unique)\(\s*(?:fields:\s*)?\[([^\]]*)\]/.exec(line) ?? [];
-      if (compound)
-        modelKeys.push(
-          compound.split(',').map((field) => field.replace(/\(.*$/, '').trim()),
-        );
-      const [, single = ''] = /^(\w+)\s.*\s@(?:id|unique)\b/.exec(line) ?? [];
-      if (single) modelKeys.push([single]);
-    }
-    keys.set(model, modelKeys);
-  }
-  return keys;
-}
-
-function readAllowlist(
-  file: string,
-  uniqueKeys: ReadonlyMap<string, unknown>,
-): ReadonlyMap<string, AllowlistEntry> {
-  const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'));
-  if (!isRecord(parsed))
-    throw new Error(`${file}: 최상위 값은 객체여야 합니다.`);
-  const problems: string[] = [];
-  const allowlist = new Map<string, AllowlistEntry>();
-  for (const [key, entry] of Object.entries(parsed)) {
-    const [, model = '', operation = '', file = '', owner = ''] =
-      ALLOWLIST_KEY.exec(key) ?? [];
-    const reason = isRecord(entry) ? entry.reason : undefined;
-    const count = isRecord(entry) ? (entry.count ?? 1) : 1;
-    if (!uniqueKeys.has(model))
-      problems.push(
-        `${key}: <모델>.<findMany|deleteMany|updateMany>@<경로.ts>#<함수> 형식이 아니거나 없는 모델입니다.`,
-      );
-    else if (typeof reason !== 'string' || reason.trim() === '')
-      problems.push(`${key}: reason이 비어 있습니다.`);
-    else if (!Number.isInteger(count) || (count as number) < 1)
-      problems.push(`${key}: count는 1 이상의 정수여야 합니다.`);
-    else
-      allowlist.set(key, {
-        model,
-        operation,
-        file,
-        owner,
-        count: count as number,
-      });
-  }
-  if (problems.length > 0)
-    throw new Error(`${file} 검사 실패\n${problems.join('\n')}`);
-  return allowlist;
-}
-
-type UnboundedCall = Readonly<{
-  model: string;
-  operation: string;
-  owner: string;
-}>;
-
-type UniqueKeys = ReadonlyMap<string, readonly (readonly string[])[]>;
-
-const OPERATIONS = new Set(['findMany', 'deleteMany', 'updateMany']);
 const sources = new Map<string, TS.SourceFile>();
 let typescript: typeof TS | undefined;
 
@@ -383,36 +303,6 @@ function ownerAt(file: string, line: number, column: number): string {
   }
 }
 
-function unboundedCalls(file: string, uniqueKeys: UniqueKeys): UnboundedCall[] {
-  const t = ts();
-  const models = new Map(
-    [...uniqueKeys.keys()].map((model) => [
-      model.charAt(0).toLowerCase() + model.slice(1),
-      model,
-    ]),
-  );
-  const calls: UnboundedCall[] = [];
-  const visit = (node: TS.Node): void => {
-    if (
-      t.isCallExpression(node) &&
-      t.isPropertyAccessExpression(node.expression) &&
-      t.isPropertyAccessExpression(node.expression.expression)
-    ) {
-      const operation = node.expression.name.text;
-      const model = models.get(node.expression.expression.name.text);
-      if (
-        model &&
-        OPERATIONS.has(operation) &&
-        !bounded(operation, node.arguments[0], uniqueKeys.get(model) ?? [])
-      )
-        calls.push({ model, operation, owner: ownerOf(node) });
-    }
-    t.forEachChild(node, visit);
-  };
-  visit(parse(file));
-  return calls;
-}
-
 function ownerOf(start: TS.Node): string {
   const t = ts();
   for (let node: TS.Node | undefined = start; node; node = node.parent) {
@@ -438,74 +328,4 @@ function ownerOf(start: TS.Node): string {
 
 function className(node: TS.ClassLikeDeclaration): string {
   return node.name?.text ?? '<class>';
-}
-
-function bounded(
-  operation: string,
-  argument: TS.Expression | undefined,
-  keys: readonly (readonly string[])[],
-): boolean {
-  const t = ts();
-  if (!argument || !t.isObjectLiteralExpression(argument)) return false;
-  const property = (target: TS.ObjectLiteralExpression, name: string) =>
-    target.properties.find(
-      (candidate) => candidate.name?.getText().replace(/['"]/g, '') === name,
-    );
-  if (operation !== 'findMany')
-    return property(argument, 'where') !== undefined;
-  if (numericTake(property(argument, 'take'))) return true;
-  const where = property(argument, 'where');
-  if (!where || !t.isPropertyAssignment(where)) return false;
-  const filter = where.initializer;
-  if (!t.isObjectLiteralExpression(filter)) return false;
-  const restricted = new Set(
-    filter.properties.flatMap((candidate) => {
-      const name = candidate.name?.getText().replace(/['"]/g, '');
-      if (!name) return [];
-      if (t.isShorthandPropertyAssignment(candidate)) return [name];
-      if (!t.isPropertyAssignment(candidate)) return [];
-      const value = candidate.initializer;
-      if (!t.isObjectLiteralExpression(value)) return [name];
-      return property(value, 'in') || property(value, 'equals') ? [name] : [];
-    }),
-  );
-  return keys.some((key) => key.every((field) => restricted.has(field)));
-}
-
-function numericTake(take: TS.ObjectLiteralElementLike | undefined): boolean {
-  const t = ts();
-  if (!take) return false;
-  if (t.isShorthandPropertyAssignment(take)) return numericConst(take.name);
-  if (!t.isPropertyAssignment(take)) return false;
-  return numericExpression(take.initializer);
-}
-
-function numericExpression(expression: TS.Expression): boolean {
-  const t = ts();
-  if (t.isNumericLiteral(expression)) return true;
-  if (
-    t.isPrefixUnaryExpression(expression) &&
-    expression.operator === t.SyntaxKind.MinusToken
-  )
-    return t.isNumericLiteral(expression.operand);
-  return t.isIdentifier(expression) && numericConst(expression);
-}
-
-function numericConst(name: TS.Identifier): boolean {
-  const t = ts();
-  const source = name.getSourceFile();
-  return source.statements.some(
-    (statement) =>
-      t.isVariableStatement(statement) &&
-      (statement.declarationList.flags & t.NodeFlags.Const) !== 0 &&
-      statement.declarationList.declarations.some(
-        (declaration) =>
-          t.isIdentifier(declaration.name) &&
-          declaration.name.text === name.text &&
-          declaration.initializer !== undefined &&
-          (t.isNumericLiteral(declaration.initializer) ||
-            (t.isPrefixUnaryExpression(declaration.initializer) &&
-              t.isNumericLiteral(declaration.initializer.operand))),
-      ),
-  );
 }

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { TeamHistoryRepository } from './team-history.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -312,6 +313,7 @@ async function seedPendingInvitation(
 
 async function rosterOf(teamId: string): Promise<readonly string[]> {
   const members = await prisma.teamMember.findMany({
+    take: TEST_READ_LIMIT,
     where: { teamId },
     select: { userId: true },
   });
@@ -320,6 +322,7 @@ async function rosterOf(teamId: string): Promise<readonly string[]> {
 
 async function membershipHistoryRows(teamId: string) {
   return prisma.teamHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       teamId,
       event: { in: ['MEMBER_LEFT', 'MEMBER_REMOVED', 'LEADER_TRANSFERRED'] },
@@ -729,6 +732,7 @@ describe('program team membership transactions integration', () => {
       ).resolves.toBe(0);
       const actorId = operation === 'leave' ? LEADER_ID : STAFF_ID;
       const histories = await prisma.teamHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { teamId },
       });
       expect(histories).toHaveLength(operation === 'leave' ? 5 : 6);
@@ -792,9 +796,9 @@ describe('program team membership transactions integration', () => {
   );
 
   it.each([
-    ['leave', 'recordInvitationClosed'],
+    ['leave', 'recordInvitationsClosed'],
     ['leave', 'recordTeamInvitationsDeleted'],
-    ['staff removal', 'recordInvitationClosed'],
+    ['staff removal', 'recordInvitationsClosed'],
     ['staff removal', 'recordTeamInvitationsDeleted'],
   ] as const)(
     '%s rolls back the sole team, member and invitation when %s fails',
@@ -988,6 +992,7 @@ describe('program team membership transactions integration', () => {
     ).resolves.toBeNull();
     await expect(
       prisma.teamHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { sourceId: invitationId },
         select: { event: true, actorId: true },
       }),

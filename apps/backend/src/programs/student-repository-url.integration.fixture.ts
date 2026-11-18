@@ -176,7 +176,6 @@ afterAll(async () => {
 export {
   prisma,
   service,
-  applications,
   resolver,
   collectionTrigger,
   githubId,

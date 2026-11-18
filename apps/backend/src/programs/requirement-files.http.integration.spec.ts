@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { RequirementsErrorCode } from './submissions.error';
@@ -104,12 +105,13 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       );
       expect(response.status).toBe(accepted ? 201 : 422);
       const events = await fixture.prisma.submissionHistory.findMany({
+        take: TEST_READ_LIMIT,
         where: { submission: { requirementId: flowIds.document } },
         select: {
           event: true,
           comment: true,
           content: true,
-          files: { select: { id: true } },
+          files: { take: TEST_READ_LIMIT, select: { id: true } },
         },
       });
       expect(events).toEqual(

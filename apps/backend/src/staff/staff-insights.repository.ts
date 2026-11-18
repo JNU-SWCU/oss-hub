@@ -1,32 +1,59 @@
 import { Injectable } from '@nestjs/common';
 import {
   ActivityVisibility,
+  Prisma,
   ProgramLifecycle,
   type ProgramCategory,
 } from '@prisma/client';
+import { ContributorReadRepository } from '../platform/contributor-read.repository';
 import {
-  ContributorReadRepository,
-  type StandingRow,
-} from '../platform/contributor-read.repository';
-import { PrismaService } from '../platform/prisma.service';
-import {
-  STUDENT_MEMBER_WHERE,
-  USER_PROFILE_DEPARTMENT_SELECT,
-  USER_PROFILE_NAME_SELECT,
-} from '../platform/user-profile-read.config';
+  RANKING_ORDER_BY_SQL,
+  STANDING_SQL,
+} from '../platform/contributor-read.config';
 
-export interface StaffInsightsStudentRecord {
-  readonly id: string;
+const STANDING = Prisma.raw(STANDING_SQL);
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
+import { PrismaService } from '../platform/prisma.service';
+
+interface StaffInsightsActivityCounts {
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
+
+export interface StaffInsightsDepartmentMetricsRecord {
+  readonly department: string | null;
+  readonly studentCount: number;
+  readonly activeStudentCount: number;
+  readonly total: number;
+  readonly participantCount: number;
+}
+
+export interface StaffInsightsLeaderCandidateRecord extends StaffInsightsActivityCounts {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly name: string | null;
   readonly department: string | null;
+  readonly total: number;
 }
 
-export interface StaffInsightsParticipationRecord {
+export interface StaffInsightsProgramDepartmentRecord {
   readonly programId: string;
-  readonly programName: string;
-  readonly userIds: readonly string[];
+  readonly department: string | null;
+  readonly participantCount: number;
+}
+
+export interface StaffInsightsParticipantCountRecord {
+  readonly uniqueParticipantCount: number;
+  readonly repeatParticipantCount: number;
+}
+
+export interface StaffInsightsRecentWindow {
+  readonly cutoff: Date;
+  readonly cutoffYear: number;
+  readonly nowYear: number;
 }
 
 export interface StaffInsightsProgramRecord {
@@ -58,140 +85,372 @@ export interface StaffInsightsOutcomeRecord {
   readonly contributionCount: number;
 }
 
-export interface StaffInsightsActivityRecord {
-  readonly githubId: bigint;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-}
-
-export interface StaffInsightsBaselineRecord {
-  readonly githubId: bigint;
-  readonly year: number;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-}
-
 export interface StaffInsightsActivityQuery {
   readonly currentYear?: number;
 }
 
-function toBaselineRecord(row: StandingRow): StaffInsightsBaselineRecord {
-  return {
-    githubId: row.githubId,
-    year: row.year,
-    commitCount: row.commitCount,
-    pullRequestCount: row.pullRequestCount,
-    issueCount: row.issueCount,
-    repositoryCount: row.repositoryCount,
-  };
+const LEADER_LIMIT = 10;
+
+const PUBLIC_STANDING = Prisma.sql`
+  SELECT * FROM ${STANDING} WHERE visibility = 'PUBLIC'::"ActivityVisibility"
+`;
+
+const APPROVED_PARTICIPANTS = Prisma.sql`
+  SELECT team."programId" AS program_id, team."applicantId" AS user_id
+  FROM "Team" AS team
+  WHERE team.status = 'APPROVED' AND team."archivedAt" IS NULL
+  UNION
+  SELECT team."programId", member."userId"
+  FROM "TeamMember" AS member
+  JOIN "Team" AS team ON team.id = member."teamId"
+  WHERE team.status = 'APPROVED' AND team."archivedAt" IS NULL
+`;
+
+function cohortSql(swMajorDepartments: readonly string[]): Prisma.Sql {
+  return Prisma.sql`
+    CASE
+      WHEN student.department IS NULL
+        OR btrim(student.department, E' \\t\\n\\r') = '' THEN 'unregistered'
+      WHEN student.department = ANY(${[...swMajorDepartments]}::text[]) THEN 'sw-major'
+      ELSE 'non-sw'
+    END
+  `;
+}
+
+function rankedCandidatesSql(
+  activity: Prisma.Sql,
+  swMajorDepartments: readonly string[],
+): Prisma.Sql {
+  const order = Prisma.sql`ORDER BY ${Prisma.raw(RANKING_ORDER_BY_SQL)}`;
+  return Prisma.sql`
+    WITH activity AS (${activity}),
+    candidates AS (
+      SELECT
+        student."githubId" AS github_id,
+        student.login,
+        student.name,
+        student.department,
+        ${cohortSql(swMajorDepartments)} AS cohort,
+        activity.commit_count,
+        activity.pull_request_count,
+        activity.issue_count,
+        activity.repository_count,
+        activity.star_count,
+        activity.commit_count + activity.pull_request_count
+          + activity.issue_count + activity.repository_count
+          + activity.star_count AS total
+      FROM "User" AS student
+      JOIN activity ON activity.github_id = student."githubId"
+      WHERE student.type = 'STUDENT'
+        AND student."accountStatus" = 'ACTIVE'
+        AND student.login <> ''
+    ),
+    ranked AS (
+      SELECT
+        candidates.*,
+        ROW_NUMBER() OVER (${order}) AS overall_rank,
+        ROW_NUMBER() OVER (PARTITION BY cohort ${order}) AS cohort_rank
+      FROM candidates
+      WHERE total > 0
+    )
+    SELECT
+      github_id AS "githubId",
+      login AS "githubLogin",
+      name,
+      department,
+      commit_count AS "commitCount",
+      pull_request_count AS "pullRequestCount",
+      issue_count AS "issueCount",
+      repository_count AS "repositoryCount",
+      star_count AS "starCount",
+      total
+    FROM ranked
+    WHERE overall_rank <= ${LEADER_LIMIT}
+      OR (cohort <> 'unregistered' AND cohort_rank <= ${LEADER_LIMIT})
+    ORDER BY overall_rank
+    LIMIT ${LEADER_LIMIT * 3}
+  `;
+}
+
+function foldedActivitySql(query: StaffInsightsActivityQuery): Prisma.Sql {
+  const year =
+    query.currentYear === undefined
+      ? Prisma.empty
+      : Prisma.sql`WHERE year = ${query.currentYear}`;
+  return Prisma.sql`
+    SELECT
+      github_id,
+      SUM(commit_count)::int AS commit_count,
+      SUM(pull_request_count)::int AS pull_request_count,
+      SUM(issue_count)::int AS issue_count,
+      SUM(repository_count)::int AS repository_count,
+      ((ARRAY_AGG(star_count ORDER BY year DESC))[1])::int AS star_count
+    FROM (${PUBLIC_STANDING}) AS standing
+    ${year}
+    GROUP BY github_id
+  `;
+}
+
+function afterNullable(
+  column: Prisma.Sql,
+  after: string | null | undefined,
+): Prisma.Sql {
+  if (after === undefined) return Prisma.sql`TRUE`;
+  return after === null
+    ? Prisma.sql`${column} IS NOT NULL`
+    : Prisma.sql`${column} > ${after}`;
+}
+
+function afterKey(column: Prisma.Sql, after: string | undefined): Prisma.Sql {
+  return after === undefined
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`${column} > ${after}`;
 }
 
 @Injectable()
 export class StaffInsightsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   private readonly contributors: ContributorReadRepository;
 
   constructor(private readonly prisma: PrismaService) {
     this.contributors = new ContributorReadRepository(prisma);
   }
 
-  async listStudents(): Promise<readonly StaffInsightsStudentRecord[]> {
-    const rows = await this.prisma.user.findMany({
-      where: { ...STUDENT_MEMBER_WHERE, accountStatus: 'ACTIVE' },
-      select: {
-        id: true,
-        githubId: true,
-        nickname: true,
-        ...USER_PROFILE_NAME_SELECT,
-        ...USER_PROFILE_DEPARTMENT_SELECT,
-      },
-    });
-    return rows.map((row) => ({
-      id: row.id,
-      githubId: row.githubId,
-      githubLogin: row.nickname,
-      name: row.name ?? null,
-      department: row.department ?? null,
-    }));
+  async listDepartmentMetrics(
+    query: StaffInsightsActivityQuery,
+  ): Promise<readonly StaffInsightsDepartmentMetricsRecord[]> {
+    return this.boundedReads.readAllInBatches(
+      (after: string | null | undefined, take) =>
+        this.prisma.$queryRaw<StaffInsightsDepartmentMetricsRecord[]>`
+      WITH activity AS (${foldedActivitySql(query)}),
+      participants AS (
+        SELECT DISTINCT user_id FROM (${APPROVED_PARTICIPANTS}) AS approved
+      ),
+      students AS (
+        SELECT
+          student.department,
+          COALESCE(
+            activity.commit_count + activity.pull_request_count
+              + activity.issue_count + activity.repository_count
+              + activity.star_count,
+            0
+          ) AS total,
+          participants.user_id IS NOT NULL AS participant
+        FROM "User" AS student
+        LEFT JOIN activity ON activity.github_id = student."githubId"
+        LEFT JOIN participants ON participants.user_id = student.id
+        WHERE student.type = 'STUDENT'
+          AND student."accountStatus" = 'ACTIVE'
+          AND ${afterNullable(Prisma.sql`student.department`, after)}
+      )
+      SELECT
+        department,
+        COUNT(*)::int AS "studentCount",
+        COUNT(*) FILTER (WHERE total > 0)::int AS "activeStudentCount",
+        SUM(total)::int AS total,
+        COUNT(*) FILTER (WHERE participant)::int AS "participantCount"
+      FROM students
+      GROUP BY department
+      ORDER BY department NULLS FIRST
+      LIMIT ${take}
+    `,
+      (row) => row.department,
+    );
   }
 
-  async listApprovedParticipations(): Promise<
-    readonly StaffInsightsParticipationRecord[]
+  async listPeriodLeaderCandidates(
+    query: StaffInsightsActivityQuery,
+    swMajorDepartments: readonly string[],
+  ): Promise<readonly StaffInsightsLeaderCandidateRecord[]> {
+    return this.prisma.$queryRaw<StaffInsightsLeaderCandidateRecord[]>(
+      rankedCandidatesSql(foldedActivitySql(query), swMajorDepartments),
+    );
+  }
+
+  async listRecentLeaderCandidates(
+    window: StaffInsightsRecentWindow,
+    swMajorDepartments: readonly string[],
+  ): Promise<readonly StaffInsightsLeaderCandidateRecord[]> {
+    const newYear =
+      window.nowYear === window.cutoffYear
+        ? Prisma.sql`SELECT * FROM (${PUBLIC_STANDING}) AS standing WHERE false`
+        : Prisma.sql`SELECT * FROM (${PUBLIC_STANDING}) AS standing WHERE year = ${window.nowYear}`;
+    return this.prisma.$queryRaw<StaffInsightsLeaderCandidateRecord[]>(
+      rankedCandidatesSql(
+        Prisma.sql`
+          WITH current_year AS (
+            SELECT * FROM (${PUBLIC_STANDING}) AS standing
+            WHERE year = ${window.cutoffYear}
+          ),
+          baseline AS (
+            SELECT DISTINCT ON (observation.github_id)
+              observation.github_id,
+              observation.commit_count,
+              observation.pull_request_count,
+              observation.issue_count,
+              observation.repository_count
+            FROM github_user_activity_history AS observation
+            WHERE observation.observed_at < ${window.cutoff}
+              AND observation.year = ${window.cutoffYear}
+              AND observation.visibility = 'PUBLIC'::"ActivityVisibility"
+            ORDER BY observation.github_id, observation.observed_at DESC
+          ),
+          since_cutoff AS (
+            SELECT
+              current_year.github_id,
+              GREATEST(0, current_year.commit_count - baseline.commit_count) AS commit_count,
+              GREATEST(0, current_year.pull_request_count - baseline.pull_request_count) AS pull_request_count,
+              GREATEST(0, current_year.issue_count - baseline.issue_count) AS issue_count,
+              GREATEST(0, current_year.repository_count - baseline.repository_count) AS repository_count
+            FROM current_year
+            JOIN baseline ON baseline.github_id = current_year.github_id
+          ),
+          excluded AS (
+            SELECT current_year.github_id
+            FROM current_year
+            LEFT JOIN baseline ON baseline.github_id = current_year.github_id
+            WHERE baseline.github_id IS NULL
+          ),
+          new_year AS (${newYear})
+          SELECT
+            combined.github_id,
+            SUM(combined.commit_count)::int AS commit_count,
+            SUM(combined.pull_request_count)::int AS pull_request_count,
+            SUM(combined.issue_count)::int AS issue_count,
+            SUM(combined.repository_count)::int AS repository_count,
+            0 AS star_count
+          FROM (
+            SELECT github_id, commit_count, pull_request_count, issue_count, repository_count
+            FROM since_cutoff
+            UNION ALL
+            SELECT github_id, commit_count, pull_request_count, issue_count, repository_count
+            FROM new_year
+          ) AS combined
+          WHERE NOT EXISTS (
+            SELECT 1 FROM excluded WHERE excluded.github_id = combined.github_id
+          )
+          GROUP BY combined.github_id
+        `,
+        swMajorDepartments,
+      ),
+    );
+  }
+
+  async listProgramParticipantDepartments(): Promise<
+    readonly StaffInsightsProgramDepartmentRecord[]
   > {
-    const rows = await this.prisma.team.findMany({
-      where: { status: 'APPROVED', archivedAt: null },
-      select: {
-        programId: true,
-        applicantId: true,
-        program: { select: { name: true } },
-        members: { select: { userId: true } },
-      },
-    });
-    return rows.map((row) => {
-      const memberIds = row.members.map((member) => member.userId);
-      return {
-        programId: row.programId,
-        programName: row.program.name,
-        userIds: [...new Set([row.applicantId, ...memberIds])],
-      };
-    });
+    return this.boundedReads.readAllInBatches(
+      (
+        after:
+          | { readonly programId: string; readonly department: string | null }
+          | undefined,
+        take,
+      ) =>
+        this.prisma.$queryRaw<StaffInsightsProgramDepartmentRecord[]>`
+      SELECT "programId", department, "participantCount"
+      FROM (
+        SELECT
+          approved.program_id AS "programId",
+          CASE
+            WHEN student.type = 'STUDENT' AND student."accountStatus" = 'ACTIVE'
+              THEN student.department
+          END AS department,
+          COUNT(DISTINCT approved.user_id)::int AS "participantCount"
+        FROM (${APPROVED_PARTICIPANTS}) AS approved
+        JOIN "Program" AS program ON program.id = approved.program_id
+        JOIN "User" AS student ON student.id = approved.user_id
+        WHERE program.lifecycle = 'PUBLISHED'
+        GROUP BY 1, 2
+      ) AS grouped
+      WHERE ${
+        after === undefined
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`("programId" > ${after.programId} OR ("programId" = ${after.programId} AND ${afterNullable(Prisma.sql`department`, after.department)}))`
+      }
+      ORDER BY "programId", department NULLS FIRST
+      LIMIT ${take}
+    `,
+      (row) => ({ programId: row.programId, department: row.department }),
+    );
+  }
+
+  async countPublishedParticipants(): Promise<StaffInsightsParticipantCountRecord> {
+    const [row] = await this.prisma.$queryRaw<
+      StaffInsightsParticipantCountRecord[]
+    >`
+      SELECT
+        COUNT(*)::int AS "uniqueParticipantCount",
+        COUNT(*) FILTER (WHERE program_count >= 2)::int AS "repeatParticipantCount"
+      FROM (
+        SELECT approved.user_id, COUNT(DISTINCT approved.program_id) AS program_count
+        FROM (${APPROVED_PARTICIPANTS}) AS approved
+        JOIN "Program" AS program ON program.id = approved.program_id
+        WHERE program.lifecycle = 'PUBLISHED'
+        GROUP BY approved.user_id
+      ) AS per_user
+      LIMIT 1
+    `;
+    if (row === undefined)
+      throw new Error('Participant count query did not return a row');
+    return row;
   }
 
   async listPublishedPrograms(): Promise<
     readonly StaffInsightsProgramRecord[]
   > {
-    return this.prisma.program.findMany({
-      where: { lifecycle: ProgramLifecycle.PUBLISHED },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        applicationStartAt: true,
-        applicationEndAt: true,
-        startAt: true,
-        endAt: true,
-      },
-    });
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.program.findMany({
+          take,
+          where: {
+            lifecycle: ProgramLifecycle.PUBLISHED,
+            ...(after === undefined ? {} : { id: { gt: after } }),
+          },
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            applicationStartAt: true,
+            applicationEndAt: true,
+            startAt: true,
+            endAt: true,
+          },
+        }),
+      (program) => program.id,
+    );
   }
 
   async listProgramApplicationCounts(): Promise<
     readonly StaffInsightsApplicationCountRecord[]
   > {
-    const rows = await this.prisma.team.groupBy({
-      by: ['programId', 'status'],
-      where: {
-        archivedAt: null,
-        program: { lifecycle: ProgramLifecycle.PUBLISHED },
-      },
-      _count: { _all: true },
-    });
-    const byProgram = new Map<
-      string,
-      { appliedCount: number; approvedCount: number }
-    >();
-    for (const row of rows) {
-      const current = byProgram.get(row.programId) ?? {
-        appliedCount: 0,
-        approvedCount: 0,
-      };
-      current.appliedCount += row._count._all;
-      if (row.status === 'APPROVED') current.approvedCount += row._count._all;
-      byProgram.set(row.programId, current);
-    }
-    return [...byProgram.entries()].map(([programId, counts]) => ({
-      programId,
-      ...counts,
-    }));
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.$queryRaw<StaffInsightsApplicationCountRecord[]>`
+      SELECT
+        team."programId" AS "programId",
+        COUNT(*)::int AS "appliedCount",
+        COUNT(*) FILTER (WHERE team.status = 'APPROVED')::int AS "approvedCount"
+      FROM "Team" AS team
+      JOIN "Program" AS program ON program.id = team."programId"
+      WHERE team."archivedAt" IS NULL
+        AND program.lifecycle = 'PUBLISHED'
+        AND ${afterKey(Prisma.sql`team."programId"`, after)}
+      GROUP BY team."programId"
+      ORDER BY team."programId"
+      LIMIT ${take}
+    `,
+      (row) => row.programId,
+    );
   }
 
   async listProgramCompletion(
     now: Date,
   ): Promise<readonly StaffInsightsCompletionRecord[]> {
-    return this.prisma.$queryRaw<StaffInsightsCompletionRecord[]>`
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.$queryRaw<StaffInsightsCompletionRecord[]>`
       SELECT
         team."programId" AS "programId",
         COUNT(*)::int AS "dueRequirementCount",
@@ -211,14 +470,21 @@ export class StaffInsightsRepository {
         AND program.lifecycle = 'PUBLISHED'
         AND requirement.required = true
         AND milestone."dueAt" <= (${now.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+        AND ${afterKey(Prisma.sql`team."programId"`, after)}
       GROUP BY team."programId"
-    `;
+      ORDER BY team."programId"
+      LIMIT ${take}
+    `,
+      (row) => row.programId,
+    );
   }
 
   async listProgramOutcomes(
     now: Date,
   ): Promise<readonly StaffInsightsOutcomeRecord[]> {
-    return this.prisma.$queryRaw<StaffInsightsOutcomeRecord[]>`
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.$queryRaw<StaffInsightsOutcomeRecord[]>`
       WITH linked AS (
         SELECT
           team."programId" AS program_id,
@@ -237,6 +503,7 @@ export class StaffInsightsRepository {
         WHERE team.status = 'APPROVED'
           AND team."archivedAt" IS NULL
           AND program.lifecycle = 'PUBLISHED'
+          AND ${afterKey(Prisma.sql`team."programId"`, after)}
       ),
       matched AS (
         SELECT DISTINCT
@@ -279,83 +546,11 @@ export class StaffInsightsRepository {
         ) AS distinct_events
         GROUP BY program_id
       ) AS events USING (program_id)
-    `;
-  }
-
-  async listActivityTotals(
-    query: StaffInsightsActivityQuery,
-  ): Promise<readonly StaffInsightsActivityRecord[]> {
-    const activityRows = await this.contributors.readStandingRows({
-      year: query.currentYear ?? null,
-      visibility: ActivityVisibility.PUBLIC,
-    });
-
-    const folded = new Map<
-      string,
-      {
-        commitCount: number;
-        pullRequestCount: number;
-        issueCount: number;
-        repositoryCount: number;
-        starCount: number;
-        starYear: number;
-        githubId: bigint;
-      }
-    >();
-    for (const row of activityRows) {
-      const key = row.githubId.toString();
-      const current = folded.get(key);
-      if (current === undefined) {
-        folded.set(key, {
-          githubId: row.githubId,
-          commitCount: row.commitCount,
-          pullRequestCount: row.pullRequestCount,
-          issueCount: row.issueCount,
-          repositoryCount: row.repositoryCount,
-          starCount: row.starCount,
-          starYear: row.year,
-        });
-        continue;
-      }
-      current.commitCount += row.commitCount;
-      current.pullRequestCount += row.pullRequestCount;
-      current.issueCount += row.issueCount;
-      current.repositoryCount += row.repositoryCount;
-      if (row.year >= current.starYear) {
-        current.starCount = row.starCount;
-        current.starYear = row.year;
-      }
-    }
-
-    return [...folded.values()].map((entry) => ({
-      githubId: entry.githubId,
-      commitCount: entry.commitCount,
-      pullRequestCount: entry.pullRequestCount,
-      issueCount: entry.issueCount,
-      repositoryCount: entry.repositoryCount,
-      starCount: entry.starCount,
-    }));
-  }
-
-  async listActivityBaselines(
-    year: number,
-    before: Date,
-  ): Promise<readonly StaffInsightsBaselineRecord[]> {
-    const rows = await this.contributors.readRowsBefore(
-      { year, visibility: ActivityVisibility.PUBLIC },
-      before,
+      ORDER BY program_id
+      LIMIT ${take}
+    `,
+      (row) => row.programId,
     );
-    return rows.map(toBaselineRecord);
-  }
-
-  async listActivityByYear(
-    year: number,
-  ): Promise<readonly StaffInsightsBaselineRecord[]> {
-    const rows = await this.contributors.readStandingRows({
-      year,
-      visibility: ActivityVisibility.PUBLIC,
-    });
-    return rows.map(toBaselineRecord);
   }
 
   async listActivityYears(): Promise<readonly number[]> {

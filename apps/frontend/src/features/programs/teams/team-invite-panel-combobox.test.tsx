@@ -11,8 +11,8 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 const candidates: InvitationCandidate[] = [
-  { id: 'user-1', nickname: 'octo1', name: '검색결과1', avatarUrl: null },
-  { id: 'user-2', nickname: 'octo2', name: null, avatarUrl: null },
+  { id: 'user-1', nickname: 'octo1', name: '검색결과1' },
+  { id: 'user-2', nickname: 'octo2', name: null },
 ];
 
 const noOp = () => undefined;
@@ -25,6 +25,7 @@ function management(
     sentLoading: false,
     inviteQuery: 'oc',
     inviteCandidates: candidates,
+    moreCandidates: false,
     searching: false,
     searchError: null,
     invitingUserId: null,

@@ -51,14 +51,10 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-    const [facets, history] = await Promise.all([
-      service.facets(adminActor(), { query: '', page: 1, limit: 20 }),
-      service.getHistory(adminActor(), 'target', {
-        staffAccessRequests: { page: 2, limit: 5 },
-        loginHistory: { page: 3, limit: 10 },
-      }),
-    ]);
-    expect(facets.roles.student).toBe(1);
+    const history = await service.getHistory(adminActor(), 'target', {
+      staffAccessRequests: { page: 2, limit: 5 },
+      loginHistory: { page: 3, limit: 10 },
+    });
     expect(history).toEqual({
       staffAccessRequests: { items: [], page: 2, limit: 5, total: 0 },
       loginHistory: { items: [], page: 3, limit: 10, total: 0 },

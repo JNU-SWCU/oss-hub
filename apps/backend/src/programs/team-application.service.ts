@@ -4,24 +4,18 @@ import {
   ApplicationDecisionCommand,
   ApplicationDecisionAction,
   ApplicationListItem,
-  ApplicationRepositoryProvisioning,
-  RepositoryProvisioningSafeErrorClass,
-  ApplicationListAnswers,
   ApplicationsRepository,
   type ApplicationListQuery,
-  type ApplicationListPage,
   type CreatedApplication,
   type StaffApplicationDetail,
   type StaffDashboardSummary,
+  type StaffDashboardSummaryQuery,
   type TeamManagementListPage,
   type CreateApplicationInput,
-  type ApplicationDecisionResult,
   type ApplicationDecisionTarget,
   type ApplicationTransition,
   type RepositoryProvisionJobSnapshot,
   type ApplicationListRow,
-  type ApplicationListOutbox,
-  type ApplicationListProvisionJob,
   type ApplyProgramRecord,
   type UpdateStudentApplicationInput,
   StudentApplicationManagementRepository,
@@ -48,7 +42,6 @@ import {
 import {
   ProgramCategory,
   ApplicationStatus,
-  OutboxEventStatus,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   TeamHistoryEvent,
@@ -564,47 +557,6 @@ export class TeamApplicationService {
       pageSize: request.pageSize,
       search: request.search.trim(),
       status: request.status,
-      view: request.view,
-    };
-  }
-
-  async listForProgramView(
-    programId: string,
-    request: ApplicationListQuery,
-  ): Promise<
-    | {
-        readonly view: 'team-management';
-        readonly page: TeamManagementListPage;
-      }
-    | { readonly view: 'default'; readonly page: ApplicationListPage }
-  > {
-    if (request.view === 'team-management') {
-      return {
-        view: 'team-management',
-        page: await this.listTeamManagementForProgram(programId, request),
-      };
-    }
-    return {
-      view: 'default',
-      page: await this.listForProgram(programId, request),
-    };
-  }
-
-  async listForProgram(
-    programId: string,
-    request: ApplicationListQuery,
-  ): Promise<ApplicationListPage> {
-    const query = this.listQueryFromRequest(request);
-    await this.requireProgram(programId);
-    const page = await this.repository.listApplicationsForProgram(
-      programId,
-      query,
-    );
-    return {
-      ...page,
-      items: page.items.map((source) =>
-        this.toApplicationListItem(source.row, source.outbox, source.job),
-      ),
     };
   }
 
@@ -633,24 +585,22 @@ export class TeamApplicationService {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
     return {
-      application: this.toApplicationListItem(
-        application.row,
-        application.outbox,
-        application.job,
-      ),
+      application: this.toApplicationListItem(application),
       reviewHistory,
     };
   }
 
-  async staffSummary(): Promise<StaffDashboardSummary> {
-    return this.repository.listStaffDashboardSummary();
+  async staffSummary(
+    query: StaffDashboardSummaryQuery,
+  ): Promise<StaffDashboardSummary> {
+    return this.repository.listStaffDashboardSummary(query);
   }
 
   async decide(
     actor: { readonly id: string; readonly githubId: bigint },
     teamId: string,
     input: ApplicationDecisionCommand,
-  ): Promise<ApplicationDecisionResult> {
+  ): Promise<void> {
     const actorId = actor.id;
     const action =
       this.applicationAnswersService.applicationDecisionAction(input);
@@ -769,12 +719,7 @@ export class TeamApplicationService {
                 this.parseProvisionHistoryPayload,
               );
             }
-            return {
-              kind: 'REJECTED',
-              teamId,
-              status: plan.nextStatus,
-              rejectionReason: plan.rejectionReason,
-            };
+            return;
           }
           case 'REVERT': {
             if (!provisioningCompleted) {
@@ -784,48 +729,21 @@ export class TeamApplicationService {
                 this.parseProvisionHistoryPayload,
               );
             }
-            return {
-              kind: 'REVERTED',
-              teamId,
-              status: plan.nextStatus,
-            };
+            return;
           }
           case 'APPROVE': {
-            if (!application.repositoryProvisioningEnabled) {
-              return {
-                kind: 'APPROVED',
-                teamId,
-                status: plan.nextStatus,
-                repositoryProvisioning: {
-                  enabled: false,
-                  eventId: null,
-                  jobStatus: null,
-                },
-              };
+            if (
+              !application.repositoryProvisioningEnabled ||
+              provisioningCompleted
+            ) {
+              return;
             }
-
-            if (provisioningCompleted) {
-              const existing =
-                await store.findRepositoryProvisionEvent(idempotencyKey);
-              return {
-                kind: 'APPROVED',
-                teamId,
-                status: plan.nextStatus,
-                repositoryProvisioning: {
-                  enabled: true,
-                  eventId: existing?.id ?? null,
-                  jobStatus: plan.provisionJob?.status ?? null,
-                },
-              };
-            }
-
             await store.discardRepositoryProvisionRequest(
               teamId,
               processedAt,
               this.parseProvisionHistoryPayload,
             );
-
-            const event = await store.createRepositoryProvisionEvent(
+            await store.createRepositoryProvisionEvent(
               {
                 teamId,
                 programId: application.programId,
@@ -838,16 +756,7 @@ export class TeamApplicationService {
               },
               this.parseProvisionHistoryPayload,
             );
-            return {
-              kind: 'APPROVED',
-              teamId,
-              status: plan.nextStatus,
-              repositoryProvisioning: {
-                enabled: true,
-                eventId: event.id,
-                jobStatus: RepositoryProvisionJobStatus.PENDING,
-              },
-            };
+            return;
           }
           default: {
             const exhaustivePlan: never = plan;
@@ -886,9 +795,7 @@ export class TeamApplicationService {
     }
   }
 
-  async retryFailedRepositoryProvision(
-    teamId: string,
-  ): Promise<{ readonly eventId: string }> {
+  async retryFailedRepositoryProvision(teamId: string): Promise<void> {
     return this.repository.withTransaction(async (store) => {
       const application = await store.findApplicationById(teamId);
       if (!application) {
@@ -906,7 +813,7 @@ export class TeamApplicationService {
         requestedAt,
         this.parseProvisionHistoryPayload,
       );
-      const event = await store.createRepositoryProvisionEvent(
+      await store.createRepositoryProvisionEvent(
         {
           teamId,
           programId: application.programId,
@@ -918,7 +825,6 @@ export class TeamApplicationService {
         },
         this.parseProvisionHistoryPayload,
       );
-      return { eventId: event.id };
     });
   }
 
@@ -1036,59 +942,14 @@ export class TeamApplicationService {
     return new DomainException(APPLICATIONS_ERROR_CODES[code]);
   }
 
-  private toApplicationListItem(
-    row: ApplicationListRow,
-    outbox: ApplicationListOutbox | undefined,
-    job: ApplicationListProvisionJob | undefined,
-  ): ApplicationListItem {
-    const team = {
-      id: row.id,
-      name: row.name,
-      memberCount: row._count.members,
-    };
+  private toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
     return {
-      id: row.id,
-      programId: row.programId,
       status: row.status,
-      submittedAt: row.submittedAt,
       rejectionReason: row.rejectionReason,
-      repositoryConnectionMode: row.repositoryConnectionMode,
-      repositoryProvisioning:
-        row.status === ApplicationStatus.APPROVED &&
-        row.repository != null &&
-        job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        job.repoId === row.repository.githubRepositoryId &&
-        row.repositoryConnectionMode === RepositoryConnectionMode.OWN
-          ? {
-              enabled: row.program.repositoryProvisioningEnabled,
-              jobStatus: 'SUCCEEDED',
-              updatedAt: job.updatedAt,
-              safeErrorClass: null,
-            }
-          : resolveRepositoryProvisioning(
-              row.status,
-              row.program.repositoryProvisioningEnabled,
-              row.updatedAt,
-              outbox,
-              job,
-            ),
-      repository: row.repository
-        ? {
-            url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
-              row.repository.nameWithOwner,
-            ),
-            visibility: row.repository.visibility,
-          }
-        : null,
-      isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
-      participation: team ? 'TEAM' : 'INDIVIDUAL',
       applicant: {
-        id: row.applicant.id,
         nickname: row.applicant.nickname,
         name: row.applicant.name ?? null,
       },
-      team,
-      answers: parseListAnswers(row.answers),
     };
   }
 
@@ -1111,126 +972,6 @@ export class TeamApplicationService {
       ...new Set(application.participants.map((participant) => participant.id)),
     ].sort();
   }
-}
-
-function resolveRepositoryProvisioning(
-  applicationStatus: ApplicationStatus,
-  enabled: boolean,
-  applicationUpdatedAt: Date,
-  outbox: ApplicationListOutbox | undefined,
-  job: ApplicationListProvisionJob | undefined,
-): ApplicationRepositoryProvisioning {
-  const anomalous = (): ApplicationRepositoryProvisioning => ({
-    enabled,
-    jobStatus: 'ANOMALOUS',
-    updatedAt: applicationUpdatedAt,
-    safeErrorClass: 'UNKNOWN',
-  });
-  if (applicationStatus !== ApplicationStatus.APPROVED) {
-    if (outbox || job) {
-      return anomalous();
-    }
-    return {
-      enabled,
-      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: null,
-    };
-  }
-
-  if (
-    (job && !outbox) ||
-    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
-    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
-  ) {
-    return anomalous();
-  }
-
-  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
-    const jobStatus = job.status;
-    return {
-      enabled,
-      jobStatus,
-      updatedAt: job.updatedAt,
-      safeErrorClass:
-        jobStatus === 'FAILED_RETRYABLE' || jobStatus === 'FAILED_FINAL'
-          ? normalizeSafeErrorClass(job.lastErrorCode)
-          : null,
-    };
-  }
-
-  if (enabled && outbox) {
-    if (
-      outbox.status === OutboxEventStatus.PENDING ||
-      outbox.status === OutboxEventStatus.PROCESSING
-    ) {
-      return {
-        enabled,
-        jobStatus: 'PENDING',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: null,
-      };
-    }
-    if (outbox.status === OutboxEventStatus.FAILED) {
-      return {
-        enabled,
-        jobStatus: 'FAILED_FINAL',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: 'UNKNOWN',
-      };
-    }
-  }
-
-  if (!outbox && !job) {
-    return {
-      enabled,
-      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: enabled ? 'UNKNOWN' : null,
-    };
-  }
-  return anomalous();
-}
-
-function normalizeSafeErrorClass(
-  errorCode: string | null,
-): RepositoryProvisioningSafeErrorClass {
-  switch (errorCode) {
-    case 'GITHUB_OPERATIONS_CONFIGURATION':
-    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
-    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
-    case 'GITHUB_OPERATIONS_AUTHENTICATION':
-    case 'GITHUB_OPERATIONS_PERMISSION':
-      return 'AUTH';
-    case 'GITHUB_OPERATIONS_RATE_LIMITED':
-    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
-      return 'RATE_LIMIT';
-    case 'GITHUB_OPERATIONS_INVALID_INPUT':
-    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
-    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
-    case 'REPOSITORY_PROVISION_INVALID_EVENT':
-    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
-      return 'UPSTREAM_REJECTED';
-    case 'GITHUB_OPERATIONS_UPSTREAM':
-    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
-    case 'REPOSITORY_PROVISION_INTERNAL':
-    case null:
-    default:
-      return 'UNKNOWN';
-  }
-}
-
-function parseListAnswers(value: unknown): ApplicationListAnswers {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return { applicantName: '', title: '', summary: '' };
-  }
-  const record = value as Record<string, unknown>;
-  return {
-    applicantName:
-      typeof record.applicantName === 'string' ? record.applicantName : '',
-    title: typeof record.title === 'string' ? record.title : '',
-    summary: typeof record.summary === 'string' ? record.summary : '',
-  };
 }
 
 export interface StudentApplicationView {

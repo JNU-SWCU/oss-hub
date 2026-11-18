@@ -19,7 +19,7 @@ describe('HealthService', () => {
 
     const reachable = await service.isDatabaseReachable();
 
-    expect(queryRaw).toHaveBeenCalledWith(['SELECT 1']);
+    expect(queryRaw).toHaveBeenCalledWith(['SELECT 1 LIMIT 1']);
     expect(reachable).toBe(true);
   });
 

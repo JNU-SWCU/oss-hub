@@ -87,18 +87,14 @@ function milestonesFor(teams: number): readonly ProgramMilestone[] {
 
 const APPROVED_APPLICATION: StudentApplication = {
   id: 'application-1',
-  programId,
   status: 'APPROVED',
   teamId: 'team-1',
   answers: { applicantName: '합성 학생', title: '합성 주제' },
   submittedAt: '2026-07-10T09:00:00.000Z',
-  updatedAt: '2026-07-10T09:00:00.000Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: null,
   isManager: true,
   canManage: true,
-  canEdit: false,
-  canCancel: false,
 };
 
 function studentMilestones(): readonly ProgramMilestone[] {
@@ -197,10 +193,7 @@ async function installProgramRoutes(
     if (path === `/api/v1/programs/${programId}/overview`) {
       await route.fulfill({
         json: {
-          programId,
           name: program.name,
-          trackType: 'EXTRACURRICULAR',
-          milestoneCount: milestones.length,
           boardPostCount: 0,
           participantCount: teams,
           teamCount: teams,

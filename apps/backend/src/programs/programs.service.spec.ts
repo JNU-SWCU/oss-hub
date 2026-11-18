@@ -147,6 +147,7 @@ describe('ProgramsService detail', () => {
         id: true,
         status: true,
         submissions: {
+          take: 101,
           select: {
             status: true,
             requirement: {
@@ -231,6 +232,7 @@ describe('ProgramsService detail', () => {
     };
     const detail = await service.detail('program-1', viewer);
     expect(findMany).toHaveBeenCalledWith({
+      take: 51,
       where: {
         programId: 'program-1',
         status: ApplicationStatus.APPROVED,
@@ -238,6 +240,7 @@ describe('ProgramsService detail', () => {
       },
       select: {
         submissions: {
+          take: 101,
           select: {
             status: true,
             requirement: {

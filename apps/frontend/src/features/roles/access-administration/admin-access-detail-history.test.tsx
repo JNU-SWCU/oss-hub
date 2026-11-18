@@ -304,7 +304,6 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
     const failedLogout: AdminAccessLoginHistoryItem = {
       id: 'login-1',
       event: 'LOGOUT',
-      provider: 'github',
       success: false,
       loginAt: '2026-07-30T00:00:00.000Z',
     };

@@ -1,13 +1,8 @@
-import {
-  RepositoryConnectionMode,
-  RepositoryVisibility,
-  ApplicationStatus,
-} from '@prisma/client';
+import { RepositoryConnectionMode, ApplicationStatus } from '@prisma/client';
 import { RolesGuard } from '../platform/roles.guard';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../platform/origin.guard';
 import { TeamApplicationService } from './team-application.service';
-import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { ProgramApplicationsController } from './teams.controller';
 
@@ -198,107 +193,5 @@ describe('ProgramApplicationsController', () => {
       'synthetic-program',
       expect.objectContaining({ teamName: '오픈소스팀' }),
     );
-  });
-
-  it('programId·query 를 service.listForProgram 으로 넘기고 페이지 DTO 를 반환한다', async () => {
-    const listForProgram = jest.fn().mockResolvedValue({
-      items: [
-        {
-          id: 'synthetic-application',
-          status: ApplicationStatus.SUBMITTED,
-          submittedAt: new Date('2026-07-15T00:00:00.000Z'),
-          rejectionReason: '합성 사유',
-          repositoryProvisioning: {
-            enabled: false,
-            jobStatus: 'DISABLED' as const,
-            updatedAt: new Date('2026-07-15T01:00:00.000Z'),
-            safeErrorClass: null,
-          },
-          repository: {
-            url: 'https://github.test/synthetic-org/synthetic-application',
-            visibility: RepositoryVisibility.PUBLIC,
-          },
-          isRepositoryPublicationPlanned: false,
-          participation: 'INDIVIDUAL' as const,
-          applicant: {
-            id: 'synthetic-student',
-            name: '합성 학생',
-            nickname: 'synthetic-login',
-          },
-          team: null,
-          answers: {
-            applicantName: '합성 학생',
-            title: '제목',
-            summary: '요약',
-          },
-        },
-      ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
-      totalPages: 1,
-    });
-    const service = Object.assign(
-      Object.create(TeamApplicationService.prototype) as object,
-      {
-        create: jest.fn(),
-        listForProgram,
-        listTeamManagementForProgram: jest.fn(),
-      },
-    ) as unknown as TeamApplicationService;
-    const controller = new ProgramApplicationsController(service);
-    const query = Object.assign(new ApplicationListRequestDto(), {
-      page: 1,
-      pageSize: 20,
-      search: '합성',
-      status: 'SUBMITTED' as const,
-    });
-
-    const response = await controller.list('synthetic-program', query);
-
-    expect(listForProgram).toHaveBeenCalledWith('synthetic-program', {
-      page: 1,
-      pageSize: 20,
-      search: '합성',
-      status: 'SUBMITTED',
-      view: 'default',
-    });
-    expect(response).toEqual({
-      items: [
-        {
-          id: 'synthetic-application',
-          status: ApplicationStatus.SUBMITTED,
-          submittedAt: '2026-07-15T00:00:00.000Z',
-          rejectionReason: '합성 사유',
-          repositoryProvisioning: {
-            enabled: false,
-            jobStatus: 'DISABLED',
-            updatedAt: '2026-07-15T01:00:00.000Z',
-            safeErrorClass: null,
-          },
-          repository: {
-            url: 'https://github.test/synthetic-org/synthetic-application',
-            visibility: RepositoryVisibility.PUBLIC,
-          },
-          isRepositoryPublicationPlanned: false,
-          participation: 'INDIVIDUAL',
-          applicant: {
-            id: 'synthetic-student',
-            name: '합성 학생',
-            nickname: 'synthetic-login',
-          },
-          team: null,
-          answers: {
-            applicantName: '합성 학생',
-            title: '제목',
-            summary: '요약',
-          },
-        },
-      ],
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
-      totalPages: 1,
-    });
   });
 });

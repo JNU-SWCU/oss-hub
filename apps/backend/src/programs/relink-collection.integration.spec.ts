@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -151,6 +152,7 @@ it('collects new facts only on the replacement when an external application repo
   expect(provider.collectedNames()).toEqual(['target']);
   expect(
     await prisma.contributionEvent.findMany({
+      take: TEST_READ_LIMIT,
       where: { repoId: targetGithubId, kind: 'COMMIT' },
     }),
   ).toEqual([expect.objectContaining({ githubKey: 'new-after-relink' })]);
@@ -310,22 +312,26 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     );
     const trackedCount = async (): Promise<number> =>
       source === 'ORG_PROVISIONED'
-        ? (await status.getCollectionRepositories()).length
+        ? (await status.getCollectionRepositorySummary(observedAt))
+            .trackedRepositoryCount
         : (await status.getExternalCollectionStatus()).trackedRepositoryCount;
     const beforeTracked = await trackedCount();
     expect(beforeTracked).toBeGreaterThan(0);
-    if (source === 'ORG_PROVISIONED') {
-      expect(await status.getCollectionRepositories()).toEqual(
-        expect.arrayContaining([expect.objectContaining({ repositoryName })]),
-      );
-    } else {
+    if (source === 'EXTERNAL_PUBLIC') {
       expect(await collection.listCollectionTargets('EXTERNAL_PUBLIC')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ githubRepositoryId: targetGithubId + 1n }),
         ]),
       );
     }
-    const beforeRanking = await ranking.findMetrics({ currentYear: 2026 });
+    const NOW_FOR_RANKING = new Date();
+    const beforeRanking = await ranking
+      .findRankedPage(
+        { currentYear: 2026 },
+        { offset: 0, limit: 10_000 },
+        NOW_FOR_RANKING,
+      )
+      .then((page) => page.rows);
     expect(beforeRanking).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ githubId, commitCount: 7 }),
@@ -354,12 +360,7 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       }),
     ).rejects.toThrow('team_repo_team_id_period_excl');
     expect(await trackedCount()).toBe(beforeTracked - 1);
-    if (source === 'ORG_PROVISIONED') {
-      const repositories = await status.getCollectionRepositories();
-      expect(
-        repositories.some((row) => row.repositoryName === repositoryName),
-      ).toBe(false);
-    } else {
+    if (source === 'EXTERNAL_PUBLIC') {
       expect(
         (await collection.listCollectionTargets('EXTERNAL_PUBLIC')).some(
           (row) => row.githubRepositoryId === targetGithubId + 1n,
@@ -369,9 +370,15 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     expect(await repositoryContributionTotals(prisma, [oldGithubId])).toEqual(
       beforeContributions,
     );
-    expect(await ranking.findMetrics({ currentYear: 2026 })).toEqual(
-      beforeRanking,
-    );
+    expect(
+      await ranking
+        .findRankedPage(
+          { currentYear: 2026 },
+          { offset: 0, limit: 10_000 },
+          NOW_FOR_RANKING,
+        )
+        .then((page) => page.rows),
+    ).toEqual(beforeRanking);
   },
 );
 
@@ -421,6 +428,7 @@ it('collects a repository linked into an empty slot right after the team route s
   );
   expect(
     await prisma.contributionEvent.findMany({
+      take: TEST_READ_LIMIT,
       where: { repoId: targetGithubId, kind: 'COMMIT' },
     }),
   ).toEqual([

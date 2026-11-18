@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { PlatformModule } from '../platform/platform.module';
@@ -133,6 +134,7 @@ export class RequirementFlowFixture {
 
   async clear(): Promise<void> {
     const files = await this.prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { kind: 'SUBMISSION', teamId: flowIds.team },
       select: { storageKey: true },
     });

@@ -33,7 +33,6 @@ import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
   type CreateSubmissionReviewInput,
-  type RepositoryPublishResult,
   type SubmissionReviewContext,
   type SubmissionReviewResult,
   type PublishEligibilitySource,
@@ -398,7 +397,7 @@ export class SubmissionsService {
     request: {
       readonly isConfirmed: boolean;
     },
-  ): Promise<RepositoryPublishResult> {
+  ): Promise<void> {
     this.assertPublishConfirmed(request);
     return this.publishRepository(repositoryId, actorGithubId);
   }
@@ -406,7 +405,7 @@ export class SubmissionsService {
     repositoryId: string,
     actorGithubId: bigint,
     publishedAt = new Date(),
-  ): Promise<RepositoryPublishResult> {
+  ): Promise<void> {
     const githubRepositoryId = /^[1-9][0-9]*$/.test(repositoryId)
       ? BigInt(repositoryId)
       : null;
@@ -469,11 +468,6 @@ export class SubmissionsService {
         ],
       );
     }
-    return {
-      repositoryId: published.githubRepositoryId.toString(),
-      visibility: published.visibility,
-      publishedAt: published.publishedAt,
-    };
   }
   private toRevisionRecord(
     history: ReviewContextRow['histories'][number],
@@ -521,12 +515,7 @@ export class SubmissionsService {
       {
         fileId: file.id,
         fileName: metadata.originalFileName,
-        contentType:
-          this.submissionFileAdmissionService.safeSubmissionFileContentType(
-            metadata.originalFileName,
-          ),
         size: metadata.sizeBytes,
-        expiresAt: file.expiresAt,
         downloadUrl: `/api/v1/submission-files/${file.id}`,
       },
     ];

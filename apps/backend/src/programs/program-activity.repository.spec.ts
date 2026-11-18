@@ -1,6 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import {
-  type ProgramActivitySummaryDataSource,
   ProgramActivitySummaryRepository,
   ProgramActivityRepository,
 } from './program-activity.repository';
@@ -16,51 +15,35 @@ const stringifyWithBigint = (value: unknown): string => {
   return text;
 };
 
-describe('program-activity-summary.repository', () => {
-  describe('ProgramActivitySummaryRepository', () => {
-    it('returns currently linked repositories without applying an archived filter', async () => {
-      const findMany = jest
-        .fn()
-        .mockResolvedValue([
-          { team: { programId: 'program-archived' }, repoId: 101n },
-        ]);
-      const prisma = {
-        teamRepo: { findMany },
-      } satisfies ProgramActivitySummaryDataSource;
+describe('ProgramActivitySummaryRepository', () => {
+  it('aggregates every program in one bounded statement, archived teams included', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([]);
+    const repository = new ProgramActivitySummaryRepository({
+      $queryRaw: queryRaw,
+    } as unknown as PrismaService);
 
-      const result = await new ProgramActivitySummaryRepository(
-        prisma,
-      ).findRepositoryLinks(['program-archived']);
+    await repository.summarizePrograms(['program-a', 'program-b']);
 
-      expect(findMany).toHaveBeenCalledWith({
-        where: {
-          validTo: null,
-          team: { programId: { in: ['program-archived'] } },
-        },
-        select: {
-          team: { select: { programId: true } },
-          repoId: true,
-        },
-      });
-      expect(result).toEqual([
-        {
-          programId: 'program-archived',
-          githubRepositoryId: 101n,
-        },
-      ]);
-    });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, ...values] = queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    const sql = strings.join('?');
+    expect(sql).toContain('GROUP BY links.program_id');
+    expect(sql).toContain('LIMIT');
+    expect(sql).not.toContain('archivedAt');
+    expect(values).toContain(2);
+  });
 
-    it('skips repository reads when no program is requested', async () => {
-      const findMany = jest.fn();
-      const prisma = {
-        teamRepo: { findMany },
-      } satisfies ProgramActivitySummaryDataSource;
+  it('skips the query when no program is requested', async () => {
+    const queryRaw = jest.fn();
+    const repository = new ProgramActivitySummaryRepository({
+      $queryRaw: queryRaw,
+    } as unknown as PrismaService);
 
-      await expect(
-        new ProgramActivitySummaryRepository(prisma).findRepositoryLinks([]),
-      ).resolves.toEqual([]);
-      expect(findMany).not.toHaveBeenCalled();
-    });
+    await expect(repository.summarizePrograms([])).resolves.toEqual([]);
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 });
 

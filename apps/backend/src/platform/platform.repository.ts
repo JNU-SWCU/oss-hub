@@ -79,12 +79,12 @@ export class PlatformRepository {
     if (!coordinates) return false;
 
     const lockedPrograms = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`
-    SELECT "id" FROM "Program" WHERE "id" = ${coordinates.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE
+    SELECT "id" FROM "Program" WHERE "id" = ${coordinates.programId} AND "lifecycle" <> 'DELETED' LIMIT 1 FOR UPDATE
   `);
     if (lockedPrograms.length === 0) return false;
 
     const lockedTeams = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`
-    SELECT "id" FROM "Team" WHERE "id" = ${coordinates.id} FOR UPDATE
+    SELECT "id" FROM "Team" WHERE "id" = ${coordinates.id} LIMIT 1 FOR UPDATE
   `);
     if (lockedTeams.length === 0) return false;
 

@@ -207,7 +207,7 @@ describe('TeamInvitationsService.searchCandidates', () => {
     expect(repository.searchCandidates).not.toHaveBeenCalled();
   });
 
-  it('공백만 있는 검색어는 빈 배열을 반환하고 repository를 호출하지 않는다', async () => {
+  it('공백만 있는 검색어는 빈 결과를 반환하고 repository를 호출하지 않는다', async () => {
     const { service, repository } = buildService({
       findTeamContext: jest
         .fn()
@@ -220,7 +220,7 @@ describe('TeamInvitationsService.searchCandidates', () => {
       '   ',
     );
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ items: [], hasMore: false });
     expect(repository.searchCandidates).not.toHaveBeenCalled();
   });
 });

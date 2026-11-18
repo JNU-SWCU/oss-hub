@@ -100,7 +100,7 @@ export class RepositoryProvisionGenerationRepository {
         job."currentEventId"
       FROM "RepositoryProvisionJob" AS job
       WHERE job."teamId" = ${input.teamId}
-      FOR UPDATE OF job
+      LIMIT 1 FOR UPDATE OF job
     `,
     );
     const existing = rows[0];
@@ -174,7 +174,7 @@ export class RepositoryProvisionGenerationRepository {
           job."status"
         FROM "RepositoryProvisionJob" AS job
         WHERE job."teamId" = ${input.teamId}
-        FOR UPDATE
+        LIMIT 1 FOR UPDATE
       `,
       )
     )[0];

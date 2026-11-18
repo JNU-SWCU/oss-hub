@@ -116,9 +116,7 @@ describe('review conflict recovery', () => {
       await enterDraft();
       vi.mocked(createReview).mockReturnValueOnce(pending.promise);
       await act(() => Promise.resolve(screen.button('저장').click()));
-      vi.mocked(getReviewContext).mockResolvedValue(
-        context(1, 'submission-other'),
-      );
+      vi.mocked(getReviewContext).mockResolvedValue(context(1));
       await screen.render('submission-other');
       expect(screen.comment().value).toBe('');
       expect(screen.radio().checked).toBe(false);
@@ -145,9 +143,7 @@ describe('review conflict recovery', () => {
     const pending = deferred<ReviewContext>();
     vi.mocked(getReviewContext).mockReturnValueOnce(pending.promise);
     await screen.render();
-    vi.mocked(getReviewContext).mockResolvedValue(
-      context(3, 'submission-other'),
-    );
+    vi.mocked(getReviewContext).mockResolvedValue(context(3));
     await screen.render('submission-other');
     await act(() => Promise.resolve(pending.resolve(context())));
     expect(screen.container.textContent).toContain('제출 글 3');

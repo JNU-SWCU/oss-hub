@@ -8,6 +8,7 @@ import type {
   ActionNotice,
   ProvisioningFailedTeam,
   SystemStatus,
+  StaleRepositoryPager,
   SystemStatusViewState,
 } from '../types';
 
@@ -17,7 +18,8 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 const api = vi.hoisted(() => ({
-  fetchSystemStatus: vi.fn(),
+  STALE_REPOSITORY_PAGE_SIZE: 10,
+  fetchSystemStatus: vi.fn<(page: number) => Promise<SystemStatus>>(),
   triggerCollection: vi.fn(),
   retryProvisioning: vi.fn(),
 }));
@@ -32,6 +34,7 @@ type CapturedViewProps = {
   readonly onRetryProvisioning: (team: ProvisioningFailedTeam) => void;
   readonly retryingTeamIds: readonly string[];
   readonly notice: ActionNotice | null;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 };
 
 const captured = vi.hoisted(() => ({
@@ -84,6 +87,7 @@ function statusWith(
       processing: 0,
       retryable: 0,
       failedFinal: failedTeams.length,
+      failedTeamsHasMore: false,
       failedTeams,
     },
     mail: { sent7d: 0, failed7d: 0, lastSentAt: null },
@@ -98,7 +102,7 @@ function statusWith(
               target: null,
             },
           ],
-    collectionRepositories: [],
+    staleRepositories: { items: [], total: 0 },
     externalCollection: { trackedRepositoryCount: 0, lastSuccessAt: null },
   };
 }
@@ -446,49 +450,185 @@ describe('SystemStatusScreen', () => {
   });
 
   describe('지연 저장소', () => {
-    it('더 보기를 누르면 접어 둔 지연 저장소를 펼치고 다시 누르면 접는다', async () => {
-      const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(
-        (name) => `jnu-oss/${name}`,
-      );
-      api.fetchSystemStatus.mockResolvedValue({
+    function staleStatus(total: number, page: number): SystemStatus {
+      const start = (page - 1) * 10;
+      return {
         ...statusWith([]),
-        anomalies: [
-          {
-            rule: 'COLLECTION_STALE',
-            severity: 'MEDIUM',
-            count: names.length,
-            target: null,
-          },
-        ],
-        collectionRepositories: names.map((repositoryName, index) => ({
-          repositoryName,
-          teamName: null,
-          programName: null,
-          lastSuccessAt: new Date(Date.UTC(2026, 10, 16, index)).toISOString(),
-          stale: true,
-        })),
-      } satisfies SystemStatus);
-      await renderScreen();
-      const listed = () =>
-        names.filter((name) => container.textContent?.includes(name));
-      const toggle = (): HTMLButtonElement => {
-        const button = container.querySelector<HTMLButtonElement>(
-          'button[aria-expanded]',
+        anomalies:
+          total === 0
+            ? []
+            : [
+                {
+                  rule: 'COLLECTION_STALE',
+                  severity: 'MEDIUM',
+                  count: total,
+                  target: null,
+                },
+              ],
+        staleRepositories: {
+          items: Array.from(
+            { length: Math.max(0, Math.min(10, total - start)) },
+            (_, index) => ({
+              repositoryName: `jnu-oss/repo-${start + index + 1}`,
+              teamName: null,
+              programName: null,
+              lastSuccessAt: '2026-11-16T00:00:00.000Z',
+            }),
+          ),
+          total,
+        },
+      };
+    }
+
+    it.each([
+      { before: 12, selected: 2, after: 10, recovered: 1, first: 1, count: 10 },
+      { before: 23, selected: 3, after: 12, recovered: 2, first: 11, count: 2 },
+      { before: 12, selected: 2, after: 0, recovered: 1, first: 1, count: 0 },
+    ])(
+      '목록이 $before개에서 $after개로 줄면 $selected페이지에서 $recovered페이지로 복구한다',
+      async ({ before, selected, after, recovered, first, count }) => {
+        let total = before;
+        api.fetchSystemStatus.mockImplementation((page: number) =>
+          Promise.resolve(staleStatus(total, page)),
         );
-        if (button === null) throw new Error('stale repository toggle missing');
-        return button;
+        await renderScreen();
+        for (let page = 1; page < selected; page += 1) {
+          await act(async () =>
+            props().staleRepositoryPager.onPageChange(page + 1),
+          );
+        }
+        expect(container.textContent).toContain(
+          `jnu-oss/repo-${(selected - 1) * 10 + 1}`,
+        );
+
+        total = after;
+        await act(async () => props().onReload());
+
+        expect(props().staleRepositoryPager.page).toBe(recovered);
+        const names = [...container.querySelectorAll('li p.font-semibold')].map(
+          (row) => row.textContent,
+        );
+        expect(names).toEqual(
+          Array.from(
+            { length: count },
+            (_, index) => `jnu-oss/repo-${first + index}`,
+          ),
+        );
+        expect(props().state).toMatchObject({
+          kind: 'success',
+          freshness: 'current',
+          status: { staleRepositories: { total: after } },
+        });
+        expect(api.fetchSystemStatus.mock.calls.map(([page]) => page)).toEqual([
+          ...Array.from({ length: selected }, (_, index) => index + 1),
+          selected,
+          recovered,
+        ]);
+      },
+    );
+
+    it('이전 페이지의 임시 데이터가 작아도 새 페이지 응답 전에는 선택을 바꾸지 않는다', async () => {
+      const response = Promise.withResolvers<SystemStatus>();
+      api.fetchSystemStatus
+        .mockResolvedValueOnce(staleStatus(0, 1))
+        .mockReturnValueOnce(response.promise);
+      await renderScreen();
+
+      await act(async () => props().staleRepositoryPager.onPageChange(2));
+
+      expect(props().staleRepositoryPager).toMatchObject({
+        page: 2,
+        isLoading: true,
+      });
+      expect(props().state).toMatchObject({ freshness: 'refreshing' });
+      await act(async () => response.resolve(staleStatus(12, 2)));
+      expect(props().staleRepositoryPager.page).toBe(2);
+      expect(container.textContent).toContain('jnu-oss/repo-11');
+      expect(api.fetchSystemStatus.mock.calls.map(([page]) => page)).toEqual([
+        1, 2,
+      ]);
+    });
+
+    it('복구 페이지 조회가 실패하면 재시도로 남은 저장소를 다시 표시한다', async () => {
+      api.fetchSystemStatus.mockImplementation((page) =>
+        Promise.resolve(staleStatus(12, page)),
+      );
+      await renderScreen();
+      await act(async () => props().staleRepositoryPager.onPageChange(2));
+      const recovery = Promise.withResolvers<SystemStatus>();
+      api.fetchSystemStatus
+        .mockResolvedValueOnce(staleStatus(10, 2))
+        .mockReturnValueOnce(recovery.promise);
+
+      await act(async () => props().onReload());
+
+      expect(props().staleRepositoryPager).toMatchObject({
+        page: 1,
+        isLoading: true,
+      });
+      expect(props().state).toMatchObject({ freshness: 'refreshing' });
+      await act(async () => recovery.reject(new TypeError('read failed')));
+      expect(props().state).toEqual({ kind: 'error' });
+      expect(api.fetchSystemStatus).toHaveBeenCalledTimes(4);
+
+      api.fetchSystemStatus.mockResolvedValueOnce(staleStatus(10, 1));
+      await act(async () => props().onReload());
+
+      expect(container.textContent).toContain('jnu-oss/repo-1');
+      expect(container.textContent).toContain('jnu-oss/repo-10');
+      expect(props().staleRepositoryPager.page).toBe(1);
+      expect(api.fetchSystemStatus).toHaveBeenCalledTimes(5);
+    });
+
+    it('다음 페이지를 누르면 그 페이지의 지연 저장소를 다시 불러온다', async () => {
+      const total = 12;
+      const pageOf = (page: number) =>
+        Array.from(
+          { length: page === 1 ? 10 : total - 10 },
+          (_, index) => `jnu-oss/p${page}-${index}`,
+        );
+      api.fetchSystemStatus.mockImplementation((page: number) =>
+        Promise.resolve({
+          ...statusWith([]),
+          anomalies: [
+            {
+              rule: 'COLLECTION_STALE',
+              severity: 'MEDIUM',
+              count: total,
+              target: null,
+            },
+          ],
+          staleRepositories: {
+            items: pageOf(page).map((repositoryName) => ({
+              repositoryName,
+              teamName: null,
+              programName: null,
+              lastSuccessAt: '2026-11-16T00:00:00.000Z',
+            })),
+            total,
+          },
+        } satisfies SystemStatus),
+      );
+      await renderScreen();
+      const button = (label: string): HTMLButtonElement => {
+        const found = [
+          ...container.querySelectorAll<HTMLButtonElement>('button'),
+        ].find((candidate) => candidate.textContent === label);
+        if (found === undefined) throw new Error(`${label} button missing`);
+        return found;
       };
 
-      expect(listed()).toEqual(names.slice(0, 5));
-      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(api.fetchSystemStatus).toHaveBeenLastCalledWith(1);
+      expect(container.textContent).toContain('1 / 2 페이지');
+      expect(button('이전').disabled).toBe(true);
 
-      await act(async () => toggle().click());
-      expect(listed()).toEqual(names);
-      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      await act(async () => button('다음').click());
 
-      await act(async () => toggle().click());
-      expect(listed()).toEqual(names.slice(0, 5));
-      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(api.fetchSystemStatus).toHaveBeenLastCalledWith(2);
+      expect(container.textContent).toContain('jnu-oss/p2-1');
+      expect(container.textContent).not.toContain('jnu-oss/p1-0');
+      expect(container.textContent).toContain('2 / 2 페이지');
+      expect(button('다음').disabled).toBe(true);
     });
   });
 

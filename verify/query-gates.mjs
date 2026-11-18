@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { finding, run } from './tools.mjs';
 
 const QUERY_GATE_SPECS = [
@@ -7,6 +9,19 @@ const QUERY_GATE_SPECS = [
 ];
 
 export const QUERY_GATE_PATTERN = `(${QUERY_GATE_SPECS.join('|')})\\.integration\\.spec\\.ts$`;
+
+const LIBPQ_DIRS = ['/opt/homebrew/opt/libpq/bin', '/usr/local/opt/libpq/bin'];
+
+export const PSQL_MISSING = `psql not found on PATH or in ${LIBPQ_DIRS.join(', ')}; install libpq (brew install libpq) or add its bin directory to PATH`;
+
+export function resolvePsql({
+  path = process.env.PATH ?? '',
+  exists = existsSync,
+} = {}) {
+  if (path.split(delimiter).some((dir) => dir && exists(join(dir, 'psql'))))
+    return '';
+  return LIBPQ_DIRS.find((dir) => exists(join(dir, 'psql'))) ?? null;
+}
 
 function tail(result) {
   return `${result.stdout}\n${result.stderr}`
@@ -21,6 +36,7 @@ export async function checkQueryGates({
   source,
   runCommand = run,
   log = console.log,
+  findPsql = resolvePsql,
 }) {
   const findings = [];
   const lint = await runCommand(
@@ -44,6 +60,13 @@ export async function checkQueryGates({
     );
     return findings;
   }
+  const psqlDir = findPsql();
+  if (psqlDir === null) {
+    findings.push(
+      finding('query-growth', PSQL_MISSING, 'psql not found', 'psql on PATH'),
+    );
+    return findings;
+  }
   const growth = await runCommand(
     'bash',
     ['apps/backend/test/run-integration.sh'],
@@ -51,7 +74,12 @@ export async function checkQueryGates({
       cwd,
       timeoutMs: 1_200_000,
       killGraceMs: 30_000,
-      env: { BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN },
+      env: {
+        BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN,
+        ...(psqlDir
+          ? { PATH: `${psqlDir}${delimiter}${process.env.PATH ?? ''}` }
+          : {}),
+      },
     },
   );
   if (growth.code !== 0) {

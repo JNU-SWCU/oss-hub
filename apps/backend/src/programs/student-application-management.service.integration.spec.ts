@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { TeamHistoryRepository } from './team-history.repository';
@@ -415,6 +416,7 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
     });
 
     const history = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: TEAM_ID },
     });
     expect(history).toHaveLength(1);
@@ -496,6 +498,7 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
     );
 
     const history = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { teamId: TEAM_ID },
       select: { event: true, data: true },
     });

@@ -75,26 +75,21 @@ const STAFF_TEAM_PAGE: TeamManagementListPage = {
   items: [
     {
       id: TEAM_ID,
-      programId: PROGRAM_ID,
       teamMinSize: 2,
       status: 'SUBMITTED',
       submittedAt: new Date('2026-08-01T00:00:00.000Z'),
-      rejectionReason: null,
-      applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+      applicant: { name: '가나다', nickname: 'login-a' },
       team: {
         id: TEAM_ID,
         name: '오픈소스팀',
         memberCount: 2,
         members: TEAM_MEMBER_RECORDS.map((member) => ({
-          id: member.userId,
           name: member.name,
           nickname: member.nickname,
         })),
       },
     },
   ],
-  page: 1,
-  pageSize: 20,
   totalItems: 1,
   totalPages: 1,
 };
@@ -112,18 +107,13 @@ const STAFF_TEAM_DETAIL: StaffTeamDetailRecord = {
   leaderId: 'user-a',
   members: TEAM_MEMBER_RECORDS,
   application: null,
-  repositoryContributions: null,
-  repositoryUrlHistory: { rows: [], hasMore: false },
 };
 
 const STAFF_TEAM_DETAIL_BODY = {
-  teamId: TEAM_ID,
   name: '오픈소스팀',
   memberCount: 2,
   members: TEAM_MEMBER_VIEWS,
   application: null,
-  repositoryContributions: null,
-  repositoryUrlHistory: { items: [], nextCursor: null },
   deletionScope: EMPTY_TEAM_DELETION_SCOPE,
 };
 
@@ -217,9 +207,10 @@ const applicationService = new TeamApplicationService(
   new ApplicationAnswersService(),
   new RepositoryProvisionEventService(),
 );
-const listForProgramView = jest.fn(
-  (...args: Parameters<TeamApplicationService['listForProgramView']>) =>
-    applicationService.listForProgramView(...args),
+const listTeamManagementView = jest.fn(
+  (
+    ...args: Parameters<TeamApplicationService['listTeamManagementForProgram']>
+  ) => applicationService.listTeamManagementForProgram(...args),
 );
 const getForStaff = jest.fn(
   (...args: Parameters<TeamMembershipService['getForStaff']>) =>
@@ -322,7 +313,10 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       AuthSessionService,
       { provide: TeamMembershipService, useValue: { getForStaff } },
-      { provide: TeamApplicationService, useValue: { listForProgramView } },
+      {
+        provide: TeamApplicationService,
+        useValue: { listTeamManagementForProgram: listTeamManagementView },
+      },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
@@ -356,7 +350,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  listForProgramView.mockClear();
+  listTeamManagementView.mockClear();
   getForStaff.mockClear();
   findUnique.mockReset();
   findProgramById.mockReset();
@@ -396,13 +390,13 @@ it('ACTIVE STAFF 는 팀 목록 페이지를 200 으로 받는다', async () => 
   ]) {
     expect(serialized).not.toContain(forbidden);
   }
-  expect(listForProgramView).toHaveBeenCalledWith(
+  expect(listTeamManagementView).toHaveBeenCalledWith(
     PROGRAM_ID,
     expect.objectContaining({ view: 'team-management' }),
   );
   expect(listTeamManagementForProgram).toHaveBeenCalledWith(
     PROGRAM_ID,
-    expect.objectContaining({ page: 1, pageSize: 20, view: 'team-management' }),
+    expect.objectContaining({ page: 1, pageSize: 20 }),
   );
 });
 
@@ -452,7 +446,7 @@ it('세션 쿠키가 없으면 401 이고 권한 조회까지 가지 않는다',
 
   expect(response.status).toBe(401);
   expect(findUnique).not.toHaveBeenCalled();
-  expect(listForProgramView).not.toHaveBeenCalled();
+  expect(listTeamManagementView).not.toHaveBeenCalled();
 });
 
 it('세션 쿠키가 위조되면 401 이다', async () => {
@@ -461,7 +455,7 @@ it('세션 쿠키가 위조되면 401 이다', async () => {
   );
 
   expect(response.status).toBe(401);
-  expect(listForProgramView).not.toHaveBeenCalled();
+  expect(listTeamManagementView).not.toHaveBeenCalled();
 });
 
 it.each(guardedCells)(
@@ -499,7 +493,7 @@ it.each(inputCells)(
         code: 'SYS_003',
         status: 400,
       });
-      expect(listForProgramView).not.toHaveBeenCalled();
+      expect(listTeamManagementView).not.toHaveBeenCalled();
     } else {
       expect(response.status).toBe(status);
       await expect(response.json()).resolves.toEqual(expected);

@@ -50,31 +50,22 @@ const team: ProgramTeam = {
 };
 const application: StudentApplication = {
   id: 'synthetic-post-apply-application',
-  programId,
   status: 'SUBMITTED',
   teamId,
   answers: { applicantName: '합성 학생', title: '' },
   submittedAt: '2026-08-15T00:00:00Z',
-  updatedAt: '2026-08-15T00:00:00Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: null,
   isManager: true,
   canManage: true,
-  canEdit: true,
-  canCancel: true,
 };
 const candidate = {
   id: 'synthetic-invitee',
   nickname: 'synthetic-invitee',
   name: '합성 팀원',
-  avatarUrl: null,
 };
 const invitation: SentTeamInvitation = {
   id: 'synthetic-invitation',
-  teamId,
-  programId,
-  invitedById: 'synthetic-user',
-  invitedAt: '2026-08-15T00:00:00Z',
   invitee: candidate,
 };
 

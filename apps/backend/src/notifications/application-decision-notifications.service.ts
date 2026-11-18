@@ -15,7 +15,13 @@ import {
   type ApplicationDecisionNotification,
   type TeamDeletionNotification,
 } from './application-decision-notifications.repository';
+import { UNREAD_NOTIFICATION_PAGE } from './application-decision-notifications.config';
 import { ApplicationStatus } from '@prisma/client';
+
+export interface UnreadNotificationPage<T> {
+  readonly items: readonly T[];
+  readonly hasMore: boolean;
+}
 
 @Injectable()
 export class NotificationSettingsService {
@@ -59,22 +65,32 @@ export class ApplicationDecisionNotificationsService {
 
   async listUnread(
     githubId: bigint,
-  ): Promise<readonly ApplicationDecisionNotification[]> {
+  ): Promise<UnreadNotificationPage<ApplicationDecisionNotification>> {
     const stored = await this.repository.listUnread(githubId);
-    return stored.flatMap((notification) => {
-      const parsed = parseApplicationDecisionNotification(notification);
-      return parsed ? [parsed] : [];
-    });
+    return {
+      items: stored
+        .slice(0, UNREAD_NOTIFICATION_PAGE)
+        .flatMap((notification) => {
+          const parsed = parseApplicationDecisionNotification(notification);
+          return parsed ? [parsed] : [];
+        }),
+      hasMore: stored.length > UNREAD_NOTIFICATION_PAGE,
+    };
   }
 
   async listUnreadTeamDeletions(
     githubId: bigint,
-  ): Promise<readonly TeamDeletionNotification[]> {
+  ): Promise<UnreadNotificationPage<TeamDeletionNotification>> {
     const stored = await this.repository.listUnreadTeamDeletions(githubId);
-    return stored.flatMap((notification) => {
-      const parsed = parseTeamDeletionNotification(notification);
-      return parsed ? [parsed] : [];
-    });
+    return {
+      items: stored
+        .slice(0, UNREAD_NOTIFICATION_PAGE)
+        .flatMap((notification) => {
+          const parsed = parseTeamDeletionNotification(notification);
+          return parsed ? [parsed] : [];
+        }),
+      hasMore: stored.length > UNREAD_NOTIFICATION_PAGE,
+    };
   }
 
   markTeamDeletionRead(

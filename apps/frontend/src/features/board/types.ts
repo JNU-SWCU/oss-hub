@@ -4,7 +4,6 @@ export type BoardAuthorRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export interface BoardPostSummary {
   readonly id: string;
-  readonly programId: string;
 
   readonly authorName?: string;
   readonly category: BoardPostCategory;
@@ -12,20 +11,15 @@ export interface BoardPostSummary {
   readonly pinned: boolean;
   readonly createdAt: string;
   readonly commentCount: number;
-  readonly canEdit?: boolean;
-  readonly canDelete?: boolean;
 }
 
 export interface BoardPostsPage {
   readonly items: readonly BoardPostSummary[];
   readonly total: number;
-  readonly page: number;
-  readonly limit: number;
 }
 
 export interface BoardComment {
   readonly id: string;
-  readonly postId: string;
 
   readonly authorRole: BoardAuthorRole;
   readonly authorName?: string;
@@ -36,7 +30,6 @@ export interface BoardComment {
 
 export interface BoardPostDetail {
   readonly id: string;
-  readonly programId: string;
 
   readonly authorName?: string;
   readonly category: BoardPostCategory;
@@ -44,7 +37,6 @@ export interface BoardPostDetail {
   readonly body: string;
   readonly pinned: boolean;
   readonly createdAt: string;
-  readonly updatedAt: string;
   readonly commentCount: number;
   readonly comments: readonly BoardComment[];
   readonly canEdit?: boolean;

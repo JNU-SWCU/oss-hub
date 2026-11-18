@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function backendOrigin(
-  allowlistPath = join(process.cwd(), 'backend-origin.allowlist'),
+  hashesPath = join(process.cwd(), 'backend-origin.hashes'),
 ): string {
   if (process.env.NODE_ENV === 'development') {
     return (process.env.BACKEND_ORIGIN ?? 'http://localhost:4000').replace(
@@ -33,7 +33,7 @@ export function backendOrigin(
   ) {
     throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
   }
-  const approvedDigests = readFileSync(allowlistPath, 'utf8')
+  const approvedDigests = readFileSync(hashesPath, 'utf8')
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line !== '' && !line.startsWith('#'));
@@ -41,7 +41,7 @@ export function backendOrigin(
     approvedDigests.length === 0 ||
     approvedDigests.some((digest) => !/^[0-9a-f]{64}$/.test(digest))
   ) {
-    throw new Error('backend-origin.allowlist가 손상됐습니다.');
+    throw new Error('backend-origin.hashes가 손상됐습니다.');
   }
   const digest = createHash('sha256').update(url.origin).digest('hex');
   if (!approvedDigests.includes(digest)) {

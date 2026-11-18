@@ -16,7 +16,6 @@ function item(
     applicationStartAt: '2026-07-01T00:00:00.000Z',
     applicationEndAt: '2026-08-01T00:00:00.000Z',
     endAt: null,
-    description: '',
     ...partial,
   };
 }

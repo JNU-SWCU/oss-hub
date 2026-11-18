@@ -157,8 +157,6 @@ it.each(['staff'])(
     const expiresAt: unknown = expect.any(String);
     expect(await response.json()).toEqual({
       id: 'pending-cover',
-      fileName: 'cover.png',
-      contentType: 'image/png',
       size: PNG.length,
       expiresAt,
     });

@@ -245,7 +245,6 @@ it('does not call optional-only milestones complete or missing', async () => {
     complete: 0,
     noRequiredItems: 4,
   });
-  expect(result.filterCounts.hasMissing).toBe(0);
 });
 
 it('holds counts and visible details at one snapshot while another connection submits', async () => {

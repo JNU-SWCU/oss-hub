@@ -25,7 +25,9 @@ describe('ApplicationDecisionNotificationsController', () => {
   });
 
   it('forwards the session identity instead of accepting a user id', async () => {
-    const listUnread = jest.fn().mockResolvedValue([]);
+    const listUnread = jest
+      .fn()
+      .mockResolvedValue({ items: [], hasMore: false });
     const markRead = jest.fn().mockResolvedValue(undefined);
     const controller = new ApplicationDecisionNotificationsController({
       listUnread,

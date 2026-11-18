@@ -24,7 +24,6 @@ function dashboardItem(
     programId: 'program-1',
     programName: 'Synthetic Program',
     teamName: '합성 팀',
-    teamUrl: '/programs/program-1/my-team',
     applicationStatus: 'APPROVED' as const,
     nextMilestone: {
       id: 'milestone-1',
@@ -37,7 +36,6 @@ function dashboardItem(
     },
     progress: { approvedCount: 1, inReviewCount: 0, totalCount: 3 },
     detailUrl: '/programs/program-1',
-    checklistUrl: '/programs/program-1/submissions',
     repository: {
       repositoryName: 'synthetic-repository',
       provisionStatus: 'SUCCEEDED' as const,
@@ -76,12 +74,10 @@ describe('StudentDashboardController', () => {
 
     expect(getStudentDashboard).toHaveBeenCalledWith(123n);
     expect(response.items[0]?.nextMilestone).toEqual({
-      id: 'milestone-1',
       name: 'Synthetic milestone',
       dueAt: DUE_AT.toISOString(),
       lateSubmissionDueAt: GRACE_DUE_AT.toISOString(),
       submissionStatus: 'NOT_SUBMITTED',
-      requiredItemCount: 2,
       remainingItemCount: 1,
     });
     expect(response.items[0]?.progress).toEqual({
@@ -97,12 +93,11 @@ describe('StudentDashboardController', () => {
     });
   });
 
-  it('카드에 팀 이름과 정규 인코딩된 my-team 주소를 함께 싪는다', async () => {
+  it('카드에 팀 이름을 싣는다', async () => {
     const { controller } = controllerWith([
       dashboardItem({
         programId: 'program 가 1',
         teamName: '합성 팀 A',
-        teamUrl: `/programs/${encodeURIComponent('program 가 1')}/my-team`,
       }),
     ]);
 
@@ -111,9 +106,6 @@ describe('StudentDashboardController', () => {
     });
 
     expect(response.items[0]?.teamName).toBe('합성 팀 A');
-    expect(response.items[0]?.teamUrl).toBe(
-      '/programs/program%20%EA%B0%80%201/my-team',
-    );
   });
 
   it('응답에 applicationMode·displayName 을 싪지 않는다', async () => {
@@ -134,7 +126,6 @@ describe('StudentDashboardController', () => {
     expect(Object.keys(item ?? {}).sort()).toEqual(
       [
         'applicationStatus',
-        'checklistUrl',
         'coverImageUrl',
         'detailUrl',
         'nextMilestone',
@@ -143,7 +134,6 @@ describe('StudentDashboardController', () => {
         'progress',
         'repository',
         'teamName',
-        'teamUrl',
         'teamId',
       ].sort(),
     );

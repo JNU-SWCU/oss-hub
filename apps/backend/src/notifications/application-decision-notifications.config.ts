@@ -1,0 +1,1 @@
+export const UNREAD_NOTIFICATION_PAGE = 50;

@@ -125,12 +125,4 @@ describe('parseStaffInsightsSummary', () => {
 
     expect(() => parseStaffInsightsSummary(payload)).toThrow();
   });
-
-  it('requires starCount on a period leader row', () => {
-    const payload = wirePayload();
-    const leaders = payload.leaders as Record<string, Record<string, unknown>>;
-    delete firstRecord(leaders.period.all).starCount;
-
-    expect(() => parseStaffInsightsSummary(payload)).toThrow();
-  });
 });

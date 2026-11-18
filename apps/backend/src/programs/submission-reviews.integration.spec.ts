@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { deleteRepos } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
@@ -201,6 +202,7 @@ describe('SubmissionReviewsService integration', () => {
       [],
       (
         await prisma.team.findMany({
+          take: TEST_READ_LIMIT,
           where: { programId: REPOSITORIES_PROGRAM_ID },
           select: { id: true },
         })
@@ -247,6 +249,7 @@ describe('SubmissionReviewsService integration', () => {
         select: {
           status: true,
           histories: {
+            take: TEST_READ_LIMIT,
             where: { event: 'APPROVED' },
             select: { event: true },
           },
@@ -301,6 +304,7 @@ describe('SubmissionReviewsService integration', () => {
     expect(published.publishedAt).toBeInstanceOf(Date);
     expect(github.publishRepository).toHaveBeenCalledWith(repositoryName);
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: { path: ['targetId'], equals: repositoryId },
@@ -320,6 +324,7 @@ describe('SubmissionReviewsService integration', () => {
     });
     expect(github.publishRepository).not.toHaveBeenCalled();
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: { path: ['targetId'], equals: repositoryId },
@@ -334,16 +339,23 @@ describe('SubmissionReviewsService integration', () => {
       target.githubRepositoryId,
       new Date('2026-07-01T00:00:00.000Z'),
     );
-    const first = await service.publishRepository(
+    await service.publishRepository(
       target.githubRepositoryId.toString(),
       REVIEWER_GITHUB_ID,
     );
-    const second = await service.publishRepository(
+    await service.publishRepository(
       target.githubRepositoryId.toString(),
       REVIEWER_GITHUB_ID,
     );
-    expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
-    expect(second).toEqual(first);
+    await expect(
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: target.githubRepositoryId },
+        select: { visibility: true, publishedAt: true },
+      }),
+    ).resolves.toEqual({
+      visibility: RepositoryVisibility.PUBLIC,
+      publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+    });
     expect(github.publishRepository).not.toHaveBeenCalled();
   });
   it('동시에 두 요청이 경합해도 정확히 1건의 typed audit만 남고, 패자는 승자가 커밋한 상태를 재조회하며 공개 조회에 즉시 반영된다', async () => {
@@ -392,6 +404,7 @@ describe('SubmissionReviewsService integration', () => {
     expect(finalRepository.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(finalRepository.publishedAt).toEqual(publishedAt);
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: {

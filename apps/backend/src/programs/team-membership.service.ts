@@ -3,7 +3,6 @@ import {
   type TeamActivityView,
   type RepositoryUrlHistoryCursor,
   type TeamApplicationView,
-  type TeamRepositoryProvisioningSafeErrorClass,
   type RepositoryUrlHistoryRows,
   type RepositoryUrlHistoryPage,
   type DeletedTeamView,
@@ -13,8 +12,6 @@ import {
   type StaffTeamView,
   type RepositoryUrlHistoryRow,
   type RepositoryUrlHistoryView,
-  type TeamRepositoryContributionsRow,
-  type TeamRepositoryContributionsView,
 } from './program-team-repository-evidence.repository';
 import {
   ApplicationStatus,
@@ -436,17 +433,6 @@ export class TeamMembershipService {
     }
   }
 
-  private toContributionsView(
-    row: TeamRepositoryContributionsRow,
-  ): TeamRepositoryContributionsView {
-    const { nameWithOwner, ...contributions } = row;
-    return {
-      ...contributions,
-      repositoryUrl:
-        this.repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner),
-    };
-  }
-
   private toTeamApplicationView(row: TeamApplicationRow): TeamApplicationView {
     const { repository, job } = row;
     const completionTargets =
@@ -523,16 +509,6 @@ export class TeamMembershipService {
       ],
       application:
         detail.application && this.toTeamApplicationView(detail.application),
-      repositoryContributions:
-        detail.repositoryContributions &&
-        this.toContributionsView(detail.repositoryContributions),
-      repositoryUrlHistory: this.toRepositoryUrlHistoryPage(
-        detail.repositoryUrlHistory,
-        {
-          programId,
-          teamId: detail.id,
-        },
-      ),
       deletionScope,
     };
   }
@@ -733,7 +709,6 @@ interface TeamProvisionOutbox {
 interface TeamProvisionJob {
   readonly status: RepositoryProvisionJobStatus;
   readonly updatedAt: Date;
-  readonly lastErrorCode: string | null;
 }
 
 function resolveRepositoryProvisioning(
@@ -745,15 +720,11 @@ function resolveRepositoryProvisioning(
     job?.repoId === repositoryId &&
     job.status === RepositoryProvisionJobStatus.SUCCEEDED
     ? {
-        enabled: source.enabled,
         jobStatus: 'SUCCEEDED',
-        updatedAt: job.updatedAt,
-        safeErrorClass: null,
       }
     : resolveTeamRepositoryProvisioning(
         source.status,
         source.enabled,
-        source.updatedAt,
         source.outbox ?? undefined,
         job ?? undefined,
       );
@@ -762,25 +733,18 @@ function resolveRepositoryProvisioning(
 function resolveTeamRepositoryProvisioning(
   applicationStatus: ApplicationStatus,
   enabled: boolean,
-  applicationUpdatedAt: Date,
   outbox: TeamProvisionOutbox | undefined,
   job: TeamProvisionJob | undefined,
 ): TeamApplicationView['repositoryProvisioning'] {
   const anomalous = (): TeamApplicationView['repositoryProvisioning'] => ({
-    enabled,
     jobStatus: 'ANOMALOUS',
-    updatedAt: applicationUpdatedAt,
-    safeErrorClass: 'UNKNOWN',
   });
   if (applicationStatus !== ApplicationStatus.APPROVED) {
     if (outbox || job) {
       return anomalous();
     }
     return {
-      enabled,
       jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: null,
     };
   }
 
@@ -795,13 +759,7 @@ function resolveTeamRepositoryProvisioning(
   if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
     const jobStatus = job.status;
     return {
-      enabled,
       jobStatus,
-      updatedAt: job.updatedAt,
-      safeErrorClass:
-        jobStatus === 'FAILED_RETRYABLE' || jobStatus === 'FAILED_FINAL'
-          ? normalizeTeamSafeErrorClass(job.lastErrorCode)
-          : null,
     };
   }
 
@@ -811,57 +769,20 @@ function resolveTeamRepositoryProvisioning(
       outbox.status === OutboxEventStatus.PROCESSING
     ) {
       return {
-        enabled,
         jobStatus: 'PENDING',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: null,
       };
     }
     if (outbox.status === OutboxEventStatus.FAILED) {
       return {
-        enabled,
         jobStatus: 'FAILED_FINAL',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: 'UNKNOWN',
       };
     }
   }
 
   if (!outbox && !job) {
     return {
-      enabled,
       jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: enabled ? 'UNKNOWN' : null,
     };
   }
   return anomalous();
-}
-
-function normalizeTeamSafeErrorClass(
-  errorCode: string | null,
-): TeamRepositoryProvisioningSafeErrorClass {
-  switch (errorCode) {
-    case 'GITHUB_OPERATIONS_CONFIGURATION':
-    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
-    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
-    case 'GITHUB_OPERATIONS_AUTHENTICATION':
-    case 'GITHUB_OPERATIONS_PERMISSION':
-      return 'AUTH';
-    case 'GITHUB_OPERATIONS_RATE_LIMITED':
-    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
-      return 'RATE_LIMIT';
-    case 'GITHUB_OPERATIONS_INVALID_INPUT':
-    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
-    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
-    case 'REPOSITORY_PROVISION_INVALID_EVENT':
-    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
-      return 'UPSTREAM_REJECTED';
-    case 'GITHUB_OPERATIONS_UPSTREAM':
-    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
-    case 'REPOSITORY_PROVISION_INTERNAL':
-    case null:
-    default:
-      return 'UNKNOWN';
-  }
 }

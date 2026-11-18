@@ -1,4 +1,4 @@
-import type { Admin, ApprovalStatus } from '@prisma/client';
+import type { ApprovalStatus } from '@prisma/client';
 import { StaffAccessRequestStatus, MemberKind } from './user-contract.config';
 import { Injectable } from '@nestjs/common';
 import type { AuthorityLabel } from './authority-label.types';
@@ -70,18 +70,7 @@ export type AdminAccessUser = {
 };
 
 export type AdminAccessFacets = {
-  readonly roles: {
-    readonly unassigned: number;
-    readonly student: number;
-    readonly staff: number;
-    readonly admin: number;
-  };
-  readonly accountStatuses: {
-    readonly active: number;
-    readonly deactivated: number;
-  };
   readonly pendingRequests: {
-    readonly none: number;
     readonly pending: number;
   };
 };
@@ -98,7 +87,6 @@ export type AdminAccessUserDetail = AdminAccessUser & {
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
-  readonly adminGrant: Pick<Admin, 'origin' | 'grantedAt'> | null;
   readonly profile: AdminAccessProfile;
   readonly participations: readonly UserParticipation[] | null;
 };

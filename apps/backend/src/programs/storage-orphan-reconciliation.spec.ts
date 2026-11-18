@@ -271,8 +271,10 @@ describe('PrismaStorageReferenceRepository', () => {
       Prisma.TransactionIsolationLevel.RepeatableRead,
     ]);
     expect(loadTransaction.file.findMany).toHaveBeenCalledWith({
+      take: 500,
       where: { lifecycle: { not: 'DELETED' } },
-      select: { storageKey: true },
+      orderBy: { id: 'asc' },
+      select: { id: true, storageKey: true },
     });
     expect(liveTransaction.file.findFirst).toHaveBeenCalledWith({
       where: {

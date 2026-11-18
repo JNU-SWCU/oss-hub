@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
@@ -222,6 +224,8 @@ export type MembershipCurrencyCheck = (
 
 @Injectable()
 export class RepositoryProvisionStateRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
@@ -247,7 +251,7 @@ export class RepositoryProvisionStateRepository {
       SELECT "id"
       FROM "Team"
       WHERE "id" = ${teamId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `,
     );
     if (rows.length !== 1) {
@@ -279,7 +283,7 @@ export class RepositoryProvisionStateRepository {
           ) AS "teamId"
           FROM "repo" AS repo
           WHERE repo."github_repo_id" = ${githubRepositoryId}
-          FOR UPDATE
+          LIMIT 1 FOR UPDATE
         `,
         )
       )[0] ?? null;
@@ -403,47 +407,58 @@ export class RepositoryProvisionStateRepository {
         workerId,
         requestId,
       );
-      const job = await transaction.repositoryProvisionJob.findFirst({
-        where: this.repositoryProvisionJobRepository.claimedJobWhere(
-          jobId,
-          workerId,
-        ),
-        select: {
-          currentEventId: true,
-          repoId: true,
-          team: {
-            select: {
-              id: true,
-              status: true,
-              programId: true,
-              applicant: { select: { githubId: true, nickname: true } },
-              program: {
-                select: {
-                  name: true,
-                  repositoryProvisioningEnabled: true,
+      const job = await transaction.repositoryProvisionJob
+        .findFirst({
+          where: this.repositoryProvisionJobRepository.claimedJobWhere(
+            jobId,
+            workerId,
+          ),
+          select: {
+            currentEventId: true,
+            repoId: true,
+            team: {
+              select: {
+                id: true,
+                status: true,
+                programId: true,
+                applicant: { select: { githubId: true, nickname: true } },
+                program: {
+                  select: {
+                    name: true,
+                    repositoryProvisioningEnabled: true,
+                  },
                 },
-              },
 
-              name: true,
-              members: { select: this.teamMemberLoginSelection },
-              teamRepos: {
-                where: { validTo: null },
-                take: 1,
-                select: {
-                  repo: {
-                    select: {
-                      githubRepoId: true,
-                      ownerName: true,
-                      visibility: true,
-                      source: true,
+                name: true,
+                members: {
+                  take: READ_CAP.membersPerTeam + 1,
+                  select: this.teamMemberLoginSelection,
+                },
+                teamRepos: {
+                  where: { validTo: null },
+                  take: 1,
+                  select: {
+                    repo: {
+                      select: {
+                        githubRepoId: true,
+                        ownerName: true,
+                        visibility: true,
+                        source: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      });
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { team: { nested: { members: READ_CAP.membersPerTeam } } },
+            'RepositoryProvisionJob.findFirst',
+          ),
+        );
       if (job === null) {
         throw new RepositoryProvisionLeaseLostError();
       }
@@ -556,10 +571,19 @@ export class RepositoryProvisionStateRepository {
         requestId,
       );
 
-      const rows = await transaction.repositoryInvitation.findMany({
-        where: { repoId: githubRepositoryId },
-        select: { id: true, githubLogin: true, status: true },
-      });
+      const rows = await this.boundedReads.readAllInBatches(
+        (after: string | undefined, take) =>
+          transaction.repositoryInvitation.findMany({
+            take,
+            where: {
+              repoId: githubRepositoryId,
+              ...(after === undefined ? {} : { id: { gt: after } }),
+            },
+            orderBy: { id: 'asc' },
+            select: { id: true, githubLogin: true, status: true },
+          }),
+        (row) => row.id,
+      );
       const plan = planInvitations(rows);
       const repo = await transaction.repo.findUnique({
         where: { githubRepoId: githubRepositoryId },
@@ -624,28 +648,57 @@ export class RepositoryProvisionStateRepository {
     if (available === 0) {
       return [];
     }
-    const rows = await this.prisma.repositoryInvitation.findMany({
-      where: {
-        repoId: githubRepositoryId,
-        OR: [
-          {
-            status: RepositoryInvitationStatus.PENDING,
-            reconciliationCount: {
-              lt: DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
-            },
+    const rows = await this.boundedReads.readAllInBatches(
+      (
+        after: { readonly createdAt: Date; readonly id: string } | undefined,
+        take,
+      ) =>
+        this.prisma.repositoryInvitation.findMany({
+          take,
+          where: {
+            repoId: githubRepositoryId,
+            ...(after === undefined
+              ? {}
+              : {
+                  AND: [
+                    {
+                      OR: [
+                        { createdAt: { gt: after.createdAt } },
+                        { createdAt: after.createdAt, id: { gt: after.id } },
+                      ],
+                    },
+                  ],
+                }),
+            OR: [
+              {
+                status: RepositoryInvitationStatus.PENDING,
+                reconciliationCount: {
+                  lt: DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+                },
+              },
+              { status: RepositoryInvitationStatus.FAILED_RETRYABLE },
+              { status: RepositoryInvitationStatus.REVOKE_REQUIRED },
+              { status: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE },
+
+              { status: RepositoryInvitationStatus.REVOKED },
+            ],
           },
-          { status: RepositoryInvitationStatus.FAILED_RETRYABLE },
-          { status: RepositoryInvitationStatus.REVOKE_REQUIRED },
-          { status: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            githubLogin: true,
+            status: true,
+            createdAt: true,
+          },
+        }),
+      (row) => ({ createdAt: row.createdAt, id: row.id }),
+    );
 
-          { status: RepositoryInvitationStatus.REVOKED },
-        ],
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { id: true, githubLogin: true, status: true },
-    });
-
-    return rows;
+    return rows.map(({ id, githubLogin, status }) => ({
+      id,
+      githubLogin,
+      status,
+    }));
   }
 
   async completeInvitation(
@@ -857,10 +910,16 @@ export class RepositoryProvisionStateRepository {
     if (application === null) {
       return [];
     }
-    const members = await transaction.teamMember.findMany({
-      where: { teamId: application.id },
-      select: this.teamMemberLoginSelection,
-    });
+    const members = await this.boundedReads.readCapped(
+      READ_CAP.membersPerTeam,
+      'TeamMember per team',
+      (take) =>
+        transaction.teamMember.findMany({
+          take,
+          where: { teamId: application.id },
+          select: this.teamMemberLoginSelection,
+        }),
+    );
     return members.map((member) => member.user.nickname);
   }
 

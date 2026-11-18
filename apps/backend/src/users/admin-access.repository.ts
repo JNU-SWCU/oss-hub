@@ -71,13 +71,6 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     );
   }
 
-  facets(query: AdminAccessListQuery) {
-    return this.adminAccessReadRepository.listAdminAccessFacets(
-      this.prisma,
-      query,
-    );
-  }
-
   findById(userId: string) {
     return this.adminAccessReadRepository.findAdminAccessUserById(
       this.prisma,
@@ -167,7 +160,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
   ): Promise<AdminAccessActor | null> {
     if (forUpdate)
       await transaction.$queryRaw(
-        Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+        Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} LIMIT 1 FOR UPDATE`,
       );
     return this.findAdminActorByGithubId(transaction, githubId);
   }
@@ -183,7 +176,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     userId: string,
   ): Promise<AdminAccessUserRow | null> {
     const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
+      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} LIMIT 1 FOR UPDATE`,
     );
     if (rows.length !== 1) {
       return null;

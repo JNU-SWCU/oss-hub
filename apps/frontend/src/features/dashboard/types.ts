@@ -11,12 +11,10 @@ export type DashboardRepositoryProvisionStatus =
 export type DashboardRepositoryInvitationStatus =
   'PENDING' | 'SUCCEEDED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL' | null;
 export interface DashboardMilestone {
-  readonly id: string;
   readonly name: string;
   readonly dueAt: string;
   readonly lateSubmissionDueAt?: string | null;
   readonly submissionStatus: DashboardSubmissionStatus;
-  readonly requiredItemCount?: number;
   readonly remainingItemCount?: number;
 }
 export interface DashboardProgress {
@@ -46,7 +44,6 @@ export interface StudentDashboard {
 }
 export interface ApplicationDecisionNotice {
   readonly id: string;
-  readonly teamId: string;
   readonly programId: string;
   readonly programName: string;
   readonly decision: 'APPROVED' | 'REJECTED' | 'SUBMITTED';
@@ -59,8 +56,6 @@ export interface DashboardFeedbackItem {
   readonly comment: string | null;
   readonly reviewedAt: string;
   readonly teamId: string;
-  readonly programId: string;
-  readonly milestoneId: string;
   readonly milestoneName: string;
   readonly itemName: string;
   readonly href: string;
@@ -75,10 +70,11 @@ export type StudentFeedbackState =
   | {
       readonly status: 'success';
       readonly items: readonly DashboardFeedbackItem[];
+      readonly hasMore: boolean;
+      readonly loadingMore: boolean;
     };
 export interface TeamDeletionNotice {
   readonly id: string;
-  readonly teamId: string;
   readonly teamName: string;
   readonly programId: string;
   readonly programName: string;

@@ -61,14 +61,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const post: BoardPostDetail = {
   id: 'post-1',
-  programId: 'program-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '삭제할 합성 질문',
   body: '삭제 뒤 목록 재조회를 검증합니다.',
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
-  updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 0,
   canEdit: true,
   canDelete: true,
@@ -79,7 +77,6 @@ const pageWithPost: BoardPostsPage = {
   items: [
     {
       id: post.id,
-      programId: post.programId,
       authorName: post.authorName,
       category: post.category,
       title: post.title,
@@ -89,15 +86,11 @@ const pageWithPost: BoardPostsPage = {
     },
   ],
   total: 1,
-  page: 1,
-  limit: 20,
 };
 
 const emptyPage: BoardPostsPage = {
   items: [],
   total: 0,
-  page: 1,
-  limit: 20,
 };
 
 function deferred<T>() {

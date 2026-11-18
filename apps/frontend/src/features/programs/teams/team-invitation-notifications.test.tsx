@@ -74,10 +74,7 @@ function pendingInvitation(
 ): ReceivedTeamInvitation {
   return {
     id: 'inv-1',
-    teamId: 'team-1',
     programId: 'program-1',
-    invitedById: 'user-9',
-    invitedAt: '2026-07-01T00:00:00.000Z',
     teamName: '오픈소스팀',
     programName: '캡스톤 2026',
     invitedByDisplayName: '팀장',
@@ -287,7 +284,7 @@ describe('TeamInvitationNotifications', () => {
 
   it('수락하면 응답의 programId로 「우리 팀」 화면을 연다', async () => {
     mocks.listReceivedInvitations.mockResolvedValue([
-      pendingInvitation({ programId: 'stale-program', teamId: 'stale-team' }),
+      pendingInvitation({ programId: 'stale-program' }),
     ]);
     mocks.acceptInvitation.mockResolvedValue({
       teamId: 'team:accepted',

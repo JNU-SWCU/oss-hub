@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import {
   type BuiltDeadlineMail,
   DeadlineDigestMailService,
@@ -154,7 +155,6 @@ export type DeadlineDigestSendRequest = DeadlineDigestGuidance & {
 
 export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
   readonly staffRecipientCount: number;
-  readonly sentAt: string;
   readonly previewVersion: string;
   readonly sentCount: number;
   readonly duplicateCount: number;
@@ -232,6 +232,8 @@ const DEADLINE_PREVIEW_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class DeadlineDigestService {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     @Inject(DeadlineDigestRepository)
     private readonly repository: DeadlineDigestRepositoryPort,
@@ -339,7 +341,6 @@ export class DeadlineDigestService {
     return {
       ...eligibility.summary,
       staffRecipientCount: staffRecipients.length,
-      sentAt: now.toISOString(),
       previewVersion: prepared.previewVersion,
       sentCount: outcomes.filter((outcome) => outcome === 'SENT').length,
       duplicateCount: outcomes.filter((outcome) => outcome === 'DUPLICATE')
@@ -351,9 +352,9 @@ export class DeadlineDigestService {
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
     const window = this.deadlineWindow(now);
     const programIds = await this.repository.findAutomaticProgramIds(window);
-    for (const programId of programIds) {
+    await this.sequential.forEach(programIds, async (programId) => {
       const source = await this.repository.findDeadlineProgram(programId);
-      if (source === null || !source.notifyOnDeadline) continue;
+      if (source === null || !source.notifyOnDeadline) return;
       const prepared = this.prepareDeadlineDigest(
         this.buildDeadlineEligibility(source, window),
         [],
@@ -371,7 +372,7 @@ export class DeadlineDigestService {
           mailSender: this.mailSender,
         },
       );
-    }
+    });
   }
 
   private async requireEligibility(

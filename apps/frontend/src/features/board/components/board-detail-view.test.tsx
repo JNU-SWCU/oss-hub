@@ -9,21 +9,18 @@ import type { BoardPostDetail } from '../types';
 
 const post: BoardPostDetail = {
   id: 'post-1',
-  programId: 'program-1',
   authorName: '합성 질문자',
   category: 'QNA',
   title: '제출 마감일 문의드립니다',
   body: '중간 산출물 마감일이 정확히 언제인가요?',
   pinned: false,
   createdAt: '2026-08-01T03:00:00.000Z',
-  updatedAt: '2026-08-01T03:00:00.000Z',
   commentCount: 2,
   canEdit: true,
   canDelete: true,
   comments: [
     {
       id: 'comment-staff',
-      postId: 'post-1',
       authorRole: 'STAFF',
       authorName: '합성 교직원',
       body: '10월 17일 18시까지입니다.',
@@ -32,7 +29,6 @@ const post: BoardPostDetail = {
     },
     {
       id: 'comment-student',
-      postId: 'post-1',
       authorRole: 'STUDENT',
       authorName: '합성 학생',
       body: '감사합니다.',
@@ -189,7 +185,6 @@ describe('BoardDetailContent', () => {
               comments: [
                 {
                   id: 'comment-admin',
-                  postId: 'post-1',
                   authorRole: 'ADMIN',
                   authorName: '합성 관리자',
                   body: '플랫폼 운영 안내입니다.',

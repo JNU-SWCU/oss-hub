@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
@@ -133,6 +134,8 @@ const isContributionInsertSummary = (
 
 @Injectable()
 export class CollectionIncrementalStoreRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly db: CollectionStoreClient,
     protected readonly platform: PlatformRepository,
@@ -233,6 +236,7 @@ export class CollectionIncrementalStoreRepository {
           )) AS missing_repo,
         (SELECT count(*)::int FROM inserted WHERE fresh) AS inserted,
         (SELECT count(*)::int FROM inserted WHERE NOT fresh) AS author_filled
+        LIMIT 1
     `;
     const summary: unknown = rows[0];
     if (!isContributionInsertSummary(summary)) {
@@ -318,16 +322,24 @@ export class CollectionIncrementalStoreRepository {
   async listCollectionTargets(
     source: RepositorySource,
   ): Promise<CollectionTarget[]> {
-    const repositories = await this.db.repo.findMany({
-      where: {
-        source,
-        presence: 'PRESENT',
-        ...(source === 'EXTERNAL_PUBLIC' ? { visibility: 'PUBLIC' } : {}),
-        ...this.platform.collectionTargetRepoWhere(),
-      },
-      orderBy: { githubRepoId: 'asc' },
-      select: { ...COLLECTION_REPOSITORY_SELECT, lastSuccessAt: true },
-    });
+    const repositories = await this.boundedReads.readAllInBatches(
+      (after: bigint | undefined, take) =>
+        this.db.repo.findMany({
+          take,
+          ...(after === undefined
+            ? {}
+            : { cursor: { githubRepoId: after }, skip: 1 }),
+          where: {
+            source,
+            presence: 'PRESENT',
+            ...(source === 'EXTERNAL_PUBLIC' ? { visibility: 'PUBLIC' } : {}),
+            ...this.platform.collectionTargetRepoWhere(),
+          },
+          orderBy: { githubRepoId: 'asc' },
+          select: { ...COLLECTION_REPOSITORY_SELECT, lastSuccessAt: true },
+        }),
+      (repository) => repository.githubRepoId,
+    );
     return repositories.map((repository) => ({
       ...toCollectionRepositoryRow(repository),
       lastSuccessAt: repository.lastSuccessAt,
@@ -390,7 +402,7 @@ export class CollectionIncrementalStoreRepository {
   async assertSyncLeaseValid(token: SyncLeaseToken, now: Date): Promise<void> {
     const rows = await this.db.$queryRawUnsafe<Array<{ owned: boolean }>>(
       `SELECT true AS "owned" FROM "CollectionSyncLease" WHERE "appId" = $1 AND "scope" = $2
-       AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5 AND "expiresAt" > $6 FOR UPDATE`,
+       AND "ownerId" = $3 AND "epoch" = $4 AND "runId" = $5 AND "expiresAt" > $6 LIMIT 1 FOR UPDATE`,
       token.appId,
       token.scope,
       token.ownerId,

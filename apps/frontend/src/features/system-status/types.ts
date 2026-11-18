@@ -14,7 +14,11 @@ export interface CollectionRepository {
   readonly teamName: string | null;
   readonly programName: string | null;
   readonly lastSuccessAt: string | null;
-  readonly stale: boolean;
+}
+
+export interface StaleRepositoryPage {
+  readonly items: readonly CollectionRepository[];
+  readonly total: number;
 }
 
 interface ExternalCollectionStatus {
@@ -36,6 +40,7 @@ interface ProvisioningStatus {
   readonly retryable: number;
   readonly failedFinal: number;
   readonly failedTeams: readonly ProvisioningFailedTeam[];
+  readonly failedTeamsHasMore: boolean;
 }
 
 interface MailStatus {
@@ -59,7 +64,6 @@ export interface Anomaly {
   readonly severity: AnomalySeverity;
   readonly count: number;
   readonly target: {
-    readonly kind: 'USER';
     readonly id: string;
     readonly login: string | null;
   } | null;
@@ -70,7 +74,7 @@ export interface SystemStatus {
   readonly provisioning: ProvisioningStatus;
   readonly mail: MailStatus;
   readonly anomalies: readonly Anomaly[];
-  readonly collectionRepositories: readonly CollectionRepository[];
+  readonly staleRepositories: StaleRepositoryPage;
   readonly externalCollection: ExternalCollectionStatus;
 }
 
@@ -82,6 +86,12 @@ export type SystemStatusViewState =
       readonly freshness: 'current' | 'refreshing' | 'stale';
       readonly status: SystemStatus;
     };
+
+export interface StaleRepositoryPager {
+  readonly page: number;
+  readonly isLoading: boolean;
+  readonly onPageChange: (page: number) => void;
+}
 
 export interface ActionNotice {
   readonly kind: 'success' | 'error';

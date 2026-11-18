@@ -43,10 +43,7 @@ const user: Me = {
 
 const overviewKey = programFeatureKey('synthetic-program', 'overview', false);
 const overview: Awaited<ReturnType<typeof getProgramOverview>> = {
-  programId: 'synthetic-program',
   name: 'Synthetic program',
-  trackType: null,
-  milestoneCount: 0,
   boardPostCount: 0,
   participantCount: 0,
   teamCount: 0,

@@ -1,18 +1,24 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../platform/prisma.service';
+
+const boundedReads = new BoundedReadRepository();
 
 @Injectable()
 export class AdminRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async lockActiveRows(transaction: Prisma.TransactionClient): Promise<number> {
-    await transaction.$queryRaw(Prisma.sql`
+    await boundedReads.readCapped(READ_CAP.admins, 'Admin lock', (take) =>
+      transaction.$queryRaw<{ readonly id: string }[]>(Prisma.sql`
       SELECT u."id" FROM "User" u
       INNER JOIN "Admin" a ON a."userId" = u."id"
-      ORDER BY u."id" FOR UPDATE OF u, a
-    `);
+      ORDER BY u."id" LIMIT ${take} FOR UPDATE OF u, a
+    `),
+    );
     return transaction.admin.count({
       where: { user: { accountStatus: 'ACTIVE' } },
     });
@@ -47,8 +53,8 @@ export class AdminRepository {
       await transaction.$executeRaw(
         Prisma.sql`LOCK TABLE "Admin" IN SHARE ROW EXCLUSIVE MODE`,
       );
-      await transaction.$queryRaw(
-        Prisma.sql`SELECT "id" FROM "User" ORDER BY "id" FOR UPDATE`,
+      await transaction.$executeRaw(
+        Prisma.sql`LOCK TABLE "User" IN SHARE ROW EXCLUSIVE MODE`,
       );
       const [admins, history] = await Promise.all([
         transaction.admin.count(),

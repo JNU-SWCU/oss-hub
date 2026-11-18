@@ -691,8 +691,9 @@ export async function createRailsConfig(rootDir) {
             type: 'prisma',
             pattern: [
               'src/platform/prisma.service.ts',
-              'src/platform/{platform,lock-program-tree,repository-provision-generation,repository-deletion,contributor-read,repo-ledger}.repository.ts',
-              'src/platform/{lock-program-tree,repository-provision-generation}.error.ts',
+              'src/platform/{platform,lock-program-tree,repository-provision-generation,repository-deletion,contributor-read,repo-ledger,bounded-read}.repository.ts',
+              'src/platform/{lock-program-tree,repository-provision-generation,read-cap}.error.ts',
+              'src/platform/bounded-read.config.ts',
             ],
             mode: 'full',
           },
@@ -705,7 +706,7 @@ export async function createRailsConfig(rootDir) {
           {
             type: 'common',
             pattern: [
-              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,api-contract.decorator,prisma-serialization-retry.repository}.ts',
+              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,api-contract.decorator,prisma-serialization-retry.repository,sequential.repository}.ts',
               'src/platform/{system-error-code,error-code}.error.ts',
             ],
             mode: 'full',

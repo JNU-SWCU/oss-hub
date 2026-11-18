@@ -12,16 +12,11 @@ const applicationFindFirst = jest.fn<
   Promise<Record<string, unknown> | null>,
   [unknown]
 >();
-export const contributionQuery = jest.fn<
-  Promise<unknown[]>,
-  [TemplateStringsArray, ...unknown[]]
->();
 export const historyQuery = jest.fn<
   Promise<unknown[]>,
   [TemplateStringsArray, ...unknown[]]
 >();
 export const provisionFindUnique = jest.fn();
-export const repoFindUnique = jest.fn();
 jest.mock('../platform/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     team: {
@@ -32,21 +27,14 @@ jest.mock('../platform/prisma.service', () => ({
         return { ...(application ?? {}), ...team };
       },
     },
-    $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => {
-      const sql = Array.from(strings).join('');
-      if (sql.includes('"contribution" AS event')) {
-        return contributionQuery(strings, ...values);
-      }
-      return historyQuery(strings, ...values);
-    },
+    $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) =>
+      historyQuery(strings, ...values),
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },
     repositoryProvisionJob: { findUnique: provisionFindUnique },
-    repo: { findUnique: repoFindUnique },
   })),
 }));
 
 export function givenRepository(
-  lastSuccessAt: Date | null = new Date('2026-08-31Z'),
   repositoryConnectionMode: 'NEW' | 'OWN' = 'NEW',
 ) {
   teamFindFirst.mockResolvedValue({
@@ -89,26 +77,7 @@ export function givenRepository(
     submissions: [],
   });
   historyQuery.mockResolvedValue([]);
-  repoFindUnique.mockResolvedValue(
-    lastSuccessAt === null ? null : { lastSuccessAt },
-  );
   provisionFindUnique.mockResolvedValue(null);
-  contributionQuery.mockResolvedValue([
-    {
-      githubId: 101n,
-      commitCount: 3,
-      pullRequestCount: 2,
-      releaseCount: 1,
-      issueCount: 0,
-    },
-    {
-      githubId: 999n,
-      commitCount: 4,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      issueCount: 2,
-    },
-  ]);
   const prisma = new PrismaService();
   return new TeamRepository(
     prisma,

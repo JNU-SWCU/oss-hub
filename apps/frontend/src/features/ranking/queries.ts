@@ -27,10 +27,14 @@ export function useRankingQuery(
   });
 }
 
-export function useRankingTimelineQuery(year: RankingYear) {
+export function useRankingTimelineQuery(
+  year: RankingYear,
+  viewerGithubLogin: string | null,
+) {
   return useQuery({
-    queryKey: featureKey('ranking', 'timeline', year),
-    queryFn: ({ signal }) => getRankingTimeline(Number(year), signal),
+    queryKey: featureKey('ranking', 'timeline', year, viewerGithubLogin ?? ''),
+    queryFn: ({ signal }) =>
+      getRankingTimeline(Number(year), viewerGithubLogin, signal),
     enabled: year !== RANKING_YEAR_ALL,
     refetchInterval: RANKING_POLL_MS,
   });

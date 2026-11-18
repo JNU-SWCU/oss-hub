@@ -60,15 +60,10 @@ function sentInvitation(
 ): SentTeamInvitation {
   return {
     id: 'inv-1',
-    teamId: 'team-1',
-    programId: 'program-1',
-    invitedById: 'leader-1',
-    invitedAt: '2026-07-01T00:00:00Z',
     invitee: {
       id: 'user-1',
       nickname: 'synthetic-one',
       name: '합성 초대 대상',
-      avatarUrl: null,
     },
     ...overrides,
   };
@@ -88,6 +83,7 @@ function invitationManagement(
     sentLoading: false,
     inviteQuery: '',
     inviteCandidates: [],
+    moreCandidates: false,
     searching: false,
     searchError: null,
     invitingUserId: null,
@@ -487,7 +483,6 @@ describe('TeamMembersPanel — 초대 대기', () => {
               id: 'member-1',
               nickname: 'synthetic-member',
               name: '먼저 합류',
-              avatarUrl: null,
             },
           }),
           sentInvitation(),
@@ -529,7 +524,6 @@ describe('TeamMembersPanel — 초대 대기', () => {
               id: 'user-2',
               nickname: 'synthetic-two',
               name: null,
-              avatarUrl: null,
             },
           }),
         ],

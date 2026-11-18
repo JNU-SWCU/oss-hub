@@ -370,7 +370,6 @@ describe('ProgramDetailPage states', () => {
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,
         endAt: program.operatingPeriod?.endsAt ?? null,
-        description: program.description,
       };
     }
 

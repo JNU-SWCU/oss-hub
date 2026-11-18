@@ -170,11 +170,6 @@ const routes: readonly RouteCase[] = [
   },
   {
     method: 'GET',
-    path: 'users/access/facets',
-    statuses: [200, 200, 403, 403, 401, 401, 401, 401],
-  },
-  {
-    method: 'GET',
     path: 'users/user-1/access',
     statuses: [404, 404, 404, 403, 401, 401, 401, 401],
   },
@@ -260,7 +255,7 @@ describe('Audience authorization HTTP characterization', () => {
           accountStatus: actor.accountStatus,
         };
   const findActor = () => Promise.resolve(actorRow());
-  const facets = { roles: [], accountStatuses: [], pendingRequests: [] };
+  const facets = { pendingRequests: { pending: 0 } };
   const emptyPage = { items: [], page: 1, limit: 20, total: 0, facets };
   const transactionStore = {
     userHistoryWriter: {},
@@ -381,7 +376,10 @@ describe('Audience authorization HTTP characterization', () => {
         },
         {
           provide: RequirementFeedbackRepository,
-          useValue: { findRecentForParticipant: () => Promise.resolve([]) },
+          useValue: {
+            findRecentForParticipant: () =>
+              Promise.resolve({ reviews: [], nextCursor: null }),
+          },
         },
         {
           provide: ProgramsRepository,
@@ -422,25 +420,26 @@ describe('Audience authorization HTTP characterization', () => {
         },
         {
           provide: ProgramActivitySummaryRepository,
-          useValue: { findRepositoryLinks: () => Promise.resolve([]) },
+          useValue: { summarizePrograms: () => Promise.resolve([]) },
         },
         {
           provide: SubmissionDashboardSummaryRepository,
           useValue: {
-            listRecords: () =>
-              Promise.resolve({
-                applications: [],
-                milestones: [],
-                submissions: [],
-                requirements: [],
-                documentSubmissions: [],
-              }),
+            summarizePrograms: () => Promise.resolve([]),
           },
         },
         {
           provide: ApplicationsRepository,
           useValue: {
-            listStaffDashboardSummary: () => Promise.resolve({ programs: [] }),
+            listStaffDashboardSummary: () =>
+              Promise.resolve({
+                programs: [],
+                page: 1,
+                pageSize: 20,
+                total: 0,
+                catalogTotal: 0,
+                statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
+              }),
             withTransaction: (
               operation: (store: {
                 readonly findApplicationById: () => Promise<null>;
@@ -454,12 +453,16 @@ describe('Audience authorization HTTP characterization', () => {
         {
           provide: StaffInsightsRepository,
           useValue: {
-            listStudents: () => Promise.resolve([]),
-            listApprovedParticipations: () => Promise.resolve([]),
-            listActivityTotals: () => Promise.resolve([]),
+            listDepartmentMetrics: () => Promise.resolve([]),
+            listPeriodLeaderCandidates: () => Promise.resolve([]),
+            listRecentLeaderCandidates: () => Promise.resolve([]),
             listActivityYears: () => Promise.resolve([]),
-            listActivityBaselines: () => Promise.resolve([]),
-            listActivityByYear: () => Promise.resolve([]),
+            listProgramParticipantDepartments: () => Promise.resolve([]),
+            countPublishedParticipants: () =>
+              Promise.resolve({
+                uniqueParticipantCount: 0,
+                repeatParticipantCount: 0,
+              }),
             findActivityDataAsOf: () => Promise.resolve(null),
             listPublishedPrograms: () => Promise.resolve([]),
             listProgramApplicationCounts: () => Promise.resolve([]),
@@ -510,7 +513,13 @@ describe('Audience authorization HTTP characterization', () => {
           provide: SystemStatusRepository,
           useValue: {
             findActor,
-            getCollectionRepositories: () => Promise.resolve([]),
+            getCollectionRepositorySummary: () =>
+              Promise.resolve({
+                trackedRepositoryCount: 0,
+                staleRepositoryCount: 0,
+                lastSuccessAt: null,
+              }),
+            listStaleCollectionRepositories: () => Promise.resolve([]),
             hasActiveCollectionRun: () => Promise.resolve(false),
             getProvisioningStatus: () =>
               Promise.resolve({
@@ -519,6 +528,7 @@ describe('Audience authorization HTTP characterization', () => {
                 retryable: 0,
                 failedFinal: 0,
                 failedTeams: [],
+                failedTeamsHasMore: false,
               }),
             getMailStatus: () =>
               Promise.resolve({ sent7d: 0, failed7d: 0, lastSentAt: null }),
@@ -547,8 +557,8 @@ describe('Audience authorization HTTP characterization', () => {
     await app.close();
   });
 
-  it('covers 18 routes for 8 roles', () => {
-    expect(routes).toHaveLength(18);
+  it('covers 17 routes for 8 roles', () => {
+    expect(routes).toHaveLength(17);
     expect(roles).toHaveLength(8);
   });
 

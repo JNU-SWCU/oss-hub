@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -109,6 +111,7 @@ type ProfileMemberRow = Prisma.UserGetPayload<{
 
 @Injectable()
 export class UsersRepository implements UsersRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly transitions: UserTransitionRepository,
@@ -123,11 +126,16 @@ export class UsersRepository implements UsersRepositoryPort {
   listParticipationMemberships(
     userId: string,
   ): Promise<readonly UserParticipationMembership[]> {
-    return this.prisma.teamMember.findMany({
-      ...USER_PARTICIPATION_MEMBERSHIPS,
-      take: 200,
-      where: { ...USER_PARTICIPATION_MEMBERSHIPS.where, userId },
-    });
+    return this.boundedReads.readCapped(
+      READ_CAP.participationsPerUser,
+      'TeamMember.findMany',
+      (take) =>
+        this.prisma.teamMember.findMany({
+          ...USER_PARTICIPATION_MEMBERSHIPS,
+          take,
+          where: { ...USER_PARTICIPATION_MEMBERSHIPS.where, userId },
+        }),
+    );
   }
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,

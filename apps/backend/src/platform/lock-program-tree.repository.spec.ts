@@ -1,3 +1,4 @@
+import { READ_CAP } from './bounded-read.config';
 import { Prisma } from '@prisma/client';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
 
@@ -38,7 +39,7 @@ describe('lockProgramTree', () => {
       }),
     ).toEqual({ documentIds: ['d'] });
     const sql = query.mock.calls[2]?.[0];
-    expect(sql?.values).toEqual(['m']);
+    expect(sql?.values).toEqual(['m', READ_CAP.requirementsPerMilestone + 1]);
     expect(sql?.strings.join('')).toContain('ORDER BY "id"');
     await expect(
       locks.lockProgramTree(tx, {

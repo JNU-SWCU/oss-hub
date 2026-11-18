@@ -46,13 +46,12 @@ it('동시에 열린 학생 대시보드는 하나의 조회를 공유한다', a
   expect(view.container.textContent).toBe('00');
 });
 
-it('관리자 변경은 목록과 패싯 및 대상 상세만 무효화한다', async () => {
+it('관리자 변경은 목록과 대상 상세만 무효화한다', async () => {
   view = await renderWithQuery(null);
   const client = view.queryClient;
   const keys = [
     featureKey('admin-access', 'list', 'directory', { page: 2 }),
     featureKey('admin-access', 'list', 'queue', { page: 1 }),
-    featureKey('admin-access', 'facets'),
     featureKey('admin-access', 'detail', 'target'),
   ];
   for (const key of keys) client.setQueryData(key, {});
@@ -81,10 +80,7 @@ function Decision() {
 }
 
 it('신청 결정 성공은 프로그램 개요와 대시보드를 무효화한다', async () => {
-  vi.mocked(decideApplication).mockResolvedValue({
-    teamId: 'application-1',
-    status: 'SUBMITTED',
-  });
+  vi.mocked(decideApplication).mockResolvedValue(undefined);
   view = await renderWithQuery(<Decision />);
   const keys = [
     programFeatureKey('program-1', 'overview', true),

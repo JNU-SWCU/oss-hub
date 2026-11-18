@@ -80,10 +80,7 @@ async function installProgramRoutes(
     if (path === `/api/v1/programs/${programId}/overview`) {
       await route.fulfill({
         json: {
-          programId,
           name: '활동 이동 확인 프로그램',
-          trackType: 'EXTRACURRICULAR',
-          milestoneCount: 1,
           boardPostCount: 0,
           participantCount: activityRows.length,
           teamCount: activityRows.length,

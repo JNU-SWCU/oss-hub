@@ -162,7 +162,7 @@ it('preserves canonical and legacy fallback projections across all three consume
   const staffInsights = new StaffInsightsRepository(prisma);
   const board = new BoardRepository(prisma, new PlatformRepository());
 
-  const students = await staffInsights.listStudents();
+  const departments = await staffInsights.listDepartmentMetrics({});
   const canonicalCandidates = await new TeamInvitationsRepository(
     new TeamHistoryRepository(),
     prisma,
@@ -196,39 +196,22 @@ it('preserves canonical and legacy fallback projections across all three consume
   const posts = await board.findByProgramId(programId, 1, 20);
   const detail = await board.findDetailById(postId);
 
-  expect(students).toEqual(
-    expect.arrayContaining([
-      {
-        id: canonicalUserId,
-        githubId: 9_690_000_001n,
-        githubLogin: 'canonical-login',
-        name: 'canonical-person',
-        department: 'canonical-department',
-      },
-      {
-        id: legacyUserId,
-        githubId: 9_690_000_002n,
-        githubLogin: 'legacy-login',
-        name: 'legacy-only-person',
-        department: 'legacy-only-department',
-      },
-    ]),
+  expect(departments.map((row) => row.department)).toEqual(
+    expect.arrayContaining(['canonical-department', 'legacy-only-department']),
   );
-  expect(canonicalCandidates).toEqual([
+  expect(canonicalCandidates.items).toEqual([
     {
       id: canonicalUserId,
       nickname: 'canonical-login',
       name: 'canonical-person',
-      avatarUrl: null,
     },
   ]);
-  expect(staleLegacyCandidates).toEqual([]);
-  expect(legacyCandidates).toEqual([
+  expect(staleLegacyCandidates).toEqual({ items: [], hasMore: false });
+  expect(legacyCandidates.items).toEqual([
     {
       id: legacyUserId,
       nickname: 'legacy-login',
       name: 'legacy-only-person',
-      avatarUrl: null,
     },
   ]);
   expect(posts.items).toEqual([

@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
-import { programDocumentsHref } from '@/lib/program-route';
 import type {
   DashboardApplicationStatus,
   DashboardFeedbackItem,
@@ -115,20 +114,13 @@ function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 function hasItemCounts(value: Record<string, unknown>): boolean {
-  const { requiredItemCount, remainingItemCount } = value;
-  if (requiredItemCount === undefined && remainingItemCount === undefined) {
-    return true;
-  }
   return (
-    isCount(requiredItemCount) &&
-    isCount(remainingItemCount) &&
-    remainingItemCount <= requiredItemCount
+    value.remainingItemCount === undefined || isCount(value.remainingItemCount)
   );
 }
 function isMilestone(value: unknown): value is DashboardMilestone {
   if (!isRecord(value)) return false;
   return (
-    isNonEmptyString(value.id) &&
     isNonEmptyString(value.name) &&
     isNonEmptyString(value.dueAt) &&
     !Number.isNaN(Date.parse(value.dueAt)) &&
@@ -192,9 +184,20 @@ export async function fetchStudentDashboard(): Promise<StudentDashboard> {
 function isDateString(value: unknown): value is string {
   return isNonEmptyString(value) && !Number.isNaN(Date.parse(value));
 }
+const FEEDBACK_HREF =
+  /^\/programs\/([^/?#]+)\/documents\?milestoneId=([^&#]+)$/;
+function isFeedbackHref(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const match = FEEDBACK_HREF.exec(value);
+  if (match === null) return false;
+  try {
+    return isSafePathSegment(decodeURIComponent(match[1] ?? ''));
+  } catch {
+    return false;
+  }
+}
 function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
   if (!isRecord(value)) return false;
-  const { programId, milestoneId } = value;
   return (
     isNonEmptyString(value.id) &&
     (value.decision === 'APPROVED' ||
@@ -203,26 +206,32 @@ function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
     (value.comment === null || typeof value.comment === 'string') &&
     isDateString(value.reviewedAt) &&
     isNonEmptyString(value.teamId) &&
-    isNonEmptyString(programId) &&
-    isSafePathSegment(programId) &&
-    isNonEmptyString(milestoneId) &&
     isNonEmptyString(value.milestoneName) &&
     isNonEmptyString(value.itemName) &&
-    value.href === programDocumentsHref(programId, milestoneId)
+    isFeedbackHref(value.href)
   );
 }
-export async function fetchStudentFeedback(): Promise<
-  readonly DashboardFeedbackItem[]
-> {
-  const response = await apiClient<unknown>('dashboard/student/feedback');
+export interface StudentFeedbackPage {
+  readonly items: readonly DashboardFeedbackItem[];
+  readonly nextCursor: string | null;
+}
+export async function fetchStudentFeedback(
+  cursor?: string,
+): Promise<StudentFeedbackPage> {
+  const response = await apiClient<unknown>(
+    cursor === undefined
+      ? 'dashboard/student/feedback'
+      : `dashboard/student/feedback?${new URLSearchParams({ cursor }).toString()}`,
+  );
   if (
     !isRecord(response) ||
     !Array.isArray(response.items) ||
-    !response.items.every(isFeedbackItem)
+    !response.items.every(isFeedbackItem) ||
+    (response.nextCursor !== null && !isNonEmptyString(response.nextCursor))
   ) {
     throw new Error('최근 피드백 응답 형식이 올바르지 않습니다.');
   }
-  return response.items;
+  return { items: response.items, nextCursor: response.nextCursor };
 }
 function isApplicationDecisionNotice(
   value: unknown,
@@ -230,7 +239,6 @@ function isApplicationDecisionNotice(
   if (!isRecord(value)) return false;
   return (
     isNonEmptyString(value.id) &&
-    isNonEmptyString(value.teamId) &&
     isNonEmptyString(value.programId) &&
     isSafePathSegment(value.programId) &&
     isNonEmptyString(value.programName) &&
@@ -248,12 +256,14 @@ export async function fetchUnreadApplicationDecisionNotices(): Promise<
     'users/me/notifications/team-decisions',
   );
   if (
-    !Array.isArray(response) ||
-    !response.every(isApplicationDecisionNotice)
+    !isRecord(response) ||
+    typeof response.hasMore !== 'boolean' ||
+    !Array.isArray(response.items) ||
+    !response.items.every(isApplicationDecisionNotice)
   ) {
     throw new Error('신청 승인 알림 응답 형식이 올바르지 않습니다.');
   }
-  return response;
+  return response.items;
 }
 export async function markApplicationDecisionNoticeRead(
   notificationId: string,

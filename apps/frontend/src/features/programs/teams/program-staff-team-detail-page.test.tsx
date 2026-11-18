@@ -157,7 +157,6 @@ const teamActivity: TeamActivity = {
 };
 
 const withApplication: StaffTeamDetail = {
-  teamId: 'team-1',
   name: '오픈소스팀',
   memberCount: 2,
   members: [
@@ -165,15 +164,11 @@ const withApplication: StaffTeamDetail = {
     { userId: 'user-b', name: null, nickname: 'login-b', isLeader: false },
   ],
   application: {
-    id: 'app-1',
     status: 'SUBMITTED',
     repositoryConnectionMode: 'NEW',
     repository: null,
     repositoryProvisioning: {
-      enabled: true,
       jobStatus: 'NOT_REQUESTED',
-      updatedAt: '2026-08-01T00:00:00.000Z',
-      safeErrorClass: null,
     },
   },
   deletionScope: {
@@ -188,7 +183,6 @@ const withApplication: StaffTeamDetail = {
 };
 
 const withoutApplication: StaffTeamDetail = {
-  teamId: 'team-2',
   name: '무신청팀',
   memberCount: 1,
   members: [

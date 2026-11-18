@@ -113,16 +113,19 @@ describe('ApplicationDecisionNotificationsService', () => {
     };
     const service = new ApplicationDecisionNotificationsService(repository);
 
-    await expect(service.listUnread(42n)).resolves.toEqual([
-      {
-        id: 'notification-1',
-        teamId: 'application-1',
-        programId: 'program-1',
-        programName: '합성 프로그램',
-        decision,
-        decidedAt: new Date('2026-08-08T23:59:00.000Z'),
-      },
-    ]);
+    await expect(service.listUnread(42n)).resolves.toEqual({
+      items: [
+        {
+          id: 'notification-1',
+          teamId: 'application-1',
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          decision,
+          decidedAt: new Date('2026-08-08T23:59:00.000Z'),
+        },
+      ],
+      hasMore: false,
+    });
   });
 
   it('marks a notification read only through the current-user repository scope', async () => {

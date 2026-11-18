@@ -3,7 +3,6 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import {
   AdminAccessResponseError,
   fetchAdminAccessDetail,
-  fetchAdminAccessFacets,
   fetchAdminAccessHistory,
   fetchAdminAccessList,
   fetchAdminAccessRequests,
@@ -25,9 +24,7 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 const facets = () => ({
-  roles: { unassigned: 0, student: 1, staff: 0, admin: 1 },
-  accountStatuses: { active: 2, deactivated: 0 },
-  pendingRequests: { none: 2, pending: 0 },
+  pendingRequests: { pending: 0 },
 });
 
 const listItem = () => ({
@@ -81,8 +78,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
     it('목록 조회는 users/access에 직렬화된 query를 붙인다', async () => {
       vi.mocked(apiClient).mockResolvedValue({
         items: [listItem()],
-        page: 1,
-        limit: 20,
         total: 1,
         facets: facets(),
       });
@@ -98,8 +93,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
     it('가입 신청 목록은 users/access/requests를 호출하고 pendingRequest를 빼낸다', async () => {
       vi.mocked(apiClient).mockResolvedValue({
         items: [listItem()],
-        page: 1,
-        limit: 20,
         total: 1,
         facets: facets(),
       });
@@ -120,8 +113,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
     it('쿼리가 없으면 users/access를 그대로 호출한다', async () => {
       vi.mocked(apiClient).mockResolvedValue({
         items: [],
-        page: 1,
-        limit: 20,
         total: 0,
         facets: facets(),
       });
@@ -129,17 +120,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       await fetchAdminAccessList({});
 
       expect(apiClient).toHaveBeenCalledWith('users/access', undefined);
-    });
-
-    it('facets 조회는 users/access/facets에 같은 필터 query를 붙인다', async () => {
-      vi.mocked(apiClient).mockResolvedValue(facets());
-
-      await fetchAdminAccessFacets({ role: 'ADMIN' });
-
-      expect(apiClient).toHaveBeenCalledWith(
-        'users/access/facets?role=ADMIN',
-        undefined,
-      );
     });
 
     it('상세 조회는 대상 ID를 인코딩해 users/:id/access를 호출한다', async () => {
@@ -250,11 +230,9 @@ describe('관리자 접근 통합 API 클라이언트', () => {
   });
 
   describe('응답 가드 — 정상 형태를 수용한다', () => {
-    it('목록 페이지', () => {
+    it('목록 페이지 — 백엔드 응답 모양(page·limit 없음)', () => {
       const page = parseAdminAccessListPage({
         items: [listItem()],
-        page: 1,
-        limit: 20,
         total: 1,
         facets: facets(),
       });
@@ -406,8 +384,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       expect(() =>
         parseAdminAccessListPage({
           items: [listItem()],
-          page: 1,
-          limit: 20,
           total: 1,
         }),
       ).toThrow(AdminAccessResponseError);
@@ -417,8 +393,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       expect(() =>
         parseAdminAccessListPage({
           items: [{ ...listItem(), accountStatus: 'SUSPENDED' }],
-          page: 1,
-          limit: 20,
           total: 1,
           facets: facets(),
         }),
@@ -439,8 +413,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       expect(() =>
         parseAdminAccessListPage({
           items: [item],
-          page: 1,
-          limit: 20,
           total: 1,
           facets: facets(),
         }),

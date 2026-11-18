@@ -37,7 +37,6 @@ vi.mock('./components/submission-review-view', () => ({
 const CONTEXT: ReviewContext = {
   latestReviewId: null,
   requirementId: 'requirement-1',
-  submissionId: 'submission-existing',
   application: {
     id: 'application-personal',
     applicationMode: 'PERSONAL',
@@ -115,11 +114,7 @@ it.each(['review', 'publish'] as const)(
       reviewId: 'review-saved',
       submissionStatus: 'APPROVED',
     });
-    vi.mocked(publishRepository).mockResolvedValue({
-      repositoryId: 'repository-ready',
-      visibility: 'PUBLIC',
-      publishedAt: '2026-10-31T00:00:00.000Z',
-    });
+    vi.mocked(publishRepository).mockResolvedValue(undefined);
     if (writer === 'review') {
       await act(() =>
         Promise.resolve(currentProps().onDecisionChange('APPROVED')),
@@ -180,15 +175,7 @@ it('ignores an earlier refresh and blocks focus refresh while publishing', async
     ),
   );
   expect(currentProps().context.currentRevision.number).toBe(2);
-  await act(() =>
-    Promise.resolve(
-      publication.resolve({
-        repositoryId: 'repository-ready',
-        visibility: 'PUBLIC',
-        publishedAt: '2026-10-31T00:00:00.000Z',
-      }),
-    ),
-  );
+  await act(() => Promise.resolve(publication.resolve(undefined)));
   expect(getReviewContext).toHaveBeenCalledTimes(3);
 });
 

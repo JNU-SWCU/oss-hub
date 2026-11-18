@@ -50,7 +50,7 @@ const PROJECT_ROW_SELECT = {
           name: true,
           leaderId: true,
           _count: { select: { members: true } },
-          members: { select: { userId: true } },
+          members: { take: 101, select: { userId: true } },
           program: { select: { name: true, trackType: true, lifecycle: true } },
           applicant: { select: { nickname: true } },
         },
@@ -245,6 +245,7 @@ describe('PublicProjectsRepository', () => {
       await repository.listForUser('synthetic-user-1');
 
       expect(findMany).toHaveBeenCalledWith({
+        take: 101,
         where: {
           visibility: 'PUBLIC',
           publishedAt: { not: null },

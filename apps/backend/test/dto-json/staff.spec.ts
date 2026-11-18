@@ -34,9 +34,7 @@ import {
 const at = (iso: string): Date => new Date(iso);
 
 const facets: AdminAccessFacets = {
-  roles: { unassigned: 1, student: 2, staff: 3, admin: 4 },
-  accountStatuses: { active: 9, deactivated: 1 },
-  pendingRequests: { none: 8, pending: 2 },
+  pendingRequests: { pending: 2 },
 };
 
 const user: AdminAccessUser = {
@@ -63,7 +61,6 @@ const user: AdminAccessUser = {
 
 const detail: AdminAccessUserDetail = {
   ...user,
-  adminGrant: null,
   memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -136,10 +133,8 @@ const program: StaffDashboardComposedProgramSummary = {
     endsAt: at('2026-01-31T00:00:00.000Z'),
   },
   endAt: at('2026-06-30T00:00:00.000Z'),
-  teamManagementPath: '/programs/program-1/teams',
   applications: {
     total: 10,
-    submitted: 4,
     pendingApproval: 4,
     approved: 5,
     rejected: 1,
@@ -153,7 +148,6 @@ const program: StaffDashboardComposedProgramSummary = {
     dataAsOf: null,
   },
   submissions: {
-    approvedApplications: 5,
     milestones: 2,
     total: 10,
     notSubmitted: 3,
@@ -167,11 +161,6 @@ const program: StaffDashboardComposedProgramSummary = {
 const metrics: StaffInsightsMetrics = {
   studentCount: 10,
   activeStudentCount: 8,
-  commitCount: 100,
-  pullRequestCount: 20,
-  issueCount: 5,
-  repositoryCount: 4,
-  starCount: 9,
   total: 138,
   participantCount: 7,
 };
@@ -208,7 +197,6 @@ const insights: StaffInsightsSummary = {
       dueRequirementCount: 4,
       submittedRequirementCount: 3,
       completionRate: 75,
-      contributionCount: 40,
       activeTeamCount: 1,
       repoTeamCount: 2,
       contributionsPerParticipant: 6.7,
@@ -294,6 +282,11 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'StaffDashboardSummaryResponseDto',
     () =>
       StaffDashboardSummaryResponseDto.from({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        catalogTotal: 1,
+        statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
         programs: [
           program,
           {

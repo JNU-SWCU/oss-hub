@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PROGRAM_END_AT_UNDECIDED } from '../authoring/program-end-at';
 import { getProgramRecruitmentState } from '../catalog/program-list';
-import { filterStaffDashboardPrograms } from './staff-dashboard-filters';
 import { getStaffRecruitmentBadge } from './staff-dashboard-format';
-import { buildStaffDashboardPageModel } from './staff-dashboard-page-model';
-import {
-  getStaffProgramRecruitmentState,
-  summarizeStaffDashboardStatuses,
-} from './staff-dashboard-status';
+import { getStaffProgramRecruitmentState } from './staff-dashboard-status';
 import {
   staffDashboardNow as now,
   staffDashboardProgram,
@@ -51,28 +46,15 @@ const recruitingProgram = staffDashboardProgram({
 
 const allPrograms = [endedProgram, undecidedEndProgram, recruitingProgram];
 
-function idsOf(status: 'ended' | 'in_progress' | 'recruiting'): string[] {
-  return filterStaffDashboardPrograms(allPrograms, '', status, now).map(
-    (program) => program.id,
-  );
-}
-
 describe('교직원 대시보드 모집 상태', () => {
   it('종료일이 지난 프로그램을 「종료」 배지로 표시한다', () => {
     expect(getStaffRecruitmentBadge(endedProgram, now).label).toBe('종료');
-  });
-
-  it('「종료」 필터가 종료된 프로그램을 돌려주고 「진행중」에서는 빼놓는다', () => {
-    expect(idsOf('ended')).toEqual(['program:ended']);
-    expect(idsOf('in_progress')).toEqual(['program:undecided-end']);
-    expect(idsOf('recruiting')).toEqual(['program:recruiting']);
   });
 
   it('종료일이 미정이고 신청기간만 지난 프로그램은 「진행중」으로 남는다', () => {
     expect(getStaffRecruitmentBadge(undecidedEndProgram, now).label).toBe(
       '진행중',
     );
-    expect(idsOf('ended')).not.toContain('program:undecided-end');
   });
 
   it('같은 프로그램에 공개 목록과 같은 판정을 내린다', () => {
@@ -85,7 +67,6 @@ describe('교직원 대시보드 모집 상태', () => {
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,
         endAt: program.endAt,
-        description: '',
       };
       const expected = {
         upcoming: '접수대기',
@@ -97,50 +78,9 @@ describe('교직원 대시보드 모집 상태', () => {
     }
   });
 
-  it('상태 요약은 모집중·진행중·종료 세 칸만 센다', () => {
-    const model = buildStaffDashboardPageModel({
-      programs: allPrograms,
-      search: '',
-      status: 'all',
-      page: 1,
-      now,
-    });
-
-    expect(model.statusSummary).toEqual({
-      recruiting: 1,
-      inProgress: 1,
-      ended: 1,
-    });
-  });
-
-  it('종료일이 남은 프로그램은 날짜로만 판정해 「종료」에 세지 않는다', () => {
+  it('종료일이 남은 프로그램은 날짜로만 판정해 「진행중」으로 본다', () => {
     expect(getStaffProgramRecruitmentState(futureEndProgram, now)).toBe(
       'in_progress',
     );
-
-    const programs = [recruitingProgram, futureEndProgram, endedProgram];
-    const summary = summarizeStaffDashboardStatuses(programs, now);
-
-    expect(summary).toEqual({
-      recruiting: 1,
-      inProgress: 1,
-      ended: 1,
-    });
-    expect(summary.recruiting + summary.inProgress + summary.ended).toBe(
-      programs.length,
-    );
-  });
-
-  it('상태 요약은 필터가 걸려도 전체 프로그램을 센다', () => {
-    const model = buildStaffDashboardPageModel({
-      programs: allPrograms,
-      search: '',
-      status: 'ended',
-      page: 1,
-      now,
-    });
-
-    expect(model.filteredPrograms).toHaveLength(1);
-    expect(model.statusSummary.recruiting).toBe(1);
   });
 });

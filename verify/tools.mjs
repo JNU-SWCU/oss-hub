@@ -30,7 +30,6 @@ export const RULE_SOURCES = {
   'api-breaking':
     'https://github.com/oasdiff/oasdiff/blob/main/docs/BREAKING-CHANGES.md',
   'api-baseline-stale': VERIFY_ISSUE,
-  'allowlist-growth': VERIFY_ISSUE,
   'api-break-unapproved': VERIFY_ISSUE,
   'api-route-reconciliation': VERIFY_ISSUE,
   'api-route-unresolved': VERIFY_ISSUE,
@@ -38,7 +37,6 @@ export const RULE_SOURCES = {
     'https://developers.google.com/search/docs/crawling-indexing/links-crawlable',
   'url-ia-duplicate-screen':
     'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
-  'url-ia-allowlist-stale': URL_RULES_ISSUE,
   'query-lint': QUERY_ISSUE,
   'query-growth': QUERY_ISSUE,
   'cwv-run-failed':

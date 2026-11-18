@@ -7,8 +7,7 @@ import { controllerExplicitReturn } from './eslint-rules/controller-explicit-ret
 import { fileClassMatch } from './eslint-rules/file-class-match.mjs';
 import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
 import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
-import { noAwaitInLoop } from './eslint-rules/no-await-in-loop.mjs';
-import { awaitInLoopAllowlist } from './eslint-rules/no-await-in-loop.allowlist.mjs';
+import { queryRuleBlocks } from './eslint-rules/query-rules.config.mjs';
 import { noPassthroughFactory } from './eslint-rules/no-passthrough-factory.mjs';
 import {
   bootstrapFiles,
@@ -129,12 +128,7 @@ export default tseslint.config(
     plugins: { auth: { rules: { 'no-session-guard': noSessionGuard } } },
     rules: { 'auth/no-session-guard': 'error' },
   },
-  {
-    files: ['src/**/*.ts'],
-    ignores: testFiles,
-    plugins: { loops: { rules: { 'no-await-in-loop': noAwaitInLoop } } },
-    rules: { 'loops/no-await-in-loop': ['error', awaitInLoopAllowlist] },
-  },
+  ...queryRuleBlocks,
   {
     files: ['src/*/*.controller.ts'],
     rules: { 'conventions/controller-explicit-return': 'error' },

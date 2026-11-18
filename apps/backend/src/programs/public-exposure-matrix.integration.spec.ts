@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
@@ -507,6 +508,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         [],
         (
           await prisma.team.findMany({
+            take: TEST_READ_LIMIT,
             where: { id: { startsWith: `${PREFIX}-` } },
             select: { id: true },
           })
@@ -848,21 +850,28 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       description: null,
     });
     const publishedAt = new Date('2026-05-20T00:00:00.000Z');
-    const first = await submissionReviewsService.publishRepository(
+    await submissionReviewsService.publishRepository(
       outcome8.repositoryId,
       REVIEWER_GITHUB_ID,
       publishedAt,
     );
-    const second = await submissionReviewsService.publishRepository(
+    await submissionReviewsService.publishRepository(
       outcome8.repositoryId,
       REVIEWER_GITHUB_ID,
       new Date('2026-05-21T00:00:00.000Z'),
     );
-    expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
-    expect(second.visibility).toBe(RepositoryVisibility.PUBLIC);
-    expect(second.publishedAt).toEqual(first.publishedAt);
+    await expect(
+      prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: BigInt(outcome8.repositoryId) },
+        select: { visibility: true, publishedAt: true },
+      }),
+    ).resolves.toEqual({
+      visibility: RepositoryVisibility.PUBLIC,
+      publishedAt,
+    });
     expect(github.publishRepository).toHaveBeenCalledTimes(1);
     const historyRows = await prisma.teamHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
         data: { path: ['targetId'], equals: outcome8.repositoryId },

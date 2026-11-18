@@ -124,18 +124,14 @@ const team: ProgramTeam = {
 
 const application: StudentApplication = {
   id: 'application-1',
-  programId: 'program-1',
   status: 'SUBMITTED',
   teamId: 'team-1',
   answers: { applicantName: '합성 학생', title: '합성 신청서' },
   submittedAt: '2026-01-02T00:00:00Z',
-  updatedAt: '2026-01-02T00:00:00Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: null,
   isManager: true,
   canManage: true,
-  canEdit: true,
-  canCancel: true,
 };
 
 const activity: TeamActivity = {
@@ -167,6 +163,7 @@ function invitationStub(
     sentLoading: false,
     inviteQuery: '',
     inviteCandidates: [],
+    moreCandidates: false,
     searching: false,
     searchError: null,
     invitingUserId: null,
@@ -373,8 +370,6 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       ...application,
       isManager: false,
       canManage: false,
-      canEdit: false,
-      canCancel: false,
     });
     await renderPage({ nickname: 'synthetic-member' });
     expect(headerBadge()?.textContent).toBe('신청');

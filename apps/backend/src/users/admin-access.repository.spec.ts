@@ -98,7 +98,9 @@ describe('administrator actor projection and locks', () => {
     });
     expect(await repository(prisma).lockActiveAdminRows(prisma)).toBe(1);
     expect(queries[0]?.sql).toContain('JOIN "Admin" a');
-    expect(queries[0]?.sql).toContain('ORDER BY u."id" FOR UPDATE OF u, a');
+    expect(queries[0]?.sql).toContain(
+      'ORDER BY u."id" LIMIT ? FOR UPDATE OF u, a',
+    );
     expect(count).toHaveBeenCalledWith({
       where: { user: { accountStatus: AccountStatus.ACTIVE } },
     });
@@ -147,11 +149,7 @@ it('builds paged user output and search-scoped facets from current approval pred
     page: 1,
     limit: 1,
     total: 1,
-    facets: {
-      roles: { unassigned: 1, student: 1, staff: 0, admin: 1 },
-      accountStatuses: { active: 2, deactivated: 1 },
-      pendingRequests: { none: 2, pending: 1 },
-    },
+    facets: { pendingRequests: { pending: 1 } },
   });
   const where = {
     AND: [
@@ -190,31 +188,14 @@ it('builds paged user output and search-scoped facets from current approval pred
     }),
   );
   expect(count).toHaveBeenNthCalledWith(1, { where });
-  expect(count).toHaveBeenCalledTimes(9);
+  expect(count).toHaveBeenCalledTimes(2);
   expect(queryRaw).toHaveBeenCalledWith(
     expect.objectContaining({
       values: ['%synthetic%', '%synthetic%', 'ACTIVE', 1, 0],
     }),
   );
 });
-it('folds request transitions to one row per request before stable pagination and keeps login history bounded', async () => {
-  const request = (
-    id: string,
-    createdAt: string,
-    status: 'PENDING' | 'REJECTED',
-  ) => ({
-    schemaVersion: 1,
-    recordKind: 'REQUEST_TRANSITION',
-    request: {
-      id,
-      userId: 'target',
-      status,
-      createdAt,
-      decidedAt: status === 'REJECTED' ? '2026-03-01T00:00:00.000Z' : null,
-      decidedById: status === 'REJECTED' ? 'actor' : null,
-      rejectionReason: status === 'REJECTED' ? 'Reason' : null,
-    },
-  });
+it('maps the SQL request page with decider names and keeps login history bounded', async () => {
   const loginFindMany = jest
     .fn()
     .mockResolvedValue([
@@ -227,22 +208,22 @@ it('folds request transitions to one row per request before stable pagination an
         .fn()
         .mockResolvedValue([{ id: 'actor', nickname: 'synthetic-admin' }]),
     },
-    userHistory: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          event: 'APPROVAL_REQUESTED',
-          data: request('request-1', '2026-01-01T00:00:00.000Z', 'PENDING'),
-        },
-        {
-          event: 'APPROVAL_REQUESTED',
-          data: request('request-2', '2026-02-01T00:00:00.000Z', 'PENDING'),
-        },
-        {
-          event: 'REJECTED',
-          data: request('request-1', '2026-01-01T00:00:00.000Z', 'REJECTED'),
-        },
-      ]),
-    },
+    $queryRaw: jest.fn((strings: TemplateStringsArray) =>
+      Promise.resolve(
+        strings.join('').includes('COUNT(*)')
+          ? [{ total: 2 }]
+          : [
+              {
+                id: 'request-1',
+                status: 'REJECTED',
+                createdAt: at,
+                decidedAt: new Date('2026-03-01'),
+                decidedById: 'actor',
+                rejectionReason: 'Reason',
+              },
+            ],
+      ),
+    ),
     loginHistory: {
       findMany: loginFindMany,
       count: jest.fn().mockResolvedValue(2),

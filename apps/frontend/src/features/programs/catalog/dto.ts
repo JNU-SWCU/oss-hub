@@ -22,11 +22,8 @@ export interface ProgramListItem {
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly endAt: string | null;
-  readonly description: string;
   readonly note?: ProgramListItemNote;
   readonly viewerApplicationStatus?: ApplicationStatus;
-  readonly applicationCount?: number;
-  readonly pendingApplicationCount?: number;
 }
 export interface ProgramListParams {
   readonly page: number;
@@ -39,9 +36,6 @@ export interface ProgramListParams {
 }
 export interface ProgramListPage {
   readonly items: readonly ProgramListItem[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
   readonly totalPages: number;
 }
 export type ProgramStatusCounts = Readonly<Record<ProgramListStatus, number>>;

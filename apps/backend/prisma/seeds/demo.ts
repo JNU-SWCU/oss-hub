@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../../src/platform/bounded-read.repository';
 import {
   ApplicationStatus,
   BoardPostCategory,
@@ -1293,10 +1294,18 @@ export async function teardownDemo(
       stats.updated(model);
     }
   };
-  const demoSubmissionFiles = await prisma.file.findMany({
-    where: seedIdFilter,
-    select: { storageKey: true },
-  });
+  const demoSubmissionFiles =
+    await new BoundedReadRepository().readAllInBatches(
+      (after: string | undefined, take) =>
+        prisma.file.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: seedIdFilter,
+          orderBy: { id: 'asc' },
+          select: { id: true, storageKey: true },
+        }),
+      (file) => file.id,
+    );
   await countAndDelete('SubmissionFile', () =>
     prisma.file.deleteMany({ where: seedIdFilter }),
   );

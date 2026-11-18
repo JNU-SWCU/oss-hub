@@ -9,7 +9,6 @@ export const USER_PROFILE_SELECT = {
 } as const;
 
 export const USER_PROFILE_NAME_SELECT = { name: true } as const;
-export const USER_PROFILE_DEPARTMENT_SELECT = { department: true } as const;
 
 export const USER_AUTHORITY_SELECT = {
   ...USER_PROFILE_SELECT,

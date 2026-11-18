@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { randomUUID } from 'node:crypto';
 import type { PrismaService } from '../platform/prisma.service';
 import type { RequestSnapshot } from './user-history.types';
@@ -63,6 +64,7 @@ export async function writeApprovalFixture(
 
 export async function requestHistory(prisma: PrismaService, userId?: string) {
   const rows = await prisma.userHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: { userId },
     orderBy: [{ occurredAt: 'asc' }, { recordedAt: 'asc' }, { id: 'asc' }],
   });
@@ -137,6 +139,7 @@ export async function userAuditRows(
   },
 ) {
   const rows = await prisma.userHistory.findMany({
+    take: TEST_READ_LIMIT,
     where: {
       ...(filter.userId === undefined ? {} : { userId: filter.userId }),
       ...(filter.actorId === undefined ? {} : { actorId: filter.actorId }),

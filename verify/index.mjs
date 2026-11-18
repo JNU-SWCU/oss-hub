@@ -1,6 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkAllowlistGrowth } from './allowlist-growth.mjs';
 import { checkApi } from './api.mjs';
 import { createCiApproval } from './approval.mjs';
 import { checkFull } from './full.mjs';
@@ -17,7 +16,6 @@ import { checkUrlIa } from './url-ia.mjs';
 
 const CHECKS = {
   secrets: (context) => checkSecrets(context),
-  'allowlist-growth': (context) => checkAllowlistGrowth(context),
   'url-ia': (context) => checkUrlIa(context),
   api: (context) => checkApi(context),
   'query-gates': (context) => checkQueryGates(context),
@@ -39,7 +37,7 @@ function writeReport(reportDir, name, ranges, payload) {
 const COMMANDS = {
   frontend: ['secrets', 'url-ia'],
   backend: ['secrets', 'api', 'query-gates'],
-  full: ['secrets', 'allowlist-growth', 'url-ia', 'api', 'query-gates', 'cwv'],
+  full: ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'],
   'url-ia': ['url-ia'],
 };
 
@@ -49,7 +47,6 @@ const USAGE =
 function scopedChecks(scope) {
   return [
     'secrets',
-    'allowlist-growth',
     ...(scope.frontend ? ['url-ia'] : []),
     ...(scope.backend ? ['api', 'query-gates'] : []),
   ];

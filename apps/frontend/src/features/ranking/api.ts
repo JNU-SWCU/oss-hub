@@ -144,10 +144,6 @@ function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
   return {
     rank: value.rank,
     previousRank: readPreviousRank(value.previousRank),
-    displayName:
-      typeof value.displayName === 'string'
-        ? value.displayName
-        : value.githubLogin,
     githubLogin: value.githubLogin,
     department: readOptionalDepartment(value.department),
     commitCount,
@@ -326,10 +322,13 @@ export function parseRankingTimeline(value: unknown): RankingTimeline {
 
 export async function getRankingTimeline(
   year: number,
+  viewerGithubLogin: string | null,
   signal?: AbortSignal,
 ): Promise<RankingTimeline> {
+  const search = new URLSearchParams({ year: String(year) });
+  if (viewerGithubLogin !== null) search.set('viewer', viewerGithubLogin);
   const response = await apiClient<unknown>(
-    `ranking/timeline?year=${String(year)}`,
+    `ranking/timeline?${search.toString()}`,
     signal ? { signal } : undefined,
   );
   return parseRankingTimeline(response);

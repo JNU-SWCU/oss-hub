@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AccountStatus } from '@prisma/client';
@@ -144,6 +145,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
 
   const seededRows = async () => {
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         githubId: { in: SEEDED_GITHUB_IDS },
         visibility: 'PUBLIC',
@@ -281,6 +283,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     await repository.upsertPrivateObservation(privateObservation);
 
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: { githubId: ALPHA_GITHUB_ID, year: CURRENT_YEAR },
     });
     expect(rows).toHaveLength(2);
@@ -325,6 +328,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     await buildService().run();
 
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: { githubId: ALPHA_GITHUB_ID, year: CURRENT_YEAR },
     });
     expect(rows).toHaveLength(2);
@@ -359,6 +363,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     });
 
     const rows = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: { githubId: ALPHA_GITHUB_ID, visibility: 'PRIVATE' },
       orderBy: { observedAt: 'asc' },
     });
@@ -483,6 +488,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     const foreignPublicLedgerIds = new Set(
       (
         await prisma.githubUserActivityObservation.findMany({
+          take: TEST_READ_LIMIT,
           where: {
             year: PAST_YEAR,
             visibility: 'PUBLIC',
@@ -494,6 +500,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
     const foreignSkippedCount = (
       await prisma.user.findMany({
+        take: TEST_READ_LIMIT,
         where: {
           accountStatus: AccountStatus.ACTIVE,
           githubId: { notIn: SEEDED_GITHUB_IDS },
@@ -519,6 +526,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     ]);
 
     const alphaLedger = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         githubId: ALPHA_GITHUB_ID,
         year: PAST_YEAR,
@@ -537,6 +545,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     ]);
 
     const bravoLedger = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         githubId: BRAVO_GITHUB_ID,
         year: PAST_YEAR,
@@ -551,6 +560,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     ]);
 
     const charliePrivate = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         githubId: CHARLIE_GITHUB_ID,
         year: PAST_YEAR,
@@ -558,6 +568,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       },
     });
     const charliePublic = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         githubId: CHARLIE_GITHUB_ID,
         year: PAST_YEAR,
@@ -578,6 +589,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     ]);
 
     const deltaLedger = await prisma.githubUserActivityObservation.findMany({
+      take: TEST_READ_LIMIT,
       where: {
         githubId: DELTA_GITHUB_ID,
         year: PAST_YEAR,

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   ApplicationStatus,
   PrismaClient,
@@ -191,6 +192,7 @@ describe('PublicProjectsRepository integration', () => {
         [],
         (
           await prisma.team.findMany({
+            take: TEST_READ_LIMIT,
             where: { programId: PROGRAM_ID },
             select: { id: true },
           })

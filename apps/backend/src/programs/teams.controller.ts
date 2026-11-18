@@ -13,7 +13,6 @@ import {
   Delete,
   Header,
 } from '@nestjs/common';
-import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import {
@@ -22,11 +21,7 @@ import {
   ProgramTemplatesService,
   StudentRepositoryUrlService,
 } from './team-application.service';
-import { ApplicationDecisionResponseDto } from './dto/application-decision-response.dto';
-import {
-  ApplicationDetailResponseDto,
-  ApplicationListPageResponseDto,
-} from './dto/application-list-page-response.dto';
+import { ApplicationDetailResponseDto } from './dto/application-detail-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 import { Protected, Public } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
@@ -101,6 +96,7 @@ export class ApplicationsController {
   }
 
   @Patch(':id')
+  @HttpCode(204)
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
@@ -108,9 +104,8 @@ export class ApplicationsController {
     @Req() request: ApplicationActorRequest,
     @Param('id') teamId: string,
     @Body() body: PatchApplicationDecisionRequestDto,
-  ): Promise<ApplicationDecisionResponseDto> {
-    const result = await this.service.decide(request.principal, teamId, body);
-    return ApplicationDecisionResponseDto.from(result);
+  ): Promise<void> {
+    await this.service.decide(request.principal, teamId, body);
   }
 }
 
@@ -122,35 +117,20 @@ export class ProgramApplicationsController {
     @Inject(TeamApplicationService)
     private readonly service: Pick<
       TeamApplicationService,
-      'createFromRequest' | 'listForProgramView'
+      'createFromRequest' | 'listTeamManagementForProgram'
     >,
   ) {}
 
   @Get()
   @Protected()
   @Roles(STAFF_AUDIENCE, staffListOnly)
-  @ApiExtraModels(
-    ApplicationListPageResponseDto,
-    TeamManagementListPageResponseDto,
-  )
-  @ApiOkResponse({
-    schema: {
-      oneOf: [
-        { $ref: getSchemaPath(ApplicationListPageResponseDto) },
-        { $ref: getSchemaPath(TeamManagementListPageResponseDto) },
-      ],
-    },
-  })
   async list(
     @Param('programId') programId: string,
     @Query() query: ApplicationListRequestDto,
-  ): Promise<
-    ApplicationListPageResponseDto | TeamManagementListPageResponseDto
-  > {
-    const listed = await this.service.listForProgramView(programId, query);
-    return listed.view === 'team-management'
-      ? TeamManagementListPageResponseDto.from(listed.page)
-      : ApplicationListPageResponseDto.from(listed.page);
+  ): Promise<TeamManagementListPageResponseDto> {
+    return TeamManagementListPageResponseDto.from(
+      await this.service.listTeamManagementForProgram(programId, query),
+    );
   }
 
   @Post()

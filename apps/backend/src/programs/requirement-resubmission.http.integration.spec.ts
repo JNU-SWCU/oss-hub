@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { RequirementsErrorCode } from './submissions.error';
 import {
@@ -51,6 +52,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
 
     expect(response.status).toBe(201);
     const events = await fixture.prisma.submissionHistory.findMany({
+      take: TEST_READ_LIMIT,
       where: { submission: { requirementId: flowIds.document } },
       orderBy: { createdAt: 'asc' },
       select: { event: true, revision: true },
@@ -146,6 +148,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         revision: true,
         status: true,
         histories: {
+          take: TEST_READ_LIMIT,
           orderBy: { revision: 'asc' },
           select: { id: true, event: true, revision: true, content: true },
         },

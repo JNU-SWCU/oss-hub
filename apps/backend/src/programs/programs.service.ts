@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import {
   Injectable,
   Inject,
@@ -98,7 +99,6 @@ export interface PersonalizedProgramListItem extends ProgramListRecord {
   readonly note?: ProgramListItemNote;
   readonly viewerApplicationStatus?: ApplicationStatus;
   readonly applicationCount?: number;
-  readonly pendingApplicationCount?: number;
 }
 export interface ProgramListPage {
   readonly items: readonly ProgramListPageItem[];
@@ -530,6 +530,8 @@ type ProgramAuthoringStore = Pick<
 >;
 @Injectable()
 export class ProgramAuthoringService {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     @Inject(ProgramAuthoringRepository)
     private readonly repository: ProgramAuthoringStore,
@@ -663,9 +665,9 @@ export class ProgramAuthoringService {
         programName: program.name,
       }),
     });
-    for (const milestone of plan.milestones) {
+    await this.sequential.forEach(plan.milestones, async (milestone) => {
       const milestoneId = await store.createMilestone(program.id, milestone);
-      for (const document of milestone.documents) {
+      await this.sequential.forEach(milestone.documents, async (document) => {
         const documentId = await store.createDocument(milestoneId, document);
         if (document.templateUploadId !== null) {
           const upload = uploads.find(
@@ -679,8 +681,8 @@ export class ProgramAuthoringService {
             upload,
           });
         }
-      }
-    }
+      });
+    });
     return program;
   }
   toCanonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {

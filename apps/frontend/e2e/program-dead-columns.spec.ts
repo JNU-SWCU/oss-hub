@@ -81,18 +81,14 @@ const team: ProgramTeam = {
 };
 const application: StudentApplication = {
   id: 'synthetic-application',
-  programId,
   status: 'SUBMITTED',
   teamId,
   answers: { applicantName: '합성 학생', title: '합성 프로젝트' },
   submittedAt: '2026-08-01T00:00:00Z',
-  updatedAt: '2026-08-01T00:00:00Z',
   isRepositoryPublicationPlanned: true,
   rejectionReason: null,
   isManager: true,
   canManage: true,
-  canEdit: true,
-  canCancel: true,
 };
 const activity: TeamActivity = {
   teamId: application.id,
@@ -161,20 +157,15 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await page.clock.setFixedTime(new Date('2026-08-15T00:00:00Z'));
     const detail: StaffTeamDetail = {
-      teamId,
       name: team.name,
       memberCount: team.memberCount,
       members: team.members,
       application: {
-        id: application.id,
         status: 'SUBMITTED',
         repositoryConnectionMode: 'NEW',
         repository: null,
         repositoryProvisioning: {
-          enabled: true,
           jobStatus: 'FAILED_RETRYABLE',
-          updatedAt: application.updatedAt,
-          safeErrorClass: 'UNKNOWN',
         },
       },
       deletionScope: {
@@ -188,26 +179,11 @@ for (const width of [1440, 390]) {
       },
     };
     const staffApplication: ApplicationDetail = {
-      ...application,
-      repositoryConnectionMode: 'NEW',
-      repositoryProvisioning: {
-        enabled: true,
-        jobStatus: 'FAILED_RETRYABLE',
-        updatedAt: application.updatedAt,
-        safeErrorClass: 'UNKNOWN',
-      },
-      participation: 'TEAM',
+      status: application.status,
+      rejectionReason: application.rejectionReason,
       applicant: {
-        id: 'synthetic-user',
         name: '합성 학생',
         nickname: 'synthetic-member-access',
-      },
-      team: { id: teamId, name: team.name, memberCount: 1 },
-      repository: null,
-      answers: {
-        applicantName: '합성 학생',
-        title: '합성 프로젝트',
-        summary: '',
       },
       reviewHistory: [],
     };

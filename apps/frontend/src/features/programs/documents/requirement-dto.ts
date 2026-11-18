@@ -39,7 +39,6 @@ export interface Requirement {
 export interface UploadedRequirementFile {
   readonly fileId: string;
   readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
 }

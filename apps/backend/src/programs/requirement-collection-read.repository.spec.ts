@@ -6,14 +6,13 @@ import { SubmissionsRepository } from './submissions.repository';
 
 describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
-    it('bounds routine review history reads to the latest 50 rows', () => {
+    it('orders review history newest first', () => {
       expect(
         new RequirementCollectionReadRepository(
           {} as PrismaService,
           new FileMetadataRepository(),
-        ).boundedReviewHistoryQuery,
+        ).reviewHistoryQuery,
       ).toMatchObject({
-        take: 50,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       });
     });

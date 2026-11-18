@@ -13,13 +13,11 @@ import type { IndependentAuthorityMutationResult } from '../../users/independent
 
 class PendingRequestResponseDto {
   declare readonly id: string;
-  declare readonly status: AdminAccessPendingRequest['status'];
   declare readonly createdAt: string;
 
   static from(request: AdminAccessPendingRequest): PendingRequestResponseDto {
     return {
       id: request.id,
-      status: request.status,
       createdAt: request.createdAt.toISOString(),
     };
   }
@@ -64,42 +62,25 @@ export class AdminAccessUserResponseDto {
 }
 
 export class AdminAccessFacetsResponseDto {
-  declare readonly roles: {
-    readonly unassigned: number;
-    readonly student: number;
-    readonly staff: number;
-    readonly admin: number;
-  };
-  declare readonly accountStatuses: {
-    readonly active: number;
-    readonly deactivated: number;
-  };
   declare readonly pendingRequests: {
-    readonly none: number;
     readonly pending: number;
   };
 
   static from(facets: AdminAccessFacets): AdminAccessFacetsResponseDto {
     return {
-      roles: facets.roles,
-      accountStatuses: facets.accountStatuses,
-      pendingRequests: facets.pendingRequests,
+      pendingRequests: { pending: facets.pendingRequests.pending },
     };
   }
 }
 
 export class AdminAccessUserPageResponseDto {
   declare readonly items: AdminAccessUserResponseDto[];
-  declare readonly page: number;
-  declare readonly limit: number;
   declare readonly total: number;
   declare readonly facets: AdminAccessFacetsResponseDto;
 
   static from(page: AdminAccessUserPage): AdminAccessUserPageResponseDto {
     return {
       items: page.items.map((user) => AdminAccessUserResponseDto.from(user)),
-      page: page.page,
-      limit: page.limit,
       total: page.total,
       facets: AdminAccessFacetsResponseDto.from(page.facets),
     };

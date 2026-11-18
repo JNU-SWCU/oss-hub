@@ -33,4 +33,8 @@ export class RankingRequestDto {
 export class RankingTimelineRequestDto {
   @Matches(RANKING_TIMELINE_YEAR_PATTERN)
   readonly year!: string;
+
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9-]{1,39}$/)
+  readonly viewer?: string;
 }

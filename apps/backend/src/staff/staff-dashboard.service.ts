@@ -3,21 +3,15 @@ import {
   ProgramActivitySummaryService,
   type ProgramActivitySummary,
 } from '../programs/program-activity-summary.service';
-import {
-  SubmissionDashboardSummaryService,
-  type SubmissionDashboardProgramSummary,
-} from '../programs/submission-matrix.service';
+import { SubmissionDashboardSummaryService } from '../programs/submission-matrix.service';
+import type { SubmissionDashboardProgramSummary } from '../programs/submissions.repository';
 import { TeamApplicationService } from '../programs/team-application.service';
 import type {
-  StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
+  StaffDashboardSummary,
+  StaffDashboardSummaryQuery,
 } from '../programs/team.repository';
 import { ProgramCoverUrlService } from '../programs/programs.service';
-
-export type StaffDashboardComposedApplicationCounts =
-  StaffDashboardApplicationCounts & {
-    readonly pendingApproval: number;
-  };
 
 export interface StaffDashboardActivitySummary {
   readonly repositories: number;
@@ -29,7 +23,6 @@ export interface StaffDashboardActivitySummary {
 }
 
 export interface StaffDashboardSubmissionSummary {
-  readonly approvedApplications: number;
   readonly milestones: number;
   readonly total: number;
   readonly notSubmitted: number;
@@ -39,19 +32,19 @@ export interface StaffDashboardSubmissionSummary {
   readonly rejected: number;
 }
 
-export type StaffDashboardComposedProgramSummary = Omit<
-  StaffDashboardProgramSummary,
-  'applications'
-> & {
-  readonly applications: StaffDashboardComposedApplicationCounts;
-  readonly activity: StaffDashboardActivitySummary;
-  readonly submissions: StaffDashboardSubmissionSummary;
-  readonly coverImageUrl: string | null;
-};
+export type StaffDashboardComposedProgramSummary =
+  StaffDashboardProgramSummary & {
+    readonly activity: StaffDashboardActivitySummary;
+    readonly submissions: StaffDashboardSubmissionSummary;
+    readonly coverImageUrl: string | null;
+  };
 
-export interface StaffDashboardComposedSummary {
+export type StaffDashboardComposedSummary = Omit<
+  StaffDashboardSummary,
+  'programs'
+> & {
   readonly programs: readonly StaffDashboardComposedProgramSummary[];
-}
+};
 
 @Injectable()
 export class StaffDashboardService {
@@ -71,8 +64,11 @@ export class StaffDashboardService {
     private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
 
-  async summary(): Promise<StaffDashboardComposedSummary> {
-    const base = await this.applications.staffSummary();
+  async summary(
+    query: Omit<StaffDashboardSummaryQuery, 'now'>,
+    now: Date = new Date(),
+  ): Promise<StaffDashboardComposedSummary> {
+    const base = await this.applications.staffSummary({ ...query, now });
     const programIds = base.programs.map((program) => program.id);
     const [activities, submissions] = await Promise.all([
       this.activities.summarize(programIds),
@@ -86,6 +82,7 @@ export class StaffDashboardService {
     );
 
     return {
+      ...base,
       programs: base.programs.map((program) => ({
         ...program,
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
@@ -93,10 +90,6 @@ export class StaffDashboardService {
           program.coverId,
           program.coverExternalImageUrl,
         ),
-        applications: {
-          ...program.applications,
-          pendingApproval: program.applications.submitted,
-        },
         activity: activityFrom(activityByProgram.get(program.id)),
         submissions: submissionsFrom(submissionsByProgram.get(program.id)),
       })),
@@ -132,7 +125,6 @@ function submissionsFrom(
 ): StaffDashboardSubmissionSummary {
   if (!submissions) {
     return {
-      approvedApplications: 0,
       milestones: 0,
       total: 0,
       notSubmitted: 0,
@@ -143,7 +135,6 @@ function submissionsFrom(
     };
   }
   return {
-    approvedApplications: submissions.approvedApplications,
     milestones: submissions.milestones,
     total: submissions.total,
     notSubmitted: submissions.notSubmitted,

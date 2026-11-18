@@ -63,23 +63,11 @@ describe('ApplicationsController', () => {
       action: 'APPROVE',
     });
 
-    const response = await controller.decide(
-      { principal: STAFF },
-      'synthetic-application',
-      body,
-    );
+    await expect(
+      controller.decide({ principal: STAFF }, 'synthetic-application', body),
+    ).resolves.toBeUndefined();
 
     expect(decide).toHaveBeenCalledWith(STAFF, 'synthetic-application', body);
-
-    expect(response).toEqual({
-      teamId: 'synthetic-application',
-      status: ApplicationStatus.APPROVED,
-      repositoryProvisioning: {
-        enabled: true,
-        eventId: 'synthetic-event',
-        jobStatus: RepositoryProvisionJobStatus.PENDING,
-      },
-    });
   });
 
   it('공백 반려 사유를 null로 정규화한다', () => {
@@ -106,30 +94,11 @@ describe('ApplicationsController', () => {
     ]);
   });
 
-  it('신청 상세를 목록 항목과 같은 응답 모양으로 변환한다', async () => {
+  it('신청 상세는 화면이 읽는 상태·반려 사유·신청자·이력만 싣는다', async () => {
     const item: ApplicationListItem = {
-      id: 'synthetic-application',
-      programId: 'synthetic-program',
-      repositoryConnectionMode: 'NEW',
       status: ApplicationStatus.REJECTED,
-      submittedAt: new Date('2026-08-05T05:32:00.000Z'),
       rejectionReason: '예산 항목이 비어 있습니다',
-      repositoryProvisioning: {
-        enabled: false,
-        jobStatus: 'DISABLED',
-        updatedAt: new Date('2026-08-06T01:00:00.000Z'),
-        safeErrorClass: null,
-      },
-      repository: null,
-      isRepositoryPublicationPlanned: true,
-      participation: 'TEAM',
-      applicant: {
-        id: 'synthetic-applicant',
-        name: '신청자',
-        nickname: 'applicant',
-      },
-      team: { id: 'synthetic-team', name: '팀', memberCount: 3 },
-      answers: { applicantName: '신청자', title: '제목', summary: '요약' },
+      applicant: { name: '신청자', nickname: 'applicant' },
     };
     const getForStaff = jest
       .fn()
@@ -139,15 +108,11 @@ describe('ApplicationsController', () => {
     const response = await controller.detail('synthetic-application');
 
     expect(getForStaff).toHaveBeenCalledWith('synthetic-application');
-    expect(response.submittedAt).toBe('2026-08-05T05:32:00.000Z');
-    expect(response.repositoryProvisioning.updatedAt).toBe(
-      '2026-08-06T01:00:00.000Z',
-    );
-    expect(response.rejectionReason).toBe('예산 항목이 비어 있습니다');
-    expect(response.answers).toEqual({
-      applicantName: '신청자',
-      title: '제목',
-      summary: '요약',
+    expect(response).toEqual({
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '예산 항목이 비어 있습니다',
+      applicant: { name: '신청자', nickname: 'applicant' },
+      reviewHistory: [],
     });
   });
 

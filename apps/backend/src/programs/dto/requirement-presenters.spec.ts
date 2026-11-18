@@ -109,6 +109,7 @@ it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 �
 });
 it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
   const result = RequirementFeedbackResponseDto.from({
+    nextCursor: null,
     items: [
       {
         id: 'review',
@@ -129,8 +130,6 @@ it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
     comment: null,
     reviewedAt: '2026-10-20T01:02:03.123Z',
     teamId: 'application',
-    programId: 'program/1',
-    milestoneId: 'seed:milestone?1',
     milestoneName: '중간',
     itemName: '보고서',
     href: '/programs/program%2F1/documents?milestoneId=seed%3Amilestone%3F1',

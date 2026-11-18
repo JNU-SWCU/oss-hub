@@ -62,7 +62,7 @@ describe('RequirementsService historyForStaff', () => {
         expect.objectContaining({
           event: SubmissionHistoryEvent.SUBMITTED,
           createdAt: '2026-09-01T00:00:00.000Z',
-          content: { type: 'TEXT', text: '완료했습니다.' },
+          content: { text: '완료했습니다.' },
         }),
       ],
       nextCursor: null,

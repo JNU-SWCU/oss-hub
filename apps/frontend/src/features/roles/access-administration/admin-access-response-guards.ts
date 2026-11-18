@@ -58,7 +58,6 @@ function isAdminAccessPendingRequest(
   return (
     isRecord(value) &&
     isNonEmptyString(value.id) &&
-    value.status === 'PENDING' &&
     isStrictIsoTimestamp(value.createdAt)
   );
 }

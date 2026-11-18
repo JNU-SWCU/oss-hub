@@ -7,7 +7,6 @@ import {
   IndependentAuthorityMutationResponseDto,
 } from '../../src/admin/dto/admin-access-user-page-response.dto';
 import { CollectionTriggerResponseDto } from '../../src/admin/dto/collection-trigger-response.dto';
-import { ProvisioningRetryResponseDto } from '../../src/admin/dto/provisioning-retry-response.dto';
 import { SystemStatusResponseDto } from '../../src/admin/dto/system-status-response.dto';
 import { AuditLogPageResponseDto } from '../../src/admin/dto/audit-log-page-response.dto';
 import { type SystemStatusResult } from '../../src/admin/system-status.service';
@@ -20,9 +19,7 @@ import { type AdminAccessMutationResult } from '../../src/users/admin-access-mut
 const at = (iso: string): Date => new Date(iso);
 
 const facets: AdminAccessFacets = {
-  roles: { unassigned: 1, student: 2, staff: 3, admin: 4 },
-  accountStatuses: { active: 9, deactivated: 1 },
-  pendingRequests: { none: 8, pending: 2 },
+  pendingRequests: { pending: 2 },
 };
 
 const userWithPending: AdminAccessUser = {
@@ -80,13 +77,13 @@ const systemStatus: SystemStatusResult = {
     lastSuccessAt: at('2026-05-01T00:45:00.000Z'),
     nextCycleAt: at('2026-05-01T02:00:00.000Z'),
     currentRunStatus: 'PROCESSING',
-    safeReason: 'STALE_DATA',
   },
   provisioning: {
     pending: 2,
     processing: 1,
     retryable: 1,
     failedFinal: 1,
+    failedTeamsHasMore: false,
     failedTeams: [
       {
         teamId: 'team-1',
@@ -107,26 +104,22 @@ const systemStatus: SystemStatusResult = {
       rule: 'BULK_REMOVAL',
       severity: 'HIGH',
       count: 12,
-      target: { kind: 'USER', id: 'user-1', login: null },
+      target: { id: 'user-1', login: null },
     },
     { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 1, target: null },
   ],
-  collectionRepositories: [
-    {
-      repositoryName: 'org/repo',
-      teamName: 'Team A',
-      programName: 'Program A',
-      lastSuccessAt: at('2026-05-01T00:30:00.000Z'),
-      stale: false,
-    },
-    {
-      repositoryName: 'org/late',
-      teamName: null,
-      programName: null,
-      lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
-      stale: true,
-    },
-  ],
+  staleRepositories: {
+    items: [
+      {
+        repositoryName: 'org/late',
+        teamName: null,
+        programName: null,
+        lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
+      },
+    ],
+    total: 1,
+  },
+
   externalCollection: {
     trackedRepositoryCount: 12,
     lastSuccessAt: at('2026-05-01T00:55:00.000Z'),
@@ -198,10 +191,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'CollectionTriggerResponseDto',
     () => CollectionTriggerResponseDto.from('run-1'),
   ],
-  [
-    'ProvisioningRetryResponseDto',
-    () => ProvisioningRetryResponseDto.from('team-1', { eventId: 'event-2' }),
-  ],
   ['SystemStatusResponseDto', () => SystemStatusResponseDto.from(systemStatus)],
   [
     'SystemStatusResponseDto empty',
@@ -216,9 +205,8 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           lastSuccessAt: null,
           nextCycleAt: null,
           currentRunStatus: 'IDLE',
-          safeReason: 'NO_TRACKED_REPOSITORIES',
         },
-        collectionRepositories: [],
+        staleRepositories: { items: [], total: 0 },
         externalCollection: {
           ...systemStatus.externalCollection,
           lastSuccessAt: null,

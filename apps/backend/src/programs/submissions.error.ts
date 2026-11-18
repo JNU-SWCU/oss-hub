@@ -116,9 +116,6 @@ export class RequirementRevisionChangedError extends Error {
 export class RequirementMissingError extends Error {
   override readonly name = 'RequirementMissingError';
 }
-export class UnexpectedSubmissionStatusError extends Error {
-  override readonly name = 'UnexpectedSubmissionStatusError';
-}
 export class SubmissionMembershipChangedError extends Error {
   override readonly name = 'SubmissionMembershipChangedError';
 

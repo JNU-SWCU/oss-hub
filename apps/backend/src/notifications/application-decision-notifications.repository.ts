@@ -1,3 +1,4 @@
+import { UNREAD_NOTIFICATION_PAGE } from './application-decision-notifications.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { Prisma, type ApplicationStatus } from '@prisma/client';
@@ -139,7 +140,7 @@ export class ApplicationDecisionNotificationsRepository implements ApplicationDe
               'application-decision-acknowledged:' || source."id"
         )
       ORDER BY source."createdAt" ASC, source."id" ASC
-      LIMIT 50
+      LIMIT ${UNREAD_NOTIFICATION_PAGE + 1}
     `);
   }
 
@@ -155,7 +156,7 @@ export class ApplicationDecisionNotificationsRepository implements ApplicationDe
       },
       select: { id: true, payload: true, createdAt: true },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      take: 50,
+      take: UNREAD_NOTIFICATION_PAGE + 1,
     });
   }
 

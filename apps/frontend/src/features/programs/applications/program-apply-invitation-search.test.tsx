@@ -1,3 +1,4 @@
+import type { InvitationCandidatePage } from '../teams/team-invitation-dto';
 import { act } from 'react';
 import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 type Root = ReturnType<typeof createRoot>;
@@ -154,17 +155,13 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
 }
 
 function candidate(id: string, nickname: string): InvitationCandidate {
-  return { id, nickname, name: null, avatarUrl: null };
+  return { id, nickname, name: null };
 }
 
 function pendingInvitation(id: string, nickname: string): SentTeamInvitation {
   return {
     id,
-    teamId: team.id,
-    programId: program.id,
-    invitedById: 'u1',
-    invitedAt: '2026-07-02T00:00:00.000Z',
-    invitee: { id: 'u9', nickname, name: null, avatarUrl: null },
+    invitee: { id: 'u9', nickname, name: null },
   };
 }
 
@@ -337,9 +334,10 @@ describe('ProgramApplyPage — 초대 검색', () => {
   });
 
   it('빠르게 입력해도 디바운스 지연이 끝난 뒤 마지막 값으로 한 번만 검색한다', async () => {
-    searchInvitationCandidatesMock.mockResolvedValue([
-      candidate('u9', 'octo9'),
-    ]);
+    searchInvitationCandidatesMock.mockResolvedValue({
+      items: [candidate('u9', 'octo9')],
+      hasMore: false,
+    });
     await renderPage();
     await openInviteDialog();
 
@@ -376,8 +374,8 @@ describe('ProgramApplyPage — 초대 검색', () => {
   });
 
   it('늦게 도착한 이전 검색 결과가 최신 검색 결과를 덮어쓰지 않는다', async () => {
-    const first = deferred<readonly InvitationCandidate[]>();
-    const second = deferred<readonly InvitationCandidate[]>();
+    const first = deferred<InvitationCandidatePage>();
+    const second = deferred<InvitationCandidatePage>();
     searchInvitationCandidatesMock
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
@@ -402,14 +400,17 @@ describe('ProgramApplyPage — 초대 검색', () => {
     );
 
     await act(async () => {
-      second.resolve([candidate('u2', 'octo2')]);
+      second.resolve({ items: [candidate('u2', 'octo2')], hasMore: false });
       await Promise.resolve();
       await Promise.resolve();
     });
     expect(document.body.textContent).toContain('octo2');
 
     await act(async () => {
-      first.resolve([candidate('u1', 'octo1-stale')]);
+      first.resolve({
+        items: [candidate('u1', 'octo1-stale')],
+        hasMore: false,
+      });
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -419,9 +420,10 @@ describe('ProgramApplyPage — 초대 검색', () => {
   });
 
   it('검색 결과에서 초대하면 실제 초대 API를 부르고 보낸 초대를 다시 읽는다', async () => {
-    searchInvitationCandidatesMock.mockResolvedValue([
-      candidate('u9', 'octo9'),
-    ]);
+    searchInvitationCandidatesMock.mockResolvedValue({
+      items: [candidate('u9', 'octo9')],
+      hasMore: false,
+    });
     createInvitationMock.mockResolvedValue(pendingInvitation('inv-1', 'octo9'));
     listSentInvitationsMock
       .mockResolvedValueOnce([])
@@ -516,10 +518,13 @@ describe('ProgramApplyPage — 초대 검색', () => {
   });
 
   it('늦게 실패한 이전 검색의 오류를 사용자에게 보여주지 않는다', async () => {
-    const first = deferred<readonly InvitationCandidate[]>();
+    const first = deferred<InvitationCandidatePage>();
     searchInvitationCandidatesMock
       .mockImplementationOnce(() => first.promise)
-      .mockResolvedValueOnce([candidate('u2', 'octo2')]);
+      .mockResolvedValueOnce({
+        items: [candidate('u2', 'octo2')],
+        hasMore: false,
+      });
 
     await renderPage();
     await openInviteDialog();

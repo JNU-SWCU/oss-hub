@@ -50,6 +50,11 @@ describe('StaffDashboardController', () => {
     'maps composed service summary with cover %s into the response DTO',
     async (imageUrl) => {
       const summary = jest.fn().mockResolvedValue({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        catalogTotal: 1,
+        statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
         programs: [
           {
             coverId: 'cover:1',
@@ -65,12 +70,10 @@ describe('StaffDashboardController', () => {
             endAt: new Date('2026-09-30T23:59:59.000Z'),
             applications: {
               total: 3,
-              submitted: 1,
               pendingApproval: 1,
               approved: 1,
               rejected: 1,
             },
-            teamManagementPath: '/programs/program%3A1/teams',
             activity: {
               repositories: 1,
               commits: 2,
@@ -80,7 +83,6 @@ describe('StaffDashboardController', () => {
               dataAsOf: '2026-07-21T00:00:00.000Z',
             },
             submissions: {
-              approvedApplications: 1,
               milestones: 2,
               total: 2,
               notSubmitted: 1,
@@ -96,7 +98,19 @@ describe('StaffDashboardController', () => {
       const insights = { summarizeFromRequest: jest.fn() };
       const controller = new StaffDashboardController(service, insights);
 
-      await expect(controller.summary()).resolves.toEqual({
+      await expect(
+        controller.summary({
+          page: 1,
+          pageSize: 20,
+          search: '',
+          status: 'all',
+        }),
+      ).resolves.toEqual({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        catalogTotal: 1,
+        statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
         programs: [
           {
             coverImageUrl: imageUrl ?? '/programs/program%3A1/cover/cover%3A1',
@@ -110,12 +124,10 @@ describe('StaffDashboardController', () => {
             endAt: '2026-09-30T23:59:59.000Z',
             applications: {
               total: 3,
-              submitted: 1,
               pendingApproval: 1,
               approved: 1,
               rejected: 1,
             },
-            teamManagementPath: '/programs/program%3A1/teams',
             activity: {
               repositories: 1,
               commits: 2,
@@ -125,7 +137,6 @@ describe('StaffDashboardController', () => {
               dataAsOf: '2026-07-21T00:00:00.000Z',
             },
             submissions: {
-              approvedApplications: 1,
               milestones: 2,
               total: 2,
               notSubmitted: 1,
@@ -138,7 +149,12 @@ describe('StaffDashboardController', () => {
         ],
       });
       expect(summary).toHaveBeenCalledTimes(1);
-      expect(summary).toHaveBeenCalledWith();
+      expect(summary).toHaveBeenCalledWith({
+        page: 1,
+        pageSize: 20,
+        search: '',
+        status: 'all',
+      });
     },
   );
 

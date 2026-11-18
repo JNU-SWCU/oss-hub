@@ -1,6 +1,5 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { StaffAccessRequestStatus } from './user-contract.config';
-import type { RequestSnapshot } from './user-history.types';
 import { APPROVAL_TRANSITION_EVENTS } from './user-history.config';
 import { Injectable } from '@nestjs/common';
 import type { PrismaService } from '../platform/prisma.service';
@@ -11,46 +10,49 @@ import {
 
 type HistoryPage = { readonly page: number; readonly limit: number };
 
+interface RequestSnapshotRow {
+  readonly id: string;
+  readonly status: StaffAccessRequestStatus;
+  readonly createdAt: Date;
+  readonly decidedAt: Date | null;
+  readonly decidedById: string | null;
+  readonly rejectionReason: string | null;
+}
+
 @Injectable()
 export class AdminAccessHistoryRepository {
   async listAdminAccessStaffAccessRequestHistory(
-    prisma: Pick<PrismaService, 'userHistory' | 'user'>,
+    prisma: Pick<PrismaService, '$queryRaw' | 'user'>,
     userId: string,
     page: HistoryPage,
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
-    const histories = await prisma.userHistory.findMany({
-      where: { userId },
-      select: { event: true, data: true },
-      orderBy: [{ occurredAt: 'asc' }, { recordedAt: 'asc' }, { id: 'asc' }],
-    });
-    const byRequest = new Map<string, RequestSnapshot>();
-    for (const history of histories) {
-      const importedRequest =
-        history.event === 'LEGACY_IMPORT' &&
-        isObject(history.data) &&
-        history.data.recordKind === 'REQUEST_SNAPSHOT';
-      if (
-        !importedRequest &&
-        !APPROVAL_TRANSITION_EVENTS.includes(history.event)
-      ) {
-        continue;
-      }
-      const request = readRequestSnapshot(history.data);
-      if (request !== null) byRequest.set(request.id, request);
-    }
-    const requests = [...byRequest.values()].sort(
-      (a, b) =>
-        Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
-        b.id.localeCompare(a.id),
-    );
-    const selected = requests.slice(
-      (page.page - 1) * page.limit,
-      page.page * page.limit,
-    );
+    const latest = latestRequestSnapshotsSql(userId);
+    const [rows, counts] = await Promise.all([
+      prisma.$queryRaw<RequestSnapshotRow[]>`
+        WITH latest AS (${latest})
+        SELECT
+          request_id AS id,
+          status,
+          created_at AS "createdAt",
+          decided_at AS "decidedAt",
+          decided_by_id AS "decidedById",
+          rejection_reason AS "rejectionReason"
+        FROM latest
+        ORDER BY created_at DESC, request_id COLLATE "C" DESC
+        LIMIT ${page.limit} OFFSET ${(page.page - 1) * page.limit}
+      `,
+      prisma.$queryRaw<{ readonly total: number }[]>`
+        WITH latest AS (${latest})
+        SELECT COUNT(*)::int AS total FROM latest
+        LIMIT 1
+      `,
+    ]);
+    const selected = rows;
     const actorIds = selected.flatMap((request) =>
       request.decidedById === null ? [] : [request.decidedById],
     );
     const actors = await prisma.user.findMany({
+      take: actorIds.length,
       where: { id: { in: actorIds } },
       select: { id: true, nickname: true },
     });
@@ -60,17 +62,16 @@ export class AdminAccessHistoryRepository {
         id: request.id,
         status: request.status,
         rejectionReason: request.rejectionReason,
-        decidedAt:
-          request.decidedAt === null ? null : new Date(request.decidedAt),
+        decidedAt: request.decidedAt,
         decidedBy:
           request.decidedById === null
             ? null
             : (names.get(request.decidedById) ?? null),
-        createdAt: new Date(request.createdAt),
+        createdAt: request.createdAt,
       })),
       page: page.page,
       limit: page.limit,
-      total: requests.length,
+      total: counts[0]?.total ?? 0,
     };
   }
 
@@ -110,84 +111,82 @@ export class AdminAccessHistoryRepository {
   }
 }
 
-function readRequestSnapshot(data: Prisma.JsonValue): RequestSnapshot | null {
-  if (!isObject(data) || data.schemaVersion !== 1) return null;
-  let request: Prisma.JsonValue | undefined;
-  switch (data.recordKind) {
-    case 'REQUEST_SNAPSHOT':
-      request = data.original;
-      break;
-    case 'REQUEST_TRANSITION':
-    case 'DOMAIN_EVENT':
-      request = data.request;
-      break;
-    default:
-      return null;
-  }
-  if (!isObject(request)) return null;
-  const { id, userId, status, decidedById, rejectionReason } = request;
-  const legacy = data.recordKind === 'REQUEST_SNAPSHOT';
-  const createdAt = parseRequestTimestamp(request.createdAt, legacy);
-  const decidedAt =
-    request.decidedAt === null
-      ? null
-      : parseRequestTimestamp(request.decidedAt, legacy);
-  if (
-    typeof id !== 'string' ||
-    typeof userId !== 'string' ||
-    !isRequestStatus(status) ||
-    createdAt === null ||
-    (request.decidedAt !== null && decidedAt === null) ||
-    !(decidedById === null || typeof decidedById === 'string') ||
-    !(rejectionReason === null || typeof rejectionReason === 'string')
-  ) {
-    return null;
-  }
-  return {
-    id,
-    userId,
-    status,
-    createdAt,
-    decidedAt,
-    decidedById,
-    rejectionReason,
-  };
+const LEGACY_LOCAL =
+  '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?$';
+
+const ISO_DATE_TIME = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}';
+const EARLIEST_REQUEST_TIME = '1970-01-01T00:00:00Z';
+const LATEST_REQUEST_TIME = '10000-01-01T00:00:00Z';
+
+function inSaneRange(text: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`(
+    ${text} ~ ${ISO_DATE_TIME}
+    AND pg_input_is_valid(${text}, 'timestamptz')
+    AND ${text}::timestamptz >= ${EARLIEST_REQUEST_TIME}::timestamptz
+    AND ${text}::timestamptz < ${LATEST_REQUEST_TIME}::timestamptz
+  )`;
 }
 
-function isObject(
-  value: Prisma.JsonValue | undefined,
-): value is Prisma.JsonObject {
-  return (
-    value !== null &&
-    value !== undefined &&
-    typeof value === 'object' &&
-    !Array.isArray(value)
-  );
-}
-
-function parseRequestTimestamp(
-  value: Prisma.JsonValue | undefined,
-  legacy: boolean,
-): string | null {
-  if (typeof value !== 'string') return null;
-  const timestamp =
-    legacy && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/.test(value)
-      ? `${value}Z`
-      : value;
-  const instant = new Date(timestamp);
-  return Number.isFinite(instant.getTime()) ? instant.toISOString() : null;
-}
-
-function isRequestStatus(
-  value: Prisma.JsonValue | undefined,
-): value is StaffAccessRequestStatus {
-  switch (value) {
-    case 'PENDING':
-    case 'APPROVED':
-    case 'REJECTED':
-    case 'REVOKED':
-      return true;
-    default:
-      return false;
-  }
+function latestRequestSnapshotsSql(userId: string): Prisma.Sql {
+  return Prisma.sql`
+    SELECT
+      request_id,
+      status,
+      created_text::timestamptz AS created_at,
+      decided_text::timestamptz AS decided_at,
+      decided_by_id,
+      rejection_reason
+    FROM (
+      SELECT DISTINCT ON (request->>'id')
+        request->>'id' AS request_id,
+        request->>'status' AS status,
+        CASE
+          WHEN legacy AND request->>'createdAt' ~ ${LEGACY_LOCAL}
+            THEN request->>'createdAt' || 'Z'
+          ELSE request->>'createdAt'
+        END AS created_text,
+        CASE
+          WHEN jsonb_typeof(request->'decidedAt') = 'null' THEN NULL
+          WHEN legacy AND request->>'decidedAt' ~ ${LEGACY_LOCAL}
+            THEN request->>'decidedAt' || 'Z'
+          ELSE request->>'decidedAt'
+        END AS decided_text,
+        request->>'decidedById' AS decided_by_id,
+        request->>'rejectionReason' AS rejection_reason
+      FROM (
+        SELECT
+          history.id,
+          history."occurredAt",
+          history."recordedAt",
+          history.data->>'recordKind' = 'REQUEST_SNAPSHOT' AS legacy,
+          CASE history.data->>'recordKind'
+            WHEN 'REQUEST_SNAPSHOT' THEN history.data->'original'
+            ELSE history.data->'request'
+          END AS request
+        FROM "UserHistory" AS history
+        WHERE history."userId" = ${userId}
+          AND history.data->'schemaVersion' = '1'::jsonb
+          AND history.data->>'recordKind' IN
+            ('REQUEST_SNAPSHOT', 'REQUEST_TRANSITION', 'DOMAIN_EVENT')
+          AND (
+            history.event::text = ANY(${[...APPROVAL_TRANSITION_EVENTS]}::text[])
+            OR (
+              history.event = 'LEGACY_IMPORT'
+              AND history.data->>'recordKind' = 'REQUEST_SNAPSHOT'
+            )
+          )
+      ) AS candidate
+      WHERE jsonb_typeof(request) = 'object'
+        AND jsonb_typeof(request->'id') = 'string'
+        AND jsonb_typeof(request->'userId') = 'string'
+        AND request->>'status' IN ('PENDING', 'APPROVED', 'REJECTED', 'REVOKED')
+        AND jsonb_typeof(request->'createdAt') = 'string'
+        AND jsonb_typeof(request->'decidedAt') IN ('null', 'string')
+        AND jsonb_typeof(request->'decidedById') IN ('null', 'string')
+        AND jsonb_typeof(request->'rejectionReason') IN ('null', 'string')
+      ORDER BY request->>'id', "occurredAt" DESC, "recordedAt" DESC, id DESC
+    ) AS latest
+    WHERE ${inSaneRange(Prisma.sql`created_text`)}
+      AND (decided_text IS NULL OR ${inSaneRange(Prisma.sql`decided_text`)})
+  `;
 }

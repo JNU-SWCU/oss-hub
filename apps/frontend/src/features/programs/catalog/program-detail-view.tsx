@@ -89,7 +89,6 @@ function asRecruitmentInput(program: ProgramDetail): ProgramListItem {
     applicationStartAt: program.applicationPeriod.startsAt,
     applicationEndAt: program.applicationPeriod.endsAt,
     endAt: program.operatingPeriod?.endsAt ?? null,
-    description: program.description,
   };
 }
 

@@ -44,7 +44,6 @@ class PublicRankingEntryResponseDto {
 class StaffRankingEntryResponseDto {
   declare readonly rank: number;
   declare readonly previousRank: number | null;
-  declare readonly displayName: string;
   declare readonly githubLogin: string;
   declare readonly department: string | null;
   declare readonly name: string | null;
@@ -59,7 +58,6 @@ class StaffRankingEntryResponseDto {
     return {
       rank: entry.rank,
       previousRank: entry.previousRank,
-      displayName: entry.displayName,
       githubLogin: entry.githubLogin,
       department: entry.department,
       name: entry.name ?? null,

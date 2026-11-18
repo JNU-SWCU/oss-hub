@@ -15,7 +15,6 @@ import type {
   IndependentAuthorityTransactionStore,
 } from './independent-authority.repository';
 import {
-  type AdminAccessFacets,
   type AdminAccessListQuery,
   type AdminAccessLoginHistoryPage,
   type AdminAccessStaffAccessRequestHistoryPage,
@@ -92,9 +91,6 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
   }
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
-  }
-  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
-    return this.repository.facets(query);
   }
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
@@ -188,9 +184,6 @@ export class PausingActorRevalidationAdminAccessRepository implements AdminAcces
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
   }
-  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
-    return this.repository.facets(query);
-  }
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
@@ -256,9 +249,6 @@ export class FailingDecisionAdminAccessRepository implements AdminAccessReposito
   }
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
-  }
-  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
-    return this.repository.facets(query);
   }
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);

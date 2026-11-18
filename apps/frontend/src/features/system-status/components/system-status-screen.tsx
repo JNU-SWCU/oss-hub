@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { retryProvisioning, triggerCollection } from '../api';
+import {
+  retryProvisioning,
+  STALE_REPOSITORY_PAGE_SIZE,
+  triggerCollection,
+} from '../api';
 import { useSystemStatusQuery } from '../queries';
 import type {
   ActionNotice,
@@ -50,7 +54,8 @@ async function requestRetry(
 }
 
 export function SystemStatusScreen() {
-  const query = useSystemStatusQuery();
+  const [staleRepositoryPage, setStaleRepositoryPage] = useState(1);
+  const query = useSystemStatusQuery(staleRepositoryPage);
   const { refetch } = query;
   const state: SystemStatusViewState =
     query.data !== undefined
@@ -72,6 +77,23 @@ export function SystemStatusScreen() {
   const [isTriggering, setIsTriggering] = useState(false);
   const [retryingTeamIds, setRetryingTeamIds] = useState<readonly string[]>([]);
   const [notice, setNotice] = useState<ActionNotice | null>(null);
+
+  useEffect(() => {
+    if (!query.isSuccess || query.isFetching || query.isPlaceholderData) return;
+    const lastPage = Math.max(
+      1,
+      Math.ceil(
+        query.data.staleRepositories.total / STALE_REPOSITORY_PAGE_SIZE,
+      ),
+    );
+    if (staleRepositoryPage > lastPage) setStaleRepositoryPage(lastPage);
+  }, [
+    query.data,
+    query.isFetching,
+    query.isPlaceholderData,
+    query.isSuccess,
+    staleRepositoryPage,
+  ]);
 
   useEffect(() => {
     mounted.current = true;
@@ -134,6 +156,11 @@ export function SystemStatusScreen() {
       onRetryProvisioning={(team) => void handleRetry(team)}
       retryingTeamIds={retryingTeamIds}
       notice={notice}
+      staleRepositoryPager={{
+        page: staleRepositoryPage,
+        isLoading: query.isPlaceholderData,
+        onPageChange: setStaleRepositoryPage,
+      }}
     />
   );
 }

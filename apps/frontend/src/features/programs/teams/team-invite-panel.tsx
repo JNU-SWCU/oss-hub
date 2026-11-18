@@ -49,6 +49,7 @@ export interface TeamInvitePanelProps {
     TeamInvitationManagement,
     | 'inviteQuery'
     | 'inviteCandidates'
+    | 'moreCandidates'
     | 'searching'
     | 'searchError'
     | 'invitingUserId'
@@ -74,6 +75,7 @@ export function TeamInvitePanel({
   const {
     inviteQuery: query,
     inviteCandidates: candidates,
+    moreCandidates,
     searching,
     searchError,
     invitingUserId,
@@ -282,6 +284,11 @@ export function TeamInvitePanel({
               </li>
             ))
           )}
+          {moreCandidates ? (
+            <li className="px-4 py-2 text-small text-muted-foreground">
+              검색 결과가 더 있습니다. 검색어를 더 입력하세요.
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </DialogShell>

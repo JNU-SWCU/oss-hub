@@ -65,7 +65,6 @@ const staffPage: RankingPage = {
     {
       rank: 1,
       previousRank: null,
-      displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
       name: 'synthetic-staff-name',
       department: null,
@@ -125,6 +124,20 @@ describe('RankingScreen', () => {
     await act(async () => root.unmount());
     expect(onNextCycleAt).toHaveBeenLastCalledWith(null);
     root = createRoot(container);
+  });
+
+  it('타임라인은 조회자 로그인과 함께 요청한다', async () => {
+    await act(async () => {
+      root.render(
+        <RankingScreen onNextCycleAt={vi.fn()} viewerGithubLogin="mina" />,
+      );
+    });
+
+    expect(api.getRankingTimeline).toHaveBeenCalledWith(
+      2026,
+      'mina',
+      expect.any(AbortSignal),
+    );
   });
 
   it('CSV 는 첫 응답의 total 만큼 pageSize=100으로 각 페이지를 한 번씩 가져온다', async () => {

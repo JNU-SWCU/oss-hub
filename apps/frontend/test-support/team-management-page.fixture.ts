@@ -32,8 +32,6 @@ export function teamManagementPage(
         ],
       },
     })),
-    page,
-    pageSize: 100,
     totalItems: 101,
     totalPages: 2,
   };

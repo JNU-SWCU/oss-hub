@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
@@ -41,6 +42,8 @@ const DEFAULT_BATCH_SIZE = 100;
 
 @Injectable()
 export class FileCleanupService {
+  private readonly sequential = new SequentialRepository();
+
   private readonly logger = new Logger(FileCleanupService.name);
   private running = false;
 
@@ -81,16 +84,17 @@ export class FileCleanupService {
       DEFAULT_BATCH_SIZE,
     );
     let claimedCount = 0;
-    for (let index = 0; index < limit; index += 1) {
+    await this.sequential.repeat(limit, async () => {
       const claimedAt = this.now();
       const file = await this.files.claimNextForDeletion({
         now: claimedAt,
         leaseExpiresAt: new Date(claimedAt.getTime() + DELETE_LEASE_MS),
       });
-      if (file === null) break;
-      claimedCount += 1;
+      if (file === null) return 'stop';
       await this.deleteClaimed(file);
-    }
+      claimedCount += 1;
+      return undefined;
+    });
     return claimedCount;
   }
 
@@ -218,6 +222,8 @@ function classifyStorageObjects(
 
 @Injectable()
 export class StorageOrphanReconciliationService {
+  private readonly sequential = new SequentialRepository();
+
   constructor(
     private readonly references: StorageReferenceRepository,
     private readonly storage: StorageObjectInventory,
@@ -247,14 +253,14 @@ export class StorageOrphanReconciliationService {
     const skippedReferencedKeys: string[] = [];
     if (options.mode === 'delete') {
       await options.onDeletePlan?.(orphanKeys);
-      for (const key of orphanKeys) {
+      await this.sequential.forEach(orphanKeys, async (key) => {
         if (await this.references.isLiveKey(key)) {
           skippedReferencedKeys.push(key);
-          continue;
+          return;
         }
         await this.storage.delete(key);
         deletedKeys.push(key);
-      }
+      });
     }
 
     return {

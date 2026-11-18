@@ -16,13 +16,11 @@ const SENT_TEAM_INVITATION_SELECT = {
   programId: true,
   inviteeId: true,
   invitedById: true,
-  createdAt: true,
   invitee: {
     select: {
       id: true,
       nickname: true,
       name: true,
-      avatarUrl: true,
     },
   },
 } satisfies Prisma.TeamInvitationSelect;
@@ -38,7 +36,6 @@ const selectedInvitationRow = {
     id: syntheticInviteeId,
     nickname: 'synthetic-invitee',
     name: '합성 초대 대상',
-    avatarUrl: 'https://example.invalid/avatar.png',
   },
 };
 
@@ -46,7 +43,6 @@ const projectedInvitee = {
   id: syntheticInviteeId,
   nickname: 'synthetic-invitee',
   name: '합성 초대 대상',
-  avatarUrl: 'https://example.invalid/avatar.png',
 };
 
 function knownRequestError(code: string): Prisma.PrismaClientKnownRequestError {
@@ -90,10 +86,9 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
         id: true,
         nickname: true,
         name: true,
-        avatarUrl: true,
       },
       orderBy: { nickname: 'asc' },
-      take: 20,
+      take: 21,
     });
   });
 });
@@ -112,6 +107,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
     const result = await repository.findByTeamId(syntheticTeamId);
 
     expect(findMany).toHaveBeenCalledWith({
+      take: 101,
       where: { teamId: syntheticTeamId },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
@@ -123,12 +119,10 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
         programId: syntheticProgramId,
         inviteeId: syntheticInviteeId,
         invitedById: syntheticLeaderId,
-        invitedAt,
         invitee: projectedInvitee,
       },
     ]);
     expect(Object.keys(result[0]!.invitee).sort()).toEqual([
-      'avatarUrl',
       'id',
       'name',
       'nickname',
@@ -249,7 +243,6 @@ describe('TeamInvitationsRepository.createInvitation', () => {
     if (outcome.kind !== 'ok') throw new Error('expected ok outcome');
     expect(outcome.invitation.invitee).toEqual(projectedInvitee);
     expect(Object.keys(outcome.invitation.invitee).sort()).toEqual([
-      'avatarUrl',
       'id',
       'name',
       'nickname',
@@ -275,7 +268,6 @@ describe('TeamInvitationsRepository.createInvitation', () => {
         department: null,
         type: 'UNSELECTED',
         profileCreatedAt: null,
-        avatarUrl: null,
       },
     });
     const outcome = await invite(buildRepository(buildTx({ create })));
@@ -285,7 +277,6 @@ describe('TeamInvitationsRepository.createInvitation', () => {
       id: syntheticInviteeId,
       nickname: 'synthetic-invitee',
       name: null,
-      avatarUrl: null,
     });
   });
 

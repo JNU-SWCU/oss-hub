@@ -1,3 +1,5 @@
+import { SequentialRepository } from '../platform/sequential.repository';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { FileLifecycle, Prisma, AccountStatus } from '@prisma/client';
@@ -219,6 +221,8 @@ export class ProgramAuthoringUploadRepository {
 
 @Injectable()
 export class ProgramAuthoringUploadTransactionRepository {
+  private readonly sequential = new SequentialRepository();
+
   async lockAttachableProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     actorId: string,
@@ -244,7 +248,7 @@ export class ProgramAuthoringUploadTransactionRepository {
              ("pendingExpiresAt" > NOW()) AS unexpired,
              "storageKey", "originalFileName", "mimeType", "sizeBytes"
       FROM "File" WHERE id IN (${Prisma.join(tokenIds)}) AND kind IN ('UPLOAD','TEMPLATE','COVER')
-      ORDER BY id FOR UPDATE
+      ORDER BY id LIMIT ${tokenIds.length} FOR UPDATE
     `);
   }
 
@@ -286,36 +290,42 @@ export class ProgramAuthoringUploadTransactionRepository {
     actorId: string,
     consumptions: readonly ProgramAuthoringPendingUploadConsumption[],
   ) {
-    for (const { requirementId, upload } of [...consumptions].sort(
-      (left, right) => left.upload.id.localeCompare(right.upload.id),
-    )) {
-      await transaction.file.updateMany({
-        where: {
-          kind: 'TEMPLATE',
-          requirementId: requirementId,
-          lifecycle: 'ATTACHED',
-        },
-        data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
-      });
-      const attached = await transaction.file.updateMany({
-        where: {
-          id: upload.id,
-          uploaderId: actorId,
-          kind: 'UPLOAD',
-          lifecycle: 'PENDING',
-        },
-        data: {
-          kind: 'TEMPLATE',
-          lifecycle: 'ATTACHED',
-          requirementId: requirementId,
-          pendingExpiresAt: null,
-          attachedAt: new Date(),
-        },
-      });
-      if (attached.count !== 1) {
-        throw new ProgramAuthoringUploadConsumptionRaceError(upload.id);
-      }
-    }
+    await this.sequential.forEach(
+      [...consumptions].sort((left, right) =>
+        left.upload.id.localeCompare(right.upload.id),
+      ),
+      async ({ requirementId, upload }) => {
+        await transaction.file.updateMany({
+          where: {
+            kind: 'TEMPLATE',
+            requirementId: requirementId,
+            lifecycle: 'ATTACHED',
+          },
+          data: {
+            lifecycle: 'DELETE_PENDING',
+            nextDeleteAttemptAt: new Date(),
+          },
+        });
+        const attached = await transaction.file.updateMany({
+          where: {
+            id: upload.id,
+            uploaderId: actorId,
+            kind: 'UPLOAD',
+            lifecycle: 'PENDING',
+          },
+          data: {
+            kind: 'TEMPLATE',
+            lifecycle: 'ATTACHED',
+            requirementId: requirementId,
+            pendingExpiresAt: null,
+            attachedAt: new Date(),
+          },
+        });
+        if (attached.count !== 1) {
+          throw new ProgramAuthoringUploadConsumptionRaceError(upload.id);
+        }
+      },
+    );
   }
 }
 
@@ -496,6 +506,8 @@ export class FileMetadataRepository {
 
 @Injectable()
 export class FilesRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -542,19 +554,25 @@ export class FilesRepository {
         };
   }
   findExhaustedCleanups(): Promise<ExhaustedSubmissionFileCleanup[]> {
-    return this.prisma.file.findMany({
-      where: {
-        lifecycle: FileLifecycle.DELETE_PENDING,
-        deleteAttemptCount: { gte: MAX_DELETE_ATTEMPTS },
-      },
-      select: {
-        id: true,
-        deleteAttemptCount: true,
-        lastDeleteError: true,
-        createdAt: true,
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.file.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: {
+            lifecycle: FileLifecycle.DELETE_PENDING,
+            deleteAttemptCount: { gte: MAX_DELETE_ATTEMPTS },
+          },
+          select: {
+            id: true,
+            deleteAttemptCount: true,
+            lastDeleteError: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        }),
+      (file) => file.id,
+    );
   }
   async findDownloadableFile(
     githubId: bigint,
@@ -612,7 +630,7 @@ export class FilesRepository {
         INNER JOIN "Team" AS team
           ON team."programId" = program."id"
         WHERE team."id" = ${input.teamId}
-        FOR UPDATE OF program
+        LIMIT 1 FOR UPDATE OF program
       `);
       const program = programs[0];
       if (!program) {
@@ -626,7 +644,7 @@ export class FilesRepository {
         SELECT "id"
         FROM "User"
         WHERE "id" = ${input.uploaderId}
-        FOR UPDATE
+        LIMIT 1 FOR UPDATE
       `);
       const retained = await transaction.file.aggregate({
         where: {
@@ -728,9 +746,15 @@ export interface StorageReferenceRepository {
 export interface StorageReferenceTransactionClient {
   readonly file: {
     findMany(input: {
+      readonly take: number;
+      readonly cursor?: { readonly id: string };
+      readonly skip?: number;
       readonly where: Prisma.FileWhereInput;
-      readonly select: { readonly storageKey: true };
-    }): Promise<readonly { readonly storageKey: string }[]>;
+      readonly orderBy: { readonly id: 'asc' };
+      readonly select: { readonly id: true; readonly storageKey: true };
+    }): Promise<
+      readonly { readonly id: string; readonly storageKey: string }[]
+    >;
     findFirst(input: {
       readonly where: Prisma.FileWhereInput;
       readonly select: { readonly id: true };
@@ -746,16 +770,29 @@ export interface StorageReferencePrisma {
 }
 @Injectable()
 export class PrismaStorageReferenceRepository implements StorageReferenceRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(private readonly prisma: StorageReferencePrisma) {}
   async loadLiveKeys(): Promise<ReadonlySet<string>> {
     await this.prisma.$connect();
     return this.prisma.$transaction(
       async (transaction) => {
-        const files = await transaction.file.findMany({
-          where: { lifecycle: { not: 'DELETED' } },
-          select: { storageKey: true },
-        });
-        return new Set(files.map((file) => file.storageKey));
+        const keys = new Set<string>();
+        await this.boundedReads.forEachBatch(
+          (after: string | undefined, take) =>
+            transaction.file.findMany({
+              take,
+              ...(after === undefined
+                ? {}
+                : { cursor: { id: after }, skip: 1 }),
+              where: { lifecycle: { not: 'DELETED' } },
+              orderBy: { id: 'asc' },
+              select: { id: true, storageKey: true },
+            }),
+          (file) => file.id,
+          (files) => files.forEach((file) => keys.add(file.storageKey)),
+        );
+        return keys;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );

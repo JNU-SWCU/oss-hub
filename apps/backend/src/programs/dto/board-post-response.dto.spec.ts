@@ -20,10 +20,11 @@ const post = {
 };
 
 describe('게시판 글 응답 권한 계약', () => {
-  it('목록 응답은 서버 계산 권한만 싣고 사용자 id는 노출하지 않는다', () => {
+  it('목록 응답은 권한과 사용자 id를 싣지 않는다', () => {
     const response = BoardPostResponseDto.from(post);
 
-    expect(response).toMatchObject({ canEdit: true, canDelete: true });
+    expect(response).not.toHaveProperty('canEdit');
+    expect(response).not.toHaveProperty('canDelete');
     expect(response).not.toHaveProperty('authorId');
   });
 
@@ -31,7 +32,6 @@ describe('게시판 글 응답 권한 계약', () => {
     const response = BoardPostDetailResponseDto.from({
       ...post,
       body: '합성 본문',
-      updatedAt: createdAt,
       comments: [
         {
           id: 'cuid-synthetic-comment',

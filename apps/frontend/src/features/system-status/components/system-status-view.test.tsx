@@ -40,6 +40,7 @@ const base: SystemStatus = {
     processing: 1,
     retryable: 2,
     failedFinal: 2,
+    failedTeamsHasMore: false,
     failedTeams: [teamA, teamB],
   },
   mail: { sent7d: 1280, failed7d: 3, lastSentAt: '2026-11-17T00:00:00.000Z' },
@@ -50,10 +51,10 @@ const base: SystemStatus = {
       rule: 'OFF_HOURS_ADMIN_CHANGE',
       severity: 'MEDIUM',
       count: 1,
-      target: { kind: 'USER', id: 'user/42', login: 'synthetic-admin' },
+      target: { id: 'user/42', login: 'synthetic-admin' },
     },
   ],
-  collectionRepositories: [],
+  staleRepositories: { items: [], total: 0 },
   externalCollection: {
     trackedRepositoryCount: 7,
     lastSuccessAt: '2026-11-16T22:32:00.000Z',
@@ -67,6 +68,7 @@ const clear: SystemStatus = {
     processing: 0,
     retryable: 0,
     failedFinal: 0,
+    failedTeamsHasMore: false,
     failedTeams: [],
   },
   mail: { sent7d: 0, failed7d: 0, lastSentAt: null },
@@ -88,16 +90,13 @@ function staleRepository(
     teamName,
     programName,
     lastSuccessAt: hoursAgo(hours),
-    stale: true,
   };
 }
 
 function delayedWith(
   repositories: readonly CollectionRepository[],
+  staleCount = repositories.length,
 ): SystemStatus {
-  const staleCount = repositories.filter(
-    (repository) => repository.stale,
-  ).length;
   return {
     ...base,
     collection: {
@@ -114,14 +113,8 @@ function delayedWith(
         target: null,
       },
     ],
-    collectionRepositories: repositories,
+    staleRepositories: { items: repositories, total: staleCount },
   };
-}
-
-function toggleTags(card: string): string[] {
-  return openingTags(card, 'button').filter((tag) =>
-    tag.includes(' aria-expanded="'),
-  );
 }
 
 function listedRepositories(card: string): string[] {
@@ -135,6 +128,7 @@ interface Overrides {
   readonly isTriggering?: boolean;
   readonly retryingTeamIds?: readonly string[];
   readonly notice?: ActionNotice | null;
+  readonly staleRepositoryPage?: number;
 }
 
 function render(
@@ -158,6 +152,11 @@ function render(
       onRetryProvisioning={() => undefined}
       retryingTeamIds={overrides.retryingTeamIds ?? []}
       notice={overrides.notice ?? null}
+      staleRepositoryPager={{
+        page: overrides.staleRepositoryPage ?? 1,
+        isLoading: false,
+        onPageChange: () => undefined,
+      }}
     />,
   );
 }
@@ -258,6 +257,11 @@ describe('SystemStatusView', () => {
       onRetryProvisioning: () => undefined,
       retryingTeamIds: [],
       notice: null,
+      staleRepositoryPager: {
+        page: 1,
+        isLoading: false,
+        onPageChange: () => undefined,
+      },
     }) as ReactElement;
     const rendered = (outer.type as (props: typeof outer.props) => ReactNode)(
       outer.props,
@@ -292,19 +296,19 @@ describe('SystemStatusView', () => {
               rule: 'BULK_REMOVAL',
               severity: 'HIGH',
               count: 12,
-              target: { kind: 'USER', id: 'user/42', login: null },
+              target: { id: 'user/42', login: null },
             },
             {
               rule: 'SELF_ADMIN_CHANGE',
               severity: 'HIGH',
               count: 1,
-              target: { kind: 'USER', id: 'user-7', login: 'synthetic-self' },
+              target: { id: 'user-7', login: 'synthetic-self' },
             },
             {
               rule: 'OFF_HOURS_ADMIN_CHANGE',
               severity: 'MEDIUM',
               count: 1,
-              target: { kind: 'USER', id: 'user-8', login: 'synthetic-admin' },
+              target: { id: 'user-8', login: 'synthetic-admin' },
             },
             { rule: 'MAIL_FAILED', severity: 'MEDIUM', count: 3, target: null },
           ],
@@ -328,7 +332,6 @@ describe('SystemStatusView', () => {
               severity: 'MEDIUM',
               count: 1,
               target: {
-                kind: 'USER',
                 id: 'bootstrap-user',
                 login: 'bootstrap-subject',
               },
@@ -403,20 +406,6 @@ describe('SystemStatusView', () => {
       const html = render(
         delayedWith([
           staleRepository('alpha', 5, '합성 클라우드 캠프', '합성 팀'),
-          {
-            repositoryName: 'jnu-oss/healthy',
-            teamName: '합성 팀',
-            programName: '합성 클라우드 캠프',
-            lastSuccessAt: hoursAgo(1),
-            stale: false,
-          },
-          {
-            repositoryName: 'jnu-oss/never-collected',
-            teamName: '합성 팀',
-            programName: '합성 클라우드 캠프',
-            lastSuccessAt: null,
-            stale: false,
-          },
         ]),
       );
       const card = attentionCard(html);
@@ -425,18 +414,16 @@ describe('SystemStatusView', () => {
         /활동 수집 지연\s*1건\s*jnu-oss\/alpha 합성 팀 · 합성 클라우드 캠프\s*마지막 수집 성공 5시간 전/,
       );
       expect(card).toMatch(/datetime="2026-11-16T19:32:00\.000Z"/i);
-      expect(html).not.toContain('jnu-oss/healthy');
-      expect(html).not.toContain('jnu-oss/never-collected');
       expect(openingTags(card, 'button')).toHaveLength(2);
     });
 
-    it('가장 오래 지연된 저장소부터 보여주고 프로그램이 없으면 이름만 적는다', () => {
+    it('서버가 정한 지연 순서대로 보여주고 프로그램이 없으면 이름만 적는다', () => {
       const card = attentionCard(
         render(
           delayedWith([
-            staleRepository('alpha', 5),
             staleRepository('bravo', 12, null),
             staleRepository('charlie', 8),
+            staleRepository('alpha', 5),
           ]),
         ),
       );
@@ -446,37 +433,37 @@ describe('SystemStatusView', () => {
       expect(text(card)).not.toContain('null');
     });
 
-    it('지연 저장소가 다섯 개를 넘으면 가장 오래된 다섯 개만 보이고 나머지는 접어 둔다', () => {
+    it('지연 저장소가 한 페이지를 넘으면 현재 페이지와 이전·다음 버튼을 둔다', () => {
+      const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
       const card = attentionCard(
         render(
           delayedWith(
-            ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name, index) =>
-              staleRepository(name, index + 3),
-            ),
+            names.map((name, index) => staleRepository(name, index + 3)),
+            23,
           ),
+          { staleRepositoryPage: 2 },
         ),
       );
-      const toggles = toggleTags(card);
+      const buttons = openingTags(card, 'button');
 
-      expect(listedRepositories(card)).toEqual(['g', 'f', 'e', 'd', 'c']);
-      expect(toggles).toHaveLength(1);
-      expect(toggles[0]).toContain('aria-expanded="false"');
-      expect(text(card)).toContain('2개 더 보기');
+      expect(listedRepositories(card)).toEqual(names);
+      expect(text(card)).toContain('2 / 3 페이지');
+      expect(buttons.filter((tag) => tag.includes(' disabled=""'))).toEqual([]);
     });
 
-    it('지연 저장소가 다섯 개 이하면 모두 보이고 접는 버튼을 두지 않는다', () => {
+    it('지연 저장소가 한 페이지에 들어가면 페이지 버튼을 두지 않는다', () => {
       const card = attentionCard(
         render(
           delayedWith(
-            ['a', 'b', 'c', 'd', 'e'].map((name, index) =>
+            ['a', 'b', 'c'].map((name, index) =>
               staleRepository(name, index + 3),
             ),
           ),
         ),
       );
 
-      expect(listedRepositories(card)).toHaveLength(5);
-      expect(toggleTags(card)).toEqual([]);
+      expect(listedRepositories(card)).toHaveLength(3);
+      expect(text(card)).not.toContain('페이지');
     });
   });
 

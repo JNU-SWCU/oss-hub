@@ -1,3 +1,4 @@
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable } from '@nestjs/common';
 import {
   AdminHistoryEvent,
@@ -8,6 +9,12 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+
+export interface CollectionRepositorySummaryDto {
+  readonly trackedRepositoryCount: number;
+  readonly staleRepositoryCount: number;
+  readonly lastSuccessAt: Date | null;
+}
 
 export interface CollectionRepositoryStatusDto {
   readonly repositoryName: string;
@@ -35,6 +42,7 @@ export interface ProvisioningStatusDto {
   readonly retryable: number;
   readonly failedFinal: number;
   readonly failedTeams: readonly ProvisioningFailedTeamDto[];
+  readonly failedTeamsHasMore: boolean;
 }
 
 export interface MailStatusDto {
@@ -58,10 +66,13 @@ export interface AdminChangeEventDto {
 const LIVE_TEAM_JOB_WHERE = {
   team: { archivedAt: null, program: { lifecycle: { not: 'DELETED' } } },
 } satisfies Prisma.RepositoryProvisionJobWhereInput;
-const HISTORY_PAGE_SIZE = 500;
+
+const FAILED_TEAMS_SHOWN = 100;
 
 @Injectable()
 export class SystemStatusRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platform: PlatformRepository,
@@ -73,9 +84,11 @@ export class SystemStatusRepository {
         by: ['status'],
         where: LIVE_TEAM_JOB_WHERE,
         _count: { _all: true },
+        orderBy: { status: 'asc' },
+        take: Object.keys(RepositoryProvisionJobStatus).length,
       }),
       this.prisma.repositoryProvisionJob.findMany({
-        take: 100,
+        take: FAILED_TEAMS_SHOWN + 1,
         where: {
           ...LIVE_TEAM_JOB_WHERE,
           status: RepositoryProvisionJobStatus.FAILED_FINAL,
@@ -96,7 +109,8 @@ export class SystemStatusRepository {
       processing: count(RepositoryProvisionJobStatus.PROCESSING),
       retryable: count(RepositoryProvisionJobStatus.FAILED_RETRYABLE),
       failedFinal: count(RepositoryProvisionJobStatus.FAILED_FINAL),
-      failedTeams: failed.map((job) => ({
+      failedTeamsHasMore: failed.length > FAILED_TEAMS_SHOWN,
+      failedTeams: failed.slice(0, FAILED_TEAMS_SHOWN).map((job) => ({
         teamId: job.teamId,
         teamName: job.team.name,
         programName: job.team.program.name,
@@ -130,33 +144,37 @@ export class SystemStatusRepository {
     since: Date,
   ): Promise<readonly BulkRemovalEventDto[]> {
     const [teamEvents, programEvents] = await Promise.all([
-      readHistoryPages((after) =>
-        this.prisma.teamHistory.findMany({
-          take: HISTORY_PAGE_SIZE,
-          orderBy: { id: 'asc' },
-          where: {
-            ...(after === undefined ? {} : { id: { gt: after } }),
-            event: {
-              in: [TeamHistoryEvent.REJECTED, TeamHistoryEvent.DELETED],
+      this.boundedReads.readAllInBatches(
+        (after: string | undefined, take) =>
+          this.prisma.teamHistory.findMany({
+            take,
+            orderBy: { id: 'asc' },
+            where: {
+              ...(after === undefined ? {} : { id: { gt: after } }),
+              event: {
+                in: [TeamHistoryEvent.REJECTED, TeamHistoryEvent.DELETED],
+              },
+              actorId: { not: null },
+              occurredAt: { gte: since },
             },
-            actorId: { not: null },
-            occurredAt: { gte: since },
-          },
-          select: { id: true, actorId: true, occurredAt: true },
-        }),
+            select: { id: true, actorId: true, occurredAt: true },
+          }),
+        (row) => row.id,
       ),
-      readHistoryPages((after) =>
-        this.prisma.programHistory.findMany({
-          take: HISTORY_PAGE_SIZE,
-          orderBy: { id: 'asc' },
-          where: {
-            ...(after === undefined ? {} : { id: { gt: after } }),
-            event: ProgramHistoryEvent.DELETED,
-            actorId: { not: null },
-            occurredAt: { gte: since },
-          },
-          select: { id: true, actorId: true, occurredAt: true },
-        }),
+      this.boundedReads.readAllInBatches(
+        (after: string | undefined, take) =>
+          this.prisma.programHistory.findMany({
+            take,
+            orderBy: { id: 'asc' },
+            where: {
+              ...(after === undefined ? {} : { id: { gt: after } }),
+              event: ProgramHistoryEvent.DELETED,
+              actorId: { not: null },
+              occurredAt: { gte: since },
+            },
+            select: { id: true, actorId: true, occurredAt: true },
+          }),
+        (row) => row.id,
       ),
     ]);
     return [...teamEvents, ...programEvents].flatMap(
@@ -168,23 +186,27 @@ export class SystemStatusRepository {
   async findAdminChangeEvents(
     since: Date,
   ): Promise<readonly AdminChangeEventDto[]> {
-    const events = await readHistoryPages((after) =>
-      this.prisma.adminHistory.findMany({
-        take: HISTORY_PAGE_SIZE,
-        orderBy: { id: 'asc' },
-        where: {
-          ...(after === undefined ? {} : { id: { gt: after } }),
-          event: { in: [AdminHistoryEvent.GRANTED, AdminHistoryEvent.REVOKED] },
-          occurredAt: { gte: since },
-        },
-        select: {
-          id: true,
-          userId: true,
-          actorId: true,
-          occurredAt: true,
-          user: { select: { nickname: true } },
-        },
-      }),
+    const events = await this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.adminHistory.findMany({
+          take,
+          orderBy: { id: 'asc' },
+          where: {
+            ...(after === undefined ? {} : { id: { gt: after } }),
+            event: {
+              in: [AdminHistoryEvent.GRANTED, AdminHistoryEvent.REVOKED],
+            },
+            occurredAt: { gte: since },
+          },
+          select: {
+            id: true,
+            userId: true,
+            actorId: true,
+            occurredAt: true,
+            user: { select: { nickname: true } },
+          },
+        }),
+      (row) => row.id,
     );
     return events.map(({ user, userId, actorId, occurredAt }) => ({
       userId,
@@ -201,16 +223,39 @@ export class SystemStatusRepository {
     return active > 0;
   }
 
-  async getCollectionRepositories(): Promise<
-    readonly CollectionRepositoryStatusDto[]
-  > {
+  async getCollectionRepositorySummary(
+    staleBefore: Date,
+  ): Promise<CollectionRepositorySummaryDto> {
+    const where = this.orgRepositoryWhere();
+    const [tracked, stale] = await Promise.all([
+      this.prisma.repo.aggregate({
+        where,
+        _count: { _all: true },
+        _max: { lastSuccessAt: true },
+      }),
+      this.prisma.repo.count({
+        where: { ...where, lastSuccessAt: { lt: staleBefore } },
+      }),
+    ]);
+    return {
+      trackedRepositoryCount: tracked._count._all,
+      staleRepositoryCount: stale,
+      lastSuccessAt: tracked._max.lastSuccessAt,
+    };
+  }
+
+  async listStaleCollectionRepositories(
+    staleBefore: Date,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<readonly CollectionRepositoryStatusDto[]> {
     const repositories = await this.prisma.repo.findMany({
+      take: page.limit,
+      skip: (page.page - 1) * page.limit,
       where: {
-        presence: 'PRESENT',
-        source: 'ORG_PROVISIONED',
-        ...this.platform.collectionTargetRepoWhere(),
+        ...this.orgRepositoryWhere(),
+        lastSuccessAt: { lt: staleBefore },
       },
-      orderBy: { ownerName: 'asc' },
+      orderBy: [{ lastSuccessAt: 'asc' }, { githubRepoId: 'asc' }],
       select: {
         ownerName: true,
         lastSuccessAt: true,
@@ -233,6 +278,14 @@ export class SystemStatusRepository {
     }));
   }
 
+  private orgRepositoryWhere() {
+    return {
+      presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
+      ...this.platform.collectionTargetRepoWhere(),
+    } satisfies Prisma.RepoWhereInput;
+  }
+
   async getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto> {
     const tracked = await this.prisma.repo.aggregate({
       where: {
@@ -248,18 +301,5 @@ export class SystemStatusRepository {
       trackedRepositoryCount: tracked._count._all,
       lastSuccessAt: tracked._max.lastSuccessAt ?? null,
     };
-  }
-}
-
-async function readHistoryPages<T extends { readonly id: string }>(
-  readPage: (after: string | undefined) => Promise<T[]>,
-): Promise<T[]> {
-  const events: T[] = [];
-  let after: string | undefined;
-  for (;;) {
-    const page = await readPage(after);
-    events.push(...page);
-    if (page.length < HISTORY_PAGE_SIZE) return events;
-    after = page[page.length - 1]?.id;
   }
 }

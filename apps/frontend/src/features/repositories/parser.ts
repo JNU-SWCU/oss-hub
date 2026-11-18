@@ -3,7 +3,6 @@ import type {
   MyRepositories,
   MyRepositoriesResponse,
   MyRepositoryResponseItem,
-  RepositoryApplicationMode,
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionStatus,
@@ -30,11 +29,6 @@ function nonEmptyString(value: unknown): string {
 
 function nullableString(value: unknown): string | null {
   if (value === null || typeof value === 'string') return value;
-  return invalidResponse();
-}
-
-function applicationMode(value: unknown): RepositoryApplicationMode {
-  if (value === 'PERSONAL' || value === 'TEAM') return value;
   return invalidResponse();
 }
 
@@ -109,16 +103,6 @@ function isSafeGithubUrl(
 
 function responseItem(value: unknown): MyRepositoryResponseItem {
   if (!isRecord(value)) return invalidResponse();
-  const updatedAt = nonEmptyString(value.updatedAt);
-  const parsedUpdatedAt = new Date(updatedAt);
-  if (
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(updatedAt) ||
-    Number.isNaN(parsedUpdatedAt.getTime()) ||
-    parsedUpdatedAt.toISOString() !== updatedAt
-  ) {
-    return invalidResponse();
-  }
-
   const parsedProvisionStatus = provisionStatus(value.provisionStatus);
   const parsedConnectionMode = connectionMode(value.connectionMode);
   const repositoryId = nullableString(value.repositoryId);
@@ -155,7 +139,6 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
   return {
     repositoryId,
     teamId: nonEmptyString(value.teamId),
-    applicationMode: applicationMode(value.applicationMode),
     connectionMode: parsedConnectionMode,
     programName: nonEmptyString(value.programName),
     displayName: nonEmptyString(value.displayName),
@@ -164,8 +147,6 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
     provisionStatus: parsedProvisionStatus,
     invitationStatus: parsedInvitationStatus,
     visibility: parsedVisibility,
-    lastErrorCode: nullableString(value.lastErrorCode),
-    updatedAt,
   };
 }
 
@@ -228,7 +209,6 @@ export function parseMyRepositoriesResponse(value: unknown): MyRepositories {
     items: parsed.items.map((item) => ({
       repositoryId: item.repositoryId,
       teamId: item.teamId,
-      applicationMode: item.applicationMode,
       connectionMode: item.connectionMode,
       programName: item.programName,
       displayName: item.displayName,
@@ -237,8 +217,6 @@ export function parseMyRepositoriesResponse(value: unknown): MyRepositories {
       provisionStatus: item.provisionStatus,
       invitationStatus: item.invitationStatus,
       visibility: item.visibility,
-      updatedAt: item.updatedAt,
-      modeLabel: item.applicationMode === 'PERSONAL' ? '개인' : '팀',
       provisionLabel:
         item.repositoryId !== null && item.provisionStatus !== 'SUCCEEDED'
           ? ACCESS_SYNC_LABELS[item.provisionStatus]

@@ -10,7 +10,7 @@ export class RepositoryDeletionRepository {
     githubRepositoryId: bigint,
   ): Promise<RepositoryDeletionCounts> {
     await transaction.$queryRaw`
-    SELECT github_repo_id FROM "repo" WHERE github_repo_id = ${githubRepositoryId} FOR UPDATE
+    SELECT github_repo_id FROM "repo" WHERE github_repo_id = ${githubRepositoryId} LIMIT 1 FOR UPDATE
   `;
     const [row] = await transaction.$queryRaw<
       readonly [{ readonly counts: RepositoryDeletionCounts }]
@@ -44,6 +44,7 @@ export class RepositoryDeletionRepository {
       ),
       'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE repo_id = ${githubRepositoryId})
     ) AS counts
+    LIMIT 1
   `;
     await transaction.repositoryProvisionJob.updateMany({
       where: { repoId: githubRepositoryId },

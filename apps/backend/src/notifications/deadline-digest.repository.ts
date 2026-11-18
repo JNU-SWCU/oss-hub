@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -61,6 +63,8 @@ const deadlineRecipientSelect = {
 } satisfies Prisma.UserSelect;
 @Injectable()
 export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
@@ -68,66 +72,97 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findAutomaticProgramIds(
     window: DeadlineWindow,
   ): Promise<readonly string[]> {
-    const programs = await this.prisma.program.findMany({
-      where: {
-        notifyOnDeadline: true,
-        lifecycle: { not: 'DELETED' },
-        milestones: {
-          some: {
-            dueAt: { gte: window.from, lte: window.to },
-            requirements: {
+    const programs = await this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.program.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: {
+            notifyOnDeadline: true,
+            lifecycle: { not: 'DELETED' },
+            milestones: {
               some: {
-                required: true,
+                dueAt: { gte: window.from, lte: window.to },
+                requirements: {
+                  some: {
+                    required: true,
+                  },
+                },
               },
             },
           },
-        },
-      },
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    });
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        }),
+      (program) => program.id,
+    );
     return programs.map((program) => program.id);
   }
   async findDeadlineProgram(
     programId: string,
   ): Promise<DeadlineProgramSource | null> {
-    const program = await this.prisma.program.findUnique({
-      where: { id: programId, lifecycle: { not: 'DELETED' } },
-      select: {
-        id: true,
-        name: true,
-        notifyOnDeadline: true,
-        milestones: {
-          select: {
-            id: true,
-            name: true,
-            dueAt: true,
-            requirements: {
-              where: {},
-              select: { id: true, required: true },
-              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    const program = await this.prisma.program
+      .findUnique({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+        select: {
+          id: true,
+          name: true,
+          notifyOnDeadline: true,
+          milestones: {
+            take: READ_CAP.milestonesPerProgram + 1,
+            select: {
+              id: true,
+              name: true,
+              dueAt: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {},
+                select: { id: true, required: true },
+                orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+              },
+            },
+            orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+          },
+          teams: {
+            take: READ_CAP.teamsPerProgram + 1,
+            where: { status: ApplicationStatus.APPROVED, archivedAt: null },
+            select: {
+              id: true,
+              applicant: { select: deadlineRecipientSelect },
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                select: { user: { select: deadlineRecipientSelect } },
+                orderBy: { userId: 'asc' },
+              },
+              submissions: {
+                take: READ_CAP.requirementsPerProgram + 1,
+                select: { requirementId: true },
+                orderBy: { requirementId: 'asc' },
+              },
+            },
+            orderBy: { id: 'asc' },
+          },
+        },
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            milestones: {
+              cap: READ_CAP.milestonesPerProgram,
+              nested: { requirements: READ_CAP.requirementsPerMilestone },
+            },
+            teams: {
+              cap: READ_CAP.teamsPerProgram,
+              nested: {
+                members: READ_CAP.membersPerTeam,
+                submissions: READ_CAP.requirementsPerProgram,
+              },
             },
           },
-          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-        },
-        teams: {
-          where: { status: ApplicationStatus.APPROVED, archivedAt: null },
-          select: {
-            id: true,
-            applicant: { select: deadlineRecipientSelect },
-            members: {
-              select: { user: { select: deadlineRecipientSelect } },
-              orderBy: { userId: 'asc' },
-            },
-            submissions: {
-              select: { requirementId: true },
-              orderBy: { requirementId: 'asc' },
-            },
-          },
-          orderBy: { id: 'asc' },
-        },
-      },
-    });
+          'Program.findUnique',
+        ),
+      );
     if (program === null) return null;
     return {
       id: program.id,
@@ -147,20 +182,26 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     };
   }
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
-    const staff = await this.prisma.user.findMany({
-      where: {
-        type: 'STAFF',
-        approvalStatus: 'APPROVED',
-        profileCreatedAt: { not: null },
-        name: { not: null },
-        department: { not: null },
-        accountStatus: AccountStatus.ACTIVE,
-        notifyEnabled: true,
-        notificationEmail: { not: null },
-      },
-      select: { id: true, notificationEmail: true },
-      orderBy: { id: 'asc' },
-    });
+    const staff = await this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.user.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: {
+            type: 'STAFF',
+            approvalStatus: 'APPROVED',
+            profileCreatedAt: { not: null },
+            name: { not: null },
+            department: { not: null },
+            accountStatus: AccountStatus.ACTIVE,
+            notifyEnabled: true,
+            notificationEmail: { not: null },
+          },
+          select: { id: true, notificationEmail: true },
+          orderBy: { id: 'asc' },
+        }),
+      (user) => user.id,
+    );
     return staff.flatMap(({ id, notificationEmail }) =>
       notificationEmail === null ? [] : [{ id, notificationEmail }],
     );
@@ -215,11 +256,17 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       readonly payload: Prisma.JsonValue;
     }[]
   > {
-    return this.prisma.notification.findMany({
-      where: { type: 'DEADLINE_DIGEST', status: 'FAILED' },
-      select: { id: true, createdAt: true, payload: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.boundedReads.readAllInBatches(
+      (after: string | undefined, take) =>
+        this.prisma.notification.findMany({
+          take,
+          ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
+          where: { type: 'DEADLINE_DIGEST', status: 'FAILED' },
+          select: { id: true, createdAt: true, payload: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        }),
+      (notification) => notification.id,
+    );
   }
   async findActiveAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({

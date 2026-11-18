@@ -83,10 +83,7 @@ function overview(
   scheduleMilestones: ProgramOverview['scheduleMilestones'],
 ): ProgramOverview {
   return {
-    programId: 'prog-1',
     name: '2026 하계 SW 현장실습 연계 프로그램',
-    trackType: 'EXTRACURRICULAR',
-    milestoneCount: 3,
     boardPostCount: 1,
     participantCount: 2,
     teamCount: 1,

@@ -1,10 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
-import { getStaffDashboardSummary } from './api';
+import {
+  getStaffDashboardSummary,
+  type StaffDashboardSummaryParams,
+} from './api';
 
-export function useStaffDashboardQuery() {
+export function useStaffDashboardQuery(params: StaffDashboardSummaryParams) {
   return useQuery({
-    queryKey: featureKey('staff-dashboard'),
-    queryFn: () => getStaffDashboardSummary(),
+    queryKey: featureKey(
+      'staff-dashboard',
+      params.search,
+      params.status,
+      params.page,
+    ),
+    queryFn: () => getStaffDashboardSummary(params),
+    placeholderData: keepPreviousData,
   });
 }

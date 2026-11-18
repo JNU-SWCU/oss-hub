@@ -10,7 +10,11 @@ import {
 } from './application-decision-refetch';
 import type { ApplicationListItem } from './dto';
 
-const APPLICATION = { id: 'synthetic-application' } as ApplicationListItem;
+const APPLICATION: ApplicationListItem = {
+  status: 'SUBMITTED',
+  rejectionReason: null,
+  applicant: { name: null, nickname: 'synthetic-application' },
+};
 
 function problem(status: number, code = 'APP_000') {
   return new ApiError({
@@ -53,7 +57,10 @@ describe('runDecisionWithRefetch — 판정 결과 축', () => {
   );
 
   it('성공해도 응답 바디가 아니라 재조회 결과를 행 상태로 쓴다', async () => {
-    const refreshed = { id: 'synthetic-application' } as ApplicationListItem;
+    const refreshed: ApplicationListItem = {
+      ...APPLICATION,
+      status: 'APPROVED',
+    };
     const p = ports(
       () => Promise.resolve({ status: 'APPROVED' }),
       () => Promise.resolve(refreshed),

@@ -46,10 +46,7 @@ vi.mock('@/features/programs/catalog/api', () => ({
 import { useProductShellData } from './use-product-shell-data';
 
 const OVERVIEW: ProgramOverview = {
-  programId: 'program-1',
   name: '합성 프로그램',
-  trackType: 'EXTRACURRICULAR',
-  milestoneCount: 2,
   boardPostCount: 0,
   participantCount: 3,
   teamCount: 2,

@@ -10,7 +10,6 @@ function context(overrides?: Partial<ReviewContext>): ReviewContext {
   return {
     latestReviewId: null,
     requirementId: 'requirement-1',
-    submissionId: 'submission-existing',
     application: {
       id: 'application-personal',
       applicationMode: 'PERSONAL',

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { userAuditRows } from './user-history.integration-fixture';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AdminRepository } from './admin.repository';
@@ -106,6 +107,7 @@ describe('account self-deactivation integration', () => {
   });
   it('serializes concurrent admin deactivation and preserves one active admin', async () => {
     const existingActiveAdmins = await prisma.user.findMany({
+      take: TEST_READ_LIMIT,
       where: { admin: { isNot: null }, accountStatus: AccountStatus.ACTIVE },
       select: { id: true },
     });

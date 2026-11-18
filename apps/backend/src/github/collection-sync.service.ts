@@ -1,3 +1,4 @@
+import { SequentialRepository } from '../platform/sequential.repository';
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
@@ -120,6 +121,8 @@ const observationChanged = (
 
 @Injectable()
 export class CollectionSyncService {
+  private readonly sequential = new SequentialRepository();
+
   private readonly logger = new Logger(CollectionSyncService.name);
   private readonly deadline: CollectionSyncDeadlineService;
 
@@ -285,16 +288,19 @@ export class CollectionSyncService {
 
     try {
       const changed: CollectionRepositoryRow[] = [];
-      for (
-        let offset = 0;
-        offset < targets.length && !stoppedForBudget;
-        offset += PROBE_BATCH_SIZE
-      ) {
+      const batches = Array.from(
+        { length: Math.ceil(targets.length / PROBE_BATCH_SIZE) },
+        (_, index) =>
+          targets.slice(
+            index * PROBE_BATCH_SIZE,
+            (index + 1) * PROBE_BATCH_SIZE,
+          ),
+      );
+      await this.sequential.forEach(batches, async (batch) => {
         if (this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          break;
+          return 'stop';
         }
-        const batch = targets.slice(offset, offset + PROBE_BATCH_SIZE);
         const unchanged = await this.probe(
           runtime,
           lease,
@@ -314,12 +320,13 @@ export class CollectionSyncService {
         });
         await this.recordSuccess(lease, unchanged, succeededAt);
         stats.succeededRepos += unchanged.length;
-      }
+        return stoppedForBudget ? 'stop' : undefined;
+      });
 
-      for (const repository of changed) {
+      await this.sequential.forEach(changed, async (repository) => {
         if (stoppedForBudget || this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          break;
+          return 'stop';
         }
         const outcome = await this.collect(
           runtime,
@@ -331,8 +338,12 @@ export class CollectionSyncService {
           stats,
           runId,
         );
-        if (outcome === 'STOPPED_FOR_BUDGET') stoppedForBudget = true;
-      }
+        if (outcome === 'STOPPED_FOR_BUDGET') {
+          stoppedForBudget = true;
+          return 'stop';
+        }
+        return undefined;
+      });
 
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
       status = 'COMPLETED';
@@ -397,7 +408,7 @@ export class CollectionSyncService {
     this.observeRateLimit(stats, result.rateLimit);
 
     const unchanged: bigint[] = [];
-    for (const [index, target] of batch.entries()) {
+    await this.sequential.forEach(batch, async (target, index) => {
       const probed = result.repositories[index] ?? null;
       if (
         probed === null ||
@@ -413,7 +424,7 @@ export class CollectionSyncService {
           runId,
         );
         if (relocated !== null) changed.push(relocated);
-        continue;
+        return;
       }
       const current = observationChanged(target, probed)
         ? await this.refresh(lease, source, target.githubRepositoryId, {
@@ -425,14 +436,14 @@ export class CollectionSyncService {
         : target;
       if (current === null) {
         stats.unavailableRepos += 1;
-        continue;
+        return;
       }
       if (kind !== 'hourly' || hasActivitySince(target.lastSuccessAt, probed)) {
         changed.push(current);
       } else {
         unchanged.push(target.githubRepositoryId);
       }
-    }
+    });
     return unchanged;
   }
 
@@ -553,7 +564,7 @@ export class CollectionSyncService {
       this.observeRateLimit(stats, result.rateLimit);
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        for (const kind of CONTRIBUTION_KINDS) {
+        await this.sequential.forEach(CONTRIBUTION_KINDS, async (kind) => {
           const recorded = await repo.recordContributions(
             repository.githubRepositoryId,
             kind,
@@ -561,7 +572,7 @@ export class CollectionSyncService {
           );
           stats.inserted += recorded.inserted;
           stats.authorFilled += recorded.authorFilled;
-        }
+        });
         await repo.recordRepositorySuccess(
           [repository.githubRepositoryId],
           succeededAt,

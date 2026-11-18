@@ -211,7 +211,6 @@ describe('TeamsController', () => {
 
   it('통합 팀 목록은 관리 뷰의 팀원과 제출 시각을 페이지 DTO로 반환한다', async () => {
     const member = {
-      id: 'user-a',
       name: '가나다',
       nickname: 'login-a',
     };
@@ -219,12 +218,10 @@ describe('TeamsController', () => {
       items: [
         {
           id: 'team-1',
-          programId: 'program-1',
           teamMinSize: 1,
           status: 'SUBMITTED',
           submittedAt: new Date('2026-01-01'),
-          rejectionReason: null,
-          applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+          applicant: { name: '가나다', nickname: 'login-a' },
           team: {
             id: 'team-1',
             name: '오픈소스팀',
@@ -233,34 +230,31 @@ describe('TeamsController', () => {
           },
         },
       ],
-      page: 1,
-      pageSize: 20,
       totalItems: 1,
       totalPages: 1,
     };
-    const listForProgramView = jest
-      .fn()
-      .mockResolvedValue({ view: 'team-management', page });
+    const listTeamManagementForProgram = jest.fn().mockResolvedValue(page);
     const controller = new ProgramApplicationsController({
       createFromRequest: jest.fn(),
-      listForProgramView,
+      listTeamManagementForProgram,
     });
     const query = {
       ...new ApplicationListRequestDto(),
       view: 'team-management',
     } satisfies ApplicationListRequestDto;
     const response = await controller.list('program-1', query);
-    expect(listForProgramView).toHaveBeenCalledWith('program-1', query);
+    expect(listTeamManagementForProgram).toHaveBeenCalledWith(
+      'program-1',
+      query,
+    );
     expect(response).toEqual({
       items: [
         {
           id: 'team-1',
-          programId: 'program-1',
           teamMinSize: 1,
           status: 'SUBMITTED',
           submittedAt: '2026-01-01T00:00:00.000Z',
-          rejectionReason: null,
-          applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+          applicant: { name: '가나다', nickname: 'login-a' },
           team: {
             id: 'team-1',
             name: '오픈소스팀',
@@ -269,8 +263,6 @@ describe('TeamsController', () => {
           },
         },
       ],
-      page: 1,
-      pageSize: 20,
       totalItems: 1,
       totalPages: 1,
     });
@@ -404,8 +396,6 @@ describe('TeamsController', () => {
         },
       ],
       application: null,
-      repositoryContributions: null,
-      repositoryUrlHistory: { items: [], nextCursor: null },
     });
     const controller = new TeamsController(serviceStub({ getForStaff }));
 
@@ -413,7 +403,6 @@ describe('TeamsController', () => {
 
     expect(getForStaff).toHaveBeenCalledWith('program-1', 'team-1');
     expect(response).toEqual({
-      teamId: 'team-1',
       name: '오픈소스팀',
       memberCount: 1,
       members: [
@@ -425,8 +414,6 @@ describe('TeamsController', () => {
         },
       ],
       application: null,
-      repositoryContributions: null,
-      repositoryUrlHistory: { items: [], nextCursor: null },
     });
   });
 

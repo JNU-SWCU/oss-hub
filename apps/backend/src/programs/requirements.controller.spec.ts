@@ -270,7 +270,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
   page: 1,
   pageSize: 20,
   total: 1,
-  filterCounts: { all: 1, hasMissing: 0, zeroSubmission: 0 },
+  filterCounts: { all: 1, zeroSubmission: 0 },
   documentTotals: [
     { documentId: 'synthetic-document', submitted: 1, total: 1 },
   ],
@@ -617,7 +617,7 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
       programId: 'cuid-synthetic-program',
       name: '프로젝트 계획서 제출',
     },
-    documents: [{ id: 'synthetic-document', sortOrder: 1 }],
+    documents: [{ id: 'synthetic-document' }],
     rows: [
       {
         teamName: '가나다팀',
@@ -627,7 +627,7 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
     page: 1,
     pageSize: 20,
     total: 1,
-    filterCounts: { all: 1, hasMissing: 0, zeroSubmission: 0 },
+    filterCounts: { all: 1, zeroSubmission: 0 },
     documentTotals: [
       { documentId: 'synthetic-document', submitted: 1, total: 1 },
     ],

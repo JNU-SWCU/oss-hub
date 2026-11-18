@@ -1,7 +1,9 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { Prisma } from '@prisma/client';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
+import { STANDING_SQL } from '../platform/contributor-read.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -47,10 +49,7 @@ describe('contributor standing reads', () => {
       ],
     });
 
-    const rows = await new ContributorReadRepository(prisma).readStandingRows({
-      year: YEAR,
-      visibility: 'PUBLIC',
-    });
+    const rows = await publicStandingRows(YEAR);
     const mine = rows.filter((row) => row.githubId === GITHUB_ID);
 
     expect(mine).toEqual([
@@ -90,10 +89,7 @@ describe('contributor standing reads', () => {
     });
 
     const reader = new ContributorReadRepository(prisma);
-    const rows = await reader.readStandingRows({
-      year: 2122,
-      visibility: 'PUBLIC',
-    });
+    const rows = await publicStandingRows(2122);
 
     expect(
       rows
@@ -110,4 +106,22 @@ async function purge(): Promise<void> {
   await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },
   });
+}
+
+async function publicStandingRows(year: number) {
+  const rows = await prisma.$queryRaw<
+    {
+      githubId: bigint;
+      year: number;
+      visibility: string;
+      commitCount: number;
+    }[]
+  >`
+    SELECT github_id AS "githubId", year, visibility::text AS visibility,
+      commit_count AS "commitCount"
+    FROM ${Prisma.raw(STANDING_SQL)}
+    WHERE year = ${year} AND visibility = 'PUBLIC'::"ActivityVisibility"
+    LIMIT 1000
+  `;
+  return rows;
 }

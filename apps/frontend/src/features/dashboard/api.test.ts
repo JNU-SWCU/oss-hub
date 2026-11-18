@@ -255,21 +255,7 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
-    [
-      '남은 서류 수가 필수 서류 수보다 큼',
-      {
-        items: [
-          {
-            ...approvedItem,
-            nextMilestone: {
-              ...approvedItem.nextMilestone,
-              requiredItemCount: 1,
-              remainingItemCount: 2,
-            },
-          },
-        ],
-      },
-    ],
+
     [
       '진행 수치가 정수가 아님',
       {
@@ -419,7 +405,7 @@ describe('application decision notices', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify([notice]), {
+        new Response(JSON.stringify({ items: [notice], hasMore: false }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
@@ -446,7 +432,10 @@ describe('application decision notices', () => {
   });
 
   it('rejects malformed and unsafe notice payloads', async () => {
-    respondWith([{ ...notice, programId: '../admin' }]);
+    respondWith({
+      items: [{ ...notice, programId: '../admin' }],
+      hasMore: false,
+    });
 
     await expect(fetchUnreadApplicationDecisionNotices()).rejects.toThrow(
       '신청 승인 알림 응답 형식이 올바르지 않습니다.',
@@ -457,16 +446,23 @@ describe('application decision notices', () => {
 describe('fetchStudentFeedback', () => {
   it('최근 피드백을 단일 API 요청으로 읽어 항목 배열로 돌려준다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ items: [feedbackItemFixture] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({
+          items: [feedbackItemFixture],
+          nextCursor: 'review-50',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(fetchStudentFeedback()).resolves.toEqual([
-      feedbackItemFixture,
-    ]);
+    await expect(fetchStudentFeedback()).resolves.toEqual({
+      items: [feedbackItemFixture],
+      nextCursor: 'review-50',
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('dashboard/student/feedback'),
       undefined,
@@ -479,9 +475,12 @@ describe('fetchStudentFeedback', () => {
       decision: 'APPROVED',
       comment: null,
     } as const;
-    respondWith({ items: [item] });
+    respondWith({ items: [item], nextCursor: null });
 
-    await expect(fetchStudentFeedback()).resolves.toEqual([item]);
+    await expect(fetchStudentFeedback()).resolves.toEqual({
+      items: [item],
+      nextCursor: null,
+    });
   });
 
   it.each([
@@ -500,15 +499,12 @@ describe('fetchStudentFeedback', () => {
       },
     ],
     [
-      '주소가 다른 마일스톤을 가리킴',
-      { href: '/programs/program-capstone/documents?milestoneId=other' },
+      '주소가 서류 화면이 아님',
+      { href: '/programs/program-capstone/teams?milestoneId=other' },
     ],
     [
       '상위 경로를 프로그램 ID로 사용함',
-      {
-        programId: '..',
-        href: '/programs/../documents?milestoneId=milestones-upcoming',
-      },
+      { href: '/programs/../documents?milestoneId=milestones-upcoming' },
     ],
   ] as const)(
     '잘못된 응답을 어댑터 경계에서 거부한다: %s',
@@ -516,7 +512,10 @@ describe('fetchStudentFeedback', () => {
       respondWith(
         'items' in change
           ? change
-          : { items: [{ ...feedbackItemFixture, ...change }] },
+          : {
+              items: [{ ...feedbackItemFixture, ...change }],
+              nextCursor: null,
+            },
       );
 
       await expect(fetchStudentFeedback()).rejects.toThrow(

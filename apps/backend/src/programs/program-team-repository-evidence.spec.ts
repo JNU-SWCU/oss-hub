@@ -1,17 +1,11 @@
 import { StudentRepositoryUrlService } from './team-application.service';
 import {
   teamFindFirst,
-  contributionQuery,
   historyQuery,
   provisionFindUnique,
-  repoFindUnique,
   givenRepository,
 } from './program-team-repository-evidence.fixture';
-import { PrismaService } from '../platform/prisma.service';
-import {
-  ProgramTeamRepositoryEvidenceRepository,
-  type RepositoryUrlHistoryRows,
-} from './program-team-repository-evidence.repository';
+import { type RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
@@ -48,42 +42,8 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
   });
 }
 
-it('keeps the sentinel window but bounds the query by the last queryable day', async () => {
-  givenRepository();
-  const repository = new ProgramTeamRepositoryEvidenceRepository(
-    new PrismaService(),
-  );
-
-  const view = await repository.contributions(
-    {
-      id: 'application',
-      repository: {
-        githubRepositoryId: 4242n,
-        nameWithOwner: 'synthetic/current',
-      },
-      program: {
-        id: 'program',
-        startAt: new Date('0001-01-01T00:00:00.000Z'),
-        endAt: new Date('9999-12-31T23:59:59.999Z'),
-      },
-    },
-    [],
-  );
-
-  expect(view?.window).toEqual({
-    from: '0001-01-01',
-    to: '+010000-01-01',
-    timeZone: 'Asia/Seoul',
-  });
-  expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
-    4242n,
-    '0001-01-01',
-    '9999-12-31',
-  ]);
-});
-
 it('reports an explicit repository relink as succeeded without inventing a provisioning outbox', async () => {
-  const repository = givenRepository(new Date('2026-08-31Z'), 'OWN');
+  const repository = givenRepository('OWN');
   provisionFindUnique.mockResolvedValue({
     status: 'SUCCEEDED',
     updatedAt: new Date('2026-08-31Z'),
@@ -150,14 +110,8 @@ it('reads the application state from the same Team row', async () => {
 
   expect(detail).toMatchObject({
     application: { id: 'team', status: 'APPROVED' },
-    repositoryContributions: {
-      repositoryId: '4242',
-      collectionStatus: 'COLLECTED',
-    },
-    repositoryUrlHistory: { rows: [], hasMore: false },
   });
-  expect(contributionQuery).toHaveBeenCalledTimes(1);
-  expect(historyQuery).toHaveBeenCalledTimes(1);
+  expect(historyQuery).not.toHaveBeenCalled();
 });
 
 it('returns only application-scoped URL history with the actor snapshot', async () => {
@@ -185,9 +139,12 @@ it('returns only application-scoped URL history with the actor snapshot', async 
     },
   ]);
 
-  const detail = await repository.findStaffTeamDetail('program', 'team');
+  const history = await repository.findStaffRepositoryUrlHistory(
+    'program',
+    'team',
+  );
 
-  expect(toPage(detail?.repositoryUrlHistory)).toMatchObject({
+  expect(toPage(history ?? undefined)).toMatchObject({
     items: [
       {
         id: 'change-1',
@@ -231,9 +188,12 @@ it('bounds the initial history page and provides a cursor for all remaining hist
     })),
   );
 
-  const detail = await repository.findStaffTeamDetail('program', 'team');
+  const history = await repository.findStaffRepositoryUrlHistory(
+    'program',
+    'team',
+  );
 
-  const page = toPage(detail?.repositoryUrlHistory);
+  const page = toPage(history ?? undefined);
   expect(page).toMatchObject({
     nextCursor: '2026-08-15T00:00:00.000Z_change-11',
   });
@@ -251,79 +211,15 @@ it('bounds the initial history page and provides a cursor for all remaining hist
   ]);
 });
 
-it('matches numeric GitHub identities and preserves members without observations', async () => {
-  const repository = givenRepository();
-
-  const detail = await repository.findStaffTeamDetail('program', 'team');
-
-  expect(detail).toMatchObject({
-    repositoryContributions: {
-      repositoryId: '4242',
-      nameWithOwner: 'synthetic/current',
-      window: { from: '2026-08-01', to: '2026-08-31', timeZone: 'Asia/Seoul' },
-      collectionStatus: 'COLLECTED',
-      members: [
-        {
-          userId: 'member-a',
-          githubId: '101',
-          commitCount: 3,
-          pullRequestCount: 2,
-          releaseCount: 1,
-          issueCount: 0,
-          hasObservations: true,
-        },
-        {
-          userId: 'member-b',
-          githubId: '102',
-          commitCount: 0,
-          pullRequestCount: 0,
-          releaseCount: 0,
-          issueCount: 0,
-          hasObservations: false,
-        },
-      ],
-    },
-  });
-  expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
-    4242n,
-    '2026-08-01',
-    '2026-08-31',
-  ]);
-});
-
-it.each([
-  [null, 'NOT_COLLECTED'],
-  [new Date('2026-08-31T10:00:00Z'), 'COLLECTED'],
-  [new Date('2026-08-31T09:59:59.999Z'), 'ERROR'],
-] as const)(
-  'derives collection state from repo.last_success_at %s',
-  async (lastSuccessAt, collectionStatus) => {
-    jest.setSystemTime(new Date('2026-08-31T12:00:00Z'));
-    const repository = givenRepository(lastSuccessAt);
-    contributionQuery.mockResolvedValue([]);
-
-    const detail = await repository.findStaffTeamDetail('program', 'team');
-
-    expect(detail).toMatchObject({
-      repositoryContributions: {
-        collectionStatus,
-        lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
-      },
-    });
-    expect(repoFindUnique).toHaveBeenCalledWith({
-      where: { githubRepoId: 4242n },
-      select: { lastSuccessAt: true },
-    });
-  },
-);
-
-it('does not query contributions or history for an absent or differently scoped team', async () => {
+it('does not query history for an absent or differently scoped team', async () => {
   const repository = givenRepository();
   teamFindFirst.mockResolvedValue(null);
 
-  const detail = await repository.findStaffTeamDetail('other-program', 'team');
+  const history = await repository.findStaffRepositoryUrlHistory(
+    'other-program',
+    'team',
+  );
 
-  expect(detail).toBeNull();
-  expect(contributionQuery).not.toHaveBeenCalled();
+  expect(history).toBeNull();
   expect(historyQuery).not.toHaveBeenCalled();
 });

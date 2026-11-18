@@ -7,9 +7,6 @@ function isTeamDeletionNotice(value: unknown): value is TeamDeletionNotice {
     'id' in value &&
     typeof value.id === 'string' &&
     value.id.length > 0 &&
-    'teamId' in value &&
-    typeof value.teamId === 'string' &&
-    value.teamId.length > 0 &&
     'teamName' in value &&
     typeof value.teamName === 'string' &&
     value.teamName.trim().length > 0 &&
@@ -35,10 +32,18 @@ export async function fetchUnreadTeamDeletionNotices(): Promise<
   const response = await apiClient<unknown>(
     'users/me/notifications/team-deletions',
   );
-  if (!Array.isArray(response) || !response.every(isTeamDeletionNotice)) {
+  if (
+    response === null ||
+    typeof response !== 'object' ||
+    !('items' in response) ||
+    !('hasMore' in response) ||
+    typeof response.hasMore !== 'boolean' ||
+    !Array.isArray(response.items) ||
+    !response.items.every(isTeamDeletionNotice)
+  ) {
     throw new TypeError('팀 삭제 알림 응답 형식이 올바르지 않습니다.');
   }
-  return response;
+  return response.items;
 }
 
 export async function markTeamDeletionNoticeRead(

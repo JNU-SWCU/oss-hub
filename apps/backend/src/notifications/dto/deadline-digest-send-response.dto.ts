@@ -8,7 +8,6 @@ export class DeadlineDigestSendResponseDto {
   declare readonly optedOutCount: number;
   declare readonly noEmailCount: number;
   declare readonly staffRecipientCount: number;
-  declare readonly sentAt: string;
   declare readonly previewVersion: string;
   declare readonly sentCount: number;
   declare readonly duplicateCount: number;
@@ -23,7 +22,6 @@ export class DeadlineDigestSendResponseDto {
       optedOutCount: result.optedOutCount,
       noEmailCount: result.noEmailCount,
       staffRecipientCount: result.staffRecipientCount,
-      sentAt: result.sentAt,
       previewVersion: result.previewVersion,
       sentCount: result.sentCount,
       duplicateCount: result.duplicateCount,

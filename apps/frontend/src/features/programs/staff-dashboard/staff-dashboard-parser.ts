@@ -60,12 +60,10 @@ function isApplications(
   if (!isRecord(value)) return false;
   return (
     isCount(value.total) &&
-    isCount(value.submitted) &&
     isCount(value.pendingApproval) &&
     isCount(value.approved) &&
     isCount(value.rejected) &&
-    value.pendingApproval === value.submitted &&
-    value.total === value.submitted + value.approved + value.rejected
+    value.total === value.pendingApproval + value.approved + value.rejected
   );
 }
 
@@ -93,11 +91,9 @@ function isSubmissions(
     value.rejected,
   ];
   return (
-    isCount(value.approvedApplications) &&
     isCount(value.milestones) &&
     isCount(value.total) &&
     counts.every(isCount) &&
-    value.total === value.approvedApplications * value.milestones &&
     value.total === counts.reduce((sum, count) => sum + count, 0)
   );
 }
@@ -105,7 +101,6 @@ function isSubmissions(
 function isProgram(value: unknown): value is StaffDashboardProgramSummary {
   if (!isRecord(value) || !isSafeProgramId(value.id)) return false;
   if (!isRecord(value.applicationPeriod)) return false;
-  const expectedTeamManagementPath = `/programs/${encodeURIComponent(value.id)}/teams`;
   return (
     isNonEmptyString(value.name) &&
     isProgramTrackType(value.trackType) &&
@@ -114,7 +109,6 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
     Date.parse(value.applicationPeriod.startsAt) <=
       Date.parse(value.applicationPeriod.endsAt) &&
     isIsoDate(value.endAt) &&
-    value.teamManagementPath === expectedTeamManagementPath &&
     isApplications(value.applications) &&
     isActivity(value.activity) &&
     isSubmissions(value.submissions)
@@ -127,9 +121,28 @@ export function parseStaffDashboardSummary(
   if (
     !isRecord(value) ||
     !Array.isArray(value.programs) ||
-    !value.programs.every(isProgram)
+    !value.programs.every(isProgram) ||
+    !isCount(value.page) ||
+    !isCount(value.pageSize) ||
+    !isCount(value.total) ||
+    !isCount(value.catalogTotal) ||
+    !isRecord(value.statusSummary) ||
+    !isCount(value.statusSummary.recruiting) ||
+    !isCount(value.statusSummary.inProgress) ||
+    !isCount(value.statusSummary.ended)
   ) {
     throw new StaffDashboardResponseError();
   }
-  return { programs: value.programs };
+  return {
+    programs: value.programs,
+    page: value.page,
+    pageSize: value.pageSize,
+    total: value.total,
+    catalogTotal: value.catalogTotal,
+    statusSummary: {
+      recruiting: value.statusSummary.recruiting,
+      inProgress: value.statusSummary.inProgress,
+      ended: value.statusSummary.ended,
+    },
+  };
 }

@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import {
   deleteRepos,
   linkedTo,
@@ -323,13 +324,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         nameWithOwner: OWN_NAME_WITH_OWNER,
       });
 
-      const decision = await service.decide(
+      await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         AUTHORITY_APPLICATION_ID,
         { action: 'APPROVE' },
       );
 
-      expect(decision.kind).toBe('APPROVED');
       await expect(
         prisma.team.findUniqueOrThrow({
           where: { id: AUTHORITY_APPLICATION_ID },
@@ -390,7 +390,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       await expect(
         service.decide(staff, NEW_LINKED_APPLICATION_ID, { action: 'APPROVE' }),
-      ).resolves.toMatchObject({ kind: 'APPROVED' });
+      ).resolves.toBeUndefined();
       const approvalEvent = await prisma.outboxEvent.findFirstOrThrow({
         where: {
           idempotencyKey: `repository-provision:${NEW_LINKED_APPLICATION_ID}`,
@@ -402,7 +402,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       await expect(
         service.decide(staff, NEW_LINKED_APPLICATION_ID, { action: 'REVERT' }),
-      ).resolves.toMatchObject({ kind: 'REVERTED' });
+      ).resolves.toBeUndefined();
       await expect(
         prisma.outboxEvent.count({
           where: { aggregateId: NEW_LINKED_APPLICATION_ID },
@@ -410,6 +410,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ).resolves.toBe(0);
       await expect(
         prisma.repositoryIssuanceHistory.findMany({
+          take: TEST_READ_LIMIT,
           where: { teamId: NEW_LINKED_APPLICATION_ID },
         }),
       ).resolves.toEqual([
@@ -436,16 +437,21 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         nameWithOwner: OWN_NAME_WITH_OWNER,
       });
 
-      const decision = await service.decide(
+      await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         CHAIN_APPLICATION_ID,
         { action: 'APPROVE' },
       );
 
-      expect(decision.kind).toBe('APPROVED');
-      if (decision.kind !== 'APPROVED') {
-        throw new Error('fixture approval must succeed');
-      }
+      const provisionEventId = (
+        await prisma.outboxEvent.findUniqueOrThrow({
+          where: {
+            idempotencyKey: `repository-provision:${CHAIN_APPLICATION_ID}`,
+          },
+
+          select: { id: true },
+        })
+      ).id;
       await expect(
         prisma.team.findUniqueOrThrow({
           where: { id: CHAIN_APPLICATION_ID },
@@ -460,7 +466,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ).resolves.toMatchObject({ status: 'PENDING' });
 
       const consumed = await consumeUntilProvisionEvent(
-        decision.repositoryProvisioning.eventId,
+        provisionEventId,
         'own-chain-outbox-worker',
       );
       expect(consumed).toMatchObject({ kind: 'CONSUMED' });
@@ -524,18 +530,24 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         },
       );
 
-      const decision = await service.decide(
+      await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         ORG_OWNER_EXTERNAL_APPLICATION_ID,
         { action: 'APPROVE' },
       );
-      expect(decision.kind).toBe('APPROVED');
-      if (decision.kind !== 'APPROVED') {
-        throw new Error('fixture approval must succeed');
-      }
+
+      const provisionEventId = (
+        await prisma.outboxEvent.findUniqueOrThrow({
+          where: {
+            idempotencyKey: `repository-provision:${ORG_OWNER_EXTERNAL_APPLICATION_ID}`,
+          },
+
+          select: { id: true },
+        })
+      ).id;
 
       const consumed = await consumeUntilProvisionEvent(
-        decision.repositoryProvisioning.eventId,
+        provisionEventId,
         'own-chain-org-owner-external-outbox-worker',
       );
       expect(consumed).toMatchObject({ kind: 'CONSUMED' });
@@ -570,7 +582,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         prisma.repo.findUniqueOrThrow({
           where: { githubRepoId: ECONOVATION_GITHUB_REPOSITORY_ID },
           include: {
-            teamRepos: { where: { validTo: null }, select: { teamId: true } },
+            teamRepos: {
+              take: TEST_READ_LIMIT,
+              where: { validTo: null },
+              select: { teamId: true },
+            },
           },
         }),
       ).resolves.toMatchObject({
@@ -599,16 +615,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         nameWithOwner: NO_CONSENT_NAME_WITH_OWNER,
       },
     );
-    const decision = await service.decide(
+    await service.decide(
       { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
       NO_CONSENT_APPLICATION_ID,
       { action: 'APPROVE' },
     );
-    if (decision.kind !== 'APPROVED') {
-      throw new Error('fixture approval must succeed');
-    }
+    const provisionEventId = (
+      await prisma.outboxEvent.findUniqueOrThrow({
+        where: {
+          idempotencyKey: `repository-provision:${NO_CONSENT_APPLICATION_ID}`,
+        },
+
+        select: { id: true },
+      })
+    ).id;
     const consumed = await consumeUntilProvisionEvent(
-      decision.repositoryProvisioning.eventId,
+      provisionEventId,
       'own-chain-no-consent-outbox-worker',
     );
     expect(consumed).toMatchObject({ kind: 'CONSUMED' });
@@ -638,7 +660,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       prisma.repo.findUniqueOrThrow({
         where: { githubRepoId: NO_CONSENT_GITHUB_REPOSITORY_ID },
         include: {
-          teamRepos: { where: { validTo: null }, select: { teamId: true } },
+          teamRepos: {
+            take: TEST_READ_LIMIT,
+            where: { validTo: null },
+            select: { teamId: true },
+          },
         },
       }),
     ).resolves.toMatchObject({
@@ -668,16 +694,22 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         source: RepositorySource.ORG_PROVISIONED,
         visibility: RepositoryVisibility.PRIVATE,
       });
-      const decision = await service.decide(
+      await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         ORG_OWN_APPLICATION_ID,
         { action: 'APPROVE' },
       );
-      if (decision.kind !== 'APPROVED') {
-        throw new Error('fixture approval must succeed');
-      }
+      const provisionEventId = (
+        await prisma.outboxEvent.findUniqueOrThrow({
+          where: {
+            idempotencyKey: `repository-provision:${ORG_OWN_APPLICATION_ID}`,
+          },
+
+          select: { id: true },
+        })
+      ).id;
       const consumed = await consumeUntilProvisionEvent(
-        decision.repositoryProvisioning.eventId,
+        provisionEventId,
         'own-chain-org-outbox-worker',
       );
       expect(consumed).toMatchObject({ kind: 'CONSUMED' });
@@ -707,7 +739,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         prisma.repo.findUniqueOrThrow({
           where: { githubRepoId: ORG_GITHUB_REPOSITORY_ID },
           include: {
-            teamRepos: { where: { validTo: null }, select: { teamId: true } },
+            teamRepos: {
+              take: TEST_READ_LIMIT,
+              where: { validTo: null },
+              select: { teamId: true },
+            },
           },
         }),
       ).resolves.toMatchObject({
@@ -827,7 +863,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
       });
       await expect(
-        prisma.repo.findMany({ where: linkedTo(teamId) }),
+        prisma.repo.findMany({
+          take: TEST_READ_LIMIT,
+          where: linkedTo(teamId),
+        }),
       ).resolves.toEqual([
         expect.objectContaining({
           githubRepoId: 8_520_100_099n,

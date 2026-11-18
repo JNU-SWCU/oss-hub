@@ -1,16 +1,24 @@
 import { apiClient } from '@/lib/api-client';
 import type { SystemStatus } from './types';
 
-export async function fetchSystemStatus(): Promise<SystemStatus> {
+export const STALE_REPOSITORY_PAGE_SIZE = 10;
+
+export async function fetchSystemStatus(
+  staleRepositoryPage: number,
+): Promise<SystemStatus> {
+  const query = new URLSearchParams({
+    staleRepositoryPage: String(staleRepositoryPage),
+    staleRepositoryLimit: String(STALE_REPOSITORY_PAGE_SIZE),
+  });
   const response = await apiClient<Partial<SystemStatus> | null>(
-    'system-status',
+    `system-status?${query.toString()}`,
   );
   const {
     collection,
     provisioning,
     mail,
     anomalies,
-    collectionRepositories,
+    staleRepositories,
     externalCollection,
   } = response ?? {};
   if (
@@ -18,7 +26,7 @@ export async function fetchSystemStatus(): Promise<SystemStatus> {
     !provisioning ||
     !mail ||
     !anomalies ||
-    !collectionRepositories ||
+    !staleRepositories ||
     !externalCollection
   ) {
     throw new Error('시스템 상태 응답 형식이 올바르지 않습니다');
@@ -28,7 +36,7 @@ export async function fetchSystemStatus(): Promise<SystemStatus> {
     provisioning,
     mail,
     anomalies,
-    collectionRepositories,
+    staleRepositories,
     externalCollection,
   };
 }

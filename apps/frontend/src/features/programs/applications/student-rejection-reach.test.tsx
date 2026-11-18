@@ -44,18 +44,14 @@ const REJECTED_PROGRAM = {
 
 const REJECTED_APPLICATION = {
   id: 'application-rejected-reach',
-  programId: PROGRAM_ID,
   status: 'REJECTED',
   teamId: 'team-rejected-reach',
   answers: { applicantName: '합성 학생', title: '합성 제목' },
   submittedAt: '2026-06-20T00:00:00.000Z',
-  updatedAt: '2026-06-28T00:00:00.000Z',
   isRepositoryPublicationPlanned: false,
   rejectionReason: REJECTION_REASON,
   isManager: true,
   canManage: false,
-  canEdit: false,
-  canCancel: false,
 } as const satisfies StudentApplication;
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {

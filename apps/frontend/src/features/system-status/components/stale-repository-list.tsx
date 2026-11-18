@@ -1,10 +1,9 @@
-import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { STALE_REPOSITORY_PAGE_SIZE } from '../api';
 import { formatRelativeTime } from '../system-status-format';
-import type { CollectionRepository } from '../types';
+import type { StaleRepositoryPage, StaleRepositoryPager } from '../types';
 
-const VISIBLE_REPOSITORIES = 5;
 const REPOSITORY_ROW = cn(
   'grid gap-x-4 gap-y-1 py-2 [&+&]:border-t [&+&]:border-border/50',
   'sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center',
@@ -12,24 +11,21 @@ const REPOSITORY_ROW = cn(
 
 export function StaleRepositoryList({
   repositories,
+  pager,
 }: {
-  readonly repositories: readonly CollectionRepository[];
+  readonly repositories: StaleRepositoryPage;
+  readonly pager: StaleRepositoryPager;
 }) {
-  const listId = useId();
-  const [expanded, setExpanded] = useState(false);
   const now = new Date();
-  const mostDelayedFirst = [...repositories].sort((left, right) =>
-    (left.lastSuccessAt ?? '').localeCompare(right.lastSuccessAt ?? ''),
+  const totalPages = Math.max(
+    1,
+    Math.ceil(repositories.total / STALE_REPOSITORY_PAGE_SIZE),
   );
-  const foldedCount = mostDelayedFirst.length - VISIBLE_REPOSITORIES;
-  const visible = expanded
-    ? mostDelayedFirst
-    : mostDelayedFirst.slice(0, VISIBLE_REPOSITORIES);
 
   return (
     <div className="grid gap-2">
-      <ul id={listId} className="grid">
-        {visible.map((repository) => {
+      <ul className="grid">
+        {repositories.items.map((repository) => {
           const owner = [repository.teamName, repository.programName]
             .filter(Boolean)
             .join(' · ');
@@ -58,20 +54,30 @@ export function StaleRepositoryList({
           );
         })}
       </ul>
-      {foldedCount > 0 ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="justify-self-start"
-          aria-expanded={expanded}
-          aria-controls={listId}
-          onClick={() => setExpanded((open) => !open)}
-        >
-          {expanded
-            ? '지연 저장소 접기'
-            : `지연 저장소 ${foldedCount}개 더 보기`}
-        </Button>
+      {totalPages > 1 ? (
+        <div className="flex items-center justify-end gap-3 text-sm">
+          <span className="tabular-nums">
+            {pager.page} / {totalPages} 페이지
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pager.page <= 1 || pager.isLoading}
+            onClick={() => pager.onPageChange(pager.page - 1)}
+          >
+            이전
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pager.page >= totalPages || pager.isLoading}
+            onClick={() => pager.onPageChange(pager.page + 1)}
+          >
+            다음
+          </Button>
+        </div>
       ) : null}
     </div>
   );

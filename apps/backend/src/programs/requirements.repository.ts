@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Injectable, Inject } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -70,50 +72,82 @@ export interface ProgramArchiveReader {
 }
 @Injectable()
 export class RequirementArchiveRepository implements ProgramArchiveReader {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(private readonly prisma: PrismaService) {}
   async findProgram(programId: string): Promise<ArchiveProgram | null> {
-    return this.prisma.program.findUnique({
-      where: { id: programId, lifecycle: { not: 'DELETED' } },
-      select: {
-        name: true,
-        milestones: {
-          orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            name: true,
-            dueAt: true,
-            requirements: {
-              where: {},
-              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
-              select: { id: true, name: true, required: true },
+    return this.prisma.program
+      .findUnique({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+        select: {
+          name: true,
+          milestones: {
+            take: READ_CAP.milestonesPerProgram + 1,
+            orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              dueAt: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: {},
+                orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+                select: { id: true, name: true, required: true },
+              },
             },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            milestones: {
+              cap: READ_CAP.milestonesPerProgram,
+              nested: { requirements: READ_CAP.requirementsPerMilestone },
+            },
+          },
+          'Program.findUnique',
+        ),
+      );
   }
   async findApprovedTeams(
     programId: string,
     teamId?: string,
   ): Promise<readonly RequirementArchiveTeam[]> {
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-        ...(teamId === undefined ? {} : { id: teamId }),
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        applicant: { select: USER_PROFILE_NAME_SELECT },
-        name: true,
-        members: {
-          orderBy: { createdAt: 'asc' },
-          select: { user: { select: { nickname: true } } },
-        },
-      },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+              ...(teamId === undefined ? {} : { id: teamId }),
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              applicant: { select: USER_PROFILE_NAME_SELECT },
+              name: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: { createdAt: 'asc' },
+                select: { user: { select: { nickname: true } } },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -258,10 +292,9 @@ export class RequirementCollectionReadRepository {
     { createdAt: 'desc' },
     { id: 'desc' },
   ] satisfies Prisma.SubmissionHistoryOrderByWithRelationInput[];
-  readonly boundedReviewHistoryQuery = {
+  readonly reviewHistoryQuery = {
     where: { event: { in: SUBMISSION_REVIEW_EVENTS } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: 50,
     select: {
       id: true,
       event: true,
@@ -274,6 +307,8 @@ export class RequirementCollectionReadRepository {
 }
 @Injectable()
 export class RequirementCollectionReadStoreRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly requirementCollectionReadRepository: RequirementCollectionReadRepository,
@@ -288,26 +323,32 @@ export class RequirementCollectionReadStoreRepository {
   async findDocuments(
     milestoneId: string,
   ): Promise<readonly RequirementRecord[]> {
-    const documents = await this.transaction.requirement.findMany({
-      where: {
-        milestoneId,
-      },
-      orderBy: { sortOrder: 'asc' },
-      select: {
-        id: true,
-        milestoneId: true,
-        name: true,
-        required: true,
-        submissionType: true,
-        sortOrder: true,
-        graceDueAt: true,
-        files: {
-          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
-          take: 1,
-          select: { id: true, originalFileName: true },
-        },
-      },
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        this.transaction.requirement.findMany({
+          take,
+          where: {
+            milestoneId,
+          },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            milestoneId: true,
+            name: true,
+            required: true,
+            submissionType: true,
+            sortOrder: true,
+            graceDueAt: true,
+            files: {
+              where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+              take: 1,
+              select: { id: true, originalFileName: true },
+            },
+          },
+        }),
+    );
     return documents.map(({ files, ...document }) => ({
       ...document,
       templateFileId: files[0]?.id ?? null,
@@ -317,19 +358,34 @@ export class RequirementCollectionReadStoreRepository {
   async findApplications(
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
-    const applications = await this.transaction.team.findMany({
-      where: { programId, status: 'APPROVED', archivedAt: null },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        applicant: { select: USER_PROFILE_NAME_SELECT },
-        name: true,
-        members: {
-          orderBy: { createdAt: 'asc' },
-          select: { user: { select: { nickname: true } } },
-        },
-      },
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.transaction.team
+          .findMany({
+            take,
+            where: { programId, status: 'APPROVED', archivedAt: null },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              applicant: { select: USER_PROFILE_NAME_SELECT },
+              name: true,
+              members: {
+                take: READ_CAP.membersPerTeam + 1,
+                orderBy: { createdAt: 'asc' },
+                select: { user: { select: { nickname: true } } },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -345,6 +401,7 @@ export class RequirementCollectionReadStoreRepository {
   ): Promise<readonly DocumentDeliveryCoordinate[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await this.transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
       where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
@@ -376,6 +433,7 @@ export class RequirementCollectionReadStoreRepository {
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await this.transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
       where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
@@ -406,7 +464,7 @@ export class RequirementCollectionReadStoreRepository {
           },
         },
         histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.requirementCollectionReadRepository.reviewHistoryQuery,
           take: 1,
         },
       },
@@ -516,6 +574,25 @@ export interface RequirementArchiveSubmissionRecord {
     readonly sizeBytes: number;
   } | null;
 }
+export interface ChangeRequestTargetKey {
+  readonly requirementId: string;
+  readonly teamId: string;
+}
+
+export interface SubmissionForChangeRequest extends ChangeRequestTargetKey {
+  readonly id: string;
+  readonly revision: number;
+  readonly latestHistoryCreatedAt: Date | null;
+}
+
+export interface CreateChangeRequestInput {
+  readonly submissionId: string;
+  readonly revision: number;
+  readonly reviewerId: string;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+}
+
 interface CreateRequirementReviewRecordInput {
   readonly submissionId: string;
   readonly submissionHistoryId: string;
@@ -602,6 +679,12 @@ export interface RequirementWriteStore {
     readonly submissionHistoryId: string;
     readonly latestHistoryCreatedAt: Date | null;
   } | null>;
+  findSubmissionsForChangeRequest(
+    targets: readonly ChangeRequestTargetKey[],
+  ): Promise<readonly SubmissionForChangeRequest[]>;
+  createChangeRequests(
+    inputs: readonly CreateChangeRequestInput[],
+  ): Promise<void>;
   findLatestReviewIdForSubmission(submissionId: string): Promise<string | null>;
   createReview(
     input: CreateRequirementReviewRecordInput,
@@ -682,6 +765,7 @@ const collectionApplicationSelect = {
   applicant: { select: USER_PROFILE_NAME_SELECT },
   name: true,
   members: {
+    take: READ_CAP.membersPerTeam + 1,
     orderBy: { createdAt: 'asc' },
     select: { user: { select: { nickname: true } } },
   },
@@ -728,6 +812,8 @@ type RequirementWriteScope = {
 };
 @Injectable()
 export class RequirementsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
@@ -748,17 +834,23 @@ export class RequirementsRepository {
     teamIds: readonly string[],
   ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
     if (teamIds.length === 0) return Promise.resolve([]);
-    return this.prisma.submission
-      .findMany({
-        where: {
-          teamId: { in: [...teamIds] },
-          requirement: {
-            milestone: { programId },
-          },
-        },
-        orderBy: { id: 'asc' },
-        select: { requirementId: true, teamId: true, status: true },
-      })
+    return this.boundedReads
+      .readCapped(
+        READ_CAP.requirementsPerProgram * teamIds.length,
+        'Submission per team',
+        (take) =>
+          this.prisma.submission.findMany({
+            take,
+            where: {
+              teamId: { in: [...teamIds] },
+              requirement: {
+                milestone: { programId },
+              },
+            },
+            orderBy: { id: 'asc' },
+            select: { requirementId: true, teamId: true, status: true },
+          }),
+      )
       .then((rows) =>
         rows.map(({ requirementId, teamId, status }) => ({
           requirementId: requirementId,
@@ -777,13 +869,19 @@ export class RequirementsRepository {
     );
   }
   async findByMilestoneId(milestoneId: string): Promise<RequirementRecord[]> {
-    const documents = await this.prisma.requirement.findMany({
-      where: {
-        milestoneId,
-      },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        this.prisma.requirement.findMany({
+          take,
+          where: {
+            milestoneId,
+          },
+          orderBy: { sortOrder: 'asc' },
+          select: documentRecordSelect,
+        }),
+    );
     return documents.map(toDocumentRecord);
   }
   async findActiveUser(githubId: bigint): Promise<RequirementViewer | null> {
@@ -874,6 +972,7 @@ export class RequirementsRepository {
   ): Promise<readonly SubmissionSummary[]> {
     if (documentIds.length === 0) return [];
     const submissions = await this.prisma.submission.findMany({
+      take: documentIds.length,
       where: {
         teamId,
         requirementId: { in: [...documentIds] },
@@ -907,7 +1006,7 @@ export class RequirementsRepository {
           },
         },
         histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.requirementCollectionReadRepository.reviewHistoryQuery,
           take: 1,
         },
       },
@@ -1079,21 +1178,37 @@ export class RequirementsRepository {
         },
       },
       _count: { _all: true },
+      orderBy: { requirementId: 'asc' },
+      take: documentIds.length,
     });
     return new Map(grouped.map((row) => [row.requirementId, row._count._all]));
   }
   async findApprovedApplicationsForCollection(
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
-    const applications = await this.prisma.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: collectionApplicationSelect,
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        this.prisma.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: collectionApplicationSelect,
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -1107,10 +1222,16 @@ export class RequirementsRepository {
     documentIds: readonly string[],
   ): Promise<readonly SubmissionCoordinate[]> {
     if (documentIds.length === 0) return [];
-    const rows = await this.prisma.submission.findMany({
-      where: { requirementId: { in: [...documentIds] } },
-      select: { requirementId: true, teamId: true },
-    });
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: { requirementId: { in: [...documentIds] } },
+          select: { requirementId: true, teamId: true },
+        }),
+    );
     return rows.map(({ requirementId, teamId }) => ({
       requirementId: requirementId,
       teamId,
@@ -1122,35 +1243,41 @@ export class RequirementsRepository {
     teamIds?: readonly string[],
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds?.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: {
-        requirementId: { in: [...documentIds] },
-        ...(teamIds === undefined ? {} : { teamId: { in: [...teamIds] } }),
-      },
-      select: {
-        requirementId: true,
-        teamId: true,
-        submittedAt: true,
-        revision: true,
-        status: true,
-        content: true,
-        files: {
-          where: unexpiredAttachedFileWhere(now),
-          orderBy: currentRevisionFileOrderBy,
-          take: 1,
-          select: {
-            originalFileName: true,
-            mimeType: true,
-            sizeBytes: true,
-            submissionHistory: { select: { revision: true } },
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: {
+            requirementId: { in: [...documentIds] },
+            ...(teamIds === undefined ? {} : { teamId: { in: [...teamIds] } }),
           },
-        },
-        histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
-          take: 1,
-        },
-      },
-    });
+          select: {
+            requirementId: true,
+            teamId: true,
+            submittedAt: true,
+            revision: true,
+            status: true,
+            content: true,
+            files: {
+              where: unexpiredAttachedFileWhere(now),
+              orderBy: currentRevisionFileOrderBy,
+              take: 1,
+              select: {
+                originalFileName: true,
+                mimeType: true,
+                sizeBytes: true,
+                submissionHistory: { select: { revision: true } },
+              },
+            },
+            histories: {
+              ...this.requirementCollectionReadRepository.reviewHistoryQuery,
+              take: 1,
+            },
+          },
+        }),
+    );
     return submissions.map((submission) => {
       const review = submission.histories[0] ?? null;
       const selectedFile =
@@ -1191,30 +1318,36 @@ export class RequirementsRepository {
     now: Date,
   ): Promise<readonly RequirementArchiveSubmissionRecord[]> {
     if (documentIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: { requirementId: { in: [...documentIds] } },
-      select: {
-        requirementId: true,
-        teamId: true,
-        submittedAt: true,
-        revision: true,
-        status: true,
-        content: true,
-        files: {
-          orderBy: currentRevisionFileOrderBy,
-          take: 1,
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: { requirementId: { in: [...documentIds] } },
           select: {
-            storageKey: true,
-            originalFileName: true,
-            mimeType: true,
-            sizeBytes: true,
-            lifecycle: true,
-            expiresAt: true,
-            submissionHistory: { select: { revision: true } },
+            requirementId: true,
+            teamId: true,
+            submittedAt: true,
+            revision: true,
+            status: true,
+            content: true,
+            files: {
+              orderBy: currentRevisionFileOrderBy,
+              take: 1,
+              select: {
+                storageKey: true,
+                originalFileName: true,
+                mimeType: true,
+                sizeBytes: true,
+                lifecycle: true,
+                expiresAt: true,
+                submissionHistory: { select: { revision: true } },
+              },
+            },
           },
-        },
-      },
-    });
+        }),
+    );
     return submissions.map((submission) => {
       const selectedFile =
         submission.files[0] === undefined
@@ -1408,6 +1541,9 @@ export class RequirementsRepository {
       applyDocumentOrder: this.applyDocumentOrderIn.bind(this, scope),
       deleteDocument: this.deleteDocumentIn.bind(this, scope),
       findSubmissionForReview: this.findSubmissionForReviewIn.bind(this, scope),
+      findSubmissionsForChangeRequest:
+        this.findSubmissionsForChangeRequestIn.bind(this, scope),
+      createChangeRequests: this.createChangeRequestsIn.bind(this, scope),
       findLatestReviewIdForSubmission:
         this.findLatestReviewIdForSubmissionIn.bind(this, scope),
       createReview: this.createReviewIn.bind(this, scope),
@@ -1434,7 +1570,7 @@ export class RequirementsRepository {
     >(Prisma.sql`
       SELECT "id" FROM "Program"
       WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED'
-      FOR SHARE
+      LIMIT 1 FOR SHARE
     `);
     return rows.length === 1;
   }
@@ -1506,7 +1642,7 @@ export class RequirementsRepository {
       SELECT "id", "milestoneId"
       FROM "Requirement"
       WHERE "id" = ${documentId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
     return rows[0] ?? null;
   }
@@ -1623,21 +1759,31 @@ export class RequirementsRepository {
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<RequirementRecord[]> {
-    for (const [index, documentId] of documentIds.entries()) {
-      await scope.transaction.requirement.update({
-        where: {
-          id: documentId,
-          milestoneId,
-        },
-        data: { sortOrder: index + 1 },
-        select: { id: true },
-      });
+    if (documentIds.length > 0) {
+      const orders = Prisma.join(
+        documentIds.map(
+          (documentId, index) => Prisma.sql`(${documentId}, ${index + 1}::int)`,
+        ),
+      );
+      await scope.transaction.$executeRaw`
+        UPDATE "Requirement" AS requirement
+        SET "sortOrder" = ordered.sort_order
+        FROM (VALUES ${orders}) AS ordered(id, sort_order)
+        WHERE requirement."id" = ordered.id
+          AND requirement."milestoneId" = ${milestoneId}
+      `;
     }
-    const documents = await scope.transaction.requirement.findMany({
-      where: { milestoneId },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        scope.transaction.requirement.findMany({
+          take,
+          where: { milestoneId },
+          orderBy: { sortOrder: 'asc' },
+          select: documentRecordSelect,
+        }),
+    );
     return documents.map(toDocumentRecord);
   }
   private async deleteDocumentIn(
@@ -1687,7 +1833,7 @@ export class RequirementsRepository {
       FROM "Submission"
       WHERE "requirementId" = ${requirementId}
         AND "teamId" = ${teamId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
     const submission = await scope.transaction.submission.findUnique({
       where: {
@@ -1734,6 +1880,94 @@ export class RequirementsRepository {
       latestHistoryCreatedAt: latestHistory?.createdAt ?? null,
     };
   }
+  private async findSubmissionsForChangeRequestIn(
+    scope: RequirementWriteScope,
+    targets: readonly ChangeRequestTargetKey[],
+  ): Promise<readonly SubmissionForChangeRequest[]> {
+    if (targets.length === 0) return [];
+    const pairs = Prisma.join(
+      targets.map(
+        (target) => Prisma.sql`(${target.requirementId}, ${target.teamId})`,
+      ),
+    );
+    await scope.transaction.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "Submission"
+      WHERE ("requirementId", "teamId") IN (${pairs})
+      ORDER BY "id"
+      LIMIT ${targets.length}
+      FOR UPDATE
+    `);
+    const submissions = await scope.transaction.submission.findMany({
+      take: targets.length,
+      where: {
+        OR: targets.map((target) => ({
+          requirementId: target.requirementId,
+          teamId: target.teamId,
+        })),
+      },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        requirementId: true,
+        teamId: true,
+        revision: true,
+        histories: {
+          where: {
+            event: {
+              in: [
+                SubmissionHistoryEvent.SUBMITTED,
+                SubmissionHistoryEvent.RESUBMITTED,
+              ],
+            },
+          },
+          orderBy: [{ revision: 'desc' }, { createdAt: 'desc' }],
+          take: 1,
+          select: { revision: true },
+        },
+      },
+    });
+    const current = submissions.filter(
+      (submission) => submission.histories[0]?.revision === submission.revision,
+    );
+    const latest = await scope.transaction.submissionHistory.groupBy({
+      by: ['submissionId'],
+      where: { submissionId: { in: current.map(({ id }) => id) } },
+      _max: { createdAt: true },
+      orderBy: { submissionId: 'asc' },
+      take: current.length,
+    });
+    const latestBySubmission = new Map(
+      latest.map((row) => [row.submissionId, row._max.createdAt]),
+    );
+    return current.map((submission) => ({
+      id: submission.id,
+      requirementId: submission.requirementId,
+      teamId: submission.teamId,
+      revision: submission.revision,
+      latestHistoryCreatedAt: latestBySubmission.get(submission.id) ?? null,
+    }));
+  }
+  private async createChangeRequestsIn(
+    scope: RequirementWriteScope,
+    inputs: readonly CreateChangeRequestInput[],
+  ): Promise<void> {
+    if (inputs.length === 0) return;
+    await scope.transaction.submissionHistory.createMany({
+      data: inputs.map((input) => ({
+        submissionId: input.submissionId,
+        event: SubmissionHistoryEvent.CHANGES_REQUESTED,
+        revision: input.revision,
+        comment: input.comment,
+        actorId: input.reviewerId,
+        createdAt: input.reviewedAt,
+      })),
+    });
+    await scope.transaction.submission.updateMany({
+      where: { id: { in: inputs.map(({ submissionId }) => submissionId) } },
+      data: { status: SubmissionStatus.CHANGES_REQUESTED },
+    });
+  }
   private async findLatestReviewIdForSubmissionIn(
     scope: RequirementWriteScope,
     submissionId: string,
@@ -1779,18 +2013,23 @@ export class RequirementsRepository {
     scope: RequirementWriteScope,
     programId: string,
   ): Promise<readonly string[]> {
-    const rows = await scope.transaction.$queryRaw<
-      readonly {
-        id: string;
-      }[]
-    >(Prisma.sql`
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerProgram,
+      'Requirement lock per program',
+      (take) =>
+        scope.transaction.$queryRaw<
+          readonly {
+            id: string;
+          }[]
+        >(Prisma.sql`
         SELECT requirement."id"
         FROM "Requirement" requirement
         JOIN "Milestone" milestone ON milestone."id" = requirement."milestoneId"
         WHERE milestone."programId" = ${programId}
         ORDER BY requirement."id"
-        FOR UPDATE OF requirement
-      `);
+        LIMIT ${take} FOR UPDATE OF requirement
+      `),
+    );
     return rows.map((row) => row.id);
   }
   private async lockApprovedApplicationIdsIn(
@@ -1798,19 +2037,24 @@ export class RequirementsRepository {
     programId: string,
     teamId: string | undefined,
   ): Promise<readonly string[]> {
-    const rows = await scope.transaction.$queryRaw<
-      readonly {
-        id: string;
-        status: ApplicationStatus;
-      }[]
-    >(Prisma.sql`
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team lock per program',
+      (take) =>
+        scope.transaction.$queryRaw<
+          readonly {
+            id: string;
+            status: ApplicationStatus;
+          }[]
+        >(Prisma.sql`
         SELECT "id", "status"
         FROM "Team"
         WHERE "programId" = ${programId}
           AND "archivedAt" IS NULL
         ORDER BY "id"
-        FOR SHARE
-      `);
+        LIMIT ${take} FOR SHARE
+      `),
+    );
     return rows
       .filter(
         (row) =>
@@ -1831,6 +2075,7 @@ export class RequirementsRepository {
     }
     return scope.transaction.submission
       .findMany({
+        take: input.documentIds.length * input.teamIds.length,
         where: {
           requirementId: { in: [...input.documentIds] },
           teamId: { in: [...input.teamIds] },
@@ -1875,26 +2120,46 @@ export class RequirementsRepository {
     transaction: Prisma.TransactionClient,
     milestoneId: string,
   ): Promise<readonly RequirementRecord[]> {
-    const documents = await transaction.requirement.findMany({
-      where: { milestoneId },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        transaction.requirement.findMany({
+          take,
+          where: { milestoneId },
+          orderBy: { sortOrder: 'asc' },
+          select: documentRecordSelect,
+        }),
+    );
     return documents.map(toDocumentRecord);
   }
   private async findApprovedApplicationsForCollectionIn(
     transaction: Prisma.TransactionClient,
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
-    const applications = await transaction.team.findMany({
-      where: {
-        programId,
-        status: ApplicationStatus.APPROVED,
-        archivedAt: null,
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: collectionApplicationSelect,
-    });
+    const applications = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram,
+      'Team per program',
+      (take) =>
+        transaction.team
+          .findMany({
+            take,
+            where: {
+              programId,
+              status: ApplicationStatus.APPROVED,
+              archivedAt: null,
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: collectionApplicationSelect,
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { members: READ_CAP.membersPerTeam },
+              'Team.findMany',
+            ),
+          ),
+    );
     return applications.map((application) => ({
       teamId: application.id,
       teamName: application.name,
@@ -1909,10 +2174,16 @@ export class RequirementsRepository {
     documentIds: readonly string[],
   ): Promise<readonly SubmissionCoordinate[]> {
     if (documentIds.length === 0) return [];
-    const rows = await transaction.submission.findMany({
-      where: { requirementId: { in: [...documentIds] } },
-      select: { requirementId: true, teamId: true },
-    });
+    const rows = await this.boundedReads.readCapped(
+      READ_CAP.teamsPerProgram * documentIds.length,
+      'Submission per requirement',
+      (take) =>
+        transaction.submission.findMany({
+          take,
+          where: { requirementId: { in: [...documentIds] } },
+          select: { requirementId: true, teamId: true },
+        }),
+    );
     return rows.map(({ requirementId, teamId }) => ({
       requirementId: requirementId,
       teamId,
@@ -1926,6 +2197,7 @@ export class RequirementsRepository {
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
       where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
@@ -1949,7 +2221,7 @@ export class RequirementsRepository {
           },
         },
         histories: {
-          ...this.requirementCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.requirementCollectionReadRepository.reviewHistoryQuery,
           take: 1,
         },
       },
@@ -1993,6 +2265,7 @@ export class RequirementsRepository {
 const currentFileSelect = {
   revision: true,
   files: {
+    take: 1,
     select: {
       storageKey: true,
       originalFileName: true,

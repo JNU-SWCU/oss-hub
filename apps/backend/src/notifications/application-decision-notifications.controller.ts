@@ -12,8 +12,8 @@ import {
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ApplicationDecisionNotificationsService } from './application-decision-notifications.service';
-import { ApplicationDecisionNotificationResponseDto } from './dto/application-decision-notification-response.dto';
-import { TeamDeletionNotificationResponseDto } from './dto/team-deletion-notification-response.dto';
+import { ApplicationDecisionNotificationPageResponseDto } from './dto/application-decision-notification-response.dto';
+import { TeamDeletionNotificationPageResponseDto } from './dto/team-deletion-notification-response.dto';
 import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -36,10 +36,9 @@ export class ApplicationDecisionNotificationsController {
   @Protected()
   async listUnread(
     @Req() request: SessionIdentity,
-  ): Promise<ApplicationDecisionNotificationResponseDto[]> {
-    return (await this.service.listUnread(request.sessionGithubId)).map(
-      (notification) =>
-        ApplicationDecisionNotificationResponseDto.from(notification),
+  ): Promise<ApplicationDecisionNotificationPageResponseDto> {
+    return ApplicationDecisionNotificationPageResponseDto.from(
+      await this.service.listUnread(request.sessionGithubId),
     );
   }
 
@@ -59,11 +58,9 @@ export class ApplicationDecisionNotificationsController {
   @Protected()
   async listUnreadTeamDeletions(
     @Req() request: SessionIdentity,
-  ): Promise<TeamDeletionNotificationResponseDto[]> {
-    return (
-      await this.service.listUnreadTeamDeletions(request.sessionGithubId)
-    ).map((notification) =>
-      TeamDeletionNotificationResponseDto.from(notification),
+  ): Promise<TeamDeletionNotificationPageResponseDto> {
+    return TeamDeletionNotificationPageResponseDto.from(
+      await this.service.listUnreadTeamDeletions(request.sessionGithubId),
     );
   }
 

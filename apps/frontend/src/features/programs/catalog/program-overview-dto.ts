@@ -8,10 +8,7 @@ export interface ProgramOverviewRequirement {
 }
 
 export interface ProgramOverview {
-  readonly programId: string;
   readonly name: string;
-  readonly trackType: string | null;
-  readonly milestoneCount: number;
   readonly boardPostCount: number;
   readonly participantCount: number;
   readonly teamCount: number;

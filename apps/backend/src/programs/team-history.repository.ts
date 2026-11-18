@@ -1,3 +1,5 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { TeamHistoryEvent, type Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { ApplicationReviewHistoryTargetMissingError } from './teams.error';
@@ -30,6 +32,8 @@ interface InvitationSnapshot {
 
 @Injectable()
 export class TeamHistoryRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   async appendReviewHistory(
     client: ReviewHistoryWriterClient,
     input: AppendReviewHistoryInput,
@@ -76,22 +80,31 @@ export class TeamHistoryRepository {
     deletedCounts: Prisma.InputJsonObject,
     occurredAt: Date,
   ): Promise<void> {
-    const team = await transaction.team.findUniqueOrThrow({
-      where: { id: teamId },
-      select: {
-        name: true,
-        programId: true,
-        leaderId: true,
-        status: true,
-        members: {
-          orderBy: { userId: 'asc' },
-          select: {
-            userId: true,
-            user: { select: { name: true, nickname: true } },
+    const team = await transaction.team
+      .findUniqueOrThrow({
+        where: { id: teamId },
+        select: {
+          name: true,
+          programId: true,
+          leaderId: true,
+          status: true,
+          members: {
+            take: READ_CAP.membersPerTeam + 1,
+            orderBy: { userId: 'asc' },
+            select: {
+              userId: true,
+              user: { select: { name: true, nickname: true } },
+            },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          { members: READ_CAP.membersPerTeam },
+          'Team.findUniqueOrThrow',
+        ),
+      );
     await transaction.teamHistory.create({
       data: {
         teamId,
@@ -126,39 +139,61 @@ export class TeamHistoryRepository {
     actorId: string,
     occurredAt: Date,
   ): Promise<void> {
-    const invitations = await transaction.teamInvitation.findMany({
-      where: { teamId },
-      orderBy: { id: 'asc' },
-    });
-    for (const invitation of invitations) {
-      await this.recordInvitationClosed(
-        transaction,
-        invitation,
-        'INVITATION_CANCELLED',
-        actorId,
-        occurredAt,
-        'TEAM_DELETED',
-      );
-    }
+    const invitations = await this.boundedReads.readCapped(
+      READ_CAP.invitationsPerTeam,
+      'TeamInvitation per team',
+      (take) =>
+        transaction.teamInvitation.findMany({
+          take,
+          where: { teamId },
+          orderBy: { id: 'asc' },
+        }),
+    );
+    await this.recordInvitationsClosed(
+      transaction,
+      invitations,
+      'INVITATION_CANCELLED',
+      actorId,
+      occurredAt,
+      'TEAM_DELETED',
+    );
   }
 
   async recordInvitationClosed(
     transaction: Pick<Prisma.TransactionClient, 'teamHistory'>,
     invitation: InvitationSnapshot,
-    event:
-      'INVITATION_ACCEPTED' | 'INVITATION_DECLINED' | 'INVITATION_CANCELLED',
+    event: InvitationClosedEvent,
     actorId: string,
     occurredAt: Date,
-    reason?: 'JOINED_ANOTHER_TEAM' | 'TEAM_DELETED',
+    reason?: InvitationClosedReason,
   ): Promise<void> {
-    await transaction.teamHistory.create({
-      data: {
+    await this.recordInvitationsClosed(
+      transaction,
+      [invitation],
+      event,
+      actorId,
+      occurredAt,
+      reason,
+    );
+  }
+
+  async recordInvitationsClosed(
+    transaction: Pick<Prisma.TransactionClient, 'teamHistory'>,
+    invitations: readonly InvitationSnapshot[],
+    event: InvitationClosedEvent,
+    actorId: string,
+    occurredAt: Date,
+    reason?: InvitationClosedReason,
+  ): Promise<void> {
+    if (invitations.length === 0) return;
+    await transaction.teamHistory.createMany({
+      data: invitations.map((invitation) => ({
         teamId: invitation.teamId,
         programId: invitation.programId,
         actorId,
         event,
         occurredAt,
-        source: 'APPLICATION',
+        source: 'APPLICATION' as const,
         sourceTable: 'TeamInvitation',
         sourceId: invitation.id,
         data: {
@@ -171,7 +206,12 @@ export class TeamHistoryRepository {
           },
           ...(reason === undefined ? {} : { reason }),
         },
-      },
+      })),
     });
   }
 }
+
+type InvitationClosedEvent =
+  'INVITATION_ACCEPTED' | 'INVITATION_DECLINED' | 'INVITATION_CANCELLED';
+
+type InvitationClosedReason = 'JOINED_ANOTHER_TEAM' | 'TEAM_DELETED';

@@ -10,8 +10,9 @@ import type {
   Anomaly,
   AnomalyRule,
   AnomalySeverity,
-  CollectionRepository,
   ProvisioningFailedTeam,
+  StaleRepositoryPage,
+  StaleRepositoryPager,
 } from '../types';
 import { StaleRepositoryList } from './stale-repository-list';
 
@@ -75,7 +76,9 @@ interface RowProps extends RetryProps {
 interface AttentionCardProps extends RetryProps {
   readonly anomalies: readonly Anomaly[];
   readonly failedTeams: readonly ProvisioningFailedTeam[];
-  readonly staleRepositories: readonly CollectionRepository[];
+  readonly failedTeamsHasMore: boolean;
+  readonly staleRepositories: StaleRepositoryPage;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 }
 
 function targetLink({
@@ -155,14 +158,18 @@ function FailedTeamRow({
 function AnomalyRow({
   anomaly,
   failedTeams,
+  failedTeamsHasMore,
   staleRepositories,
+  staleRepositoryPager,
   retryingTeamIds,
   onRetry,
   cardRef,
 }: RowProps & {
   readonly anomaly: Anomaly;
   readonly failedTeams: readonly ProvisioningFailedTeam[];
-  readonly staleRepositories: readonly CollectionRepository[];
+  readonly failedTeamsHasMore: boolean;
+  readonly staleRepositories: StaleRepositoryPage;
+  readonly staleRepositoryPager: StaleRepositoryPager;
 }) {
   const severity = SEVERITY[anomaly.severity];
   const label = RULE_LABEL[anomaly.rule];
@@ -188,9 +195,18 @@ function AnomalyRow({
             cardRef={cardRef}
           />
         ))}
+        {failedTeamsHasMore ? (
+          <li className="px-4 py-2 text-small text-muted-foreground">
+            실패한 팀이 더 있습니다. 위 팀을 다시 시도하면 다음 팀이 보입니다.
+          </li>
+        ) : null}
       </ul>
-    ) : anomaly.rule === 'COLLECTION_STALE' && staleRepositories.length > 0 ? (
-      <StaleRepositoryList repositories={staleRepositories} />
+    ) : anomaly.rule === 'COLLECTION_STALE' &&
+      staleRepositories.items.length > 0 ? (
+      <StaleRepositoryList
+        repositories={staleRepositories}
+        pager={staleRepositoryPager}
+      />
     ) : null;
 
   if (detail === null) {
@@ -221,7 +237,9 @@ function AnomalyRow({
 export function AttentionCard({
   anomalies,
   failedTeams,
+  failedTeamsHasMore,
   staleRepositories,
+  staleRepositoryPager,
   retryingTeamIds,
   onRetry,
 }: AttentionCardProps) {
@@ -253,7 +271,9 @@ export function AttentionCard({
                 key={`${anomaly.rule}:${anomaly.target?.id ?? ''}`}
                 anomaly={anomaly}
                 failedTeams={failedTeams}
+                failedTeamsHasMore={failedTeamsHasMore}
                 staleRepositories={staleRepositories}
+                staleRepositoryPager={staleRepositoryPager}
                 retryingTeamIds={retryingTeamIds}
                 onRetry={onRetry}
                 cardRef={cardRef}

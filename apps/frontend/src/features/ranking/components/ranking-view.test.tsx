@@ -528,7 +528,6 @@ const personAxisItem = (
 ): StaffRankingItem => ({
   rank: 1,
   previousRank: null,
-  displayName: 'synthetic-top',
   githubLogin: 'synthetic-top',
   name: null,
   department: null,
@@ -785,7 +784,6 @@ const publicTierRow = (): PublicRankingItem =>
 
 const staffTierRow = (): StaffRankingItem =>
   personAxisItem({
-    displayName: STAFF_ROW.githubLogin,
     githubLogin: STAFF_ROW.githubLogin,
     name: STAFF_ROW.name,
     department: STAFF_ROW.department,
@@ -864,7 +862,6 @@ test('staff 행의 name 이 null 이면 이름 칸에 대시를 그린다', () =
   const html = staffAxisMarkup(
     [
       personAxisItem({
-        displayName: 'nameless-login',
         githubLogin: 'nameless-login',
         name: null,
         department: STAFF_ROW.department,
@@ -944,7 +941,6 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
       personAxisItem({
         rank: 2,
         previousRank: null,
-        displayName: 'synthetic-zero',
         githubLogin: 'synthetic-zero',
         name: 'synthetic-zero-name',
         department: null,
@@ -969,7 +965,6 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   const allZero = staffAxisMarkup(
     [
       personAxisItem({
-        displayName: 'synthetic-gildong',
         githubLogin: 'synthetic-gildong',
         name: 'synthetic-staff-name',
         department: null,

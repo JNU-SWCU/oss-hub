@@ -9,14 +9,8 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import {
-  type ApplicationListStatus,
-  type ApplicationListView,
-} from '../team.repository';
-import {
-  APPLICATION_LIST_STATUSES,
-  APPLICATION_LIST_VIEWS,
-} from '../applications.config';
+import { type ApplicationListStatus } from '../team.repository';
+import { APPLICATION_LIST_STATUSES } from '../applications.config';
 
 export class ApplicationListRequestDto {
   @ApiPropertyOptional()
@@ -41,9 +35,9 @@ export class ApplicationListRequestDto {
   @IsIn(APPLICATION_LIST_STATUSES)
   readonly status: ApplicationListStatus = 'all';
 
-  @ApiPropertyOptional()
-  @IsIn(APPLICATION_LIST_VIEWS)
-  readonly view: ApplicationListView = 'default';
+  @ApiPropertyOptional({ type: String, deprecated: true })
+  @Allow()
+  readonly view?: unknown;
 
   @ApiPropertyOptional({ type: String, deprecated: true })
   @Allow()

@@ -1,8 +1,12 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
+
+const boundedReads = new BoundedReadRepository();
 
 interface ContributionCountsRow {
   readonly commitCount: number;
@@ -35,6 +39,7 @@ export class PublicProjectMetricsRepository {
     const unique = [...new Set(githubIds)];
     if (unique.length === 0) return new Map();
     const users = await this.prisma.user.findMany({
+      take: unique.length,
       where: { githubId: { in: unique } },
       select: { githubId: true, nickname: true },
     });
@@ -45,6 +50,7 @@ export class PublicProjectMetricsRepository {
     repositoryIds: readonly bigint[],
   ): Promise<readonly RepositoryContributionRows[]> {
     const repositories = await this.prisma.repo.findMany({
+      take: repositoryIds.length,
       where: {
         githubRepoId: { in: [...repositoryIds] },
         visibility: 'PUBLIC',
@@ -85,7 +91,11 @@ export class PublicProjectMetricsRepository {
   private readRepoContribution(
     repositoryIds: readonly bigint[],
   ): Promise<readonly RepoContributionSqlRow[]> {
-    return this.prisma.$queryRaw<RepoContributionSqlRow[]>`
+    return boundedReads.readCapped(
+      READ_CAP.contributionRows,
+      'Public project contribution days',
+      (take) =>
+        this.prisma.$queryRaw<RepoContributionSqlRow[]>`
       SELECT
         event.repo_id AS "githubRepositoryId",
         event.author_github_id AS "githubId",
@@ -113,7 +123,9 @@ export class PublicProjectMetricsRepository {
         event.repo_id,
         event.author_github_id,
         (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
-    `;
+        LIMIT ${take}
+    `,
+    );
   }
 }
 

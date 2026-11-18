@@ -26,7 +26,6 @@ export interface PublicRankingItem {
 export interface StaffRankingItem {
   readonly rank: number;
   readonly previousRank: number | null;
-  readonly displayName: string;
   readonly githubLogin: string;
   readonly name: string | null;
   readonly department: string | null;

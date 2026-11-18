@@ -47,7 +47,6 @@ export interface BoardCommentResult {
 
 export interface BoardPostDetailResult extends BoardPostSummaryResult {
   body: string;
-  updatedAt: Date;
   comments: BoardCommentResult[];
 }
 

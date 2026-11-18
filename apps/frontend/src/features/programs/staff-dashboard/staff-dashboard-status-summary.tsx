@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { STAFF_RECRUITMENT_BADGES } from './staff-dashboard-format';
-import type { StaffDashboardStatusSummary } from './staff-dashboard-status';
+import type { StaffDashboardStatusSummary } from './dto';
 
 export function StaffDashboardStatusSummary({
   summary,

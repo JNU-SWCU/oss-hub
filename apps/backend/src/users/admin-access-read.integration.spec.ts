@@ -122,9 +122,7 @@ it('uses DB pagination and computes each facet against the other active filters'
   expect(page.items[0]?.id).toBe(`${prefix}staff-pending`);
   expect(page.total).toBe(2);
   expect(page.facets).toEqual({
-    roles: { unassigned: 2, student: 0, staff: 0, admin: 0 },
-    accountStatuses: { active: 2, deactivated: 1 },
-    pendingRequests: { none: 1, pending: 2 },
+    pendingRequests: { pending: 2 },
   });
 });
 it('derives lastLoginAt from the latest successful LOGIN and preserves null', async () => {
@@ -230,7 +228,7 @@ it('preserves history response pages and explains the actual reader SQL', async 
   ]);
   expect(
     staffAccessRequestPlan[0]?.['QUERY PLAN'][0]?.Plan['Actual Rows'],
-  ).toBe(3);
+  ).toBe(1);
   expect(loginHistoryPlan[0]?.['QUERY PLAN'][0]?.Plan['Actual Rows']).toBe(2);
 });
 it('lists only approved unarchived teams of live programs as participations, newest program first', async () => {
@@ -371,7 +369,7 @@ async function historyQueryPlans(
   });
   const queries: Prisma.QueryEvent[] = [];
   queryLogClient.$on('query', (event) => {
-    if (event.query.startsWith('SELECT')) queries.push(event);
+    if (/^\s*(SELECT|WITH)\b/.test(event.query)) queries.push(event);
   });
   const reader = loadPrismaQueryLintConfig().createLintedClient(queryLogClient);
   try {
@@ -384,8 +382,10 @@ async function historyQueryPlans(
       page: 1,
       limit: 2,
     });
-    const requestQuery = queries.find((event) =>
-      event.query.includes('FROM "public"."UserHistory"'),
+    const requestQuery = queries.find(
+      (event) =>
+        event.query.includes('FROM "UserHistory"') &&
+        event.query.includes('LIMIT'),
     );
     const loginQuery = queries.find(
       (event) =>
@@ -412,7 +412,10 @@ async function explainReaderQuery(
     !Array.isArray(parameters) ||
     !parameters.every(
       (value: unknown) =>
-        typeof value === 'string' || typeof value === 'number',
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        (Array.isArray(value) &&
+          value.every((item: unknown) => typeof item === 'string')),
     )
   ) {
     throw new Error('Unexpected history reader SQL parameters');

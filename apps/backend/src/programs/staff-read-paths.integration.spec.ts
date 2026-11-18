@@ -1,7 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { TeamHistoryRepository } from './team-history.repository';
-import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   TeamHistoryEvent,
   ApplicationStatus,
@@ -14,9 +13,6 @@ import {
   ApplicationsRepository,
   type ApplicationListQuery,
 } from './team.repository';
-import { TeamApplicationService } from './team-application.service';
-import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -53,12 +49,6 @@ const repository = new ApplicationsRepository(
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
-const service = new TeamApplicationService(
-  repository,
-  new RepositoryUrlService(),
-  new ApplicationAnswersService(),
-  new RepositoryProvisionEventService(),
-);
 const STAFF_GITHUB_ID = 9_410_000_000n;
 
 function query(overrides: Partial<ApplicationListQuery> = {}) {
@@ -67,7 +57,6 @@ function query(overrides: Partial<ApplicationListQuery> = {}) {
     pageSize: 20,
     search: '',
     status: 'all',
-    view: 'team-management',
     ...overrides,
   } satisfies ApplicationListQuery;
 }
@@ -313,22 +302,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     ]) {
       expect(serialized).not.toContain(forbidden);
     }
-  });
-
-  it('기본 목록은 연결 방식과 발급 상태 및 현재 저장소를 반환한다', async () => {
-    const page = await service.listForProgram(
-      PROGRAM_ID,
-      query({ view: 'default' }),
-    );
-
-    expect(page.items[0]).toEqual(
-      expect.objectContaining({
-        repositoryConnectionMode: expect.any(String) as unknown,
-        repositoryProvisioning: expect.any(Object) as unknown,
-      }),
-    );
-    expect(page.items[0]).not.toHaveProperty('repositoryUrl');
-    expect(page.items[0]).toHaveProperty('repository');
   });
 
   it('검토 이력을 최신순으로 돌려주고 표시 가능한 actor 값만 싣는다', async () => {

@@ -30,12 +30,9 @@ const program: ProgramDetail = {
 const row: TeamManagementListItem = {
   teamMinSize: 2,
   id: 'synthetic-minimum-application',
-  programId,
   status: 'SUBMITTED',
   submittedAt: '2026-08-15T00:00:00Z',
-  rejectionReason: null,
   applicant: {
-    id: 'synthetic-applicant',
     name: '합성 신청자',
     nickname: 'synthetic-applicant',
   },
@@ -45,7 +42,6 @@ const row: TeamManagementListItem = {
     memberCount: 1,
     members: [
       {
-        id: 'synthetic-applicant',
         name: '합성 신청자',
         nickname: 'synthetic-applicant',
       },
@@ -53,18 +49,9 @@ const row: TeamManagementListItem = {
   },
 };
 const application: ApplicationListItem = {
-  ...row,
-  repositoryConnectionMode: 'NEW',
-  repositoryProvisioning: {
-    enabled: false,
-    jobStatus: 'DISABLED',
-    updatedAt: row.submittedAt,
-    safeErrorClass: null,
-  },
-  isRepositoryPublicationPlanned: false,
-  participation: 'TEAM',
-  repository: null,
-  answers: { applicantName: '합성 신청자', title: '', summary: '' },
+  status: row.status,
+  rejectionReason: null,
+  applicant: row.applicant,
 };
 
 for (const width of [1440, 390]) {

@@ -11,14 +11,12 @@ function collection(total: number, submitted: number): RequirementCollection {
       name: '최종 제출',
       dueAt: '2026-10-01T00:00:00Z',
     },
-    documents: [
-      { id: 'report', name: '활동 사진', isRequired: false, sortOrder: 1 },
-    ],
+    documents: [{ id: 'report', name: '활동 사진', isRequired: false }],
     rows: [],
     page: 2,
     pageSize: 20,
     total: 0,
-    filterCounts: { all: total, hasMissing: 0, zeroSubmission: total },
+    filterCounts: { all: total, zeroSubmission: total },
     deliveryCounts: {
       missing: 0,
       complete: 0,

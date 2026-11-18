@@ -16,12 +16,6 @@ export interface RepositoryPublication {
   readonly blockedReasons: readonly PublishBlockedReason[];
 }
 
-export interface PublishRepositoryResponse {
-  readonly repositoryId: string;
-  readonly visibility: 'PUBLIC';
-  readonly publishedAt: string;
-}
-
 const BLOCKED_REASON_LABELS = {
   REPOSITORY_NOT_READY:
     '저장소 생성이 아직 끝나지 않았습니다. 생성이 끝난 뒤 이 화면을 새로고침해 주세요.',
@@ -41,10 +35,8 @@ export function blockedReasonLabel(reason: string): string {
   );
 }
 
-export function publishRepository(
-  repositoryId: string,
-): Promise<PublishRepositoryResponse> {
-  return apiClient<PublishRepositoryResponse>(
+export function publishRepository(repositoryId: string): Promise<void> {
+  return apiClient<void>(
     `repositories/${encodeURIComponent(repositoryId)}/publish`,
     {
       method: 'POST',

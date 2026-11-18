@@ -2,7 +2,6 @@ import type { ProgramTrackType } from '../program-contract';
 
 export interface StaffDashboardApplicationCounts {
   readonly total: number;
-  readonly submitted: number;
   readonly pendingApproval: number;
   readonly approved: number;
   readonly rejected: number;
@@ -18,7 +17,6 @@ export interface StaffDashboardActivitySummary {
 }
 
 export interface StaffDashboardSubmissionSummary {
-  readonly approvedApplications: number;
   readonly milestones: number;
   readonly total: number;
   readonly notSubmitted: number;
@@ -41,11 +39,21 @@ export interface StaffDashboardProgramSummary {
   readonly endAt: string;
 
   readonly applications: StaffDashboardApplicationCounts;
-  readonly teamManagementPath: string;
   readonly activity: StaffDashboardActivitySummary;
   readonly submissions: StaffDashboardSubmissionSummary;
 }
 
+export interface StaffDashboardStatusSummary {
+  readonly recruiting: number;
+  readonly inProgress: number;
+  readonly ended: number;
+}
+
 export interface StaffDashboardSummary {
   readonly programs: readonly StaffDashboardProgramSummary[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+  readonly catalogTotal: number;
+  readonly statusSummary: StaffDashboardStatusSummary;
 }

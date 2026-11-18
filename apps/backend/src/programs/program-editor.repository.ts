@@ -1,3 +1,6 @@
+import { SequentialRepository } from '../platform/sequential.repository';
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import {
   type RequirementSubmissionType,
   FileLifecycle,
@@ -211,6 +214,10 @@ type ProgramRecord = PrismaTypes.ProgramGetPayload<{
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 @Injectable()
 export class ProgramEditorRepository {
+  private readonly sequential = new SequentialRepository();
+
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
@@ -290,10 +297,18 @@ export class ProgramEditorRepository {
     programId: string,
   ): Promise<EditableProgramRow | null> {
     const [program, deletionScopeCounts] = await Promise.all([
-      transaction.program.findUnique({
-        where: { id: programId, lifecycle: { not: 'DELETED' } },
-        include: editableProgramInclude,
-      }),
+      transaction.program
+        .findUnique({
+          where: { id: programId, lifecycle: { not: 'DELETED' } },
+          include: editableProgramInclude,
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { milestones: READ_CAP.milestonesPerProgram },
+            'Program.findUnique',
+          ),
+        ),
       this.readDeletionScopeCountsIn(transaction, programId),
     ]);
     return program ? toEditableProgramView(program, deletionScopeCounts) : null;
@@ -549,23 +564,29 @@ export class ProgramEditorRepository {
     });
     if (milestone === null || milestone.programId !== programId) return null;
     await lockDocuments?.();
-    const documents = await transaction.requirement.findMany({
-      where: { milestoneId },
-      orderBy: { id: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        required: true,
-        sortOrder: true,
-        updatedAt: true,
-        submissionType: true,
-        files: {
-          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
-          take: 1,
-          select: { storageKey: true, originalFileName: true },
-        },
-      },
-    });
+    const documents = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        transaction.requirement.findMany({
+          take,
+          where: { milestoneId },
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            required: true,
+            sortOrder: true,
+            updatedAt: true,
+            submissionType: true,
+            files: {
+              where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+              take: 1,
+              select: { storageKey: true, originalFileName: true },
+            },
+          },
+        }),
+    );
     return {
       programId,
       milestoneUpdatedAt: milestone.updatedAt,
@@ -642,12 +663,18 @@ export class ProgramEditorRepository {
         instructions: input.instructions,
       },
     });
-    const existing = await transaction.requirement.findMany({
-      where: {
-        milestoneId: input.milestoneId,
-      },
-      select: { id: true },
-    });
+    const existing = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerMilestone,
+      'Requirement per milestone',
+      (take) =>
+        transaction.requirement.findMany({
+          take,
+          where: {
+            milestoneId: input.milestoneId,
+          },
+          select: { id: true },
+        }),
+    );
     const deletedIds = existing
       .map((document) => document.id)
       .filter((id) => !requestedExistingIds.includes(id));
@@ -668,7 +695,7 @@ export class ProgramEditorRepository {
       });
     }
     const consumptions: ProgramAuthoringPendingUploadConsumption[] = [];
-    for (const [index, document] of input.documents.entries()) {
+    await this.sequential.forEach(input.documents, async (document, index) => {
       const requirementId =
         document.id ??
         (
@@ -703,7 +730,7 @@ export class ProgramEditorRepository {
         }
         consumptions.push({ requirementId, upload });
       }
-    }
+    });
     await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
       transaction,
       input.actorId,
@@ -785,7 +812,10 @@ export class ProgramEditorRepository {
 }
 const editableProgramInclude = {
   _count: { select: { teams: true, boardPosts: true } },
-  milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
+  milestones: {
+    take: READ_CAP.milestonesPerProgram + 1,
+    orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+  },
 } satisfies PrismaTypes.ProgramInclude;
 function toEditableProgramView(
   program: ProgramRecord,

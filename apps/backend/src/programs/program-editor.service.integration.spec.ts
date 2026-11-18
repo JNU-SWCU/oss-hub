@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
@@ -174,6 +175,7 @@ describe('ProgramEditorService integration', () => {
       'rejected',
     ]);
     const remaining = await prisma.milestone.findMany({
+      take: TEST_READ_LIMIT,
       where: { programId },
       select: { id: true, name: true },
       orderBy: { id: 'asc' },

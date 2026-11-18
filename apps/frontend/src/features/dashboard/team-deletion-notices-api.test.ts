@@ -18,11 +18,11 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('team deletion notice API', () => {
   it('reads the historical payload without requiring a live team lookup', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify([notice]), { status: 200 }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [notice], hasMore: false }), {
+        status: 200,
+      }),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     expect(await fetchUnreadTeamDeletionNotices()).toEqual([notice]);
@@ -41,11 +41,11 @@ describe('team deletion notice API', () => {
   ])('rejects an unsafe or malformed notice', async (invalid) => {
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify([invalid]), { status: 200 }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ items: [invalid], hasMore: false }), {
+          status: 200,
+        }),
+      ),
     );
 
     await expect(fetchUnreadTeamDeletionNotices()).rejects.toThrow(TypeError);

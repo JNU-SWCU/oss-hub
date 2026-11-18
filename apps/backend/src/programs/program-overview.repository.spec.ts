@@ -65,6 +65,7 @@ describe('ProgramOverviewRepository', () => {
       await repository.findEligibleProgramTeams(syntheticProgramId);
 
       expect(findMany).toHaveBeenCalledWith({
+        take: 51,
         where: {
           programId: syntheticProgramId,
           status: 'APPROVED',
@@ -100,6 +101,7 @@ describe('ProgramOverviewRepository', () => {
         await repository.findMilestoneSchedules(syntheticProgramId);
 
       expect(milestoneFindMany).toHaveBeenCalledWith({
+        take: 51,
         where: { programId: syntheticProgramId },
         orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
         select: { id: true, name: true, dueAt: true },
@@ -153,21 +155,23 @@ describe('ProgramOverviewRepository', () => {
 
       expect(applicationFindMany).toHaveBeenCalledTimes(2);
       expect(submissionGroupBy).toHaveBeenCalledTimes(1);
-      expect(submissionGroupBy).toHaveBeenCalledWith({
-        by: ['requirementId', 'teamId'],
-        where: {
-          teamId: { in: ['app-team-a', 'app-team-b'] },
-          requirementId: {
-            in: expect.arrayContaining<string>([
-              'doc-1',
-              'doc-2',
-              'doc-4',
-              'doc-5',
-              'doc-7',
-            ]) as unknown,
+      expect(submissionGroupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['requirementId', 'teamId'],
+          where: {
+            teamId: { in: ['app-team-a', 'app-team-b'] },
+            requirementId: {
+              in: expect.arrayContaining<string>([
+                'doc-1',
+                'doc-2',
+                'doc-4',
+                'doc-5',
+                'doc-7',
+              ]) as unknown,
+            },
           },
-        },
-      });
+        }),
+      );
 
       expect(result.get('m1')).toBe(2);
       expect(result.get('m2')).toBe(1);
@@ -219,13 +223,15 @@ describe('ProgramOverviewRepository', () => {
       ]);
 
       expect(submissionGroupBy).toHaveBeenCalledTimes(1);
-      expect(submissionGroupBy).toHaveBeenCalledWith({
-        by: ['requirementId'],
-        where: {
-          teamId: 'app-1',
-          requirementId: { in: ['doc-1', 'doc-2', 'doc-3'] },
-        },
-      });
+      expect(submissionGroupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['requirementId'],
+          where: {
+            teamId: 'app-1',
+            requirementId: { in: ['doc-1', 'doc-2', 'doc-3'] },
+          },
+        }),
+      );
       expect(result).toEqual(new Set(['doc-1', 'doc-3']));
     });
   });

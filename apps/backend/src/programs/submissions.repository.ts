@@ -1,9 +1,11 @@
+import { READ_CAP } from '../platform/bounded-read.config';
+import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { FileMetadataRepository } from './files.repository';
 import {
   SUBMISSION_REVIEW_EVENTS,
   type SubmissionReviewDecision,
 } from './submission-history.config';
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   FileLifecycle,
@@ -32,6 +34,8 @@ import type { PublishBlockedReason } from '../github/repository-publish.config';
 import type { SubmissionCompletionTargetRow } from './submission-completion.config';
 @Injectable()
 export class SubmissionsRepository {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly platformRepository: PlatformRepository,
     private readonly fileMetadata: FileMetadataRepository,
@@ -75,7 +79,7 @@ export class SubmissionsRepository {
           SELECT "dueAt"
           FROM "Milestone"
           WHERE "id" = ${input.deadline.milestoneId}
-          FOR SHARE
+          LIMIT 1 FOR SHARE
         `);
         const dueAt = milestone[0]?.dueAt;
         afterDeadline =
@@ -90,7 +94,7 @@ export class SubmissionsRepository {
       SELECT "id", "graceDueAt"
       FROM "Requirement"
       WHERE "id" = ${input.requirementId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
       const document = documents[0];
       if (document === undefined) throw new RequirementMissingError();
@@ -111,7 +115,7 @@ export class SubmissionsRepository {
         FROM "Submission"
         WHERE "requirementId" = ${input.requirementId}
           AND "teamId" = ${input.teamId}
-        FOR UPDATE
+        LIMIT 1 FOR UPDATE
       `);
       const latestHistory = await transaction.submissionHistory.findFirst({
         where: {
@@ -234,14 +238,20 @@ export class SubmissionsRepository {
           throw new RequirementPendingFileMissingError();
         }
       }
-      const files = await transaction.file.findMany({
-        where: {
-          submissionHistoryId: history.id,
-          lifecycle: FileLifecycle.ATTACHED,
-        },
-        orderBy: { createdAt: 'desc' },
-        select: attachedFileSelect,
-      });
+      const files = await this.boundedReads.readCapped(
+        READ_CAP.filesPerSubmission,
+        'File per submission',
+        (take) =>
+          transaction.file.findMany({
+            take,
+            where: {
+              submissionHistoryId: history.id,
+              lifecycle: FileLifecycle.ATTACHED,
+            },
+            orderBy: { createdAt: 'desc' },
+            select: attachedFileSelect,
+          }),
+      );
       return {
         id: submission.id,
         status: submission.status,
@@ -279,193 +289,83 @@ const attachedFileSelect = {
   mimeType: true,
   sizeBytes: true,
 } satisfies Prisma.FileSelect;
-const dashboardApplicationSelect = {
-  id: true,
-  programId: true,
-} satisfies Prisma.TeamSelect;
-const dashboardMilestoneSelect = {
-  id: true,
-  programId: true,
-} satisfies Prisma.MilestoneSelect;
-const dashboardRequirementSelect = {
-  id: true,
-  milestoneId: true,
-  milestone: { select: { programId: true } },
-} satisfies Prisma.RequirementSelect;
-const dashboardDocumentSubmissionSelect = {
-  teamId: true,
-  requirementId: true,
-  status: true,
-  team: { select: { programId: true } },
-  requirement: {
-    select: {
-      milestoneId: true,
-      milestone: { select: { programId: true } },
-    },
-  },
-} satisfies Prisma.SubmissionSelect;
-export type DashboardApplicationRow = Prisma.TeamGetPayload<{
-  select: typeof dashboardApplicationSelect;
-}>;
-export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
-  select: typeof dashboardMilestoneSelect;
-}>;
-export type DashboardRequirementRow = Prisma.RequirementGetPayload<{
-  select: typeof dashboardRequirementSelect;
-}>;
-export type DashboardDocumentSubmissionRow = Prisma.SubmissionGetPayload<{
-  select: typeof dashboardDocumentSubmissionSelect;
-}>;
-export interface SubmissionDashboardSummaryDataSource {
-  readonly team: {
-    findMany(args: {
-      readonly where: Prisma.TeamWhereInput;
-      readonly select: typeof dashboardApplicationSelect;
-    }): Promise<readonly DashboardApplicationRow[]>;
-  };
-  readonly milestone: {
-    findMany(args: {
-      readonly where: Prisma.MilestoneWhereInput;
-      readonly select: typeof dashboardMilestoneSelect;
-    }): Promise<readonly DashboardMilestoneRow[]>;
-  };
-  readonly requirement: {
-    findMany(args: {
-      readonly where: Prisma.RequirementWhereInput;
-      readonly select: typeof dashboardRequirementSelect;
-    }): Promise<readonly DashboardRequirementRow[]>;
-  };
-  readonly submission: {
-    findMany(args: {
-      readonly where: Prisma.SubmissionWhereInput;
-      readonly select: typeof dashboardDocumentSubmissionSelect;
-    }): Promise<readonly DashboardDocumentSubmissionRow[]>;
-  };
-}
-export interface SubmissionDashboardApplicationRecord {
-  readonly id: string;
+export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
-}
-export interface SubmissionDashboardMilestoneRecord {
-  readonly id: string;
-  readonly programId: string;
-}
-interface SubmissionDashboardSubmissionRecord {
-  readonly teamId: string;
-  readonly applicationProgramId: string;
-  readonly milestoneId: string;
-  readonly milestoneProgramId: string;
-  readonly status: SubmissionStatus;
-}
-export interface SubmissionDashboardRequirementRecord {
-  readonly id: string;
-  readonly milestoneId: string;
-  readonly milestoneProgramId: string;
-}
-export interface SubmissionDashboardDocumentSubmissionRecord {
-  readonly teamId: string;
-  readonly applicationProgramId: string;
-  readonly requirementId: string;
-  readonly milestoneId: string;
-  readonly milestoneProgramId: string;
-  readonly status: SubmissionStatus;
-}
-export interface SubmissionDashboardSummaryRecords {
-  readonly applications: readonly SubmissionDashboardApplicationRecord[];
-  readonly milestones: readonly SubmissionDashboardMilestoneRecord[];
-  readonly submissions: readonly SubmissionDashboardSubmissionRecord[];
-  readonly requirements: readonly SubmissionDashboardRequirementRecord[];
-  readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[];
+  readonly milestones: number;
+  readonly total: number;
+  readonly notSubmitted: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly changesRequested: number;
+  readonly rejected: number;
 }
 export interface SubmissionDashboardSummaryRepositoryPort {
-  listRecords(
+  summarizePrograms(
     programIds: readonly string[],
-  ): Promise<SubmissionDashboardSummaryRecords>;
+  ): Promise<readonly SubmissionDashboardProgramSummary[]>;
 }
 @Injectable()
 export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
-  constructor(
-    @Inject(PrismaService)
-    private readonly prisma: SubmissionDashboardSummaryDataSource,
-  ) {}
-  async listRecords(
+  constructor(private readonly prisma: PrismaService) {}
+  async summarizePrograms(
     programIds: readonly string[],
-  ): Promise<SubmissionDashboardSummaryRecords> {
-    if (programIds.length === 0) {
-      return {
-        applications: [],
-        milestones: [],
-        submissions: [],
-        requirements: [],
-        documentSubmissions: [],
-      };
-    }
-    const programFilter = { in: [...programIds] };
-    const [applications, milestones, requirements, targetSubmissions] =
-      await Promise.all([
-        this.prisma.team.findMany({
-          where: {
-            programId: programFilter,
-            status: ApplicationStatus.APPROVED,
-            archivedAt: null,
-          },
-          select: dashboardApplicationSelect,
-        }),
-        this.prisma.milestone.findMany({
-          where: { programId: programFilter },
-          select: dashboardMilestoneSelect,
-        }),
-        this.prisma.requirement.findMany({
-          where: {
-            required: true,
-            milestone: { is: { programId: programFilter } },
-          },
-          select: dashboardRequirementSelect,
-        }),
-        this.prisma.submission.findMany({
-          where: {
-            team: {
-              is: {
-                programId: programFilter,
-                status: ApplicationStatus.APPROVED,
-                archivedAt: null,
-              },
-            },
-            requirement: {
-              is: {
-                milestone: { is: { programId: programFilter } },
-                required: true,
-              },
-            },
-          },
-          select: dashboardDocumentSubmissionSelect,
-        }),
-      ]);
-    const submissions: SubmissionDashboardSubmissionRecord[] = [];
-    const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
-      [];
-    for (const submission of targetSubmissions) {
-      const { requirement: requirement } = submission;
-      documentSubmissions.push({
-        teamId: submission.teamId,
-        applicationProgramId: submission.team.programId,
-        requirementId: submission.requirementId,
-        milestoneId: requirement.milestoneId,
-        milestoneProgramId: requirement.milestone.programId,
-        status: submission.status,
-      });
-    }
-    return {
-      applications,
-      milestones,
-      submissions,
-      requirements: requirements.map((document) => ({
-        id: document.id,
-        milestoneId: document.milestoneId,
-        milestoneProgramId: document.milestone.programId,
-      })),
-      documentSubmissions,
-    };
+  ): Promise<readonly SubmissionDashboardProgramSummary[]> {
+    if (programIds.length === 0) return [];
+    const programs = Prisma.join(programIds);
+    return this.prisma.$queryRaw<SubmissionDashboardProgramSummary[]>`
+      WITH teams AS (
+        SELECT team."id", team."programId"
+        FROM "Team" AS team
+        WHERE team."programId" IN (${programs})
+          AND team."status" = 'APPROVED'
+          AND team."archivedAt" IS NULL
+      ),
+      documents AS (
+        SELECT requirement."id", requirement."milestoneId", milestone."programId"
+        FROM "Requirement" AS requirement
+        JOIN "Milestone" AS milestone ON milestone."id" = requirement."milestoneId"
+        WHERE requirement."required"
+          AND milestone."programId" IN (${programs})
+      ),
+      cells AS (
+        SELECT teams."programId", MIN(
+          CASE submission."status"::text
+            WHEN 'REJECTED' THEN 0
+            WHEN 'CHANGES_REQUESTED' THEN 1
+            WHEN 'SUBMITTED' THEN 3
+            WHEN 'APPROVED' THEN 4
+            ELSE 2
+          END
+        ) AS worst
+        FROM teams
+        JOIN documents ON documents."programId" = teams."programId"
+        LEFT JOIN "Submission" AS submission
+          ON submission."teamId" = teams."id"
+          AND submission."requirementId" = documents."id"
+        GROUP BY teams."programId", teams."id", documents."milestoneId"
+      ),
+      program_ids AS (
+        SELECT DISTINCT unnest(ARRAY[${programs}]::text[]) AS "programId"
+      )
+      SELECT
+        program_ids."programId",
+        (SELECT COUNT(DISTINCT documents."milestoneId") FROM documents
+          WHERE documents."programId" = program_ids."programId")::int AS milestones,
+        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId")::int
+          AS total,
+        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
+          AND cells.worst = 2)::int AS "notSubmitted",
+        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
+          AND cells.worst = 3)::int AS submitted,
+        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
+          AND cells.worst = 4)::int AS approved,
+        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
+          AND cells.worst = 1)::int AS "changesRequested",
+        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
+          AND cells.worst = 0)::int AS rejected
+      FROM program_ids
+      LIMIT ${programIds.length}
+    `;
   }
 }
 export type MatrixApplicationMode = (typeof MATRIX_APPLICATION_MODES)[number];
@@ -489,6 +389,7 @@ async function findMatrixDocumentFirstSubmissions(
     return [];
   }
   const submissions = await prisma.submission.findMany({
+    take: scope.teamIds.length * scope.documentIds.length,
     where: {
       teamId: { in: [...scope.teamIds] },
       requirementId: { in: [...scope.documentIds] },
@@ -576,6 +477,7 @@ const matrixApplicationSelect = {
   },
   name: true,
   members: {
+    take: READ_CAP.membersPerTeam + 1,
     orderBy: { createdAt: 'asc' },
     select: { user: { select: { nickname: true } } },
   },
@@ -602,6 +504,8 @@ function toMatrixApplication(
 }
 @Injectable()
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -616,19 +520,34 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
   async findMilestones(
     programId: string,
   ): Promise<readonly MatrixMilestoneRecord[]> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: { programId },
-      orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        dueAt: true,
-        requirements: {
-          where: { required: true },
-          select: { id: true },
-        },
-      },
-    });
+    const milestones = await this.boundedReads.readCapped(
+      READ_CAP.milestonesPerProgram,
+      'Milestone per program',
+      (take) =>
+        this.prisma.milestone
+          .findMany({
+            take,
+            where: { programId },
+            orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              dueAt: true,
+              requirements: {
+                take: READ_CAP.requirementsPerMilestone + 1,
+                where: { required: true },
+                select: { id: true },
+              },
+            },
+          })
+          .then((result) =>
+            this.boundedReads.assertNestedWithin(
+              result,
+              { requirements: READ_CAP.requirementsPerMilestone },
+              'Milestone.findMany',
+            ),
+          ),
+    );
     return milestones.map(({ requirements: documents, ...milestone }) => ({
       ...milestone,
       requiredDocumentIds: documents.map((document) => document.id),
@@ -651,13 +570,21 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
   ): Promise<MatrixApplicationPage> {
     const where = this.submissionMatrixApplicationWhere(programId, filter);
     const [applications, total] = await Promise.all([
-      this.prisma.team.findMany({
-        where,
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        skip,
-        take,
-        select: matrixApplicationSelect,
-      }),
+      this.prisma.team
+        .findMany({
+          where,
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          skip,
+          take,
+          select: matrixApplicationSelect,
+        })
+        .then((result) =>
+          this.boundedReads.assertNestedWithin(
+            result,
+            { members: READ_CAP.membersPerTeam },
+            'Team.findMany',
+          ),
+        ),
       this.prisma.team.count({ where }),
     ]);
     return { items: applications.map(toMatrixApplication), total };
@@ -666,17 +593,23 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     teamIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]> {
     if (teamIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: {
-        teamId: { in: [...teamIds] },
-        status: SubmissionStatus.CHANGES_REQUESTED,
-        requirement: {},
-      },
-      select: {
-        teamId: true,
-        requirement: { select: { milestoneId: true } },
-      },
-    });
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerProgram * teamIds.length,
+      'Submission per team',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: {
+            teamId: { in: [...teamIds] },
+            status: SubmissionStatus.CHANGES_REQUESTED,
+            requirement: {},
+          },
+          select: {
+            teamId: true,
+            requirement: { select: { milestoneId: true } },
+          },
+        }),
+    );
     return submissions.map((submission) => ({
       teamId: submission.teamId,
       milestoneId: submission.requirement.milestoneId,
@@ -686,21 +619,27 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     teamIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]> {
     if (teamIds.length === 0) return [];
-    const submissions = await this.prisma.submission.findMany({
-      where: {
-        teamId: { in: [...teamIds] },
-        requirement: { required: true },
-      },
-      select: {
-        id: true,
-        requirementId: true,
-        teamId: true,
-        status: true,
-        revision: true,
-        submittedAt: true,
-        requirement: { select: { milestoneId: true } },
-      },
-    });
+    const submissions = await this.boundedReads.readCapped(
+      READ_CAP.requirementsPerProgram * teamIds.length,
+      'Submission per team',
+      (take) =>
+        this.prisma.submission.findMany({
+          take,
+          where: {
+            teamId: { in: [...teamIds] },
+            requirement: { required: true },
+          },
+          select: {
+            id: true,
+            requirementId: true,
+            teamId: true,
+            status: true,
+            revision: true,
+            submittedAt: true,
+            requirement: { select: { milestoneId: true } },
+          },
+        }),
+    );
     return submissions.map((submission) => ({
       id: submission.id,
       teamId: submission.teamId,
@@ -761,9 +700,7 @@ export interface SubmissionReviewRecord {
 export interface SubmissionReviewFileRecord {
   readonly fileId: string;
   readonly fileName: string;
-  readonly contentType: string;
   readonly size: number;
-  readonly expiresAt: Date;
   readonly downloadUrl: string;
 }
 export interface SubmissionRevisionRecord {
@@ -815,11 +752,6 @@ interface SubmissionReviewTarget {
 export interface SubmissionReviewResult {
   readonly reviewId: string;
   readonly submissionStatus: SubmissionStatus;
-}
-export interface RepositoryPublishResult {
-  readonly repositoryId: string;
-  readonly visibility: typeof RepositoryVisibility.PUBLIC;
-  readonly publishedAt: Date;
 }
 export interface PublishEligibilitySource {
   readonly submissions: readonly SubmissionCompletionTargetRow[];
@@ -884,6 +816,8 @@ export interface SubmissionReviewsRepositoryPort {
 }
 @Injectable()
 export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryPort {
+  private readonly boundedReads = new BoundedReadRepository();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -898,57 +832,112 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   async findReviewContext(
     submissionId: string,
   ): Promise<ReviewContextRow | null> {
-    return this.prisma.submission.findUnique({
-      where: {
-        id: submissionId,
-        team: { program: { lifecycle: { not: 'DELETED' } } },
-      },
-      select: this.REVIEW_CONTEXT_SELECT,
-    });
+    return this.prisma.submission
+      .findUnique({
+        where: {
+          id: submissionId,
+          team: { program: { lifecycle: { not: 'DELETED' } } },
+        },
+        select: this.REVIEW_CONTEXT_SELECT,
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            team: {
+              nested: {
+                program: {
+                  nested: {
+                    milestones: {
+                      cap: READ_CAP.milestonesPerProgram,
+                      nested: {
+                        requirements: READ_CAP.requirementsPerMilestone,
+                      },
+                    },
+                  },
+                },
+                submissions: READ_CAP.requirementsPerProgram,
+              },
+            },
+            histories: {
+              cap: READ_CAP.historiesPerSubmission,
+              nested: { files: READ_CAP.filesPerSubmission },
+            },
+          },
+          'Submission.findUnique',
+        ),
+      );
   }
   async findPublishEligibility(
     githubRepositoryId: bigint,
   ): Promise<PublishEligibilityRow | null> {
-    const link = await this.prisma.teamRepo.findFirst({
-      where: {
-        repoId: githubRepositoryId,
-        validTo: null,
-        team: { program: { lifecycle: { not: 'DELETED' } } },
-      },
-      select: {
-        repo: { select: { visibility: true } },
-        team: {
-          select: {
-            isRepositoryPublicationPlanned: true,
-            provisionJob: { select: { status: true, repoId: true } },
-            program: {
-              select: {
-                endAt: true,
-                milestones: {
-                  select: {
-                    id: true,
-                    requirements: {
-                      where: {
-                        required: true,
+    const link = await this.prisma.teamRepo
+      .findFirst({
+        where: {
+          repoId: githubRepositoryId,
+          validTo: null,
+          team: { program: { lifecycle: { not: 'DELETED' } } },
+        },
+        select: {
+          repo: { select: { visibility: true } },
+          team: {
+            select: {
+              isRepositoryPublicationPlanned: true,
+              provisionJob: { select: { status: true, repoId: true } },
+              program: {
+                select: {
+                  endAt: true,
+                  milestones: {
+                    take: READ_CAP.milestonesPerProgram + 1,
+                    select: {
+                      id: true,
+                      requirements: {
+                        take: READ_CAP.requirementsPerMilestone + 1,
+                        where: {
+                          required: true,
+                        },
+                        select: { id: true },
                       },
-                      select: { id: true },
                     },
                   },
                 },
               },
-            },
-            submissions: {
-              select: {
-                status: true,
-                requirement: {
-                  select: { id: true, milestoneId: true },
+              submissions: {
+                take: READ_CAP.requirementsPerProgram + 1,
+                select: {
+                  status: true,
+                  requirement: {
+                    select: { id: true, milestoneId: true },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      })
+      .then((result) =>
+        this.boundedReads.assertNestedWithin(
+          result,
+          {
+            team: {
+              nested: {
+                program: {
+                  nested: {
+                    milestones: {
+                      cap: READ_CAP.milestonesPerProgram,
+                      nested: {
+                        requirements: READ_CAP.requirementsPerMilestone,
+                      },
+                    },
+                  },
+                },
+                submissions: READ_CAP.requirementsPerProgram,
+              },
+            },
+          },
+          'TeamRepo.findFirst',
+        ),
+      );
 
     if (link === null) return null;
     return {
@@ -973,9 +962,11 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
           select: {
             endAt: true,
             milestones: {
+              take: READ_CAP.milestonesPerProgram + 1,
               select: {
                 id: true,
                 requirements: {
+                  take: READ_CAP.requirementsPerMilestone + 1,
                   where: {
                     required: true,
                   },
@@ -986,6 +977,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
           },
         },
         submissions: {
+          take: READ_CAP.requirementsPerProgram + 1,
           select: {
             status: true,
             requirement: {
@@ -1008,6 +1000,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       select: { id: true, milestone: { select: { id: true, name: true } } },
     },
     histories: {
+      take: READ_CAP.historiesPerSubmission + 1,
       orderBy: [
         { revision: 'desc' as const },
         { createdAt: 'desc' as const },
@@ -1021,6 +1014,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         comment: true,
         createdAt: true,
         files: {
+          take: READ_CAP.filesPerSubmission + 1,
           orderBy: { id: 'asc' as const },
           select: {
             id: true,
@@ -1084,7 +1078,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         FROM "Program"
         WHERE "id" = ${resolved.team.programId}
           AND "lifecycle" <> 'DELETED'
-        FOR SHARE
+        LIMIT 1 FOR SHARE
       `);
     if (programs.length === 0) return null;
     await transaction.$queryRaw<
@@ -1095,7 +1089,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       SELECT "id"
       FROM "Submission"
       WHERE "id" = ${targetId}
-      FOR UPDATE
+      LIMIT 1 FOR UPDATE
     `);
     const submission = await transaction.submission.findUnique({
       where: {

@@ -9,14 +9,10 @@ import {
 import { SubmissionReviewScreen } from './components/submission-review-screen';
 import type { ReviewContext } from './types';
 
-export function context(
-  number = 1,
-  submissionId = 'submission-synthetic',
-): ReviewContext {
+export function context(number = 1): ReviewContext {
   return {
     requirementId: 'requirement-1',
     latestReviewId: null,
-    submissionId,
     application: {
       id: 'application-synthetic',
       applicationMode: 'PERSONAL',

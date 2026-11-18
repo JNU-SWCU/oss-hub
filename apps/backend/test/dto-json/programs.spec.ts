@@ -1,12 +1,9 @@
 import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import { AcceptTeamInvitationResponseDto } from '../../src/programs/dto/accept-team-invitation-response.dto';
-import { ApplicationDecisionResponseDto } from '../../src/programs/dto/application-decision-response.dto';
 import {
   ApplicationDetailResponseDto,
-  ApplicationListItemResponseDto,
-  ApplicationListPageResponseDto,
   ReviewHistoryEntryResponseDto,
-} from '../../src/programs/dto/application-list-page-response.dto';
+} from '../../src/programs/dto/application-detail-response.dto';
 import {
   ApplicationFieldResponseDto,
   ApplicationTemplateListResponseDto,
@@ -87,7 +84,6 @@ import {
 import { SubmissionMatrixResponseDto } from '../../src/programs/dto/submission-matrix-response.dto';
 import {
   CreateSubmissionReviewResponseDto,
-  RepositoryPublishResponseDto,
   SubmissionReviewContextResponseDto,
 } from '../../src/programs/dto/submission-review-context-response.dto';
 import { TeamActivityResponseDto } from '../../src/programs/dto/team-activity-response.dto';
@@ -162,7 +158,6 @@ const boardPost: BoardPostSummaryResult = {
 const boardDetail: BoardPostDetailResult = {
   ...boardPost,
   body: 'Hello',
-  updatedAt: at('2026-01-03T03:04:05.000Z'),
   comments: [
     {
       id: 'comment-1',
@@ -177,24 +172,9 @@ const boardDetail: BoardPostDetailResult = {
   ],
 };
 const applicationItem: ApplicationListItem = {
-  id: 'application-1',
-  programId: 'program-1',
   status: 'SUBMITTED',
-  submittedAt: at('2026-01-05T00:00:00.000Z'),
   rejectionReason: null,
-  repositoryProvisioning: {
-    enabled: true,
-    jobStatus: 'PENDING',
-    updatedAt: at('2026-01-06T00:00:00.000Z'),
-    safeErrorClass: null,
-  },
-  repositoryConnectionMode: 'NEW',
-  repository: { url: 'https://github.com/org/repo', visibility: 'PRIVATE' },
-  isRepositoryPublicationPlanned: true,
-  participation: 'TEAM',
-  applicant: { id: 'user-1', name: 'Octo', nickname: 'octo' },
-  team: { id: 'team-1', name: 'Team A', memberCount: 3 },
-  answers: { applicantName: 'Octo', title: 'Project', summary: 'Summary' },
+  applicant: { name: 'Octo', nickname: 'octo' },
 };
 const reviewEntry = {
   id: 'review-entry-1',
@@ -340,7 +320,7 @@ const collectionResult: RequirementCollectionResult = {
   page: 1,
   pageSize: 20,
   total: 2,
-  filterCounts: { all: 2, hasMissing: 1, zeroSubmission: 1 },
+  filterCounts: { all: 2, zeroSubmission: 1 },
   documentTotals: [
     { documentId: 'document-1', submitted: 1, total: 2 },
     { documentId: 'document-2', submitted: 1, total: 2 },
@@ -382,7 +362,6 @@ const programListItem: ProgramListPageItem = {
   note: { text: 'Team needed', icon: 'team' },
   viewerApplicationStatus: 'SUBMITTED',
   applicationCount: 3,
-  pendingApplicationCount: 1,
 };
 const programDetail: ProgramDetailResult = {
   teamMinSize: 2,
@@ -440,7 +419,6 @@ const overview: ProgramOverviewView = {
   programId: 'program-1',
   name: 'Program A',
   trackType: null,
-  milestoneCount: 2,
   boardPostCount: 3,
   participantCount: 10,
   teamCount: 4,
@@ -545,10 +523,7 @@ const staffTeamDetail: StaffTeamDetailView = {
       blockedReasons: ['PROGRAM_NOT_ENDED'],
     },
     repositoryProvisioning: {
-      enabled: true,
       jobStatus: 'SUCCEEDED',
-      updatedAt: at('2026-02-01T00:00:00.000Z'),
-      safeErrorClass: null,
     },
   },
   deletionScope: {
@@ -559,19 +534,6 @@ const staffTeamDetail: StaffTeamDetailView = {
     submissionEvents: 4,
     detachedRepositories: 1,
     scopeFingerprint: 'scope-1',
-  },
-  repositoryContributions: null,
-  repositoryUrlHistory: {
-    items: [
-      {
-        id: 'history-1',
-        occurredAt: '2026-02-02T00:00:00.000Z',
-        actorGithubLogin: 'octo',
-        previousRepositoryUrl: null,
-        newRepositoryUrl: 'https://github.com/org/team-a',
-      },
-    ],
-    nextCursor: 'cursor-1',
   },
 };
 const teamActivity: TeamActivityView = {
@@ -607,29 +569,25 @@ const sentInvitation: SentTeamInvitationRecord = {
   programId: 'program-1',
   inviteeId: 'user-2',
   invitedById: 'user-1',
-  invitedAt: at('2026-01-10T00:00:00.000Z'),
   invitee: {
     id: 'user-2',
     nickname: 'cat',
     name: null,
-    avatarUrl: 'https://avatars.example/cat.png',
   },
 };
 const teamManagementItem: TeamManagementListItem = {
   teamMinSize: 2,
   id: 'application-1',
-  programId: 'program-1',
   status: 'APPROVED',
   submittedAt: at('2026-01-05T00:00:00.000Z'),
-  rejectionReason: null,
-  applicant: { id: 'user-1', name: 'Octo', nickname: 'octo' },
+  applicant: { name: 'Octo', nickname: 'octo' },
   team: {
     id: 'team-1',
     name: 'Team A',
     memberCount: 2,
     members: [
-      { id: 'user-1', name: 'Octo', nickname: 'octo' },
-      { id: 'user-2', name: null, nickname: 'cat' },
+      { name: 'Octo', nickname: 'octo' },
+      { name: null, nickname: 'cat' },
     ],
   },
 };
@@ -652,9 +610,7 @@ const reviewContext: SubmissionReviewContext = {
       {
         fileId: 'file-1',
         fileName: 'plan.pdf',
-        contentType: 'application/pdf',
         size: 1024,
-        expiresAt: at('2026-02-09T01:00:00.000Z'),
         downloadUrl: '/api/v1/submission-files/file-1',
       },
     ],
@@ -688,74 +644,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'AcceptTeamInvitationResponseDto',
     () =>
       AcceptTeamInvitationResponseDto.from({
-        teamId: 'team-1',
         programId: 'program-1',
-      }),
-  ],
-  [
-    'ApplicationDecisionResponseDto approved',
-    () =>
-      ApplicationDecisionResponseDto.from({
-        kind: 'APPROVED',
-        teamId: 'application-1',
-        status: 'APPROVED',
-        repositoryProvisioning: {
-          enabled: true,
-          eventId: 'event-1',
-          jobStatus: 'PENDING',
-        },
-      }),
-  ],
-  [
-    'ApplicationDecisionResponseDto rejected',
-    () =>
-      ApplicationDecisionResponseDto.from({
-        kind: 'REJECTED',
-        teamId: 'application-1',
-        status: 'REJECTED',
-        rejectionReason: 'No',
-      }),
-  ],
-  [
-    'ApplicationDecisionResponseDto reverted',
-    () =>
-      ApplicationDecisionResponseDto.from({
-        kind: 'REVERTED',
-        teamId: 'application-1',
-        status: 'SUBMITTED',
-      }),
-  ],
-  [
-    'ApplicationListItemResponseDto',
-    () => ApplicationListItemResponseDto.from(applicationItem),
-  ],
-  [
-    'ApplicationListPageResponseDto',
-    () =>
-      ApplicationListPageResponseDto.from({
-        items: [
-          applicationItem,
-          {
-            ...applicationItem,
-            id: 'application-2',
-            status: 'REJECTED',
-            rejectionReason: 'No',
-            repositoryProvisioning: {
-              enabled: false,
-              jobStatus: 'FAILED_FINAL',
-              updatedAt: at('2026-01-06T00:00:00.000Z'),
-              safeErrorClass: 'AUTH',
-            },
-            repositoryConnectionMode: 'OWN',
-            repository: null,
-            participation: 'INDIVIDUAL',
-            team: null,
-          },
-        ],
-        page: 1,
-        pageSize: 20,
-        totalItems: 2,
-        totalPages: 1,
       }),
   ],
   [
@@ -874,7 +763,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         id: 'user-2',
         nickname: 'cat',
         name: null,
-        avatarUrl: null,
       }),
   ],
   [
@@ -1234,7 +1122,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         programId: 'program-1',
         inviteeId: 'user-2',
         invitedById: 'user-1',
-        invitedAt: at('2026-01-10T00:00:00.000Z'),
         teamName: 'Team A',
         programName: 'Program A',
         invitedByDisplayName: 'Octo',
@@ -1245,9 +1132,18 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'RepositoryUrlHistoryResponseDto',
     () =>
-      RepositoryUrlHistoryResponseDto.from(
-        staffTeamDetail.repositoryUrlHistory,
-      ),
+      RepositoryUrlHistoryResponseDto.from({
+        items: [
+          {
+            id: 'history-1',
+            occurredAt: '2026-02-02T00:00:00.000Z',
+            actorGithubLogin: 'octo',
+            previousRepositoryUrl: null,
+            newRepositoryUrl: 'https://github.com/org/team-a',
+          },
+        ],
+        nextCursor: 'cursor-1',
+      }),
   ],
   [
     'TeamApplicationResponseDto',
@@ -1330,15 +1226,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         submissionStatus: 'APPROVED',
       }),
   ],
-  [
-    'RepositoryPublishResponseDto',
-    () =>
-      RepositoryPublishResponseDto.from({
-        repositoryId: 'repository-1',
-        visibility: 'PUBLIC',
-        publishedAt: at('2026-07-01T00:00:00.000Z'),
-      }),
-  ],
   ['TeamActivityResponseDto', () => TeamActivityResponseDto.from(teamActivity)],
   [
     'TeamInvitationInviteeResponseDto',
@@ -1357,8 +1244,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       TeamManagementListPageResponseDto.from({
         items: [teamManagementItem, { ...teamManagementItem, team: null }],
-        page: 1,
-        pageSize: 20,
         totalItems: 2,
         totalPages: 1,
       }),
@@ -1381,8 +1266,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       ProgramAuthoringUploadResponseDto.from({
         id: 'upload-1',
-        fileName: 'guide.pdf',
-        contentType: 'application/pdf',
         size: 1024,
         expiresAt: '2026-05-02T00:00:00.000Z',
       }),
@@ -1473,7 +1356,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       UploadedRequirementFileResponseDto.from({
         fileId: 'file-1',
         fileName: 'report.pdf',
-        contentType: 'application/pdf',
         size: 2048,
         expiresAt: '2026-05-03T00:00:00.000Z',
       }),

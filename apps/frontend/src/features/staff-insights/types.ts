@@ -21,12 +21,6 @@ export interface StaffInsightsUrlState {
 export interface StaffInsightsMetrics {
   readonly studentCount: number;
   readonly activeStudentCount: number;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-  readonly total: number;
   readonly participantCount: number;
 }
 
@@ -41,21 +35,12 @@ export interface StaffInsightsDepartmentRow extends StaffInsightsMetrics {
   readonly sampleTooSmall: boolean;
 }
 
-export interface StaffInsightsRecentLeaderRow {
+export interface StaffInsightsLeaderRow {
   readonly rank: number;
   readonly name: string | null;
   readonly githubLogin: string;
   readonly department: string | null;
-  readonly cohort: DepartmentCohort;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
   readonly total: number;
-}
-
-export interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
-  readonly starCount: number;
 }
 
 export interface StaffInsightsCohortLeaders<Row> {
@@ -66,7 +51,7 @@ export interface StaffInsightsCohortLeaders<Row> {
 
 export interface StaffInsightsLeaders {
   readonly period: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
-  readonly recent: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>;
+  readonly recent: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
 }
 
 export const PROGRAM_CATEGORIES = [
@@ -110,7 +95,6 @@ export interface StaffInsightsProgramRow {
   readonly dueRequirementCount: number;
   readonly submittedRequirementCount: number;
   readonly completionRate: number | null;
-  readonly contributionCount: number;
   readonly activeTeamCount: number;
   readonly repoTeamCount: number;
   readonly contributionsPerParticipant: number | null;

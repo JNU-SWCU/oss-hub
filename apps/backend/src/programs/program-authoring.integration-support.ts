@@ -1,3 +1,4 @@
+import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { FileCleanupRepository } from './files.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { createHash } from 'node:crypto';
@@ -126,6 +127,7 @@ export class ProgramAuthoringIntegrationHarness {
       data: { coverFileId: null },
     });
     const files = await this.prisma.file.findMany({
+      take: TEST_READ_LIMIT,
       where: { uploaderId: { startsWith: AUTHORING_TEST_PREFIX } },
       select: { storageKey: true },
     });

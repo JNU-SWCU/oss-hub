@@ -218,18 +218,14 @@ function rejectedApplication(
 ): StudentApplication {
   return {
     id: 'application-1',
-    programId: program.id,
     status: 'REJECTED',
     teamId: null,
     answers: { applicantName: '합성 학생', title: '제목' },
     submittedAt: '2026-07-10T00:00:00.000Z',
-    updatedAt: '2026-07-11T00:00:00.000Z',
     isRepositoryPublicationPlanned: false,
     rejectionReason,
     isManager: true,
     canManage: false,
-    canEdit: false,
-    canCancel: false,
   };
 }
 
