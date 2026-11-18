@@ -6,7 +6,6 @@ import { AlertCircle, ChevronLeft, Pencil, Shield } from 'lucide-react';
 import { PageHeader, StatusBadge, UserProfileCard } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   ACCOUNT_STATUS_BADGE,
   ACCOUNT_STATUS_LABEL,
@@ -14,7 +13,6 @@ import {
   roleLabel,
 } from '@/lib/status-vocabulary';
 import type { AdminAccessDetailData } from '../admin-access-detail-api';
-import { adminAccessHistoryPageCount } from '../admin-access-detail-api';
 import {
   accessListPath,
   type AccessWorkspace,
@@ -27,8 +25,8 @@ import {
 } from './admin-access-mutation-actions';
 import { AdminAccessProfileSection } from './admin-access-profile-section';
 import {
-  LoginHistorySection,
-  StaffAccessRequestHistorySection,
+  AdminAccessHistoryCard,
+  type AdminAccessHistoryError,
 } from './admin-access-detail-history';
 import {
   AdminAccessDetailError,
@@ -50,11 +48,6 @@ export type AdminAccessDetailState =
   | { readonly kind: 'not-found' }
   | ({ readonly kind: 'ready' } & AdminAccessDetailData);
 
-type HistoryError = {
-  readonly message: string;
-  readonly onRetry: () => void;
-};
-
 function AdminAccessDetailContent({
   detail,
   history,
@@ -73,7 +66,7 @@ function AdminAccessDetailContent({
   readonly workspace: AccessWorkspace;
   readonly listHref: string;
   readonly historyLoading: boolean;
-  readonly historyError: HistoryError | null;
+  readonly historyError: AdminAccessHistoryError | null;
   readonly onStaffAccessRequestPageChange: (page: number) => void;
   readonly onLoginHistoryPageChange: (page: number) => void;
   readonly onProfileSaved: () => void;
@@ -125,48 +118,14 @@ function AdminAccessDetailContent({
           onRequestAction={mutation.onRequestAction}
         />
       )}
-      <Card size="sm">
-        {historyError ? (
-          <CardContent>
-            <Alert variant="destructive">
-              <AlertCircle aria-hidden="true" />
-              <AlertTitle>이력 조회 실패</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <p>{historyError.message}</p>
-                <Button
-                  variant="outline"
-                  onClick={historyError.onRetry}
-                  disabled={historyLoading}
-                >
-                  다시 시도
-                </Button>
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        ) : null}
-        <CardContent>
-          <StaffAccessRequestHistorySection
-            items={history.staffAccessRequests.items}
-            page={history.staffAccessRequests.page}
-            totalPages={adminAccessHistoryPageCount(
-              history.staffAccessRequests,
-            )}
-            isLoading={historyLoading}
-            onPageChange={onStaffAccessRequestPageChange}
-            headingTag={sectionHeadingTag}
-          />
-        </CardContent>
-        <CardContent className="border-t border-border pt-(--card-spacing)">
-          <LoginHistorySection
-            items={history.loginHistory.items}
-            page={history.loginHistory.page}
-            totalPages={adminAccessHistoryPageCount(history.loginHistory)}
-            isLoading={historyLoading}
-            onPageChange={onLoginHistoryPageChange}
-            headingTag={sectionHeadingTag}
-          />
-        </CardContent>
-      </Card>
+      <AdminAccessHistoryCard
+        history={history}
+        headingTag={sectionHeadingTag}
+        isLoading={historyLoading}
+        error={historyError}
+        onStaffAccessRequestPageChange={onStaffAccessRequestPageChange}
+        onLoginHistoryPageChange={onLoginHistoryPageChange}
+      />
     </>
   );
 
@@ -300,7 +259,7 @@ export function AdminAccessDetailContentForState({
   readonly workspace?: AccessWorkspace;
   readonly listHref?: string;
   readonly historyLoading?: boolean;
-  readonly historyError?: HistoryError | null;
+  readonly historyError?: AdminAccessHistoryError | null;
   readonly onStaffAccessRequestPageChange?: (page: number) => void;
   readonly onLoginHistoryPageChange?: (page: number) => void;
   readonly onProfileSaved?: () => void;

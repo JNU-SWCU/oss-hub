@@ -309,7 +309,7 @@ describe('회원 유형 — 낡은 화면에서 이미 변경된 값을 고르�
     await mount('directory');
 
     const reset = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '가입 유형 되돌리기',
+      (button) => button.getAttribute('aria-label') === '회원 유형 변경',
     );
     act(() => reset?.click());
     expect(document.querySelector('#admin-member-kind-student-id')).toBeNull();

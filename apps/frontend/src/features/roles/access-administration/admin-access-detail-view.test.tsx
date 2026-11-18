@@ -173,7 +173,7 @@ describe('프로필 카드 — 가입 유형별 항목과 미완료 경고', () 
     expect(html).toContain('202601');
     expect(html).toContain('학과');
     expect(html).toContain('인공지능학부');
-    expect(html).toContain('참여 프로그램·팀');
+    expect(html).toMatch(/<h3[^>]*>참여 프로그램<\/h3>/);
     expect(html).toContain('href="/programs/program-1"');
     expect(html).toContain('합성 프로그램');
     expect(html).toContain('합성 팀 · 팀장');
@@ -208,7 +208,7 @@ describe('프로필 카드 — 가입 유형별 항목과 미완료 경고', () 
     expect(html).toContain('학번');
     expect(html).toContain('대기 중인 요청');
     expect(html).toContain('승인');
-    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램');
     expect(html).not.toContain('참여 프로그램이 없습니다.');
     expect(html).not.toContain('불러오지 못했습니다');
   });
@@ -239,7 +239,7 @@ describe('프로필 카드 — 가입 유형별 항목과 미완료 경고', () 
     expect(html).toContain('소속');
     expect(html).toContain('SW중심대학사업단');
     expect(html).not.toContain('학번');
-    expect(html).not.toContain('참여 프로그램·팀');
+    expect(html).not.toContain('참여 프로그램');
   });
 
   it('가입 유형이 없으면 가입 유형 미선택으로 알리고 유형별 항목은 그리지 않는다', () => {

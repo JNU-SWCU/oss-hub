@@ -145,7 +145,7 @@ describe('독립 접근 컨트롤 통합', () => {
     });
 
     const reset = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '가입 유형 되돌리기',
+      (button) => button.getAttribute('aria-label') === '회원 유형 변경',
     );
     act(() => reset?.click());
     expect(onRequestAction).toHaveBeenCalledWith('RESET_MEMBER_KIND');
