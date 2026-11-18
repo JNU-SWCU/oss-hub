@@ -122,16 +122,17 @@ export function AdminAccessControl({
             {memberKind}
             <Button
               type="button"
-              variant="destructive"
-              size="xs"
+              variant="outline"
+              size="sm"
               className="h-11"
+              aria-label="회원 유형 변경"
               disabled={disabled || reason !== null}
               aria-describedby={reason ? reasonId : undefined}
               onClick={() =>
                 onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.RESET_MEMBER_KIND)
               }
             >
-              가입 유형 되돌리기
+              변경
             </Button>
           </div>
         </div>

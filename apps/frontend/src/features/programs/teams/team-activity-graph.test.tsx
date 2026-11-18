@@ -134,6 +134,23 @@ describe('TeamActivityGraph', () => {
       ),
     );
   }
+  function legendEntries(): {
+    readonly label: string;
+    readonly muted: boolean;
+    readonly dashed: boolean;
+  }[] {
+    return Array.from(
+      container.querySelectorAll('ul[aria-label="팀원"] > li'),
+    ).map((entry) => {
+      const swatch =
+        entry.querySelector('[aria-hidden="true"]')?.className ?? '';
+      return {
+        label: entry.textContent ?? '',
+        muted: swatch.includes('border-muted-foreground'),
+        dashed: swatch.includes('border-dashed'),
+      };
+    });
+  }
   function chip(label: string): HTMLButtonElement {
     const found = Array.from(
       container.querySelectorAll<HTMLButtonElement>('button'),
@@ -188,10 +205,11 @@ describe('TeamActivityGraph', () => {
         line.getAttribute('data-stroke'),
       ),
     ).toEqual(['var(--chart-1)', 'var(--chart-2)']);
-    const legend = container.querySelector('ul[aria-label="팀원"]');
-    expect(legend?.querySelectorAll('li')).toHaveLength(3);
-    expect(legend?.textContent).toContain('@cy이 기간 기여 없음');
-    expect(legend?.textContent).not.toContain('@ada이 기간 기여 없음');
+    expect(legendEntries()).toEqual([
+      { label: '@ada', muted: false, dashed: false },
+      { label: '@bob', muted: false, dashed: false },
+      { label: '@cy', muted: true, dashed: true },
+    ]);
   });
 
   it('여섯 번째 팀원부터는 색을 돌려 쓰고 점선으로 가른다', async () => {

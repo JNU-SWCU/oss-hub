@@ -208,9 +208,9 @@ describe('ProgramEditMilestoneDialog', () => {
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.querySelectorAll('form')).toHaveLength(1);
     expect(dialog?.querySelector('form')?.textContent).toContain('제출 항목');
-    expect(
-      dialog?.querySelector('form button[type="submit"]')?.textContent,
-    ).toBe('마일스톤 저장');
+    const submit = dialog?.querySelector('form button[type="submit"]');
+    expect(submit?.textContent).toBe('저장');
+    expect(submit?.getAttribute('aria-label')).toBe('마일스톤 저장');
     expect(dialog?.querySelector('form')?.textContent).toContain(
       '이름, 일정, 안내, 제출 항목과 양식 변경을 함께 저장합니다.',
     );

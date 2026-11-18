@@ -11,6 +11,7 @@ import {
 const ITEM: TeamManagementListItem = {
   id: 'synthetic-application',
   teamMinSize: 2,
+  teamMaxSize: 4,
   status: ApplicationStatus.SUBMITTED,
   submittedAt: new Date('2026-08-05T05:32:00.000Z'),
   applicant: {
@@ -40,10 +41,12 @@ it('네 열에 필요한 값만 싣고 저장소 어휘는 키조차 없다', ()
     'status',
     'submittedAt',
     'team',
+    'teamMaxSize',
     'teamMinSize',
   ]);
   expect(dto.submittedAt).toBe('2026-08-05T05:32:00.000Z');
   expect(dto.teamMinSize).toBe(2);
+  expect(dto.teamMaxSize).toBe(4);
 });
 
 it('실명이 없는 팀원은 null 로 내려가 화면이 계정으로 대신 쓴다', () => {
