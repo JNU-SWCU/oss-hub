@@ -15,7 +15,6 @@ const {
   getSessionSnapshot,
   refreshSession,
   resetSessionStore,
-  resetSessionStoreForDocumentNavigation,
   subscribeSession,
 } = await import('./session-store');
 
@@ -205,30 +204,6 @@ describe('공유 인증 세션 저장소', () => {
       isAuthenticated: true,
       user: syntheticUser,
     });
-  });
-
-  it('문서 이동은 이전 문서의 인증 상태와 구독자를 폐기한다', async () => {
-    fetchSession.mockResolvedValueOnce({
-      isAuthenticated: true,
-      user: syntheticUser,
-    });
-    const authenticated = nextSnapshot('authenticated');
-    ensureSessionLoaded();
-    await authenticated;
-
-    const previousDocumentListener = vi.fn();
-    subscribeSession(previousDocumentListener);
-    resetSessionStoreForDocumentNavigation();
-
-    expect(getSessionSnapshot()).toEqual({ status: 'loading', user: null });
-
-    fetchSession.mockResolvedValueOnce({ isAuthenticated: false });
-    const anonymous = nextSnapshot('anonymous');
-    ensureSessionLoaded();
-    await anonymous;
-
-    expect(previousDocumentListener).not.toHaveBeenCalled();
-    expect(getSessionSnapshot()).toEqual({ status: 'anonymous', user: null });
   });
 
   it('같은 값이면 스냅샷 참조가 유지된다 — 소비자의 effect 재실행을 막는다', async () => {

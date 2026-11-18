@@ -16,26 +16,13 @@ const ERROR_STATE: AuthSessionState = { status: 'error', user: null };
 const ANONYMOUS_STATE: AuthSessionState = { status: 'anonymous', user: null };
 
 let snapshot: AuthSessionState = LOADING_STATE;
-let snapshotDocumentToken: number | null = null;
 const listeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
 let generation = 0;
-let documentResetInstalled = false;
-
-function currentDocumentToken(): number | null {
-  return typeof window === 'undefined' ? null : window.performance.timeOrigin;
-}
-
-function hasStaleDocumentSnapshot(): boolean {
-  return (
-    snapshot.status !== 'loading' &&
-    snapshotDocumentToken !== currentDocumentToken()
-  );
-}
+let lifecycleInstalled = false;
 
 function publish(next: AuthSessionState): void {
   snapshot = next;
-  snapshotDocumentToken = currentDocumentToken();
   for (const listener of [...listeners]) {
     listener();
   }
@@ -62,28 +49,7 @@ async function load(loadGeneration: number): Promise<void> {
   }
 }
 
-export function resetSessionStoreForDocumentNavigation(): void {
-  generation += 1;
-  inFlight = null;
-  snapshot = LOADING_STATE;
-  snapshotDocumentToken = null;
-  listeners.clear();
-}
-
-function installDocumentNavigationReset(): void {
-  if (documentResetInstalled || typeof window === 'undefined') return;
-  window.addEventListener('pagehide', resetSessionStoreForDocumentNavigation);
-  documentResetInstalled = true;
-}
-
-export function ensureSessionLoaded(): void {
-  installDocumentNavigationReset();
-  if (hasStaleDocumentSnapshot()) {
-    resetSessionStoreForDocumentNavigation();
-  }
-  if (inFlight !== null || snapshot.status !== 'loading') {
-    return;
-  }
+function startSessionLoad(): void {
   const request = load(generation).finally(() => {
     if (inFlight === request) {
       inFlight = null;
@@ -92,10 +58,29 @@ export function ensureSessionLoaded(): void {
   inFlight = request;
 }
 
-export function subscribeSession(listener: () => void): () => void {
-  if (hasStaleDocumentSnapshot()) {
-    resetSessionStoreForDocumentNavigation();
+function revalidateSession(): void {
+  generation += 1;
+  inFlight = null;
+  startSessionLoad();
+}
+
+function installSessionLifecycle(): void {
+  if (lifecycleInstalled || typeof window === 'undefined') return;
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) revalidateSession();
+  });
+  lifecycleInstalled = true;
+}
+
+export function ensureSessionLoaded(): void {
+  installSessionLifecycle();
+  if (inFlight !== null || snapshot.status !== 'loading') {
+    return;
   }
+  startSessionLoad();
+}
+
+export function subscribeSession(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -103,7 +88,7 @@ export function subscribeSession(listener: () => void): () => void {
 }
 
 export function getSessionSnapshot(): AuthSessionState {
-  return hasStaleDocumentSnapshot() ? LOADING_STATE : snapshot;
+  return snapshot;
 }
 
 export function getSessionServerSnapshot(): AuthSessionState {
@@ -118,5 +103,8 @@ export function refreshSession(): void {
 }
 
 export function resetSessionStore(): void {
-  resetSessionStoreForDocumentNavigation();
+  generation += 1;
+  inFlight = null;
+  snapshot = LOADING_STATE;
+  listeners.clear();
 }
