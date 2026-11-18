@@ -1,10 +1,16 @@
 import type { ProgramMailBatchRepository } from './program-mail-batch.repository';
+import {
+  PROGRAM_MAIL_BATCH_DEADLINE_MS,
+  PROGRAM_MAIL_LEASE_MS,
+  PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
+} from './program-mail.config';
 import type { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
 import type {
   ProgramMailBatchWork,
   ProgramMailDeliveryResult,
 } from './program-mail-send.types';
-import type { ProgramMailTransportService } from './program-mail-transport.service';
+import { ProgramMailTemplateService } from './program-mail-template.service';
+import { ProgramMailTransportService } from './program-mail-transport.service';
 import { ProgramMailWorkerService } from './program-mail-worker.service';
 
 function deferred(): {
@@ -61,6 +67,8 @@ const work: ProgramMailBatchWork = {
 };
 
 describe('ProgramMailWorkerService', () => {
+  afterEach(() => jest.useRealTimers());
+
   it('renews between bounded recipient batches and sends at most ten at once', async () => {
     const entered = deferred();
     const release = deferred();
@@ -82,7 +90,12 @@ describe('ProgramMailWorkerService', () => {
     };
     const deliveries: Pick<
       ProgramMailDeliveryRepository,
-      'states' | 'claim' | 'complete' | 'markUnknown' | 'result'
+      | 'states'
+      | 'claim'
+      | 'complete'
+      | 'markUnknown'
+      | 'markClaimedUnknown'
+      | 'result'
     > = {
       states: jest.fn().mockResolvedValue(
         work.recipients.map((recipient) => ({
@@ -96,9 +109,12 @@ describe('ProgramMailWorkerService', () => {
       claim: jest.fn().mockResolvedValue(true),
       complete: jest.fn().mockResolvedValue(true),
       markUnknown: jest.fn().mockResolvedValue(true),
+      markClaimedUnknown: jest.fn().mockResolvedValue(true),
       result: jest.fn().mockResolvedValue(result),
     };
-    const transport: Pick<ProgramMailTransportService, 'send'> = {
+    const transport: Pick<ProgramMailTransportService, 'send' | 'runBatch'> = {
+      runBatch: <Result>(operation: (signal: AbortSignal) => Promise<Result>) =>
+        operation(new AbortController().signal),
       send: jest.fn().mockImplementation(async () => {
         attempts += 1;
         active += 1;
@@ -119,5 +135,100 @@ describe('ProgramMailWorkerService', () => {
     expect(attempts).toBe(11);
     expect(maximumActive).toBe(10);
     expect(batches.renew).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts a never-ending batch at the hard deadline and leaves no live operation', async () => {
+    expect(
+      PROGRAM_MAIL_BATCH_DEADLINE_MS + PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
+    ).toBeLessThan(PROGRAM_MAIL_LEASE_MS);
+    jest.useFakeTimers();
+    jest.setSystemTime(now);
+    const entered = deferred();
+    const deadlineWork = { ...work, recipients: work.recipients.slice(0, 10) };
+    const unknownResult: ProgramMailDeliveryResult = {
+      sentCount: 0,
+      duplicateCount: 0,
+      failedCount: 0,
+      unknownCount: 10,
+    };
+    let attempts = 0;
+    let aborted = 0;
+    let active = 0;
+    const batches: Pick<
+      ProgramMailBatchRepository,
+      'claim' | 'renew' | 'complete' | 'findRecoverableBatchKeys'
+    > = {
+      claim: jest.fn().mockResolvedValue(deadlineWork),
+      renew: jest.fn().mockResolvedValue(deadlineWork),
+      complete: jest.fn().mockResolvedValue({
+        kind: 'COMPLETED',
+        batchKey: work.batchKey,
+        result: unknownResult,
+      }),
+      findRecoverableBatchKeys: jest.fn().mockResolvedValue([]),
+    };
+    const deliveries: Pick<
+      ProgramMailDeliveryRepository,
+      | 'states'
+      | 'claim'
+      | 'complete'
+      | 'markUnknown'
+      | 'markClaimedUnknown'
+      | 'result'
+    > = {
+      states: jest.fn().mockResolvedValue(
+        deadlineWork.recipients.map((recipient) => ({
+          key: `key-${recipient.id}`,
+          recipient,
+          status: 'PENDING',
+          code: null,
+          leaseExpiresAt: null,
+        })),
+      ),
+      claim: jest.fn().mockResolvedValue(true),
+      complete: jest.fn().mockResolvedValue(true),
+      markUnknown: jest.fn().mockResolvedValue(true),
+      markClaimedUnknown: jest.fn().mockResolvedValue(true),
+      result: jest.fn().mockResolvedValue(unknownResult),
+    };
+    const transport = new ProgramMailTransportService(
+      {
+        send: (_mail, signal) =>
+          new Promise<void>((_resolve, reject) => {
+            attempts += 1;
+            active += 1;
+            if (attempts === 10) entered.resolve();
+            signal?.addEventListener(
+              'abort',
+              () => {
+                aborted += 1;
+                active -= 1;
+                reject(
+                  signal.reason instanceof Error
+                    ? signal.reason
+                    : new Error('Program mail batch aborted'),
+                );
+              },
+              { once: true },
+            );
+          }),
+      },
+      new ProgramMailTemplateService(),
+    );
+    const worker = new ProgramMailWorkerService(batches, deliveries, transport);
+
+    const processing = worker.process(work.batchKey, () => new Date());
+    await entered.promise;
+    expect(active).toBe(10);
+    await jest.advanceTimersByTimeAsync(PROGRAM_MAIL_BATCH_DEADLINE_MS);
+    await expect(processing).resolves.toMatchObject({
+      kind: 'COMPLETED',
+      result: { unknownCount: 10 },
+    });
+    expect(aborted).toBe(10);
+    expect(active).toBe(0);
+    expect(deliveries.markClaimedUnknown).toHaveBeenCalledTimes(10);
+    expect(deliveries.complete).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

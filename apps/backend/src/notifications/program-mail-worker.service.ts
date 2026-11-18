@@ -4,7 +4,9 @@ import { Interval } from '@nestjs/schedule';
 import { SequentialRepository } from '../platform/sequential.repository';
 import { ProgramMailBatchRepository } from './program-mail-batch.repository';
 import {
+  PROGRAM_MAIL_BATCH_DEADLINE_MS,
   PROGRAM_MAIL_DELIVERY_BATCH_SIZE,
+  PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
   PROGRAM_MAIL_POLL_INTERVAL_MS,
 } from './program-mail.config';
 import {
@@ -36,10 +38,18 @@ export class ProgramMailWorkerService {
     @Inject(ProgramMailDeliveryRepository)
     private readonly deliveries: Pick<
       ProgramMailDeliveryRepository,
-      'states' | 'claim' | 'complete' | 'markUnknown' | 'result'
+      | 'states'
+      | 'claim'
+      | 'complete'
+      | 'markUnknown'
+      | 'markClaimedUnknown'
+      | 'result'
     >,
     @Inject(ProgramMailTransportService)
-    private readonly transport: Pick<ProgramMailTransportService, 'send'>,
+    private readonly transport: Pick<
+      ProgramMailTransportService,
+      'send' | 'runBatch'
+    >,
   ) {}
 
   @Interval('program-mail-delivery', PROGRAM_MAIL_POLL_INTERVAL_MS)
@@ -101,8 +111,19 @@ export class ProgramMailWorkerService {
         return 'stop';
       }
       current = renewed;
-      const results = await Promise.all(
-        batch.map((state) => this.deliverOne(current, state, clock)),
+      const remainingLeaseMs =
+        current.leaseExpiresAt.getTime() - clock().getTime();
+      if (
+        remainingLeaseMs <=
+        PROGRAM_MAIL_BATCH_DEADLINE_MS + PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS
+      ) {
+        leaseOwned = false;
+        return 'stop';
+      }
+      const results = await this.transport.runBatch((signal) =>
+        Promise.all(
+          batch.map((state) => this.deliverOne(current, state, clock, signal)),
+        ),
       );
       if (results.some((owned) => !owned)) {
         leaseOwned = false;
@@ -116,6 +137,7 @@ export class ProgramMailWorkerService {
     work: ProgramMailBatchWork,
     state: ProgramMailRecipientDeliveryState,
     clock: ProgramMailClock,
+    signal: AbortSignal,
   ): Promise<boolean> {
     if (state.status === 'SENT' || state.status === 'FAILED') return true;
     if (state.status === 'PROCESSING') {
@@ -127,8 +149,11 @@ export class ProgramMailWorkerService {
     if (state.status !== 'PENDING' || !work.deliveryAllowed) return true;
     if (!(await this.deliveries.claim(work, state, clock()))) return false;
     try {
-      await this.transport.send(work, state);
+      await this.transport.send(work, state, signal);
     } catch {
+      if (signal.aborted) {
+        return this.deliveries.markClaimedUnknown(work, state, clock());
+      }
       const owned = await this.deliveries.complete({
         work,
         state,

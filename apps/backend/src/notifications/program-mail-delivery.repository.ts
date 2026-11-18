@@ -166,6 +166,39 @@ export class ProgramMailDeliveryRepository {
     return updated === 1;
   }
 
+  async markClaimedUnknown(
+    work: ProgramMailBatchWork,
+    state: ProgramMailRecipientDeliveryState,
+    now: Date,
+  ): Promise<boolean> {
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      batchKey: work.batchKey,
+      previewVersion: work.previewVersion,
+      code: 'MAIL_DELIVERY_UNKNOWN',
+    });
+    const updated = await this.prisma.$executeRaw`
+      UPDATE "Notification" AS recipient
+      SET "status" = 'FAILED', "sentAt" = NULL, payload = ${payload}::jsonb
+      WHERE recipient."idempotencyKey" = ${state.key}
+        AND recipient."type" = 'PROGRAM_MAIL'
+        AND recipient."status" = 'PROCESSING'
+        AND recipient.payload->>'workerId' = ${work.workerId}
+        AND recipient.payload->>'leaseToken' = ${work.leaseToken}
+        AND EXISTS (
+          SELECT 1
+          FROM "Notification" AS batch
+          WHERE batch."idempotencyKey" = ${work.batchKey}
+            AND batch."type" = 'PROGRAM_MAIL_SEND'
+            AND batch."status" = 'PROCESSING'
+            AND batch.payload->>'workerId' = ${work.workerId}
+            AND batch.payload->>'leaseToken' = ${work.leaseToken}
+            AND (batch.payload->>'leaseExpiresAt')::timestamptz > ${now}
+        )
+    `;
+    return updated === 1;
+  }
+
   async result(
     work: ProgramMailBatchWork,
   ): Promise<ProgramMailDeliveryResult | null> {
