@@ -288,7 +288,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
         mutation={adminMutation()}
       />,
     );
-    expect(html).toContain('역할 요청 이력이 없습니다.');
+    expect(html).toContain('교직원 권한 요청 이력이 없습니다.');
     expect(html).toContain('로그인 이력이 없습니다.');
   });
 
@@ -346,7 +346,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
     expect(html).not.toContain('만 표시합니다');
   });
 
-  it('total로 페이지 수를 계산해 "n / m 페이지"를 표시한다', () => {
+  it('total로 페이지 수를 계산해 "n / m"을 표시한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
@@ -360,7 +360,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
         mutation={adminMutation()}
       />,
     );
-    expect(html).toContain('1 / 2 페이지');
+    expect(html).toContain('1 / 2');
   });
 
   it('1페이지에서는 "이전" 버튼이 비활성화된다', () => {
@@ -396,7 +396,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
         mutation={adminMutation()}
       />,
     );
-    expect(html).toContain('2 / 2 페이지');
+    expect(html).toContain('2 / 2');
     const nextIndex = html.indexOf('다음');
     const disabledBefore = html.slice(Math.max(0, nextIndex - 60), nextIndex);
     expect(disabledBefore).toContain('disabled');

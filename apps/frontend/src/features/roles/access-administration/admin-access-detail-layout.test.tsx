@@ -117,11 +117,12 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
       /<a[^>]*href="\/dashboard\/users"[^>]*>.*사용자 목록<\/a>/,
     );
     expect(html).toMatch(/<h2[^>]*>홍길동<\/h2>/);
+    expect(html).toMatch(/<h2[^>]*>이력<\/h2>/);
     expect(
-      html.match(/<h2[^>]*id="admin-access-role-request-history"/),
+      html.match(/<h3[^>]*id="admin-access-role-request-history"/),
     ).not.toBeNull();
     expect(
-      html.match(/<h2[^>]*id="admin-access-login-history"/),
+      html.match(/<h3[^>]*id="admin-access-login-history"/),
     ).not.toBeNull();
   });
 
@@ -150,11 +151,12 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
     expect(html).not.toContain('<h1');
     expect(html).not.toContain('href="/dashboard/applicants"');
     expect(html).toMatch(/<h2[^>]*>홍길동<\/h2>/);
+    expect(html).toMatch(/<h3[^>]*>이력<\/h3>/);
     expect(
-      html.match(/<h3[^>]*id="admin-access-role-request-history"/),
+      html.match(/<h4[^>]*id="admin-access-role-request-history"/),
     ).not.toBeNull();
     expect(
-      html.match(/<h3[^>]*id="admin-access-login-history"/),
+      html.match(/<h4[^>]*id="admin-access-login-history"/),
     ).not.toBeNull();
   });
 
@@ -194,8 +196,8 @@ describe('관리자 전용 구역 — 프로필 카드 아래에 관리자 동�
       'aria-label="관리자 전용"',
       '프로필 수정',
       '접근 변경',
-      '요청 이력',
-      '로그인 이력',
+      'admin-access-role-request-history',
+      'admin-access-login-history',
     ].map((marker) => html.indexOf(marker));
 
     expect(order.every((index) => index > -1)).toBe(true);
@@ -222,7 +224,7 @@ describe('관리자 전용 구역 — 프로필 카드 아래에 관리자 동�
     expect(html).not.toContain('관리자 전용');
     expect(html).not.toContain('프로필 수정');
     expect(html).not.toContain('접근 변경');
-    expect(html).toContain('로그인 이력');
+    expect(html).toContain('admin-access-login-history');
   });
 
   it('프로필 수정을 누르면 구역 안에 폼이 열리고 취소하면 닫히며 포커스가 버튼으로 돌아온다', () => {
