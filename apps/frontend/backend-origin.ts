@@ -2,6 +2,26 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+export function originAuthorization(): string | undefined {
+  const credential = process.env.ORIGIN_BASIC_AUTH;
+  if (process.env.VERCEL_ENV === 'production') {
+    const encoded = /^Basic ([A-Za-z0-9+/]+={0,2})$/.exec(
+      credential ?? '',
+    )?.[1];
+    const decoded = encoded && Buffer.from(encoded, 'base64');
+    if (
+      !decoded ||
+      decoded.toString('base64') !== encoded ||
+      !/^vercel:[A-Za-z0-9+/_-]{32,}={0,2}$/.test(decoded.toString('utf8'))
+    ) {
+      throw new Error(
+        'production Vercel에는 유효한 ORIGIN_BASIC_AUTH가 필요합니다.',
+      );
+    }
+  }
+  return credential;
+}
+
 export function backendOrigin(
   hashesPath = join(process.cwd(), 'backend-origin.hashes'),
 ): string {

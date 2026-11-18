@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { apiPath } from '@/lib/api-client';
 import { CurrentProgramSection } from './components/current-program-section';
 describe('server supplied recruiting programs', () => {
   it('renders the current program section with a real destination', () => {
@@ -98,7 +97,7 @@ describe('server supplied recruiting programs', () => {
     );
 
     expect(html).toContain(
-      `/_next/image?url=${encodeURIComponent(apiPath('programs/program_owned_cover/cover/cover_01'))}`,
+      `/_next/image?url=${encodeURIComponent('/program-cover-source/program_owned_cover/cover_01')}`,
     );
     expect(html).toContain(`src="${external}"`);
   });
