@@ -513,8 +513,17 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(graph?.querySelector('[data-chart]')).not.toBeNull();
 
     const legend = graph?.querySelector('ul[aria-label="팀원"]');
-    expect(legend?.textContent).toContain('@synthetic-leader');
-    expect(legend?.textContent).toContain('@synthetic-member이 기간 기여 없음');
+    expect(
+      Array.from(legend?.querySelectorAll('li') ?? []).map((entry) => ({
+        label: entry.textContent,
+        muted: (
+          entry.querySelector('[aria-hidden="true"]')?.className ?? ''
+        ).includes('border-muted-foreground'),
+      })),
+    ).toEqual([
+      { label: '@synthetic-leader', muted: false },
+      { label: '@synthetic-member', muted: true },
+    ]);
     expect(legend?.textContent).not.toContain('9');
     expect(host.textContent).not.toContain('데이터 기준');
     expect(host.textContent).toContain(SLOT_TEXT);

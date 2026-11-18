@@ -311,9 +311,6 @@ function WeeklyChart({
               dashed={item.dashed || !item.contributed}
             />
             <span className="break-all">@{item.member.githubLogin}</span>
-            {item.contributed ? null : (
-              <span className="text-muted-foreground">이 기간 기여 없음</span>
-            )}
           </li>
         ))}
       </ul>
