@@ -16,6 +16,7 @@ import {
   formatRankChange,
   type RankingRankChange,
 } from './ranking-history-model';
+import { RankingCourtMember } from './ranking-court-theme';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
@@ -80,17 +81,7 @@ const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
 const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'member',
   header: '참여자',
-  cell: (item) => (
-    <a
-      href={`https://github.com/${item.githubLogin}`}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
-      className="break-keep whitespace-normal hover:underline"
-    >
-      {item.githubLogin}
-    </a>
-  ),
+  cell: (item) => <RankingCourtMember item={item} />,
   headClassName: 'w-24',
 };
 
