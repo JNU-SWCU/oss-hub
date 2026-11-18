@@ -137,7 +137,6 @@ export function LoginButtonView({
               className="absolute top-full right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
             >
               <div className="border-b border-border px-3 py-2">
-                <p className="text-xs text-muted-foreground">로그인 계정</p>
                 <p className="truncate text-sm font-semibold">
                   {user.nickname}
                 </p>
