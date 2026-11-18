@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, Suspense, use } from 'react';
+import { act, Suspense, use, useLayoutEffect } from 'react';
 import { hydrateRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,7 +52,11 @@ vi.mock('./use-product-shell-data', () => ({
   }),
 }));
 
-import { resetSessionStore } from '@/features/auth/session-store';
+import {
+  getSessionSnapshot,
+  resetSessionStore,
+  subscribeSession,
+} from '@/features/auth/session-store';
 import { AppFrame } from './app-frame';
 import { RoleGate } from './role-gate';
 
@@ -78,14 +82,37 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(`Timed out waiting for ${label}`)),
+          1_000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
 let suspendRoute = false;
 let routeGate = deferred<void>();
+let routeCommitted = deferred<void>();
+
+function HydratedSettings() {
+  useLayoutEffect(() => routeCommitted.resolve(), []);
+  return <div data-testid="hydrated-settings">설정 본문</div>;
+}
 
 function SettingsRouteBoundary() {
   if (suspendRoute) use(routeGate.promise);
   return (
     <RoleGate allow={['student']}>
-      <div data-testid="hydrated-settings">설정 본문</div>
+      <HydratedSettings />
     </RoleGate>
   );
 }
@@ -117,6 +144,7 @@ describe('AppFrame 선택적 hydration', () => {
     mocks.replace.mockReset();
     suspendRoute = false;
     routeGate = deferred<void>();
+    routeCommitted = deferred<void>();
     container = document.createElement('div');
     document.body.append(container);
     root = null;
@@ -137,7 +165,11 @@ describe('AppFrame 선택적 hydration', () => {
 
   it('빠른 세션 응답이 늦은 route boundary보다 먼저 와도 서버 loading 트리를 유지한다', async () => {
     const session = deferred<AuthSession>();
-    mocks.fetchSession.mockReturnValue(session.promise);
+    const fetchStarted = deferred<void>();
+    mocks.fetchSession.mockImplementation(() => {
+      fetchStarted.resolve();
+      return session.promise;
+    });
     const screen = <TestScreen />;
     container.innerHTML = renderToString(screen);
     expect(container.textContent).toContain('확인 중…');
@@ -147,18 +179,28 @@ describe('AppFrame 선택적 hydration', () => {
       onRecoverableError: (error) => recoverableErrors.push(error),
     });
 
-    await vi.waitFor(() => expect(mocks.fetchSession).toHaveBeenCalledOnce());
+    await withTimeout(fetchStarted.promise, 'session request');
+    expect(mocks.fetchSession).toHaveBeenCalledOnce();
+
+    const sessionPublished = deferred<void>();
+    const unsubscribe = subscribeSession(() => {
+      if (getSessionSnapshot().status === 'authenticated') {
+        sessionPublished.resolve();
+      }
+    });
     await act(async () => session.resolve(ASSIGNED_SESSION));
+    await withTimeout(sessionPublished.promise, 'authenticated session');
+    unsubscribe();
+
     await act(async () => {
       suspendRoute = false;
       routeGate.resolve();
     });
+    await withTimeout(routeCommitted.promise, 'settings route commit');
 
-    await vi.waitFor(() =>
-      expect(
-        container.querySelector('[data-testid="hydrated-settings"]'),
-      ).not.toBeNull(),
-    );
+    expect(
+      container.querySelector('[data-testid="hydrated-settings"]'),
+    ).not.toBeNull();
     expect(recoverableErrors).toEqual([]);
   });
 });
