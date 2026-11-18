@@ -470,6 +470,7 @@ describe('SystemStatusScreen', () => {
             { length: Math.max(0, Math.min(10, total - start)) },
             (_, index) => ({
               repositoryName: `jnu-oss/repo-${start + index + 1}`,
+              teamName: null,
               programName: null,
               lastSuccessAt: '2026-11-16T00:00:00.000Z',
             }),
@@ -600,6 +601,7 @@ describe('SystemStatusScreen', () => {
           staleRepositories: {
             items: pageOf(page).map((repositoryName) => ({
               repositoryName,
+              teamName: null,
               programName: null,
               lastSuccessAt: '2026-11-16T00:00:00.000Z',
             })),

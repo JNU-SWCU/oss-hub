@@ -36,6 +36,7 @@ const sections = {
     items: [
       {
         repositoryName: 'jnu-oss/repo-a',
+        teamName: null,
         programName: null,
         lastSuccessAt: '2026-07-25T06:00:00.000Z',
       },

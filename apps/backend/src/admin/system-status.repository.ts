@@ -18,6 +18,7 @@ export interface CollectionRepositorySummaryDto {
 
 export interface CollectionRepositoryStatusDto {
   readonly repositoryName: string;
+  readonly teamName: string | null;
   readonly programName: string | null;
   readonly lastSuccessAt: Date | null;
 }
@@ -262,13 +263,16 @@ export class SystemStatusRepository {
           where: { validTo: null },
           take: 1,
           select: {
-            team: { select: { program: { select: { name: true } } } },
+            team: {
+              select: { name: true, program: { select: { name: true } } },
+            },
           },
         },
       },
     });
     return repositories.map((repository) => ({
       repositoryName: repository.ownerName,
+      teamName: repository.teamRepos[0]?.team.name ?? null,
       programName: repository.teamRepos[0]?.team.program.name ?? null,
       lastSuccessAt: repository.lastSuccessAt,
     }));

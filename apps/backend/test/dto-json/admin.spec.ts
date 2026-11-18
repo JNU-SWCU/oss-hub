@@ -112,6 +112,7 @@ const systemStatus: SystemStatusResult = {
     items: [
       {
         repositoryName: 'org/late',
+        teamName: null,
         programName: null,
         lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
       },

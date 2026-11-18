@@ -171,6 +171,7 @@ it('pages stale organization repositories on the system status page with the ful
   expect(staleRepositories.items).toEqual(
     indexes.slice(0, STALE_PAGE_LIMIT).map((index) => ({
       repositoryName: `synthetic-org/${PREFIX}-${String(index).padStart(4, '0')}`,
+      teamName: teamId(index),
       programName: programId(index),
       lastSuccessAt: lastSuccessAt(index),
     })),

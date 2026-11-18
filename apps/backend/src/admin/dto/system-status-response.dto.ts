@@ -122,6 +122,7 @@ export class SystemStatusAnomalyResponseDto {
 
 class SystemStatusStaleRepositoryResponseDto {
   declare readonly repositoryName: string;
+  declare readonly teamName: string | null;
   declare readonly programName: string | null;
   declare readonly lastSuccessAt: string | null;
 
@@ -130,6 +131,7 @@ class SystemStatusStaleRepositoryResponseDto {
   ): SystemStatusStaleRepositoryResponseDto {
     return {
       repositoryName: repository.repositoryName,
+      teamName: repository.teamName,
       programName: repository.programName,
       lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
     };

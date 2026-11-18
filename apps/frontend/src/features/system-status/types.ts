@@ -11,6 +11,7 @@ interface CollectionStatus {
 
 export interface CollectionRepository {
   readonly repositoryName: string;
+  readonly teamName: string | null;
   readonly programName: string | null;
   readonly lastSuccessAt: string | null;
 }
