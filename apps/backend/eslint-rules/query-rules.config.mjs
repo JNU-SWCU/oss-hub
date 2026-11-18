@@ -6,8 +6,6 @@ import { noQueryRuleDisable } from './no-query-rule-disable.mjs';
 import { rawSelectLimit } from './raw-select-limit.mjs';
 import { testFiles } from './rails-config.mjs';
 
-const SEQUENTIAL_HELPER = 'src/platform/sequential.repository.ts';
-
 export const queryRuleBlocks = [
   {
     files: ['src/**/*.ts'],
@@ -37,9 +35,5 @@ export const queryRuleBlocks = [
       'sequential/no-counter-recursion': 'error',
       'sequential/no-query-rule-disable': 'error',
     },
-  },
-  {
-    files: [SEQUENTIAL_HELPER],
-    rules: { 'no-await-in-loop': 'off' },
   },
 ];
