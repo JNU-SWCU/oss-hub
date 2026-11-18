@@ -114,12 +114,14 @@ const systemStatus: SystemStatusResult = {
   collectionRepositories: [
     {
       repositoryName: 'org/repo',
+      teamName: 'Team A',
       programName: 'Program A',
       lastSuccessAt: at('2026-05-01T00:30:00.000Z'),
       stale: false,
     },
     {
       repositoryName: 'org/late',
+      teamName: null,
       programName: null,
       lastSuccessAt: at('2026-04-30T20:00:00.000Z'),
       stale: true,

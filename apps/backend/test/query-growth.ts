@@ -144,6 +144,7 @@ export async function startQueryGrowthApp(
         ...process.env,
         SESSION_SECRET: sessionSecret.toString('base64url'),
         FRONTEND_URL: FRONTEND_ORIGIN,
+        GITHUB_OAUTH_CALLBACK_URL: `${FRONTEND_ORIGIN}/api/v1/auth/github/callback`,
         GITHUB_OAUTH_CLIENT_ID: 'query-growth-client',
         GITHUB_OAUTH_CLIENT_SECRET: 'query-growth-secret',
         AUTH_INITIAL_ROLES: '',

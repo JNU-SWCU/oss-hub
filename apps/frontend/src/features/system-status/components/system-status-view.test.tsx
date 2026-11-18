@@ -81,9 +81,11 @@ function staleRepository(
   name: string,
   hours: number,
   programName: string | null = '합성 클라우드 캠프',
+  teamName: string | null = null,
 ): CollectionRepository {
   return {
     repositoryName: `jnu-oss/${name}`,
+    teamName,
     programName,
     lastSuccessAt: hoursAgo(hours),
     stale: true,
@@ -397,18 +399,20 @@ describe('SystemStatusView', () => {
       expect(openingTags(card, 'button')).toEqual([]);
     });
 
-    it('활동 수집 지연 아래에 지연 저장소만 이름, 프로그램, 마지막 수집 성공과 함께 나열한다', () => {
+    it('활동 수집 지연 아래에 지연 저장소만 이름, 팀, 프로그램, 마지막 수집 성공과 함께 나열한다', () => {
       const html = render(
         delayedWith([
-          staleRepository('alpha', 5),
+          staleRepository('alpha', 5, '합성 클라우드 캠프', '합성 팀'),
           {
             repositoryName: 'jnu-oss/healthy',
+            teamName: '합성 팀',
             programName: '합성 클라우드 캠프',
             lastSuccessAt: hoursAgo(1),
             stale: false,
           },
           {
             repositoryName: 'jnu-oss/never-collected',
+            teamName: '합성 팀',
             programName: '합성 클라우드 캠프',
             lastSuccessAt: null,
             stale: false,
@@ -418,7 +422,7 @@ describe('SystemStatusView', () => {
       const card = attentionCard(html);
 
       expect(text(card)).toMatch(
-        /활동 수집 지연\s*1건\s*jnu-oss\/alpha 합성 클라우드 캠프\s*마지막 수집 성공 5시간 전/,
+        /활동 수집 지연\s*1건\s*jnu-oss\/alpha 합성 팀 · 합성 클라우드 캠프\s*마지막 수집 성공 5시간 전/,
       );
       expect(card).toMatch(/datetime="2026-11-16T19:32:00\.000Z"/i);
       expect(html).not.toContain('jnu-oss/healthy');

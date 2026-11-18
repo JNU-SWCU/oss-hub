@@ -60,6 +60,7 @@ describe('SystemStatusController', () => {
       collectionRepositories: [
         {
           repositoryName: 'JNU-SWCU/alpha',
+          teamName: null,
           programName: null,
           lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
           stale: false,
