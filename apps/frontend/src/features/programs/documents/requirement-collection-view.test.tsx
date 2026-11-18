@@ -107,6 +107,10 @@ function render(
     <RequirementCollectionView
       programId="program-capstone"
       data={collection([document('d1')], [])}
+      search=""
+      searchQuery=""
+      onSearchChange={() => {}}
+      onSearch={() => {}}
       filter="ALL"
       documentSelection={null}
       onDocumentSelectionChange={() => {}}
@@ -367,7 +371,7 @@ describe('RequirementCollectionView 표', () => {
       ]),
     });
 
-    expect(html).toContain('보완 요청 중');
+    expect(html).toContain('보완 요청');
     expect(html).toContain('승인');
 
     expect(html).not.toContain('표지를 고쳐 주세요.');
@@ -888,6 +892,111 @@ describe('RequirementCollectionView 서류별 내려받기(ZIP)', () => {
 
     expect(html).toContain('기획서');
     expect(html).toContain('aria-label="필수"');
+  });
+});
+
+describe('RequirementCollectionView 팀 검색', () => {
+  const documents = [document('d1')];
+  const rows = [
+    row('a', [missingCell('d1')], {
+      teamName: '오픈소스팀',
+      applicantName: '김철수',
+      memberNicknames: ['chulsoo'],
+    }),
+    row('b', [missingCell('d1')], {
+      teamName: '두번째팀',
+      applicantName: '홍길동',
+      memberNicknames: ['hong'],
+    }),
+  ];
+
+  it('매트릭스와 같은 검색창을 두고 들어온 검색어를 입력칸에 담는다', () => {
+    const html = render({ data: collection(documents, rows), search: 'hong' });
+
+    expect(html).toContain('신청자·팀명·GitHub ID');
+    expect(html).toContain('id="collection-search"');
+    expect(html).toContain('value="hong"');
+  });
+
+  it('검색어가 있으면 맞는 팀만 남기고 결과 수를 알린다', () => {
+    const html = render({
+      data: collection(documents, rows),
+      search: 'hong',
+      searchQuery: 'hong',
+    });
+
+    expect(html).toContain('두번째팀');
+    expect(html).not.toContain('오픈소스팀');
+    expect(html).toContain('검색 결과 1개 팀');
+  });
+
+  it.each(['오픈소스', 'CHULSOO', '김철수'])(
+    '팀명·GitHub ID·신청자로 찾는다: %s',
+    (query) => {
+      const html = render({
+        data: collection(documents, rows),
+        search: query,
+        searchQuery: query,
+      });
+
+      expect(html).toContain('오픈소스팀');
+      expect(html).not.toContain('두번째팀');
+    },
+  );
+
+  it('검색 결과가 없으면 전체 보기를 권하는 빈 상태를 보인다', () => {
+    const html = render({
+      data: collection(documents, rows),
+      search: '없는팀',
+      searchQuery: '없는팀',
+    });
+
+    expect(html).toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('전체 보기');
+  });
+
+  it('불러온 범위에 맞는 팀이 하나도 없어도 범위 알림을 붙인다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        total: 120,
+        filterCounts: { all: 120, zeroSubmission: 0 },
+      }),
+      search: '없는팀',
+      searchQuery: '없는팀',
+    });
+
+    expect(html).toContain('milestone-document-search-bound');
+    expect(html).toContain('먼저 불러온 2개 팀 안에서만 찾습니다');
+    expect(html).not.toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('전체 보기');
+  });
+
+  it('검색 중에는 페이지 이동을 두지 않고, 불러온 범위 밖이 남았으면 알린다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        total: 120,
+        filterCounts: { all: 120, zeroSubmission: 0 },
+      }),
+      search: 'hong',
+      searchQuery: 'hong',
+    });
+
+    expect(html).not.toContain('aria-label="서류 수합 페이지"');
+    expect(html).toContain('milestone-document-search-bound');
+    expect(html).toContain('먼저 불러온 2개 팀 안에서만 찾습니다');
+  });
+
+  it('검색어가 없으면 페이지 안내와 이동을 그대로 둔다', () => {
+    const html = render({
+      data: collection(documents, rows, {
+        total: 47,
+        filterCounts: { all: 47, zeroSubmission: 0 },
+      }),
+    });
+
+    expect(html).toContain('이 페이지 2개 팀(조건에 맞는 전체 47개)');
+    expect(html).toContain('aria-label="서류 수합 페이지"');
+    expect(html).not.toContain('milestone-document-search-bound');
   });
 });
 

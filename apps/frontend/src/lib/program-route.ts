@@ -9,6 +9,25 @@ export function programDocumentsHref(
   return `${base}?milestoneId=${encodeURIComponent(milestoneId)}`;
 }
 
+const STAGE_SCOPED_DOCUMENT_PARAMS = [
+  'documentId',
+  'submissionState',
+  'page',
+] as const;
+
+export function documentsStageSearch(
+  search: string,
+  milestoneId: string | null,
+): string {
+  const next = new URLSearchParams(search);
+  if (next.get('milestoneId') !== milestoneId) {
+    for (const param of STAGE_SCOPED_DOCUMENT_PARAMS) next.delete(param);
+  }
+  if (milestoneId === null) next.delete('milestoneId');
+  else next.set('milestoneId', milestoneId);
+  return next.toString();
+}
+
 export function programOverviewHref(programId: string): string {
   return `/programs/${encodeURIComponent(programId)}`;
 }
@@ -34,13 +53,6 @@ export function programSubmissionReviewHref(
   submissionId: string,
 ): string {
   return `/programs/${encodeURIComponent(programId)}/submissions/${encodeURIComponent(submissionId)}/review`;
-}
-
-export function programRequirementsHref(
-  programId: string,
-  milestoneId: string,
-): string {
-  return `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
 
 export function programTeamDetailHref(

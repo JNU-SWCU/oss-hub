@@ -91,7 +91,7 @@ describe('resolveRankingQueryYear (Q5)', () => {
 describe('RankingTimelineRequestDto', () => {
   it.each([
     ['2026', 0],
-    ['all', 1],
+    ['all', 0],
     ['0x7ea', 1],
     [undefined, 1],
   ])('year=%s 검증 오류 %i건', async (year, errors) => {

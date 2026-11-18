@@ -350,10 +350,10 @@ describe('마일스톤 진행 타임라인', () => {
     const steps = stepsOf(renderSection(programWith(STAFF_MILESTONES, STAFF)));
 
     expect(steps.map((step) => linksOf(step))).toEqual([
-      [['서류 수합', '/programs/program-1/milestones/m1/documents']],
-      [['서류 수합', '/programs/program-1/milestones/m2/documents']],
-      [['서류 수합', '/programs/program-1/milestones/m3/documents']],
-      [['서류 수합', '/programs/program-1/milestones/m4/documents']],
+      [['서류 수합', '/programs/program-1/documents?milestoneId=m1']],
+      [['서류 수합', '/programs/program-1/documents?milestoneId=m2']],
+      [['서류 수합', '/programs/program-1/documents?milestoneId=m3']],
+      [['서류 수합', '/programs/program-1/documents?milestoneId=m4']],
       [],
     ]);
   });

@@ -6,7 +6,6 @@ import {
   SETTINGS_ALLOWED_SURFACES,
 } from './settings-access';
 import { SettingsOnboardingNotice } from './settings-onboarding-notice';
-import { SettingsPolicyUpdateNotice } from './settings-policy-update-notice';
 import { SettingsRoute } from './settings-route';
 
 export default function SettingsPage() {
@@ -16,7 +15,6 @@ export default function SettingsPage() {
       unassignedAccess={isSettingsOpenForStaffAwaitingRole}
       unassignedNotice={<SettingsOnboardingNotice />}
     >
-      <SettingsPolicyUpdateNotice />
       <SettingsRoute />
     </RoleGate>
   );

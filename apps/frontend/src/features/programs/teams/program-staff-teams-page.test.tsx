@@ -52,6 +52,7 @@ function item(
   return {
     id,
     teamMinSize: 2,
+    teamMaxSize: 4,
     status,
     submittedAt: '2026-08-05T05:32:00.000Z',
     applicant: {
@@ -325,7 +326,8 @@ describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
       }),
     );
     await mount();
-    expect(container.textContent).toContain('수락 1/2명');
+    expect(container.textContent).toContain('팀원 1/4명');
+    expect(container.textContent).toContain('최소 2명 · 1명 부족');
     const select = statusSelects()[0];
     if (!select) throw new Error('신청 상태 선택이 없습니다.');
     await act(async () => {
@@ -398,6 +400,64 @@ describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
 
     expect(getApplicationDetailMock).toHaveBeenCalled();
     expect(statusSelects()[0]?.disabled).toBe(false);
+  });
+});
+
+describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
+  function team(
+    memberCount: number,
+    overrides: Partial<TeamManagementListItem> = {},
+  ): TeamManagementListItem {
+    return item('a', 'SUBMITTED', {
+      team: {
+        id: 'a-team',
+        name: '합성 팀',
+        memberCount,
+        members: [{ name: '합성 학생', nickname: 'student' }],
+      },
+      ...overrides,
+    });
+  }
+
+  it('정원을 채운 팀은 정원과 함께 보여 주고 부족 경고는 없다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(page([team(4)]));
+    await mount();
+
+    expect(container.textContent).toContain('팀원 4/4명');
+    expect(container.textContent).not.toContain('부족');
+  });
+
+  it('최대 인원이 없는 프로그램은 팀원 수만 보여 준다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(
+      page([team(2, { teamMaxSize: undefined })]),
+    );
+    await mount();
+
+    expect(container.textContent).toContain('팀원 2명');
+    expect(container.textContent).not.toContain('팀원 2/');
+  });
+
+  it('혼자 참여하는 프로그램은 수락한 인원만 보여 준다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(
+      page([team(1, { teamMinSize: 1, teamMaxSize: 1 })]),
+    );
+    await mount();
+
+    expect(container.textContent).toContain('팀원 1명');
+    expect(container.textContent).not.toContain('부족');
+  });
+
+  it('최소 인원 미달은 색만이 아니라 아이콘과 문구로 알린다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(
+      page([team(1, { teamMinSize: 3 })]),
+    );
+    await mount();
+
+    const warning = [...container.querySelectorAll('span')].find(
+      (node) => node.textContent === '최소 3명 · 2명 부족',
+    );
+    expect(warning).toBeDefined();
+    expect(warning?.querySelector('svg')).not.toBeNull();
   });
 });
 

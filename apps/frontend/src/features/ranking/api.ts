@@ -301,12 +301,38 @@ function parseTimelineSeries(
 }
 
 export function parseRankingTimeline(value: unknown): RankingTimeline {
+  if (!isRecord(value) || !Array.isArray(value.series)) {
+    throw new RankingResponseError();
+  }
+  const series = value.series;
+  if (value.year === RANKING_YEAR_ALL) {
+    if (!Array.isArray(value.periods)) throw new RankingResponseError();
+    const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/;
+    const periods = value.periods.map((period: unknown) => {
+      if (
+        !isRecord(period) ||
+        typeof period.fromMonth !== 'string' ||
+        typeof period.toMonth !== 'string' ||
+        !monthPattern.test(period.fromMonth) ||
+        !monthPattern.test(period.toMonth) ||
+        period.fromMonth > period.toMonth
+      ) {
+        throw new RankingResponseError();
+      }
+      return { fromMonth: period.fromMonth, toMonth: period.toMonth };
+    });
+    return {
+      year: RANKING_YEAR_ALL,
+      periods,
+      series: series.map((entry: unknown) =>
+        parseTimelineSeries(entry, periods.length),
+      ),
+    };
+  }
   if (
-    !isRecord(value) ||
     !isPositiveInteger(value.year) ||
     !Array.isArray(value.months) ||
-    !value.months.every(isPositiveInteger) ||
-    !Array.isArray(value.series)
+    !value.months.every(isPositiveInteger)
   ) {
     throw new RankingResponseError();
   }
@@ -314,14 +340,14 @@ export function parseRankingTimeline(value: unknown): RankingTimeline {
   return {
     year: value.year,
     months,
-    series: value.series.map((series: unknown) =>
-      parseTimelineSeries(series, months.length),
+    series: series.map((entry: unknown) =>
+      parseTimelineSeries(entry, months.length),
     ),
   };
 }
 
 export async function getRankingTimeline(
-  year: number,
+  year: RankingYear,
   viewerGithubLogin: string | null,
   signal?: AbortSignal,
 ): Promise<RankingTimeline> {
@@ -331,5 +357,7 @@ export async function getRankingTimeline(
     `ranking/timeline?${search.toString()}`,
     signal ? { signal } : undefined,
   );
-  return parseRankingTimeline(response);
+  const timeline = parseRankingTimeline(response);
+  if (timeline.year !== year) throw new RankingResponseError();
+  return timeline;
 }

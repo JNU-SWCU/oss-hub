@@ -189,7 +189,7 @@ test('public viewer has no export action', async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test('올해 사이드바 링크는 canonical 주소를 열고 명시적인 올해 query도 강조한다', async ({
+test('사이드바 연도 이동과 뒤로/앞으로 이동이 전체 별칭의 canonical 주소를 유지한다', async ({
   page,
 }, testInfo) => {
   await page.clock.setFixedTime(new Date('2026-06-01T00:00:00.000Z'));
@@ -197,19 +197,63 @@ test('올해 사이드바 링크는 canonical 주소를 열고 명시적인 올�
     route.fulfill({ json: { isAuthenticated: false } }),
   );
   await installRankingApi(page, { viewerClass: 'public' });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/ranking?year=2026');
-  const currentYear = page
-    .locator('[data-slot="app-sidebar"]')
-    .getByRole('link', {
-      name: '2026',
-      exact: true,
+  await page.route('**/api/v1/ranking/timeline?*', (route) => {
+    const year = new URL(route.request().url()).searchParams.get('year');
+    const series = [
+      { githubLogin: 'synthetic-1', ranks: [1, 1], totals: [5, 15] },
+    ];
+    return route.fulfill({
+      json:
+        year === 'all'
+          ? {
+              year,
+              periods: [
+                { fromMonth: '2025-12', toMonth: '2025-12' },
+                { fromMonth: '2026-01', toMonth: '2026-01' },
+              ],
+              series,
+            }
+          : { year: Number(year), months: [1, 2], series },
     });
-  await expect(currentYear).toHaveAttribute('href', '/ranking');
-  await expect(currentYear).toHaveAttribute('aria-current', 'page');
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/ranking?year=all&view=compact&page=2');
+  const sidebar = page.locator('[data-slot="app-sidebar"]');
+  const all = sidebar.getByRole('link', { name: '전체', exact: true });
+  const currentYear = sidebar.getByRole('link', { name: '2026', exact: true });
+  const allPlot = page.getByRole('img', {
+    name: /^전체 2025-12부터 2026-01까지/,
+  });
+  const annualPlot = page.getByRole('img', {
+    name: /^2026년 1월부터 12월까지/,
+  });
+
+  await expect(page).toHaveURL(/\/ranking\?view=compact&page=2$/);
+  await expect(all).toHaveAttribute('aria-current', 'page');
+  await expect(allPlot).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('ranking-desktop-all.png'),
+    fullPage: true,
+  });
+  await expect(currentYear).toHaveAttribute(
+    'href',
+    '/ranking?view=compact&year=2026',
+  );
+
   await currentYear.click();
-  await expect(page).toHaveURL(/\/ranking$/);
+  await expect(page).toHaveURL(/\/ranking\?view=compact&year=2026$/);
   await expect(currentYear).toHaveAttribute('aria-current', 'page');
+  await expect(annualPlot).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/ranking\?view=compact&page=2$/);
+  await expect(all).toHaveAttribute('aria-current', 'page');
+  await expect(allPlot).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL(/\/ranking\?view=compact&year=2026$/);
+  await expect(currentYear).toHaveAttribute('aria-current', 'page');
+  await expect(annualPlot).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('ranking-current-year.png'),
     fullPage: true,

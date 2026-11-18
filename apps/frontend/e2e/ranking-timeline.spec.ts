@@ -29,6 +29,7 @@ const EXPECTED_CHANGE = {
 
 const CHART = '[data-history-chart="ready"]';
 const CURVE = 'path.recharts-line-curve';
+const TICK = '.recharts-cartesian-axis-tick-value';
 const TABLE_ROW = '[data-slot="table-body"] [data-slot="table-row"]';
 
 const RANKING_PAGE = {
@@ -56,6 +57,17 @@ const TIMELINE_BODY = {
   year: 2026,
   months: [1, 2, 3],
   series: SERIES,
+};
+
+const ALL_TIMELINE = {
+  year: 'all',
+  periods: ['2025-12', '2026-01', '2026-02'].map((month) => ({
+    fromMonth: month,
+    toMonth: month,
+  })),
+  series: [
+    { githubLogin: 'all-leader', ranks: [1, 1, 1], totals: [300, 400, 600] },
+  ],
 };
 
 async function mockRanking(
@@ -116,20 +128,41 @@ async function mockRanking(
   );
   await page.route('**/api/v1/ranking/timeline*', async (route) => {
     await options.timelineGate;
+    const year = new URL(route.request().url()).searchParams.get('year');
     await route.fulfill({
       status: options.timelineStatus ?? 200,
       contentType: 'application/json',
       body: JSON.stringify(
-        options.timelineStatus === undefined ? TIMELINE_BODY : {},
+        options.timelineStatus === undefined
+          ? year === 'all'
+            ? ALL_TIMELINE
+            : TIMELINE_BODY
+          : {},
       ),
     });
   });
   await page.route('**/api/v1/ranking?*', async (route) => {
     await options.rankingGate;
+    const year = new URL(route.request().url()).searchParams.get('year');
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(RANKING_PAGE),
+      body: JSON.stringify(
+        year === 'all'
+          ? {
+              ...RANKING_PAGE,
+              year,
+              items: [
+                {
+                  ...RANKING_PAGE.items[0],
+                  githubLogin: 'all-leader',
+                  total: 600,
+                },
+              ],
+              total: 1,
+            }
+          : RANKING_PAGE,
+      ),
     });
   });
 }
@@ -143,22 +176,25 @@ async function openRanking(
   await expect(page.locator(TABLE_ROW)).toHaveCount(SERIES.length);
 }
 
-for (const first of ['ranking', 'timeline'] as const) {
-  test(`모바일 랭킹 표의 시작 위치를 유지한다 (${first} 응답 먼저)`, async ({
+for (const [width, first] of [
+  [412, 'ranking'],
+  [412, 'timeline'],
+  [1440, 'ranking'],
+  [1440, 'timeline'],
+] as const) {
+  test(`${width}px 랭킹 표의 시작 위치를 유지한다 (${first} 응답 먼저)`, async ({
     page,
-  }) => {
+  }, testInfo) => {
     const ranking = Promise.withResolvers<void>();
     const timeline = Promise.withResolvers<void>();
-    await page.setViewportSize({ width: 412, height: 823 });
+    await page.setViewportSize({ width, height: 823 });
     await mockRanking(page, {
       rankingGate: ranking.promise,
       timelineGate: timeline.promise,
     });
-    const chart = page.locator('[data-history-chart]');
+    const chart = page.locator('main [data-history-chart]:visible');
     const table = page.getByRole('region', { name: '활동 랭킹 표' });
-    const clock = page.locator(
-      '[data-slot="ranking-page-countdown"] [data-slot="program-countdown-clock"]',
-    );
+    const clock = page.locator('[data-slot="program-countdown-clock"]:visible');
     const completeRanking = async () => {
       ranking.resolve();
       await expect(clock).toBeVisible();
@@ -170,9 +206,9 @@ for (const first of ['ranking', 'timeline'] as const) {
     };
     try {
       await page.goto('/ranking?year=2026');
-      await expect(
-        page.getByText('순위 변화를 그리는 중입니다…'),
-      ).toBeVisible();
+      await expect(chart.getByRole('status')).toHaveText(
+        '순위 변화를 그리는 중입니다…',
+      );
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       const tableTop = await table.evaluate(
         (el) => el.getBoundingClientRect().top,
@@ -196,6 +232,12 @@ for (const first of ['ranking', 'timeline'] as const) {
       if (first === 'ranking') await completeTimeline();
       else await completeRanking();
       await assertGeometry();
+      if (width === 1440 && first === 'timeline') {
+        await page.screenshot({
+          path: testInfo.outputPath('ranking-desktop-calendar-year.png'),
+          fullPage: true,
+        });
+      }
     } finally {
       ranking.resolve();
       timeline.resolve();
@@ -237,7 +279,19 @@ test('구성원은 서버가 보낸 계열 수만큼 선을 보고, 자기 선�
   expect(legendBox?.y ?? 0).toBeLessThan(plot?.y ?? 0);
   expect(legendBox?.x ?? 0).toBeLessThan((card?.x ?? 0) + 40);
 
-  await page.locator(`${CHART} .recharts-surface`).hover();
+  const february = await page
+    .locator(`${CHART} ${TICK}`, { hasText: /^2월$/ })
+    .boundingBox();
+  const surface = await page
+    .locator(`${CHART} .recharts-surface`)
+    .boundingBox();
+  if (february === null || surface === null) {
+    throw new Error('February tick or plot is missing');
+  }
+  await page.mouse.move(
+    february.x + february.width / 2,
+    surface.y + surface.height / 2,
+  );
   const tooltip = page.locator('[data-history-tooltip]');
   await expect(tooltip).toContainText('점');
   await expect(tooltip).toContainText('위');
@@ -311,4 +365,48 @@ test('390px 에서도 가로 스크롤이 생기지 않는다', async ({ page })
     .getByRole('region', { name: '활동 랭킹 표' })
     .evaluate((region) => region.scrollWidth - region.clientWidth);
   expect(tableOverflow).toBeLessThanOrEqual(1);
+});
+
+test('모바일에서 전체와 2026년 그래프를 전환하고 자정에 새 연도를 표시한다', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.install({ time: new Date('2026-12-31T14:50:00.000Z') });
+  await mockRanking(page);
+  await page.goto('/ranking');
+
+  const chips = page.getByRole('group', { name: '연도 필터' });
+  const all = chips.getByRole('button', { name: '전체', exact: true });
+  const year = chips.getByRole('button', { name: '2026', exact: true });
+  const ticks = page.locator(`${CHART} ${TICK}`);
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(TABLE_ROW)).toContainText('all-leader');
+  await expect(ticks.filter({ hasText: /^2025\.12$/ })).toBeVisible();
+  await expect(ticks.filter({ hasText: /^2026\.02$/ })).toBeVisible();
+
+  await year.click();
+  await expect(page).toHaveURL(/\/ranking\?year=2026$/);
+  await expect(year).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(TABLE_ROW)).toHaveCount(SERIES.length);
+  await expect(ticks.filter({ hasText: /^1월$/ })).toBeVisible();
+  await expect(ticks.filter({ hasText: /^12월$/ })).toBeVisible();
+  await page.locator(CHART).scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath('ranking-mobile-calendar-year.png'),
+    fullPage: true,
+  });
+
+  await all.click();
+  await expect(page).toHaveURL(/\/ranking$/);
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(ticks.filter({ hasText: /^2025\.12$/ })).toBeVisible();
+
+  await expect(chips.getByRole('button')).toHaveText(['전체', '2026']);
+  await page.clock.fastForward('10:00');
+  await expect(chips.getByRole('button')).toHaveText(['전체', '2027', '2026']);
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await page.screenshot({
+    path: testInfo.outputPath('ranking-mobile-all-after-rollover.png'),
+    fullPage: true,
+  });
 });

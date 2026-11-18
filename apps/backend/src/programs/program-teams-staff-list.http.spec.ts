@@ -76,6 +76,7 @@ const STAFF_TEAM_PAGE: TeamManagementListPage = {
     {
       id: TEAM_ID,
       teamMinSize: 2,
+      teamMaxSize: 4,
       status: 'SUBMITTED',
       submittedAt: new Date('2026-08-01T00:00:00.000Z'),
       applicant: { name: '가나다', nickname: 'login-a' },

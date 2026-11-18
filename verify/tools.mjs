@@ -15,7 +15,7 @@ export const OPENAPI_DUMP_COMMAND = [
   '--out',
   '{out}',
 ];
-export const LIGHTHOUSE_PACKAGE = 'lighthouse@12.8.2';
+export const LIGHTHOUSE_PACKAGE = 'lighthouse@13.6.0';
 export const SPECTRAL_PACKAGE = '@stoplight/spectral-cli@6.17.1';
 export const REDOCLY_PACKAGE = '@redocly/cli@2.79.0';
 

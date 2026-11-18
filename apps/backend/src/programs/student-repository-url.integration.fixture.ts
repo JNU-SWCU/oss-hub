@@ -167,6 +167,9 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   jest.restoreAllMocks();
+  await prisma.githubUserActivityObservation.deleteMany({
+    where: { githubId },
+  });
   await prisma.repositoryProvisionJob.deleteMany({ where: { teamId } });
 });
 afterAll(async () => {

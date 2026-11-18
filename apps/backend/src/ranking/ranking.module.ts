@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GithubModule } from '../github/github.module';
+import { RankingAllTimelineRepository } from './ranking-all-timeline.repository';
 import { RankingController } from './ranking.controller';
 import { RankingRepository } from './ranking.repository';
 import { RankingService } from './ranking.service';
@@ -12,6 +13,7 @@ import { RankingYearService } from './ranking-year.service';
   providers: [
     RankingService,
     RankingRepository,
+    RankingAllTimelineRepository,
     RankingTimelineService,
     RankingYearService,
   ],

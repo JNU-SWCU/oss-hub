@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   parseListPage,
@@ -6,8 +7,8 @@ import {
   useParsedListUrlState,
 } from '@/lib/list-url-state';
 import {
-  currentRankingYear,
   parseRankingYearSearchParam,
+  RANKING_YEAR_ALL,
   type RankingYear,
 } from './types';
 
@@ -25,8 +26,7 @@ export function parseRankingSearchParams(
 }
 export function buildRankingSearchParams(state: RankingUrlState) {
   const params = new URLSearchParams();
-  if (state.year !== currentRankingYear())
-    params.set('year', String(state.year));
+  if (state.year !== RANKING_YEAR_ALL) params.set('year', String(state.year));
   setListPage(params, state.page);
   return params;
 }
@@ -42,5 +42,11 @@ export function useRankingUrlState() {
     OWNED_PARAMS,
     serialized,
   );
+  useEffect(() => {
+    const yearParam = new URLSearchParams(serialized).get('year');
+    if (yearParam?.toLowerCase() === RANKING_YEAR_ALL) {
+      navigate({}, 'replace');
+    }
+  }, [serialized, navigate]);
   return { state, navigate };
 }

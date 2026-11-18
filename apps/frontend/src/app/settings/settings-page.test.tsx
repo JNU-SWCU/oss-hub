@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('../_shell/use-session-role', () => ({
+  useIndependentSessionRole: mocks.useSessionRole,
   useSessionRole: mocks.useSessionRole,
 }));
 
@@ -240,18 +241,6 @@ describe('설정 화면', () => {
         SETTINGS_ONBOARDING_NOTICE_HEADING,
       );
       expect(field('settings-name').value).toBe(SAVED_PROFILE.name);
-      const notice = container.querySelector(
-        '[aria-labelledby="settings-policy-update-heading"]',
-      );
-      expect(notice?.textContent).toContain('비공개 저장소 기여 건수');
-      expect(notice?.textContent).toContain('랭킹 지표 합계');
-      expect(notice?.textContent).toContain('공지로 안내');
-      expect(
-        notice?.querySelector('input, button, [role="dialog"]'),
-      ).toBeNull();
-      expect(notice?.querySelector('a')?.getAttribute('href')).toBe(
-        '/policies/github-activity',
-      );
     },
   );
 

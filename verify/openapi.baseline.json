@@ -4774,6 +4774,7 @@
             "name": "year",
             "required": true,
             "in": "query",
+            "description": "Calendar year (2000–2100) or all",
             "schema": {
               "type": "string"
             }
@@ -4794,7 +4795,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RankingTimelineResponseDto"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RankingTimelineResponseDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RankingAllTimelineResponseDto"
+                    }
+                  ]
                 }
               }
             }
@@ -6887,6 +6895,9 @@
           "teamMinSize": {
             "type": "number"
           },
+          "teamMaxSize": {
+            "type": "number"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -6927,6 +6938,7 @@
         "required": [
           "id",
           "teamMinSize",
+          "teamMaxSize",
           "status",
           "submittedAt",
           "applicant",
@@ -12081,6 +12093,51 @@
         "required": [
           "year",
           "months",
+          "series"
+        ]
+      },
+      "RankingTimelinePeriodResponseDto": {
+        "type": "object",
+        "properties": {
+          "fromMonth": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "toMonth": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          }
+        },
+        "required": [
+          "fromMonth",
+          "toMonth"
+        ]
+      },
+      "RankingAllTimelineResponseDto": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "string",
+            "enum": [
+              "all"
+            ]
+          },
+          "periods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RankingTimelinePeriodResponseDto"
+            }
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RankingTimelineSeriesResponseDto"
+            }
+          }
+        },
+        "required": [
+          "year",
+          "periods",
           "series"
         ]
       },

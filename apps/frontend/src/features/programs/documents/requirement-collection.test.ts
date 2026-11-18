@@ -25,10 +25,11 @@ describe('selectCollectionDocument', () => {
     (document) => {
       expect(
         selectCollectionDocument(
-          { page: 3, pageSize: 20, filter: 'LATE', document },
+          { q: '', page: 3, pageSize: 20, filter: 'LATE', document },
           { id: 'd2', submissionState: 'MISSING' },
         ),
       ).toEqual({
+        q: '',
         page: 1,
         pageSize: 20,
         filter: 'LATE',
@@ -41,6 +42,7 @@ describe('selectCollectionDocument', () => {
     expect(
       selectCollectionDocument(
         {
+          q: '',
           page: 3,
           pageSize: 20,
           filter: 'HAS_MISSING',
@@ -48,7 +50,7 @@ describe('selectCollectionDocument', () => {
         },
         null,
       ),
-    ).toEqual({ page: 1, pageSize: 20, filter: 'HAS_MISSING' });
+    ).toEqual({ q: '', page: 1, pageSize: 20, filter: 'HAS_MISSING' });
   });
 });
 
@@ -212,6 +214,7 @@ describe('requirementCollectionPageState', () => {
 
 describe('requirementCollectionDataFor', () => {
   const query = {
+    q: '',
     page: 1,
     pageSize: 20,
     filter: 'ALL',

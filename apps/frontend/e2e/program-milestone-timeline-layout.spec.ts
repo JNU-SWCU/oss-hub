@@ -454,7 +454,7 @@ test('교직원 마일스톤 줄은 어디를 눌러도 여닫히고 서류 수�
   const collect = first.getByRole('link', { name: '서류 수합', exact: true });
   await expect(collect).toHaveAttribute(
     'href',
-    `/programs/${programId}/milestones/m1/documents`,
+    `/programs/${programId}/documents?milestoneId=m1`,
   );
   await collect.click({ trial: true });
   await context.close();

@@ -138,13 +138,18 @@ describe('nextConfig rewrites', () => {
 });
 
 describe('nextConfig redirects', () => {
-  it('철거한 내 정보 경로를 설정으로 영구 이동시킨다', async () => {
+  it('철거한 주소를 각각의 통합 화면으로 영구 이동시킨다', async () => {
     if (nextConfig.redirects === undefined) {
       throw new Error('redirect 설정이 필요합니다.');
     }
 
     await expect(nextConfig.redirects()).resolves.toEqual([
       { source: '/dashboard/me', destination: '/settings', permanent: true },
+      {
+        source: '/programs/:id/milestones/:milestoneId/documents',
+        destination: '/programs/:id/documents?milestoneId=:milestoneId',
+        permanent: true,
+      },
     ]);
   });
 });
