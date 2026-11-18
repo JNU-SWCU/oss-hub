@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiPath } from '@/lib/api-client';
 import { loadLandingData } from './load-landing-data';
 
 vi.mock('next/cache', () => ({
@@ -13,12 +14,7 @@ const program = {
   trackType: null,
   applicationEndAt: '2026-11-01T00:00:00.000Z',
 };
-const project = {
-  projectId: 'project-1',
-  programId: program.id,
-  programName: program.name,
-  displayName: 'Test repository',
-};
+const counts = { programCount: 1, repositoryCount: 1, contributorCount: 1 };
 const fetchMock = vi.fn<typeof fetch>();
 
 function requestUrl(input: string | URL | Request): string {
@@ -28,9 +24,9 @@ function requestUrl(input: string | URL | Request): string {
 
 function respond(input: string | URL | Request): Promise<Response> {
   const url = requestUrl(input);
-  const body = url.includes('projects/project-1')
-    ? { projectId: 'project-1', contributors: [{ githubLogin: 'student' }] }
-    : { items: url.includes('/projects?') ? [project] : [program] };
+  const body = url.endsWith('/projects/landing-stats')
+    ? counts
+    : { items: [program] };
   return Promise.resolve(Response.json(body));
 }
 
@@ -54,7 +50,14 @@ describe('server landing data', () => {
   it('caches each public endpoint with landing tags and reads the origin with a deadline', async () => {
     await loadLandingData();
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(
+      fetchMock.mock.calls.map(([url]) => new URL(requestUrl(url)).pathname),
+    ).toEqual([
+      apiPath('/programs'),
+      apiPath('/programs'),
+      apiPath('/projects/landing-stats'),
+    ]);
     for (const [url, options] of fetchMock.mock.calls) {
       expect(requestUrl(url)).toMatch(/^http:\/\/127\.0\.0\.1:4390\/api\/v1\//);
       expect(options).toMatchObject({ cache: 'no-store' });
@@ -63,7 +66,7 @@ describe('server landing data', () => {
     expect(
       vi.mocked(unstable_cache).mock.calls.map(([, , opts]) => opts),
     ).toEqual(
-      Array.from({ length: 4 }, () => ({ revalidate: 300, tags: ['landing'] })),
+      Array.from({ length: 3 }, () => ({ revalidate: 300, tags: ['landing'] })),
     );
   });
 
@@ -111,8 +114,7 @@ describe('server landing data', () => {
   it.each([
     ['status=recruiting', 'recruiting'],
     ['status=all', 'starPrograms'],
-    ['projects?', 'stats'],
-    ['projects/project-1', 'stats'],
+    ['projects/landing-stats', 'stats'],
   ] as const)('blanks only its part when %s fails', async (path, part) => {
     fetchMock.mockImplementation((url) =>
       requestUrl(url).includes(path)
@@ -148,12 +150,10 @@ describe('server landing data', () => {
     expect(data.stats.items).toHaveLength(3);
   });
 
-  it('omits statistics when a detail response is malformed', async () => {
+  it('omits statistics when the count response is malformed', async () => {
     fetchMock.mockImplementation((url) =>
-      requestUrl(url).includes('projects/project-1')
-        ? Promise.resolve(
-            Response.json({ projectId: 'project-1', contributors: null }),
-          )
+      requestUrl(url).includes('projects/landing-stats')
+        ? Promise.resolve(Response.json({ ...counts, contributorCount: 7 }))
         : respond(url),
     );
 

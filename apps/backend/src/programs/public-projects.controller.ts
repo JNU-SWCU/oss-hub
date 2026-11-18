@@ -2,6 +2,7 @@ import { Controller, Get, Header, Param, Query } from '@nestjs/common';
 import { PublicProjectRequestDto } from './dto/public-project-request.dto';
 import {
   PublicProjectDetailResponseDto,
+  PublicProjectLandingStatsResponseDto,
   PublicProjectPageResponseDto,
 } from './dto/public-project-page-response.dto';
 import { PublicProjectsService } from './public-projects.service';
@@ -23,6 +24,14 @@ export class PublicProjectsController {
         query.pageSize,
         query.year,
       ),
+    );
+  }
+
+  @Get('landing-stats')
+  @Header('Cache-Control', 'no-store')
+  async findLandingStats(): Promise<PublicProjectLandingStatsResponseDto> {
+    return PublicProjectLandingStatsResponseDto.from(
+      await this.publicProjectsService.findLandingStats(),
     );
   }
 

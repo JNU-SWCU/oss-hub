@@ -1,4 +1,8 @@
-import { Injectable, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -43,6 +47,12 @@ export interface PublicProjectPageResult {
   readonly items: readonly PublicProjectListItem[];
   readonly pageSize: number;
   readonly nextPageId: string | null;
+}
+
+export interface PublicProjectLandingStats {
+  readonly programCount: number;
+  readonly repositoryCount: number;
+  readonly contributorCount: number;
 }
 
 export interface PublicProjectMetrics {
@@ -219,16 +229,9 @@ export class PublicProjectsService {
     const rows = await this.repository.listPage(cursor, pageSize + 1, year);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);
-
-    const eligible = await this.eligibility.filterEligibleRepositoryIds(
-      pageRows.map((row) => ({
-        githubRepositoryId: row.githubRepositoryId,
-        publishedAt: row.publishedAt,
-      })),
+    const items = (await this.eligibleRows(pageRows)).map((row) =>
+      this.toPublicProjectListItem(row),
     );
-    const items = pageRows
-      .filter((row) => eligible.has(row.githubRepositoryId))
-      .map((row) => this.toPublicProjectListItem(row));
 
     const lastRawRow = pageRows[pageRows.length - 1];
     const nextPageId =
@@ -243,6 +246,48 @@ export class PublicProjectsService {
         : null;
 
     return { items, pageSize, nextPageId };
+  }
+
+  async findLandingStats(): Promise<PublicProjectLandingStats> {
+    const rows = await this.repository.listPage(null, 4);
+    const projects = await this.eligibleRows(rows.slice(0, 3));
+    if (
+      projects.some(
+        (row) =>
+          !/^[A-Za-z0-9_:-]+$/.test(row.programId) ||
+          !row.programName.trim() ||
+          !this.displayNameOf(row).trim(),
+      )
+    ) {
+      throw new InternalServerErrorException();
+    }
+
+    const ids = projects.map((row) => row.githubRepositoryId);
+    const details = await this.eligibleRows(
+      await this.repository.findByIds(ids),
+    );
+    if (ids.some((id) => id < 0n) || details.length !== ids.length) {
+      throw new DomainException(
+        PUBLIC_PROJECTS_ERROR_CODES[PublicProjectsErrorCode.PROJECT_NOT_FOUND],
+      );
+    }
+
+    const logins = await this.metrics.findLandingContributorLogins(ids);
+    if (logins.some((login) => !login.trim())) {
+      throw new InternalServerErrorException();
+    }
+    return {
+      programCount: new Set(projects.map((row) => row.programId)).size,
+      repositoryCount: projects.length,
+      contributorCount: new Set(logins).size,
+    };
+  }
+
+  private async eligibleRows(
+    rows: readonly PublicProjectRow[],
+  ): Promise<readonly PublicProjectRow[]> {
+    const eligible = await this.eligibility.filterEligibleRepositoryIds(rows);
+    return rows.filter((row) => eligible.has(row.githubRepositoryId));
   }
 
   async findDetail(projectId: string): Promise<PublicProjectDetailResult> {
@@ -277,7 +322,12 @@ export class PublicProjectsService {
         releaseCount: metric?.releaseCount ?? 0,
       },
       contributors: [...contributorRows]
-        .sort((left, right) => right.commitCount - left.commitCount)
+        .sort(
+          (left, right) =>
+            right.commitCount - left.commitCount ||
+            Number(left.githubUserId > right.githubUserId) -
+              Number(left.githubUserId < right.githubUserId),
+        )
         .map((contributor) => ({
           githubLogin: contributor.githubLogin,
           commitCount: contributor.commitCount,
