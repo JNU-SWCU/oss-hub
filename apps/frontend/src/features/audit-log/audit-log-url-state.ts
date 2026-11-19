@@ -9,6 +9,7 @@ import {
 import {
   AUDIT_LOG_ACTIONS,
   AUDIT_LOG_CATEGORIES,
+  AUDIT_LOG_PERIODS,
   AUDIT_LOG_VIEWS,
   type AuditLogCategory,
   type AuditLogFilters,
@@ -33,6 +34,13 @@ function parseDate(raw: string | null) {
 export function parseAuditLogSearchParams(
   params: URLSearchParams,
 ): AuditLogUrlState {
+  const from = parseDate(params.get('from'));
+  const to = parseDate(params.get('to'));
+  const period = parseListEnum(
+    params.get('period'),
+    AUDIT_LOG_PERIODS,
+    from || to ? 'custom' : '30d',
+  );
   return {
     q: params.get('q')?.trim() ?? '',
     action: parseListEnum(params.get('action'), [...AUDIT_LOG_ACTIONS, ''], ''),
@@ -41,8 +49,9 @@ export function parseAuditLogSearchParams(
       [...AUDIT_LOG_CATEGORIES, ''],
       '',
     ),
-    from: parseDate(params.get('from')),
-    to: parseDate(params.get('to')),
+    period,
+    from: period === 'custom' ? from : '',
+    to: period === 'custom' ? to : '',
     view: parseListEnum(params.get('view'), AUDIT_LOG_VIEWS, 'feed'),
     page: parseListPage(params.get('page')),
   };
@@ -53,8 +62,9 @@ export function buildAuditLogSearchParams(state: AuditLogUrlState) {
   if (state.q.trim()) params.set('q', state.q.trim());
   if (state.category) params.set('category', state.category);
   if (state.action) params.set('action', state.action);
-  if (state.from) params.set('from', state.from);
-  if (state.to) params.set('to', state.to);
+  if (state.period !== '30d') params.set('period', state.period);
+  if (state.period === 'custom' && state.from) params.set('from', state.from);
+  if (state.period === 'custom' && state.to) params.set('to', state.to);
   if (state.view !== 'feed') params.set('view', state.view);
   setListPage(params, state.page);
   return params;
@@ -64,6 +74,7 @@ const OWNED_PARAMS = [
   'q',
   'category',
   'action',
+  'period',
   'from',
   'to',
   'view',

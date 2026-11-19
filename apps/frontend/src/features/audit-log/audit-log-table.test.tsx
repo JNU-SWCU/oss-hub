@@ -1,9 +1,9 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuditLogTable } from './audit-log-table';
-import { parseAuditLogPage } from './parser';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
+import { parseAuditLogPage } from './parser';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -11,6 +11,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 const records = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE).items;
+const NOW = new Date('2026-11-17T06:00:00.000Z');
 
 describe('AuditLogTable', () => {
   let container: HTMLDivElement;
@@ -27,147 +28,60 @@ describe('AuditLogTable', () => {
     container.remove();
   });
 
-  function actorColumn() {
-    return Array.from(container.querySelectorAll('tbody tr')).map(
-      (row) =>
-        row.querySelectorAll('td')[1]?.querySelector(':scope > div > span')
-          ?.textContent ?? '',
+  async function render(selectedId: string | null) {
+    const onSelect = vi.fn();
+    await act(async () =>
+      root.render(
+        <AuditLogTable
+          records={records}
+          now={NOW}
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />,
+      ),
     );
+    return onSelect;
   }
 
-  function header(label: string) {
-    const button = Array.from(container.querySelectorAll('th button')).find(
-      (candidate) => candidate.textContent === label,
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      throw new Error(`missing sort header ${label}`);
-    }
-    return button;
+  function actionButtons(): HTMLButtonElement[] {
+    return Array.from(container.querySelectorAll('tbody button'));
   }
 
-  function rowIds() {
-    return Array.from(container.querySelectorAll('tbody tr')).map((row) => {
-      const occurredAt = row.querySelector('time')?.getAttribute('datetime');
-      return records.find((record) => record.occurredAt === occurredAt)?.id;
-    });
-  }
+  it('keeps the server order and reports the record whose action is pressed', async () => {
+    const onSelect = await render(null);
 
-  function sortControl() {
-    const control = container.querySelector('[data-slot="audit-sort"]');
-    const select = control?.querySelector('select');
-    const direction = control?.querySelector('button');
-    if (
-      !(select instanceof HTMLSelectElement) ||
-      !(direction instanceof HTMLButtonElement)
-    ) {
-      throw new Error('missing compact sort control');
-    }
-    return { select, direction };
-  }
+    expect(
+      Array.from(container.querySelectorAll('tbody time'), (time) =>
+        time.getAttribute('datetime'),
+      ),
+    ).toEqual(records.map((record) => record.occurredAt));
 
-  async function chooseSort(key: string) {
-    const { select } = sortControl();
-    await act(async () => {
-      select.value = key;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-  }
+    await act(async () => actionButtons()[1].click());
 
-  it('sorts rows client-side by the chosen column and toggles direction', async () => {
-    await act(async () => {
-      root.render(<AuditLogTable records={records} />);
-    });
-    expect(actorColumn()[0]).toBe('김예시');
-
-    await act(async () => header('행위자').click());
-    expect(actorColumn()).toEqual([
-      '김예시',
-      '시스템',
-      '알 수 없음@synthetic-nameless',
-      '이예제',
-      '최운영',
-    ]);
-    expect(header('행위자').closest('th')?.getAttribute('aria-sort')).toBe(
-      'ascending',
-    );
-
-    await act(async () => header('행위자').click());
-    expect(actorColumn()[0]).toBe('최운영');
-    expect(header('행위자').closest('th')?.getAttribute('aria-sort')).toBe(
-      'descending',
-    );
+    expect(onSelect).toHaveBeenCalledWith(records[1].id);
   });
 
-  it('sorts by each of the five columns from the compact sort control and shares its state with the headers', async () => {
-    await act(async () => {
-      root.render(<AuditLogTable records={records} />);
-    });
+  it('marks the selected record and clears it when pressed again', async () => {
+    const onSelect = await render(records[0].id);
+
     expect(
-      Array.from(sortControl().select.options, (option) => option.value),
-    ).toEqual(['occurredAt', 'actor', 'role', 'action', 'target']);
-    expect(sortControl().select.value).toBe('occurredAt');
+      actionButtons().map((button) => button.getAttribute('aria-pressed')),
+    ).toEqual(records.map((_, index) => String(index === 0)));
 
-    await chooseSort('actor');
-    expect(rowIds()).toEqual([
-      'audit-role-change',
-      'audit-system',
-      'audit-unknown-actor',
-      'audit-submission',
-      'audit-application-approved',
-    ]);
+    await act(async () => actionButtons()[0].click());
 
-    await chooseSort('role');
-    expect(rowIds()).toEqual([
-      'audit-system',
-      'audit-role-change',
-      'audit-application-approved',
-      'audit-unknown-actor',
-      'audit-submission',
-    ]);
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
 
-    await chooseSort('action');
-    expect(rowIds()).toEqual([
-      'audit-system',
-      'audit-unknown-actor',
-      'audit-submission',
-      'audit-application-approved',
-      'audit-role-change',
-    ]);
+  it('selects a record from a click anywhere on its row', async () => {
+    const onSelect = await render(null);
+    const cell = container.querySelector('tbody tr:nth-child(3) td');
+    if (cell === null) throw new Error('missing third row');
 
-    await chooseSort('target');
-    expect(rowIds()).toEqual([
-      'audit-unknown-actor',
-      'audit-role-change',
-      'audit-system',
-      'audit-submission',
-      'audit-application-approved',
-    ]);
-    expect(header('대상').closest('th')?.getAttribute('aria-sort')).toBe(
-      'ascending',
-    );
+    await act(async () => {
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
 
-    await act(async () => sortControl().direction.click());
-    expect(rowIds()).toEqual([
-      'audit-application-approved',
-      'audit-submission',
-      'audit-system',
-      'audit-role-change',
-      'audit-unknown-actor',
-    ]);
-    expect(header('대상').closest('th')?.getAttribute('aria-sort')).toBe(
-      'descending',
-    );
-
-    await chooseSort('occurredAt');
-    expect(rowIds()).toEqual([
-      'audit-role-change',
-      'audit-application-approved',
-      'audit-submission',
-      'audit-system',
-      'audit-unknown-actor',
-    ]);
-
-    await act(async () => header('행위자').click());
-    expect(sortControl().select.value).toBe('actor');
+    expect(onSelect).toHaveBeenCalledWith(records[2].id);
   });
 });

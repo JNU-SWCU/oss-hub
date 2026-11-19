@@ -91,7 +91,10 @@ function targetLink({
       text: '사용자 보기',
     };
   }
-  const query = new URLSearchParams({ q: target.login });
+  const query = new URLSearchParams({
+    q: target.login,
+    period: 'custom',
+  });
   return {
     href: `/dashboard/audit-logs?${query.toString()}`,
     text: '감사 로그 보기',

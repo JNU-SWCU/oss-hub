@@ -12,6 +12,10 @@ export const AUDIT_LOG_VIEWS = ['feed', 'table'] as const;
 
 export type AuditLogViewMode = (typeof AUDIT_LOG_VIEWS)[number];
 
+export const AUDIT_LOG_PERIODS = ['7d', '30d', 'custom'] as const;
+
+export type AuditLogPeriod = (typeof AUDIT_LOG_PERIODS)[number];
+
 export interface AuditLogPerson {
   readonly id: string | null;
   readonly name: string | null;
@@ -122,11 +126,16 @@ export const AUDIT_LOG_ACTIONS = Object.keys(
 export interface AuditLogFilters {
   readonly q: string;
   readonly action: string;
+  readonly period: AuditLogPeriod;
   readonly from: string;
   readonly to: string;
 }
 
-export interface AuditLogListParams extends AuditLogFilters {
+export interface AuditLogListParams {
+  readonly q: string;
+  readonly action: string;
+  readonly from: string;
+  readonly to: string;
   readonly category: AuditLogCategory | '';
   readonly page: number;
   readonly limit: number;
