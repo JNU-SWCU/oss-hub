@@ -21,7 +21,7 @@ export function DeadlinePreviewCounts({
   ] as const;
   return (
     <Card>
-      <CardContent className="grid gap-4 pt-card">
+      <CardContent className="grid gap-4">
         <h2 className="font-heading font-semibold">발송 대상</h2>
         <dl className="grid grid-cols-2 gap-4 text-small sm:grid-cols-4">
           {facts.map(([label, count, unit]) => (

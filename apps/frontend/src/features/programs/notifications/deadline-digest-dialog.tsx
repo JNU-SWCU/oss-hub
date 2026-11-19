@@ -144,24 +144,33 @@ export function DeadlineDigestDialog({
       닫기
     </Button>
   ) : preview ? (
-    <>
-      <Button
-        ref={editButtonRef}
-        type="button"
-        variant="outline"
-        disabled={busy !== null}
-        onClick={edit}
+    <div className="grid w-full gap-3">
+      <p
+        role="status"
+        className="text-small text-center font-semibold whitespace-nowrap sm:text-right"
       >
-        수정
-      </Button>
-      <Button
-        type="button"
-        disabled={busy !== null || recipientTotal === 0}
-        onClick={() => void send()}
-      >
-        {busy === 'send' ? '보내는 중…' : '보내기'}
-      </Button>
-    </>
+        학생 {preview.recipientCount}명 · 교직원 {preview.staffRecipientCount}명
+        · 발송 후 취소 불가
+      </p>
+      <div className="flex justify-end gap-2">
+        <Button
+          ref={editButtonRef}
+          type="button"
+          variant="outline"
+          disabled={busy !== null}
+          onClick={edit}
+        >
+          수정
+        </Button>
+        <Button
+          type="button"
+          disabled={busy !== null || recipientTotal === 0}
+          onClick={() => void send()}
+        >
+          {busy === 'send' ? '보내는 중…' : '보내기'}
+        </Button>
+      </div>
+    </div>
   ) : (
     <>
       <Button
@@ -185,7 +194,6 @@ export function DeadlineDigestDialog({
   return (
     <DialogShell
       title="마감 알림 보내기"
-      description="학생 마감 알림과 교직원 요약을 함께 보냅니다."
       size="lg"
       busy={busy !== null}
       returnFocusRef={returnFocusRef}
@@ -212,11 +220,6 @@ export function DeadlineDigestDialog({
         <div className="grid gap-6">
           <DeadlinePreviewCounts preview={preview} />
           <DeadlinePreviewBodies preview={preview} />
-          <p role="status" className="text-small font-semibold">
-            학생 {preview.recipientCount}명과 교직원{' '}
-            {preview.staffRecipientCount}명에게 보냅니다. 보낸 메일은 취소할 수
-            없습니다.
-          </p>
         </div>
       ) : (
         <DeadlineGuidanceFields

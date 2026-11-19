@@ -116,12 +116,24 @@ describe('DeadlineDigestDialog', () => {
       studentGuidance: '학생 추가 안내',
       staffGuidance: '교직원 추가 안내',
     });
+    expect(document.body.textContent).not.toContain(
+      '학생 마감 알림과 교직원 요약을 함께 보냅니다.',
+    );
     expect(document.body.textContent).toContain('학생 발송 가능');
     expect(document.body.textContent).toContain('교직원 요약 수신 2명');
     expect(document.body.textContent).toContain(
-      '학생 4명과 교직원 2명에게 보냅니다.',
+      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
     );
     expect(document.activeElement).toBe(button('수정'));
+    const confirmation = document.body.querySelector<HTMLElement>(
+      '[data-slot="dialog-shell-footer"] [role="status"]',
+    );
+    expect(confirmation?.textContent).toContain(
+      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
+    );
+    expect(confirmation?.compareDocumentPosition(button('수정')) ?? 0).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
 
