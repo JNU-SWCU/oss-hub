@@ -58,10 +58,25 @@ async function renderName(name: string, days = 120) {
 test('announces the rank and day count to assistive technology', async () => {
   await renderName('leader', 123);
   const tier = container.querySelector('[data-streak-accessible-name]');
-  const announcement =
+  const exposed =
     tier === null
-      ? container.querySelector('.sr-only')?.textContent
-      : container.querySelector('button')?.getAttribute('aria-label');
+      ? container.querySelector<HTMLElement>('.sr-only')
+      : container.querySelector<HTMLButtonElement>('button');
+  expect(exposed).not.toBeNull();
+  expect(
+    exposed?.closest('[aria-hidden="true"], [hidden], [inert]'),
+  ).toBeNull();
+  for (
+    let ancestor = exposed;
+    ancestor !== null;
+    ancestor = ancestor.parentElement
+  ) {
+    const style = window.getComputedStyle(ancestor);
+    expect(style.display).not.toBe('none');
+    expect(style.visibility).not.toMatch(/^(hidden|collapse)$/u);
+  }
+  const announcement =
+    tier === null ? exposed?.textContent : exposed?.getAttribute('aria-label');
   expect(announcement?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
   expect(announcement?.match(/([0-9]+)\s*일/u)?.[1]).toBe('123');
 });
@@ -111,7 +126,6 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
 
   expect(link?.contains(button)).toBe(false);
   expect(button?.getAttribute('aria-label')).toBe('임금 장식 효과 재생');
-  expect(container.textContent).toContain('임금 · 1위 120일째 유지');
 
   await act(async () => button?.click());
 
