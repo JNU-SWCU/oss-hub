@@ -1,4 +1,9 @@
-import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import type {
   RankingEntry,
   RankingPage,
@@ -17,9 +22,29 @@ const NULLABLE_INTEGER_ARRAY = {
   items: { type: 'integer', nullable: true },
 } as const;
 
+class RankingStreakResponseDto {
+  declare readonly rankHeldSince: string;
+  declare readonly top10Since: string;
+  declare readonly rankHeldDays: number;
+  declare readonly top10Days: number;
+
+  static from(
+    streak: NonNullable<RankingEntry['streak']>,
+  ): RankingStreakResponseDto {
+    return {
+      rankHeldSince: streak.rankHeldSince,
+      top10Since: streak.top10Since,
+      rankHeldDays: streak.rankHeldDays,
+      top10Days: streak.top10Days,
+    };
+  }
+}
+
 class PublicRankingEntryResponseDto {
   declare readonly rank: number;
   declare readonly previousRank: number | null;
+  @ApiPropertyOptional({ type: RankingStreakResponseDto, nullable: true })
+  declare readonly streak?: RankingStreakResponseDto | null;
   declare readonly githubLogin: string;
   declare readonly commitCount: number;
   declare readonly pullRequestCount: number;
@@ -29,9 +54,26 @@ class PublicRankingEntryResponseDto {
   declare readonly total: number;
 
   static from(entry: RankingEntry): PublicRankingEntryResponseDto {
+    if (!('streak' in entry)) {
+      return {
+        rank: entry.rank,
+        previousRank: entry.previousRank,
+        githubLogin: entry.githubLogin,
+        commitCount: entry.commitCount,
+        pullRequestCount: entry.pullRequestCount,
+        issueCount: entry.issueCount,
+        repositoryCount: entry.repositoryCount,
+        starCount: entry.starCount,
+        total: entry.total,
+      };
+    }
     return {
       rank: entry.rank,
       previousRank: entry.previousRank,
+      streak:
+        entry.streak == null
+          ? null
+          : RankingStreakResponseDto.from(entry.streak),
       githubLogin: entry.githubLogin,
       commitCount: entry.commitCount,
       pullRequestCount: entry.pullRequestCount,
@@ -46,6 +88,8 @@ class PublicRankingEntryResponseDto {
 class StaffRankingEntryResponseDto {
   declare readonly rank: number;
   declare readonly previousRank: number | null;
+  @ApiPropertyOptional({ type: RankingStreakResponseDto, nullable: true })
+  declare readonly streak?: RankingStreakResponseDto | null;
   declare readonly githubLogin: string;
   declare readonly department: string | null;
   declare readonly name: string | null;
@@ -57,9 +101,28 @@ class StaffRankingEntryResponseDto {
   declare readonly total: number;
 
   static from(entry: RankingEntry): StaffRankingEntryResponseDto {
+    if (!('streak' in entry)) {
+      return {
+        rank: entry.rank,
+        previousRank: entry.previousRank,
+        githubLogin: entry.githubLogin,
+        department: entry.department,
+        name: entry.name ?? null,
+        commitCount: entry.commitCount,
+        pullRequestCount: entry.pullRequestCount,
+        issueCount: entry.issueCount,
+        repositoryCount: entry.repositoryCount,
+        starCount: entry.starCount,
+        total: entry.total,
+      };
+    }
     return {
       rank: entry.rank,
       previousRank: entry.previousRank,
+      streak:
+        entry.streak == null
+          ? null
+          : RankingStreakResponseDto.from(entry.streak),
       githubLogin: entry.githubLogin,
       department: entry.department,
       name: entry.name ?? null,
@@ -96,7 +159,11 @@ function assertNeverViewerClass(value: never): never {
   throw new TypeError(`Unexpected ranking viewer class: ${String(value)}`);
 }
 
-@ApiExtraModels(PublicRankingEntryResponseDto, StaffRankingEntryResponseDto)
+@ApiExtraModels(
+  RankingStreakResponseDto,
+  PublicRankingEntryResponseDto,
+  StaffRankingEntryResponseDto,
+)
 export class RankingPageResponseDto {
   @ApiProperty({
     oneOf: [{ type: 'integer' }, { type: 'string', enum: ['all'] }],

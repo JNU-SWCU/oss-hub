@@ -297,7 +297,6 @@ BACKEND_ORIGIN=https://backend.example.test pnpm build
 | 변경 경로별 테스트와 배포 | [CI workflow](.github/workflows/ci.yml) |
 | 데이터베이스와 시드 | [Prisma 안내](apps/backend/prisma/README.md) |
 | 프런트엔드 기능 구조 | [features 안내](apps/frontend/src/features/README.md) |
-| 디자인 토큰과 Figma 연동 | [Figma 플러그인 안내](apps/frontend/figma-plugin/README.md) |
 | PR과 이슈 양식 | [PR 템플릿](.github/pull_request_template.md), [이슈 양식](.github/ISSUE_TEMPLATE/) |
 
 ## 라이선스

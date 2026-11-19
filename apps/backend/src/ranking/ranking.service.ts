@@ -3,7 +3,11 @@ import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import { RankingRepository, type RankedPageRow } from './ranking.repository';
+import {
+  RankingRepository,
+  type RankedPageRow,
+  type RankingStreak,
+} from './ranking.repository';
 import {
   RankingYearService,
   RankingYear,
@@ -30,6 +34,7 @@ interface RankingMetrics {
 export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
   readonly previousRank: number | null;
+  readonly streak?: RankingStreak | null;
 
   readonly githubLogin: string;
   readonly department: string | null;
@@ -86,20 +91,19 @@ export class RankingService {
     page: number,
     pageSize: number,
     githubId: bigint | null,
+    now: Date = new Date(),
   ): Promise<RankingPage> {
     const [ranked, dataAsOf, viewerClass] = await Promise.all([
       this.ranking.findRankedPage(
         year === RANKING_YEAR_ALL ? {} : { currentYear: year },
         { offset: (page - 1) * pageSize, limit: pageSize },
-        new Date(),
+        now,
       ),
       this.ranking.findDataAsOf(),
       this.ranking.findViewerClass(githubId),
     ]);
     const slice = ranked.rows;
-    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
-      new Date(),
-    );
+    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(now);
 
     if (viewerClass !== RANKING_VIEWER_CLASSES.STAFF) {
       return {
@@ -160,6 +164,7 @@ function toPublicEntry(entry: RankedPageRow): RankingEntry {
   return {
     rank: entry.rank,
     previousRank: entry.previousRank,
+    ...(entry.rank <= 10 ? { streak: entry.streak ?? null } : {}),
     githubLogin: entry.githubLogin,
     department: entry.department,
     commitCount: entry.commitCount,

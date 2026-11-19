@@ -5,6 +5,7 @@ import {
   RANKING_YEAR_ALL,
   type PublicRankingItem,
   type RankingPage,
+  type RankingStreak,
   type RankingTimeline,
   type RankingTimelineSeries,
   type RankingViewerClass,
@@ -69,6 +70,31 @@ function readPreviousRank(value: unknown): number | null {
   return isPositiveInteger(value) ? value : null;
 }
 
+const INVALID_STREAK = Symbol('invalid-ranking-streak');
+
+function readOptionalStreak(
+  value: unknown,
+): RankingStreak | null | undefined | typeof INVALID_STREAK {
+  if (value === undefined || value === null) return value;
+  if (
+    !isRecord(value) ||
+    typeof value.rankHeldSince !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value.rankHeldSince) ||
+    typeof value.top10Since !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value.top10Since) ||
+    !isPositiveInteger(value.rankHeldDays) ||
+    !isPositiveInteger(value.top10Days)
+  ) {
+    return INVALID_STREAK;
+  }
+  return {
+    rankHeldSince: value.rankHeldSince,
+    top10Since: value.top10Since,
+    rankHeldDays: value.rankHeldDays,
+    top10Days: value.top10Days,
+  };
+}
+
 function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   if (!isRecord(value)) {
     return null;
@@ -88,11 +114,14 @@ function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   const repositoryCount = readOptionalCount(value.repositoryCount);
   const starCount = readOptionalCount(value.starCount);
   const total = readOptionalCount(value.total);
+  const streak = readOptionalStreak(value.streak);
   if (
     issueCount === null ||
     repositoryCount === null ||
     starCount === null ||
-    total === null
+    total === null ||
+    streak === INVALID_STREAK ||
+    (value.rank > 10 && value.streak !== undefined)
   ) {
     return null;
   }
@@ -100,6 +129,7 @@ function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   return {
     rank: value.rank,
     previousRank: readPreviousRank(value.previousRank),
+    ...(streak === undefined ? {} : { streak }),
     githubLogin: value.githubLogin,
     commitCount: value.commitCount,
     pullRequestCount: value.pullRequestCount,
@@ -120,6 +150,7 @@ function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
   const issueCount = readOptionalCount(value.issueCount);
   const repositoryCount = readOptionalCount(value.repositoryCount);
   const starCount = readOptionalCount(value.starCount);
+  const streak = readOptionalStreak(value.streak);
   if (
     !isPositiveInteger(value.rank) ||
     typeof value.githubLogin !== 'string' ||
@@ -128,7 +159,9 @@ function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
     pullRequestCount === null ||
     issueCount === null ||
     repositoryCount === null ||
-    starCount === null
+    starCount === null ||
+    streak === INVALID_STREAK ||
+    (value.rank > 10 && value.streak !== undefined)
   ) {
     return null;
   }
@@ -144,6 +177,7 @@ function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
   return {
     rank: value.rank,
     previousRank: readPreviousRank(value.previousRank),
+    ...(streak === undefined ? {} : { streak }),
     githubLogin: value.githubLogin,
     department: readOptionalDepartment(value.department),
     commitCount,

@@ -11880,9 +11880,41 @@
           "previewVersion"
         ]
       },
+      "RankingStreakResponseDto": {
+        "type": "object",
+        "properties": {
+          "rankHeldSince": {
+            "type": "string"
+          },
+          "top10Since": {
+            "type": "string"
+          },
+          "rankHeldDays": {
+            "type": "number"
+          },
+          "top10Days": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "rankHeldSince",
+          "top10Since",
+          "rankHeldDays",
+          "top10Days"
+        ]
+      },
       "PublicRankingEntryResponseDto": {
         "type": "object",
         "properties": {
+          "streak": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RankingStreakResponseDto"
+              }
+            ]
+          },
           "rank": {
             "type": "number"
           },
@@ -11927,6 +11959,15 @@
       "StaffRankingEntryResponseDto": {
         "type": "object",
         "properties": {
+          "streak": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RankingStreakResponseDto"
+              }
+            ]
+          },
           "rank": {
             "type": "number"
           },
