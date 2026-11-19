@@ -148,6 +148,7 @@ test('verify:full writes a report and fails on missed goals without real network
   t.after(() => rmSync(reportDir, { recursive: true, force: true }));
   const requested = [];
   let clock = 0;
+  const unavailable = new Set([1, 3]);
   const fetchImpl = async (url, init) => {
     requested.push([url, init.redirect, init.headers.cookie]);
     const login = url.endsWith('/api/v1/auth/github');
@@ -166,7 +167,10 @@ test('verify:full writes a report and fails on missed goals without real network
       writeFileSync(outFile, '{}');
       return report({ lcp: 3000, cls: 0, score: 0.95 });
     },
-    sampleLoad: async () => ({ sampledAt: ++clock }),
+    sampleLoad: async () => {
+      if (unavailable.has(++clock)) throw new Error('diagnostic unavailable');
+      return { sampledAt: clock };
+    },
     fetchImpl,
     log: () => {},
   });
@@ -192,7 +196,12 @@ test('verify:full writes a report and fails on missed goals without real network
     assert.equal(runs.length, 5, page);
     for (const [index, run] of runs.entries()) {
       assert.equal(run.run, index + 1);
-      assert.equal(run.after.sampledAt - run.before.sampledAt, 2);
+      if (page === 'https://jnu-oss-hub.com/' && index === 0) {
+        assert.deepEqual(run.before, { error: 'diagnostic unavailable' });
+        assert.deepEqual(run.after, { error: 'diagnostic unavailable' });
+      } else {
+        assert.equal(run.after.sampledAt - run.before.sampledAt, 2);
+      }
     }
   }
   assert.equal(Object.keys(saved.lighthouseRuns).length, 3);

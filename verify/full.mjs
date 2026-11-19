@@ -233,6 +233,14 @@ export function evaluateNotFound(results, config) {
     );
 }
 
+async function captureLoad(sampleLoad) {
+  try {
+    return await sampleLoad();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export async function checkFull({
   thresholds = readThresholds(),
   reportDir = join(REPO_ROOT, 'verify/reports'),
@@ -273,9 +281,9 @@ export async function checkFull({
       log(
         `verify:full lighthouse ${url} run ${index}/${thresholds.lighthouse.runs}`,
       );
-      const before = await sampleLoad();
+      const before = await captureLoad(sampleLoad);
       const run = await runLighthouse(url, outFile, thresholds.lighthouse);
-      const after = await sampleLoad();
+      const after = await captureLoad(sampleLoad);
       reports.push(run);
       runs.push({
         run: index,

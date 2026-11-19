@@ -8,9 +8,11 @@ async function readOutput(command, args) {
       timeoutMs: 1500,
       killGraceMs: 500,
     });
-    return result.code === 0 ? result.stdout.trim().split('\n') : null;
-  } catch {
-    return null;
+    return result.code === 0
+      ? { lines: result.stdout.trim().split('\n') }
+      : { error: `${command} exited ${result.code}` };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -21,7 +23,7 @@ export async function sampleHostLoad() {
     readOutput('ps', ['-A', '-o', 'pcpu=', '-o', 'comm=']),
     readOutput('docker', ['ps', '--format', '{{.Names}}']),
   ]);
-  const ranked = processes
+  const ranked = processes.lines
     ?.flatMap((line) => {
       const parts = /^\s*(\d+(?:\.\d+)?)\s+(.+)$/.exec(line);
       return parts
@@ -38,6 +40,11 @@ export async function sampleHostLoad() {
       ranked?.filter(
         (process, index) => index < 8 || process.name.startsWith('next-server'),
       ) ?? null,
-    dockerContainers: containers?.filter(Boolean) ?? null,
+    dockerContainers: containers.lines?.filter(Boolean) ?? null,
+    ...(processes.error || containers.error
+      ? {
+          errors: [processes.error, containers.error].filter(Boolean),
+        }
+      : {}),
   };
 }
