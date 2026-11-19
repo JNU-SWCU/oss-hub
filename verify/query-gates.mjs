@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { runWithDockerLock } from './docker-lock.mjs';
+import { queryDiagnostics } from './query-diagnostics.mjs';
 import { finding, run } from './tools.mjs';
 
 const QUERY_GATE_SPECS = [
@@ -24,14 +25,6 @@ export function resolvePsql({
   return LIBPQ_DIRS.find((dir) => exists(join(dir, 'psql'))) ?? null;
 }
 
-function tail(result) {
-  return `${result.stdout}\n${result.stderr}`
-    .trim()
-    .split('\n')
-    .slice(-15)
-    .join('\n');
-}
-
 export async function checkQueryGates({
   cwd,
   source,
@@ -49,7 +42,7 @@ export async function checkQueryGates({
     findings.push(
       finding(
         'query-lint',
-        `pnpm --filter backend run query-lint:check exited ${lint.code}\n${tail(lint)}`,
+        `pnpm --filter backend run query-lint:check exited ${lint.code}\n${queryDiagnostics(lint).text}`,
         `exit ${lint.code}`,
         'exit 0',
       ),
@@ -84,27 +77,18 @@ export async function checkQueryGates({
     },
   );
   if (growth.code !== 0) {
-    // Jest writes suite titles and assertions to stderr before the final counts.
-    const diagnostics = growth.stderr.trim() || tail(growth);
-    const violations = [
-      ...new Set(
-        `${growth.stdout}\n${growth.stderr}`
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => /^\[LINT\.[A-Z_]+\]/.test(line)),
-      ),
-    ];
+    const diagnostics = queryDiagnostics(growth, { jest: true });
     findings.push(
-      violations.length > 0
+      diagnostics.hasLint
         ? finding(
             'query-lint',
-            `a query on a measured route violated the query lint\n${violations.join('\n')}\n${diagnostics}`,
-            `${violations.length} violation(s)`,
+            `a query on a measured route violated the query lint\n${diagnostics.text}`,
+            'query lint violation',
             '0 violations',
           )
         : finding(
             'query-growth',
-            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${diagnostics}`,
+            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${diagnostics.text}`,
             `exit ${growth.code}`,
             'exit 0',
           ),

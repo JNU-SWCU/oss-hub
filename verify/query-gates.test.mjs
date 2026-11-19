@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
+import { readFileSync, rmSync, statSync } from 'node:fs';
 import { main } from './index.mjs';
 import {
   PSQL_MISSING,
@@ -8,7 +9,7 @@ import {
   checkQueryGates,
   resolvePsql,
 } from './query-gates.mjs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { eventFile, tempRepo } from './test-support.mjs';
 import { REPO_ROOT } from './tools.mjs';
 
@@ -217,7 +218,7 @@ test('a lint violation inside the integration run is reported as query-lint', as
     findings.map((item) => item.rule),
     ['query-lint'],
   );
-  assert.match(findings[0].message, /\[LINT\.NO_LIMIT\] Repo\.findMany/);
+  assert.match(findings[0].message, /\[LINT\.NO_LIMIT\]/);
   assert.match(findings[0].message, /FAIL prisma\/program-read-baseline/);
 });
 
@@ -252,6 +253,54 @@ test('a query failure retains Jest diagnostics above the integration output tail
     /query growth › bounds the number of reads/,
   );
   assert.match(findings[0].message, /Expected: <= 4\n\s+Received:\s+9/);
+});
+
+test('hook output is a bounded redacted Jest summary and the raw log is private', async (t) => {
+  const bearer = 'synthetic-access-token-1234567890';
+  const opaque = 'aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789ABCD';
+  const filler = 'q'.repeat(1024 * 1024);
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    source: 'pre-push',
+    findPsql: () => '',
+    runCommand: async (command) =>
+      command === 'pnpm'
+        ? { code: 0, stdout: '', stderr: '' }
+        : {
+            code: 7,
+            stdout: 'unrelated output',
+            stderr: [
+              `Authorization: Bearer ${bearer}`,
+              filler,
+              'FAIL test/query-growth.integration.spec.ts',
+              '  ● bounds reads',
+              '    Expected: 4',
+              `    Received: { apiKey: "${opaque}" }`,
+              '    at test stack frame',
+              'Test Suites: 1 failed',
+            ].join('\n'),
+          },
+  });
+  const message = findings[0].message;
+  assert.ok(Buffer.byteLength(message) < 4096);
+  assert.doesNotMatch(
+    message,
+    new RegExp(`${bearer}|${opaque}|stack frame|Test Suites`),
+  );
+  assert.match(
+    message,
+    /FAIL test\/query-growth\.integration\.spec\.ts\n\s+● bounds reads\n\s+Expected: 4\n\s+Received:/,
+  );
+  const path = /Full local log: (.+)/.exec(message)?.[1];
+  assert.ok(path);
+  t.after(() => rmSync(dirname(path), { recursive: true, force: true }));
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+  const raw = readFileSync(path, 'utf8');
+  assert.ok(
+    raw.includes(filler) &&
+      raw.includes(bearer) &&
+      raw.includes('unrelated output'),
+  );
 });
 
 test('query gate failures block with rule ids and https sources', async () => {
