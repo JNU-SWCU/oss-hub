@@ -291,6 +291,8 @@ BACKEND_ORIGIN=https://backend.example.test pnpm build
 
 ### 문서 길잡이
 
+CI와 pre-push는 같은 프런트엔드 변경 범위에 경로 도달성 검사를 실행합니다. `node verify/route-manifest.mjs origin/main`은 해당 커밋의 전체 결과를 보여 주며, 게이트는 분기점에 없던 위반만 차단합니다. `/`에서 각 역할의 내부 링크, 레이아웃, 리다이렉트를 따라갑니다. 도달 불가는 정적으로 확인되는 경로가 없다는 뜻이지 404라는 뜻은 아닙니다. API 응답이나 외부 진입점에서만 전달하는 URL은 그래프에 포함되지 않습니다.
+
 | 알고 싶은 내용 | 문서 |
 | --- | --- |
 | 기여 순서와 시작점 | [CONTRIBUTING.md](CONTRIBUTING.md) |

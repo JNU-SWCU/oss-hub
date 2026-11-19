@@ -15,21 +15,28 @@ import { REPO_ROOT } from './tools.mjs';
 test('hook query specs match the blocking CI integration lane and its base coverage', async (t) => {
   const frontend = 'apps/frontend/src/app/page.tsx';
   const backend = 'apps/backend/src/programs/programs.repository.ts';
-  for (const [paths, destination, expectedQuery, expectedApi] of [
-    [[frontend], 'feature', true, false],
-    [[backend], 'feature', true, true],
-    [[frontend, backend], 'feature', true, true],
+  for (const [
+    paths,
+    destination,
+    expectedQuery,
+    expectedApi,
+    expectedRoutes,
+  ] of [
+    [[frontend], 'feature', true, false, true],
+    [[backend], 'feature', true, true, false],
+    [[frontend, backend], 'feature', true, true, true],
     [
       ['apps/backend/src/programs/programs.service.spec.ts'],
       'feature',
       true,
       true,
+      false,
     ],
-    [['knip.json'], 'feature', true, false],
-    [['pnpm-lock.yaml'], 'feature', true, true],
-    [['docs/readme.md'], 'feature', false, false],
-    [['docs/readme.md'], 'main', true, false],
-    [['.github/workflows/ci.yml'], 'feature', true, true],
+    [['knip.json'], 'feature', true, false, true],
+    [['pnpm-lock.yaml'], 'feature', true, true, true],
+    [['docs/readme.md'], 'feature', false, false, false],
+    [['docs/readme.md'], 'main', true, false, false],
+    [['.github/workflows/ci.yml'], 'feature', true, true, true],
   ]) {
     await t.test(`${paths.join(' + ')} -> ${destination}`, async (t) => {
       const repo = tempRepo(t);
@@ -69,6 +76,7 @@ test('hook query specs match the blocking CI integration lane and its base cover
       assert.deepEqual(ciVerify.ran, hook.ran);
       assert.equal(hook.ran.includes('query-gates'), ciIntegration);
       assert.equal(hook.ran.includes('api'), expectedApi);
+      assert.equal(hook.ran.includes('route-manifest'), expectedRoutes);
       assert.ok(hook.ran.includes('secrets'));
     });
   }
@@ -89,10 +97,7 @@ async function recordChecks(argv, options) {
       env: {},
       ...options,
       checks: Object.fromEntries(
-        ['secrets', 'api', 'query-gates', 'cwv'].map((name) => [
-          name,
-          record(name),
-        ]),
+        EVERY_CHECK.map((name) => [name, record(name)]),
       ),
     });
     return { exit, ran, logs };
@@ -101,7 +106,7 @@ async function recordChecks(argv, options) {
   }
 }
 
-const EVERY_CHECK = ['secrets', 'api', 'query-gates', 'cwv'];
+const EVERY_CHECK = ['secrets', 'api', 'query-gates', 'route-manifest', 'cwv'];
 
 test('verify full runs every check on an already-pushed checkout', async (t) => {
   const repo = tempRepo(t);
