@@ -102,8 +102,9 @@ for (const viewport of [
     const oldFinished = page.waitForResponse('**/mail/preview');
     releaseOld();
     await oldFinished;
+    const latestFinished = page.waitForResponse('**/mail/preview');
     await dialog.getByRole('button', { name: '미리보기', exact: true }).click();
-    await dialog.getByRole('button', { name: '보내기', exact: true }).waitFor();
+    await (await latestFinished).finished();
     await dialog.screenshot({
       path: test.info().outputPath('latest-preview.png'),
     });
@@ -175,8 +176,9 @@ for (const viewport of [
     await dialog
       .locator('#deadline-studentGuidance')
       .fill('synthetic guidance');
+    const previewFinished = page.waitForResponse('**/deadline-digest/preview');
     await dialog.getByRole('button', { name: '미리보기', exact: true }).click();
-    await dialog.getByRole('button', { name: '보내기', exact: true }).waitFor();
+    await (await previewFinished).finished();
     await dialog.screenshot({
       path: test.info().outputPath('deadline-preview.png'),
     });
