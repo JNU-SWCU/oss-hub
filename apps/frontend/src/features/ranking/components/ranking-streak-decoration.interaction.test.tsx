@@ -1,10 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import {
-  IkseongwanHeadwear,
-  RankingStreakDecoration,
-} from './ranking-streak-decoration';
+import { RankHeadwear } from './ranking-rank-headwear';
+import { RankingStreakDecoration } from './ranking-streak-decoration';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -43,43 +41,18 @@ async function renderName(name: string, days = 120) {
     root.render(
       <RankingStreakDecoration
         rank={1}
-        title="임금"
+        accessibleTierName="금빛 날개관"
         days={days}
+        tenureLabel="1위"
         tier="celebration"
         name={name}
         href={`https://github.com/${name}`}
         linkAriaLabel={`${name} 프로필`}
-        headwear={<IkseongwanHeadwear />}
+        headwear={<RankHeadwear rank={1} />}
       />,
     );
   });
 }
-
-test('announces the rank and day count to assistive technology', async () => {
-  await renderName('leader', 123);
-  const tier = container.querySelector('[data-streak-accessible-name]');
-  const exposed =
-    tier === null
-      ? container.querySelector<HTMLElement>('.sr-only')
-      : container.querySelector<HTMLButtonElement>('button');
-  expect(exposed).not.toBeNull();
-  expect(
-    exposed?.closest('[aria-hidden="true"], [hidden], [inert]'),
-  ).toBeNull();
-  for (
-    let ancestor = exposed;
-    ancestor !== null;
-    ancestor = ancestor.parentElement
-  ) {
-    const style = window.getComputedStyle(ancestor);
-    expect(style.display).not.toBe('none');
-    expect(style.visibility).not.toMatch(/^(hidden|collapse)$/u);
-  }
-  const announcement =
-    tier === null ? exposed?.textContent : exposed?.getAttribute('aria-label');
-  expect(announcement?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
-  expect(announcement?.match(/([0-9]+)\s*일/u)?.[1]).toBe('123');
-});
 
 test.each([
   ['김', '김', ''],
@@ -105,6 +78,23 @@ test.each([
   ).not.toBeNull();
 });
 
+test('TOP 10 모자는 각각 고유한 정적 실루엣을 가진다', async () => {
+  await act(async () => {
+    root.render(
+      <>
+        {Array.from({ length: 10 }, (_, index) => (
+          <RankHeadwear key={index} rank={index + 1} />
+        ))}
+      </>,
+    );
+  });
+
+  const kinds = [...container.querySelectorAll('[data-headwear-kind]')].map(
+    (element) => element.getAttribute('data-headwear-kind'),
+  );
+  expect(new Set(kinds).size).toBe(10);
+});
+
 test('reduced motion에서는 효과 버튼이 상호작용 상태를 만들지 않는다', async () => {
   installReducedMotion(true);
   await renderName('leader');
@@ -119,13 +109,61 @@ test('reduced motion에서는 효과 버튼이 상호작용 상태를 만들지 
   expect(container.querySelector('[data-streak-confetti]')).toBeNull();
 });
 
+test('2위부터는 현재 순위가 아니라 TOP 10 유지 기간을 표시한다', async () => {
+  await act(async () => {
+    root.render(
+      <RankingStreakDecoration
+        rank={2}
+        accessibleTierName="남빛 삼봉관"
+        days={100}
+        tenureLabel="TOP 10"
+        tier="celebration"
+        name="second-place"
+        href="https://github.com/second-place"
+        linkAriaLabel="second-place 프로필"
+      />,
+    );
+  });
+
+  const button = container.querySelector('button');
+  expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
+    '100일째',
+  );
+  const name = button?.getAttribute('aria-label');
+  expect(name?.match(/TOP\s*([0-9]+)/iu)?.[1]).toBe('10');
+  expect(name?.match(/([0-9]+)\s*일/u)?.[1]).toBe('100');
+  expect(
+    container.querySelector('[data-streak-accessible-name]')?.textContent,
+  ).toBe('남빛 삼봉관');
+  expect(container.textContent).not.toContain('2위 100일째 유지');
+});
+
 test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용에서 confetti를 만든다', async () => {
   await renderName('leader');
   const link = container.querySelector('a');
   const button = container.querySelector('button');
 
   expect(link?.contains(button)).toBe(false);
-  expect(button?.getAttribute('aria-label')).toBe('임금 장식 효과 재생');
+  expect(button).not.toBeNull();
+  expect(button?.closest('[aria-hidden="true"], [hidden], [inert]')).toBeNull();
+  for (
+    let node: HTMLElement | null = button;
+    node !== null;
+    node = node.parentElement
+  ) {
+    const style = window.getComputedStyle(node);
+    expect(style.display).not.toBe('none');
+    expect(style.visibility).not.toMatch(/^(hidden|collapse)$/u);
+  }
+  const name = button?.getAttribute('aria-label');
+  expect(name?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
+  expect(name?.match(/([0-9]+)\s*일/u)?.[1]).toBe('120');
+  expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
+    '120일째',
+  );
+  expect(
+    container.querySelector('[data-streak-accessible-name]')?.textContent,
+  ).toBe('금빛 날개관');
 
   await act(async () => button?.click());
 

@@ -25,8 +25,32 @@ describe('parseAuditLogPage', () => {
       requestId: null,
       teamMembership: null,
       phoneTransition: null,
+      mailDelivery: null,
     });
   });
+
+  it.each([
+    ['PROGRAM_MAIL_PARTIALLY_FAILED', 1, 1],
+    ['PROGRAM_MAIL_DELIVERY_UNKNOWN', 0, 2],
+  ] as const)(
+    'preserves delivery counts for %s',
+    (action, failedCount, unknownCount) => {
+      const counts = {
+        sentCount: 0,
+        duplicateCount: 0,
+        failedCount,
+        unknownCount,
+      };
+      const page = parseAuditLogPage(
+        pageWith({
+          ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+          action,
+          metadata: { schemaVersion: 1, ...counts },
+        }),
+      );
+      expect(page.items[0]?.mailDelivery).toEqual(counts);
+    },
+  );
 
   it('keeps backend-decided team membership facts as given', () => {
     const page = parseAuditLogPage(

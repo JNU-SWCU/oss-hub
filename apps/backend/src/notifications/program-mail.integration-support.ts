@@ -45,6 +45,7 @@ assertIsolatedIntegrationDatabase({
 
 export const PROGRAM_MAIL_STAFF_FIXTURE = {
   id: 'test:program-mail:staff',
+  nickname: 'program-mail-staff',
   githubId: 9_600_000_000_193_001n,
 } as const;
 
@@ -148,7 +149,7 @@ export async function startProgramMailIntegration(
       ...canonicalUserCreateFromLabel('STAFF', {
         id: PROGRAM_MAIL_STAFF_FIXTURE.id,
         githubId: PROGRAM_MAIL_STAFF_FIXTURE.githubId,
-        nickname: 'program-mail-staff',
+        nickname: PROGRAM_MAIL_STAFF_FIXTURE.nickname,
       }),
       notifyEnabled: false,
       notificationEmail: null,

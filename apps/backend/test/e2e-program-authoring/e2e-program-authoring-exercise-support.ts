@@ -56,7 +56,7 @@ export async function stalePreview(
   await deadlines.sendProgramFromPreview(
     E2E_PROGRAM_ID,
     preview,
-
+    E2E_STAFF_ID,
     new Date(E2E_NOW.getTime() + 10 * 60 * 1000 + 1),
   );
 }
@@ -109,6 +109,7 @@ export async function exerciseSmtpFailure(
   const result = await deadlines.sendProgramFromPreview(
     E2E_PROGRAM_ID,
     preview,
+    E2E_STAFF_ID,
     E2E_NOW,
   );
   if (result.failedCount > 0) throw new E2eAdapterError(409);

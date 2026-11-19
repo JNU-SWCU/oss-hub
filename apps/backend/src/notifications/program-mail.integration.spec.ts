@@ -107,13 +107,20 @@ it('lists all application statuses, sends mail, and records an attributable audi
   const pageSize = 20;
   const unrelatedCount = 24;
   const newerThanOwned = new Date((audit?.occurredAt.getTime() ?? 0) + 1_000);
+  const unrelatedActor = await world.prisma.user.create({
+    data: canonicalUserCreateFromLabel('STAFF', {
+      id: 'test:program-mail:foreign-audit-actor',
+      githubId: 9_600_000_000_193_002n,
+      nickname: 'foreign-audit-actor',
+    }),
+  });
   await world.prisma.userHistory.createMany({
     data: Array.from({ length: unrelatedCount }, (_, index) => {
       const batch = `program-mail-send:foreign-audit:${index}`;
       return {
         id: `user:program-mail-result:${batch}`,
-        userId: PROGRAM_MAIL_STAFF_FIXTURE.id,
-        actorId: PROGRAM_MAIL_STAFF_FIXTURE.id,
+        userId: unrelatedActor.id,
+        actorId: unrelatedActor.id,
         event: 'PROFILE_UPDATED',
         source: 'APPLICATION',
         sourceTable: 'ProgramMail',
@@ -145,18 +152,14 @@ it('lists all application statuses, sends mail, and records an attributable audi
     ),
   ).toBe(true);
 
-  const ownItems = firstPage.items.filter(
-    (item) => item.requestId === idempotencyKey,
-  );
-  const pageLimit = Math.min(10, Math.ceil(firstPage.total / pageSize));
-  for (let page = 2; page <= pageLimit && ownItems.length === 0; page += 1) {
-    const next = await readAudit.list({ ...query, page });
-    ownItems.push(
-      ...next.items.filter((item) => item.requestId === idempotencyKey),
-    );
-  }
-  expect(ownItems).toHaveLength(1);
-  const [own] = ownItems;
+  const ownedPage = await readAudit.list({
+    ...query,
+    page: 1,
+    q: PROGRAM_MAIL_STAFF_FIXTURE.nickname,
+  });
+  expect(ownedPage.total).toBe(1);
+  expect(ownedPage.items).toHaveLength(1);
+  const [own] = ownedPage.items;
   expect(own?.action).toBe('PROGRAM_MAIL_SENT');
   expect(own?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(own?.target.type).toBe('PROGRAM');
