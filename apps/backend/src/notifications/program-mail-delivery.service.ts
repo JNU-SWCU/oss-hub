@@ -28,7 +28,9 @@ export class ProgramMailDeliveryService {
     private readonly worker: Pick<ProgramMailWorkerService, 'process'>,
   ) {}
 
-  async send(input: ProgramMailDelivery): Promise<ProgramMailProcessResult> {
+  async send(
+    input: ProgramMailDelivery,
+  ): Promise<ProgramMailProcessResult & { readonly jobId: string }> {
     const reservation = await this.repository.reserve({
       actorId: input.actorId,
       programId: input.programId,
@@ -43,7 +45,10 @@ export class ProgramMailDeliveryService {
       occurredAt: input.occurredAt,
     });
     return reservation.kind === 'OWNER'
-      ? this.worker.process(reservation.batchKey)
+      ? {
+          ...(await this.worker.process(reservation.batchKey)),
+          jobId: reservation.jobId,
+        }
       : reservation;
   }
 }

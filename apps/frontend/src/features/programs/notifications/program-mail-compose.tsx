@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -188,30 +187,42 @@ export function ProgramMailPreviewView({
 export function ProgramMailResult({
   result,
 }: {
-  readonly result: ProgramMailSendResult;
+  readonly result: Omit<ProgramMailSendResult, 'previewVersion'>;
 }) {
+  if (result.status === 'IN_PROGRESS')
+    return <p role="status">메일 발송을 처리 중입니다.</p>;
+  const outcomes = [
+    ['sentCount', '발송'],
+    ['failedCount', '실패'],
+    ['unknownCount', '확인 불가'],
+    ['duplicateCount', '중복 제외'],
+  ] as const;
   return (
-    <Alert>
-      <AlertTitle>
-        {result.status === 'IN_PROGRESS' ? (
-          '메일 발송을 처리 중입니다.'
-        ) : (
-          <>
-            <data value={result.sentCount}>{result.sentCount}</data>명에게
-            메일을 보냈습니다.
-          </>
-        )}
-      </AlertTitle>
-      {result.status === 'COMPLETED' ? (
-        <AlertDescription>
-          중복 생략 {result.duplicateCount}명 · 발송 실패 {result.failedCount}명
-          · 발송 결과 확인 불가{' '}
-          <data value={result.unknownCount ?? 0}>
-            {result.unknownCount ?? 0}
-          </data>
-          명
-        </AlertDescription>
-      ) : null}
-    </Alert>
+    <div role="status">
+      <dl className="grid grid-cols-2 gap-5 rounded-card border border-border p-5 sm:grid-cols-4">
+        {outcomes.map(([key, label]) => {
+          const count = result[key] ?? 0;
+          return (
+            <div key={key}>
+              <dt className="text-small text-muted-foreground">{label}</dt>
+              <dd
+                className={
+                  count === 0 ? 'text-muted-foreground' : 'font-semibold'
+                }
+              >
+                <data
+                  data-outcome={key}
+                  value={count}
+                  className="whitespace-nowrap text-lg tabular-nums"
+                >
+                  {count}
+                  <span className="text-small">명</span>
+                </data>
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
   );
 }

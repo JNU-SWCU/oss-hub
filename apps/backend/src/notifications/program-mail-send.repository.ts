@@ -7,6 +7,7 @@ import {
   NotificationsErrorCode,
 } from './notifications-error-code.error';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
+import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import {
   PROGRAM_MAIL_PROGRAM_SEND_LIMIT,
@@ -15,7 +16,6 @@ import {
 } from './program-mail.config';
 import {
   type ProgramMailBatchContent,
-  type ProgramMailDeliveryResult,
   type ProgramMailReservation,
 } from './program-mail-send.types';
 
@@ -25,6 +25,7 @@ export class ProgramMailSendRepository {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly audit: ProgramMailAuditRepository,
     private readonly keys: ProgramMailKeyRepository,
+    private readonly payloads: ProgramMailBatchPayloadRepository,
   ) {}
 
   reserve(input: ProgramMailBatchContent): Promise<ProgramMailReservation> {
@@ -33,13 +34,16 @@ export class ProgramMailSendRepository {
       await this.lock(transaction, `batch:${batchKey}`);
       const existing = await transaction.notification.findUnique({
         where: { idempotencyKey: batchKey },
-        select: { status: true, payload: true },
+        select: { id: true, status: true, payload: true },
       });
       if (existing !== null) {
-        const result = this.storedResult(existing.status, existing.payload);
+        const result = this.payloads.storedResult(
+          existing.status,
+          existing.payload,
+        );
         return result === null
-          ? { kind: 'IN_PROGRESS', batchKey }
-          : { kind: 'COMPLETED', batchKey, result };
+          ? { kind: 'IN_PROGRESS', batchKey, jobId: existing.id }
+          : { kind: 'COMPLETED', batchKey, jobId: existing.id, result };
       }
 
       await this.lock(transaction, `actor:${input.actorId}`);
@@ -68,7 +72,8 @@ export class ProgramMailSendRepository {
         this.fail(NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED);
       }
 
-      await transaction.notification.create({
+      const batch = await transaction.notification.create({
+        select: { id: true },
         data: {
           userId: input.actorId,
           idempotencyKey: batchKey,
@@ -100,7 +105,7 @@ export class ProgramMailSendRepository {
         })),
       });
       await this.audit.recordAttempt({ input, batchKey }, transaction);
-      return { kind: 'OWNER', batchKey };
+      return { kind: 'OWNER', batchKey, jobId: batch.id };
     });
   }
 
@@ -131,39 +136,6 @@ export class ProgramMailSendRepository {
       SELECT pg_advisory_xact_lock(hashtextextended(${`program-mail:${key}`}, 0))
       LIMIT 1
     `;
-  }
-
-  private storedResult(
-    status: string,
-    payload: Prisma.JsonValue,
-  ): ProgramMailDeliveryResult | null {
-    if (
-      status !== 'COMPLETED' ||
-      payload === null ||
-      typeof payload !== 'object' ||
-      Array.isArray(payload) ||
-      !('result' in payload)
-    ) {
-      return null;
-    }
-    const result = payload.result;
-    if (
-      result === null ||
-      typeof result !== 'object' ||
-      Array.isArray(result) ||
-      typeof result.sentCount !== 'number' ||
-      typeof result.duplicateCount !== 'number' ||
-      typeof result.failedCount !== 'number'
-    ) {
-      return null;
-    }
-    return {
-      sentCount: result.sentCount,
-      duplicateCount: result.duplicateCount,
-      failedCount: result.failedCount,
-      unknownCount:
-        typeof result.unknownCount === 'number' ? result.unknownCount : 0,
-    };
   }
 
   private fail(code: NotificationsErrorCode): never {

@@ -175,6 +175,20 @@
     "error": "MSD_001"
   },
   {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/mail/jobs",
+    "roles": ["STAFF"],
+    "status": 403,
+    "error": "NOT_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/mail/jobs/:jobId",
+    "roles": ["STAFF"],
+    "status": 403,
+    "error": "NOT_001"
+  },
+  {
     "method": "POST",
     "path": "/api/v1/programs/:programId/mail/preview",
     "roles": ["STAFF"],

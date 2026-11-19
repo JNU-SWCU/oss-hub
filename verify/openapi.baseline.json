@@ -4593,6 +4593,100 @@
         ]
       }
     },
+    "/api/v1/programs/{programId}/mail/jobs": {
+      "get": {
+        "operationId": "ProgramMailController_recent",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/mail/jobs/{jobId}": {
+      "get": {
+        "operationId": "ProgramMailController_status",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
     "/api/v1/programs/{programId}/mail/recipients": {
       "get": {
         "operationId": "ProgramMailController_recipients",
@@ -11637,6 +11731,77 @@
           "failedCount"
         ]
       },
+      "ProgramMailReceiptResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "acceptedAt"
+        ]
+      },
+      "ProgramMailJobListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramMailReceiptResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ProgramMailJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "QUEUED",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "sentCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "number"
+          },
+          "unknownCount": {
+            "type": "number"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "jobId",
+          "acceptedAt"
+        ]
+      },
       "ProgramMailApplicantResponseDto": {
         "type": "object",
         "properties": {
@@ -11853,6 +12018,9 @@
       "ProgramMailSendResponseDto": {
         "type": "object",
         "properties": {
+          "jobId": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [

@@ -5,11 +5,15 @@ import { renderWithQuery } from '../../../../test-support/render-with-query';
 const getProgramMailRecipientsMock = vi.hoisted(() => vi.fn());
 const previewProgramMailMock = vi.hoisted(() => vi.fn());
 const sendProgramMailMock = vi.hoisted(() => vi.fn());
+const getMailJob = vi.hoisted(() => vi.fn());
+const getMailJobs = vi.hoisted(() => vi.fn());
 
 vi.mock('./program-mail-api', () => ({
   getProgramMailRecipients: getProgramMailRecipientsMock,
   previewProgramMail: previewProgramMailMock,
   sendProgramMail: sendProgramMailMock,
+  getMailJob,
+  getMailJobs,
 }));
 
 import { ProgramMailDialog } from './program-mail-dialog';
@@ -57,6 +61,14 @@ function queryButton(name: string) {
   );
 }
 
+function receiptCounts() {
+  return Object.fromEntries(
+    [...document.querySelectorAll<HTMLDataElement>('data[data-outcome]')].map(
+      (item) => [item.dataset.outcome ?? '', Number(item.value)] as const,
+    ),
+  );
+}
+
 function button(name: string): HTMLButtonElement {
   const found = queryButton(name);
   if (found === undefined) throw new TypeError(`Missing button: ${name}`);
@@ -84,8 +96,18 @@ describe('ProgramMailDialog', () => {
   let trigger: HTMLButtonElement | undefined;
 
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.useFakeTimers({
+      toFake: [
+        'Date',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+      ],
+    });
     vi.setSystemTime(new Date(preview.previewedAt));
+    getMailJob.mockReset();
+    getMailJobs.mockReset();
     getProgramMailRecipientsMock.mockReset().mockResolvedValue(recipients);
     previewProgramMailMock.mockReset().mockResolvedValue(preview);
     sendProgramMailMock.mockReset().mockResolvedValue({
@@ -160,18 +182,12 @@ describe('ProgramMailDialog', () => {
 
     expect(sendProgramMailMock).toHaveBeenCalledWith('program-1', preview);
     expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
-    const result = document.body.querySelector('[role="alert"]');
-    expect(
-      result?.querySelector<HTMLDataElement>('[data-slot="alert-title"] data')
-        ?.value,
-    ).toBe('1');
-    const description = result?.querySelector(
-      '[data-slot="alert-description"]',
-    );
-    expect(description?.textContent?.match(/\d+/g)).toEqual(['0', '0', '2']);
-    expect(description?.querySelector<HTMLDataElement>('data')?.value).toBe(
-      '2',
-    );
+    expect(receiptCounts()).toEqual({
+      sentCount: 1,
+      failedCount: 0,
+      unknownCount: 2,
+      duplicateCount: 0,
+    });
     expect(button('닫기').disabled).toBe(false);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });
@@ -205,4 +221,60 @@ describe('ProgramMailDialog', () => {
       );
     },
   );
+
+  it('follows the accepted ID, stops at terminal, and reopens it from server history without another POST', async () => {
+    const receipt = { jobId: 'opaque-1', acceptedAt: preview.previewedAt };
+    const completed = {
+      ...receipt,
+      status: 'COMPLETED',
+      sentCount: 3,
+      failedCount: 1,
+      duplicateCount: 0,
+      unknownCount: 2,
+      finishedAt: preview.previewedAt,
+    };
+    sendProgramMailMock.mockResolvedValueOnce({
+      ...receipt,
+      status: 'IN_PROGRESS',
+    });
+    getMailJob
+      .mockResolvedValueOnce({ ...receipt, status: 'IN_PROGRESS' })
+      .mockResolvedValue(completed);
+    getMailJobs.mockResolvedValue({ items: [receipt] });
+    await openPreview();
+    await act(async () => button('보내기').click());
+    expect(getMailJob).toHaveBeenCalledExactlyOnceWith(
+      'program-1',
+      receipt.jobId,
+      expect.any(AbortSignal),
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    const counts = {
+      sentCount: 3,
+      failedCount: 1,
+      unknownCount: 2,
+      duplicateCount: 0,
+    };
+    expect(receiptCounts()).toEqual(counts);
+    await act(async () => vi.advanceTimersByTimeAsync(20000));
+    expect(getMailJob).toHaveBeenCalledTimes(2);
+    await mounted?.unmount();
+    mounted = await renderWithQuery(
+      <ProgramMailDialog
+        programId="program-1"
+        open
+        returnFocusRef={{ current: null }}
+        onClose={() => undefined}
+      />,
+    );
+    await act(async () => button('발송 기록').click());
+    const entry = document.querySelector<HTMLButtonElement>(
+      `button[value="${receipt.jobId}"]`,
+    );
+    expect(entry).not.toBeNull();
+    await act(async () => entry?.click());
+    expect(getMailJob).toHaveBeenCalledTimes(3);
+    expect(receiptCounts()).toEqual(counts);
+    expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
+  });
 });

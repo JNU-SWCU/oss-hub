@@ -11,12 +11,18 @@ export enum NotificationsErrorCode {
   PROGRAM_MAIL_CONTENT_INVALID = 'NOT_008',
   PROGRAM_MAIL_RATE_LIMITED = 'NOT_009',
   PROGRAM_MAIL_RECIPIENT_LIMIT = 'NOT_010',
+  MAIL_JOB_NOT_FOUND = 'NOT_011',
 }
 
 export const NOTIFICATIONS_ERROR_CODES: Record<
   NotificationsErrorCode,
   ErrorCode
 > = {
+  [NotificationsErrorCode.MAIL_JOB_NOT_FOUND]: {
+    code: NotificationsErrorCode.MAIL_JOB_NOT_FOUND,
+    status: 404,
+    message: '메일 발송 기록을 찾을 수 없습니다.',
+  },
   [NotificationsErrorCode.STAFF_ONLY]: {
     code: NotificationsErrorCode.STAFF_ONLY,
     status: 403,

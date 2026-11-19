@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
+import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { PROGRAM_MAIL_LEASE_MS } from './program-mail.config';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailSendRepository } from './program-mail-send.repository';
@@ -16,8 +17,36 @@ export function registerProgramMailLeaseFencingCases(
   it('fences expired workers from recipient results and batch completion', async () => {
     const world = currentWorld();
     const runtime = world.createRuntime(world.mailSender);
-    const content = await batchContent(world, 'fence-result');
+    const base = await batchContent(world, 'fence-result');
+    const content = {
+      ...base,
+      recipients: [
+        ...base.recipients,
+        {
+          id: DIGEST_FIXTURE.staffOn,
+          displayName: 'fixture',
+          notificationEmail: 'second@example.test',
+        },
+      ],
+    };
     const reservation = await reserve(world, content);
+    const headers = {
+      cookie: await world.sessionCookie(PROGRAM_MAIL_STAFF_FIXTURE.githubId),
+    };
+    const status = async (): Promise<unknown> =>
+      (
+        await fetch(world.endpoint(`jobs/${reservation.jobId}`), { headers })
+      ).json();
+    const { createdAt } = await world.prisma.notification.findUniqueOrThrow({
+      where: { id: reservation.jobId },
+      select: { createdAt: true },
+    });
+    const acceptedAt = createdAt.toISOString();
+    expect(await status()).toEqual({
+      jobId: reservation.jobId,
+      acceptedAt,
+      status: 'QUEUED',
+    });
     if (reservation.kind !== 'OWNER') throw new Error('Expected batch owner');
     const oldWork = await runtime.batches.claim(
       reservation.batchKey,
@@ -25,8 +54,24 @@ export function registerProgramMailLeaseFencingCases(
       DIGEST_FIXTURE.now,
     );
     if ('kind' in oldWork) throw new Error('Expected old worker claim');
-    const [recipient] = await runtime.deliveries.states(oldWork);
-    if (recipient === undefined) throw new Error('Missing recipient state');
+    expect(await status()).toEqual({
+      jobId: reservation.jobId,
+      acceptedAt,
+      status: 'IN_PROGRESS',
+    });
+    const [recipient, other] = await runtime.deliveries.states(oldWork);
+    if (!recipient || !other) throw new Error('Missing recipient state');
+    expect(
+      await runtime.deliveries.claim(oldWork, other, DIGEST_FIXTURE.now),
+    ).toBe(true);
+    expect(
+      await runtime.deliveries.complete({
+        work: oldWork,
+        state: other,
+        status: 'SENT',
+        now: DIGEST_FIXTURE.now,
+      }),
+    ).toBe(true);
     expect(
       await runtime.deliveries.claim(oldWork, recipient, DIGEST_FIXTURE.now),
     ).toBe(true);
@@ -54,7 +99,7 @@ export function registerProgramMailLeaseFencingCases(
     ).toBe(true);
     const result = await runtime.deliveries.result(newWork);
     expect(result).toEqual({
-      sentCount: 0,
+      sentCount: 1,
       duplicateCount: 0,
       failedCount: 0,
       unknownCount: 1,
@@ -69,6 +114,13 @@ export function registerProgramMailLeaseFencingCases(
     await expect(
       runtime.batches.complete(newWork, result, expiredAt),
     ).resolves.toMatchObject({ kind: 'COMPLETED', result });
+    expect(await status()).toEqual({
+      jobId: reservation.jobId,
+      acceptedAt,
+      finishedAt: expiredAt.toISOString(),
+      status: 'COMPLETED',
+      ...result,
+    });
     const audit = await world.prisma.userHistory.findUniqueOrThrow({
       where: {
         id: `user:program-mail-result:${reservation.batchKey}`,
@@ -189,6 +241,7 @@ async function reserve(
     world.prisma,
     new ProgramMailAuditRepository(),
     new ProgramMailKeyRepository(),
+    new ProgramMailBatchPayloadRepository(),
   ).reserve(content);
 }
 
