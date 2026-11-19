@@ -9,16 +9,18 @@ import { ZERO, eventFile, tempRepo } from './test-support.mjs';
 import { classifyFiles, resolveRanges, resolveScope } from './scope.mjs';
 import { VerifyError, run } from './tools.mjs';
 
-test('classifyFiles applies the D1 scope table', () => {
-  assert.deepEqual(classifyFiles(['apps/frontend/src/app/page.tsx']), {
-    frontend: true,
-    backend: false,
-    queryGates: false,
-    both: false,
-    securityAlways: true,
-  });
-  assert.equal(classifyFiles(['apps/backend/src/main.ts']).backend, true);
-  assert.equal(classifyFiles(['apps/backend/src/main.ts']).frontend, false);
+test('classifyFiles is the shared CI and pre-push scope policy', () => {
+  const frontend = classifyFiles(['apps/frontend/src/app/page.tsx']);
+  assert.equal(frontend.frontend, true);
+  assert.equal(frontend.backend, true);
+  assert.equal(frontend.rails, true);
+
+  const backend = classifyFiles(['apps/backend/src/main.ts']);
+  assert.equal(backend.frontend, false);
+  assert.equal(backend.backend, true);
+  assert.equal(backend.queryGates, true);
+  assert.equal(backend.rails, true);
+
   for (const file of [
     'verify/api.mjs',
     '.githooks/pre-push',
@@ -29,15 +31,39 @@ test('classifyFiles applies the D1 scope table', () => {
   ]) {
     const scope = classifyFiles([file]);
     assert.equal(scope.both && scope.frontend && scope.backend, true, file);
+    assert.equal(scope.api && scope.queryGates, true, file);
+  }
+  for (const file of [
+    'pnpm-workspace.yaml',
+    'eslint.shared.mjs',
+    'knip.json',
+  ]) {
+    const scope = classifyFiles([file]);
+    assert.equal(scope.frontend && scope.backend, true, file);
+    assert.equal(scope.api, false, file);
+    assert.equal(scope.queryGates, true, file);
   }
   const docs = classifyFiles(['docs/readme.md', 'apps/frontend-old/x.ts']);
-  assert.deepEqual(docs, {
-    frontend: false,
-    backend: false,
-    queryGates: false,
-    both: false,
-    securityAlways: true,
-  });
+  assert.equal(docs.frontend, false);
+  assert.equal(docs.backend, false);
+  assert.equal(docs.queryGates, false);
+  assert.equal(docs.securityAlways, true);
+});
+
+test('classifyFiles owns the supporting CI lanes too', () => {
+  assert.equal(classifyFiles(['deploy/nginx/nginx.conf']).nginx, true);
+  assert.equal(classifyFiles(['deploy/jenkins/release.mjs']).jenkins, true);
+  assert.equal(classifyFiles(['deploy/checks/check.sh']).shellScripts, true);
+  assert.equal(classifyFiles(['deploy/frontend/check.mjs']).nodeScripts, true);
+  const workflow = classifyFiles(['.github/workflows/ci.yml']);
+  assert.equal(
+    workflow.nginx &&
+      workflow.jenkins &&
+      workflow.shellScripts &&
+      workflow.nodeScripts &&
+      workflow.rails,
+    true,
+  );
 });
 
 function branchedRepo(t) {
@@ -268,7 +294,6 @@ async function prePush(t, repo, remote, stdin) {
     const exit = await main(['scoped', '--pre-push', 'origin', remote], {
       cwd: repo.dir,
       stdin,
-      reportDir: mkdtempSync(join(tmpdir(), 'verify-test-reports-')),
       env: {},
     });
     return { exit, out: lines.join('\n') };
@@ -397,9 +422,9 @@ test(
       `import { main } from ${index};`,
       `import { run } from ${tools};`,
       "const reached = (name, file) => async () => { writeFileSync(file, ''); return []; };",
-      `process.exitCode = await main(['full'], { cwd: ${JSON.stringify(repo.dir)}, env: {}, reportDir: ${at('reports')}, checks: {`,
+      `process.exitCode = await main(['full'], { cwd: ${JSON.stringify(repo.dir)}, env: {}, checks: {`,
       `  secrets: async () => { try { await run('bash', ['-c', ${JSON.stringify(TRAPPED)}, 'bash', ${at('cleaned')}, ${at('ready')}, ${JSON.stringify(process.execPath)}], { timeoutMs: 60000 }); } finally { writeFileSync(${at('caller-cleaned')}, ''); } return []; },`,
-      `  'url-ia': reached('url-ia', ${at('later-check')}), api: reached('api', ${at('later-check')}), 'query-gates': reached('query-gates', ${at('later-check')}), cwv: reached('cwv', ${at('later-check')}),`,
+      `  api: reached('api', ${at('later-check')}), 'query-gates': reached('query-gates', ${at('later-check')}), cwv: reached('cwv', ${at('later-check')}),`,
       '} });',
     ].join('\n');
     const child = spawn(
