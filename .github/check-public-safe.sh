@@ -26,15 +26,22 @@ TEXT_ONLY=0
 if [ "${1:-}" = "--event" ]; then
   shift
   case "${GITHUB_EVENT_NAME:-}" in
-    pull_request) ;;
-    issues | issue_comment) TEXT_ONLY=1 ;;
+    pull_request) event_fields='[.pull_request.title, .pull_request.body]' ;;
+    issues | issue_comment)
+      TEXT_ONLY=1
+      event_fields='[.issue.title, .issue.body, .comment.body]'
+      ;;
     *) echo "::error::public-safe 지원하지 않는 이벤트입니다." >&2; exit 2 ;;
   esac
   # Read at runtime: Actions prints step env values before scanners can redact them.
-  if ! PR_TEXT="$(jq -er '[.pull_request.title // "", .pull_request.body // ""] | join("\n")' "${GITHUB_EVENT_PATH:-}" 2>/dev/null)" \
-    || ! ISSUE_TEXT="$(jq -er '[.issue.title // "", .issue.body // "", .comment.body // ""] | join("\n")' "${GITHUB_EVENT_PATH:-}" 2>/dev/null)"; then
+  if ! event_text="$(jq -er "$event_fields"' | map(. // "") | join("\n")' "${GITHUB_EVENT_PATH:-}" 2>/dev/null)"; then
     echo "::error::public-safe 이벤트 파일을 읽을 수 없습니다." >&2
     exit 2
+  fi
+  if [ "$TEXT_ONLY" -eq 0 ]; then
+    PR_TEXT="$event_text" ISSUE_TEXT=''
+  else
+    PR_TEXT='' ISSUE_TEXT="$event_text"
   fi
 fi
 if [ "${1:-}" = "--text-only" ]; then
@@ -135,7 +142,7 @@ scan_email() {
 }
 
 scan_text() {
-  local src="$1" scan_credentials="${2:-1}" text entry label re hits name name_hits status=0
+  local src="$1" scan_credentials="${2:-1}" text entry label re hits name status=0
   text="$(cat)" || return 2
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
@@ -151,16 +158,19 @@ scan_text() {
 
   # Caller-supplied only: the public PR and issue workflows do not receive this list.
   if [ -n "${BLOCKED_NAMES:-}" ]; then
-    local names
+    local names name_patterns=()
     IFS=, read -r -d '' -a names < <(printf '%s\0' "$BLOCKED_NAMES")
     for name in "${names[@]}"; do
       name="$(printf '%s' "$name" | sed 's/^ *//;s/ *$//')"
       [ -z "$name" ] && continue
-      name_hits="$(printf '%s\n' "$text" | run_grep -Fn -- "$name")" || return 2
-      if [ -n "$name_hits" ]; then
-        report "실명 @ $src" "$(line_evidence "$name_hits")"
-      fi
+      name_patterns+=(-e "$name")
     done
+    if [ "${#name_patterns[@]}" -gt 0 ]; then
+      hits="$(printf '%s\n' "$text" | run_grep -Fn "${name_patterns[@]}")" || return 2
+      if [ -n "$hits" ]; then
+        report "실명 @ $src" "$(line_evidence "$hits")"
+      fi
+    fi
   fi
   # File credentials are already covered by the caller's gitleaks git scan.
   [ "$scan_credentials" -eq 0 ] && return 0
@@ -199,21 +209,23 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     if is_forbidden_file "$f"; then
       bad_files+=("$file_id")
     fi
-    if ! file_text="$(git show "HEAD:$f" 2>/dev/null)"; then
+    if ! file_text="$(
+      git show "HEAD:$f" 2>/dev/null |
+        case "$f" in
+          *.webp | *.ico)
+            # A NUL marks a binary image. Drain the pipe so Git can finish.
+            if LC_ALL=C IFS= read -r -d '' image_text; then
+              cat >/dev/null
+            else
+              printf '%s' "$image_text"
+            fi
+            ;;
+          *) LC_ALL=C tr -d '\000' ;;
+        esac
+    )"; then
       echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
       exit 2
     fi
-    case "$f" in
-      *.webp | *.ico)
-        if ! nul_bytes="$(set -o pipefail; git show "HEAD:$f" 2>/dev/null | LC_ALL=C tr -dc '\0' | wc -c)"; then
-          echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
-          exit 2
-        fi
-        if [ "${nul_bytes//[[:space:]]/}" != 0 ]; then
-          continue
-        fi
-        ;;
-    esac
     scan_text "파일 $file_id" 0 <<<"$file_text"
   done <"$changed_file_list"
 

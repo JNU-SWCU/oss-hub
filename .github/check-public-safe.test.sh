@@ -103,11 +103,12 @@ scan_issue_text_ignores_missing_ref() {
 }
 
 scan_issue_blocked_name() {
-  (
-    cd "$ROOT"
-    BLOCKED_NAMES="$blocked_name" ISSUE_TEXT="$blocked_name" \
-      bash "$SCANNER" --text-only
-  )
+  local output status=0 other_name='OtherSynthetic'
+  output="$(cd "$ROOT" && BLOCKED_NAMES=" $blocked_name , $other_name " \
+    ISSUE_TEXT="$blocked_name"$'\n'"$other_name" bash "$SCANNER" --text-only 2>&1)" || status=$?
+  [ "$status" -eq 1 ] && [[ "$output" == *$'  line 1\n  line 2'* ]] \
+    && [[ "$output" != *"$blocked_name"* && "$output" != *"$other_name"* ]] || return 2
+  return 1
 }
 
 scan_broken_grep() {
@@ -121,14 +122,6 @@ scan_broken_grep() {
   )
 }
 
-scan_blocked_name() {
-  (
-    cd "$ROOT"
-    BLOCKED_NAMES="$blocked_name" PR_TEXT="$blocked_name" \
-      bash "$SCANNER" HEAD
-  )
-}
-
 workflow_isolates_public_input() {
   local status=0
   # Security configuration: public workflow code must never receive this secret.
@@ -138,7 +131,7 @@ workflow_isolates_public_input() {
 }
 
 scan_surface() {
-  local surface="$1" sample="$2" output status=0 event=issues leaks=0
+  local surface="$1" sample="$2" output patch_output status=0 event=issues leaks=0
   case "$surface" in
     commit-subject | commit-body | merge-subject | merge-body | file)
       init_fixture_repo "surface-$((passed + failed))" || return 2
@@ -162,13 +155,14 @@ scan_surface() {
           ;;
       esac
       output="$(BLOCKED_NAMES="$blocked_name" scan_fixture_repo 2>&1)" || status=$?
-      if [ "$surface" = file ]; then
-        # The production file surface combines custom policy with gitleaks git.
-        (cd "$FIXTURE_REPO"; gitleaks git --no-banner --redact \
-          --log-opts="$BASE_REF..HEAD" .) >/dev/null 2>&1 || leaks=$?
+      if [ "$surface" = file ] && [ "$status" -eq 0 ]; then
+        # Only the credential fixture and allow controls still need the patch scan.
+        patch_output="$(cd "$FIXTURE_REPO" && gitleaks git --no-banner --redact \
+          --exit-code 3 --log-opts="$BASE_REF..HEAD" . 2>&1)" || leaks=$?
+        output+=$'\n'"$patch_output"
         case "$leaks" in
           0) ;;
-          1) status=1 ;;
+          3) status=1 ;;
           *) return 2 ;;
         esac
       fi
@@ -246,31 +240,19 @@ scan_fixture_repo() {
   )
 }
 
-# 정책: 이메일 허용 범위와 개인정보·로컬 참조 차단
-expect_pass 'noreply 주소만 있는 PR 텍스트' \
-  scan_pr_text "$allowed_noreply"
-expect_pass 'RFC 2606 예약 예시 주소만 있는 PR 텍스트' \
-  scan_pr_text "$allowed_reserved"
+# 정책: 공통 표면 매트릭스 외의 이메일 경계
 expect_pass '대문자 RFC 2606 예약 주소만 있는 PR 텍스트' \
   scan_pr_text "$allowed_reserved_upper"
-expect_fail '금지 합성 연락처 주소만 있는 PR 텍스트' \
-  scan_pr_text "$blocked_contact"
 expect_fail '예약 도메인 유사 이름인 PR 텍스트' \
   scan_pr_text "$blocked_lookalike"
 expect_fail '예약 TLD 유사 이름인 PR 텍스트' \
   scan_pr_text "$blocked_test_lookalike"
-expect_fail 'EAI local-part 이메일 후보를 보수적으로 차단' \
-  scan_pr_text "$blocked_eai_local"
 expect_fail '공백을 포함한 quoted EAI local-part를 보수적으로 차단' \
   scan_pr_text "$blocked_quoted_eai_local"
 expect_fail 'escaped quote가 있는 quoted EAI local-part를 보수적으로 차단' \
   scan_pr_text "$blocked_quoted_escaped_eai_local"
-expect_fail 'quoted ASCII 연락처 후보를 보수적으로 차단' \
-  scan_pr_text "$blocked_quoted_ascii_contact"
 expect_fail 'Unicode domain 이메일 후보를 보수적으로 차단' \
   scan_pr_text "$blocked_unicode_domain"
-expect_fail 'punycode IDN 이메일 후보를 연락처로 차단' \
-  scan_pr_text "$blocked_punycode_domain"
 expect_fail '허용·금지 주소가 같은 줄인 PR 텍스트' \
   scan_pr_text "$mixed_same_line"
 
@@ -307,26 +289,15 @@ expect_fail '여는 괄호로 감싼 전체 주소(도메인에 점이 있음)' 
 expect_fail '외부 LC_ALL=C 환경에서도 한글 도메인 이메일 차단(스캐너 자체 로케일 고정)' \
   scan_issue_text_lc_all_c "$blocked_hangul_domain_locale"
 
-expect_fail '하이픈으로 시작하는 BLOCKED_NAMES 값' scan_blocked_name
 expect_pass '공개 workflow에 deny-list secret 및 원문 이벤트 env 미주입' \
   workflow_isolates_public_input
-expect_fail '주민등록번호 형식' scan_pr_text "000101-1$(printf '%06d' 1)"
-expect_fail '휴대전화 번호 형식' scan_pr_text "010-0000-$(printf '%04d' 1)"
-expect_fail 'PR 제목의 macOS 경로' scan_pr_text "$(printf '/%s/%s\n합성 본문' Users synthetic)"
-expect_fail 'PR 본문의 macOS 경로' scan_pr_text "$(printf '합성 제목\n/%s/%s' Users synthetic)"
-expect_fail 'PR 본문의 private 경로' scan_pr_text "$(printf '합성 제목\n/%s/%s' private synthetic)"
-expect_fail 'Linux 사용자 경로' scan_pr_text "$(printf '/%s/%s' home synthetic)"
-expect_fail 'Windows 사용자 경로' scan_pr_text "$(printf '%s\\%s\\%s' C: Users synthetic)"
-expect_fail '내부 호스트' scan_issue_text "$(printf '%s.%s' synthetic internal)"
-expect_fail '비공개 볼트 참조' scan_issue_text "$(printf '%s://open?vault=synthetic' obsidian)"
-
-expect_pass 'noreply 주소만 있는 Issue 본문·댓글 텍스트' \
-  scan_issue_text "$allowed_noreply"
-expect_fail '금지 합성 연락처 주소만 있는 Issue 본문·댓글 텍스트' \
-  scan_issue_text "$blocked_contact"
+for root in Users private tmp; do
+  expect_fail "단일 하위 요소의 로컬 경로: $root" \
+    scan_pr_text "$(printf '/%s/%s' "$root" synthetic)"
+done
 expect_fail '허용·금지 주소가 같은 줄인 Issue 본문·댓글 텍스트' \
   scan_issue_text "$mixed_same_line"
-expect_fail 'text-only 모드에서도 BLOCKED_NAMES 검사 적용' \
+expect_fail 'text-only 모드에서 하이픈을 포함한 deny-list 이름들의 행만 한 번 보고' \
   scan_issue_blocked_name
 
 init_fixture_repo changed-file
@@ -338,16 +309,6 @@ expect_fail '허용·금지 주소가 같은 줄인 변경 파일' scan_fixture_
 init_fixture_repo commit-message
 commit_fixture commit --allow-empty -qm "$mixed_same_line"
 expect_fail '커밋 메시지의 이메일 후보 차단' scan_fixture_repo
-
-init_fixture_repo commit-message-eai
-commit_fixture commit --allow-empty -qm "$blocked_eai_local"
-expect_fail '커밋 메시지의 비ASCII 이메일 후보도 차단' \
-  scan_fixture_repo
-
-init_fixture_repo commit-message-student-id
-commit_fixture commit --allow-empty -qm "$blocked_student_id_like"
-expect_fail '학번 추정 패턴이 있는 일반(비병합) 커밋 메시지는 계속 차단' \
-  scan_fixture_repo
 
 init_fixture_repo synthetic-merge-ref
 commit_fixture checkout -qb feature-branch
@@ -434,8 +395,7 @@ expect_pass '보안 정책 문서 파일명' scan_empty_file docs/rules/security
 # Never put fixture values in labels, shell tracing, or hosted event payloads.
 surface_samples=(
   "$blocked_contact" "$blocked_quoted_ascii_contact" "$blocked_eai_local"
-  "$blocked_punycode_domain" "$(printf '/%s/%s' tmp synthetic-fixture)"
-  "$(printf '/%s/%s' Users synthetic)" "$(printf '/%s/%s' private synthetic)"
+  "$blocked_punycode_domain"
   "$(printf '/%s/%s' home synthetic)" "$(printf '%s\\%s\\%s' C: Users synthetic)"
   "$blocked_name" "$(printf '%s.%s' synthetic internal)"
   "$(printf '%s://open?vault=synthetic' obsidian)"

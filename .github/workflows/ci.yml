@@ -213,10 +213,11 @@ jobs:
           node verify/index.mjs scope > "$RUNNER_TEMP/verify-scope.json"
           jq -r '"frontend=\(.frontend)", "backend=\(.backend)"' "$RUNNER_TEMP/verify-scope.json" >> "$GITHUB_OUTPUT"
 
-      - name: gitleaks 설치
+      - &install-gitleaks
+        name: gitleaks 설치
         run: |
           set -euo pipefail
-          curl -sSL -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/bin" gitleaks
@@ -278,7 +279,12 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Conventional Commits 검사
-        run: pnpm exec commitlint --config commitlint.config.cjs --from "origin/${GITHUB_BASE_REF}" --to HEAD --verbose
+        run: |
+          pnpm exec commitlint --config commitlint.config.cjs --from "origin/${GITHUB_BASE_REF}" --to HEAD &>/dev/null || {
+            status=$?
+            echo "::error::Conventional Commits 검사에 실패했습니다. 커밋 메시지를 로컬에서 확인하세요." >&2
+            exit "$status"
+          }
 
   public-safe:
     name: public-safe
@@ -290,21 +296,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - &install-gitleaks
-        name: gitleaks 설치
-        run: |
-          cd "$RUNNER_TEMP"
-          curl -fsSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
-          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
-          tar -xzf gitleaks.tar.gz gitleaks
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - *install-gitleaks
 
       - name: public-safe 회귀 테스트
         run: bash .github/check-public-safe.test.sh
 
       - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
         run: |
-          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="origin/${GITHUB_BASE_REF}..HEAD" .
+          "$RUNNER_TEMP/bin/gitleaks" git --no-banner --redact --log-opts="origin/${GITHUB_BASE_REF}..HEAD" .
 
       - name: public-safe 스캔 (PR 이벤트 파일)
         if: ${{ !cancelled() }}
