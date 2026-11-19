@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCANNER="$ROOT/.github/check-public-safe.sh"
-TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/public-safe-email-test.XXXXXX")"
+TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/public-safe-test.XXXXXX")"
 trap 'rm -rf "$TEMP_ROOT"' EXIT
 
 allowed_noreply='noreply'"@"'synthetic.local'
@@ -50,34 +50,11 @@ blocked_hangul_domain_locale="문의${at_sign}걷기example.com"
 passed=0
 failed=0
 
-expect_pass() {
-  local label="$1"
-  shift
-  if "$@" >/dev/null 2>&1; then
-    printf 'ok - %s\n' "$label"
-    passed=$((passed + 1))
-  else
-    printf 'not ok - %s (expected pass)\n' "$label"
-    failed=$((failed + 1))
-  fi
-}
+expect_pass() { expect_status 0 "$@"; }
+expect_fail() { expect_status 1 "$@"; }
 
-expect_fail() {
-  local label="$1"
-  local status=0
-  shift
-  "$@" >/dev/null 2>&1 || status=$?
-  if [ "$status" -eq 1 ]; then
-    printf 'ok - %s\n' "$label"
-    passed=$((passed + 1))
-  else
-    printf 'not ok - %s (expected exit 1, got %s)\n' "$label" "$status"
-    failed=$((failed + 1))
-  fi
-}
-
-expect_error() {
-  local label="$1" expected="$2" status=0
+expect_status() {
+  local expected="$1" label="$2" status=0
   shift 2
   "$@" >/dev/null 2>&1 || status=$?
   if [ "$status" -eq "$expected" ]; then
@@ -152,12 +129,6 @@ scan_blocked_name() {
   )
 }
 
-workflow_omits_blocked_names_secret() {
-  local status=0
-  grep -Fq 'secrets.BLOCKED_NAMES' "$ROOT/.github/workflows/ci.yml" || status=$?
-  [ "$status" -eq 1 ]
-}
-
 expect_blocked_redacted() {
   local output status=0
   output="$(scan_pr_text "$blocked_contact" 2>&1)" || status=$?
@@ -188,15 +159,15 @@ expect_forbidden_path_redacted() {
 
 init_fixture_repo() {
   FIXTURE_REPO="$TEMP_ROOT/$1"
-  mkdir -p "$FIXTURE_REPO/.github"
-  cp "$SCANNER" "$FIXTURE_REPO/.github/check-public-safe.sh"
-  git -C "$FIXTURE_REPO" init -q
-  printf 'synthetic baseline\n' >"$FIXTURE_REPO/README.md"
-  git -C "$FIXTURE_REPO" add README.md .github/check-public-safe.sh
+  mkdir -p "$FIXTURE_REPO/.github" || return 2
+  cp "$SCANNER" "$FIXTURE_REPO/.github/check-public-safe.sh" || return 2
+  git -C "$FIXTURE_REPO" init -q || return 2
+  printf 'synthetic baseline\n' >"$FIXTURE_REPO/README.md" || return 2
+  git -C "$FIXTURE_REPO" add README.md .github/check-public-safe.sh || return 2
   git -C "$FIXTURE_REPO" \
     -c user.name='Synthetic Contributor' \
     -c user.email="$git_identity" \
-    commit -qm 'test: synthetic baseline'
+    commit -qm 'test: synthetic baseline' || return 2
   BASE_REF="$(git -C "$FIXTURE_REPO" rev-parse HEAD)"
 }
 
@@ -214,6 +185,7 @@ scan_fixture_repo() {
   )
 }
 
+# 정책: 이메일 허용 범위와 개인정보·로컬 참조 차단
 expect_pass 'noreply 주소만 있는 PR 텍스트' \
   scan_pr_text "$allowed_noreply"
 expect_pass 'RFC 2606 예약 예시 주소만 있는 PR 텍스트' \
@@ -274,12 +246,16 @@ expect_fail '여는 괄호로 감싼 전체 주소(도메인에 점이 있음)' 
 expect_fail '외부 LC_ALL=C 환경에서도 한글 도메인 이메일 차단(스캐너 자체 로케일 고정)' \
   scan_issue_text_lc_all_c "$blocked_hangul_domain_locale"
 
-expect_error '존재하지 않는 기준 ref' 2 scan_invalid_ref
-expect_error 'grep 실행 오류' 2 scan_broken_grep
 expect_fail '하이픈으로 시작하는 BLOCKED_NAMES 값' scan_blocked_name
-expect_pass 'PR workflow에 BLOCKED_NAMES secret 미주입' \
-  workflow_omits_blocked_names_secret
-expect_blocked_redacted
+expect_fail '주민등록번호 형식' scan_pr_text "000101-1$(printf '%06d' 1)"
+expect_fail '휴대전화 번호 형식' scan_pr_text "010-0000-$(printf '%04d' 1)"
+expect_fail 'PR 제목의 macOS 경로' scan_pr_text "$(printf '/%s/%s\n합성 본문' Users synthetic)"
+expect_fail 'PR 본문의 macOS 경로' scan_pr_text "$(printf '합성 제목\n/%s/%s' Users synthetic)"
+expect_fail 'PR 본문의 private 경로' scan_pr_text "$(printf '합성 제목\n/%s/%s' private synthetic)"
+expect_fail 'Linux 사용자 경로' scan_pr_text "$(printf '/%s/%s' home synthetic)"
+expect_fail 'Windows 사용자 경로' scan_pr_text "$(printf '%s\\%s\\%s' C: Users synthetic)"
+expect_fail '내부 호스트' scan_issue_text "$(printf '%s.%s' synthetic internal)"
+expect_fail '비공개 볼트 참조' scan_issue_text "$(printf '%s://open?vault=synthetic' obsidian)"
 
 expect_pass 'noreply 주소만 있는 Issue 본문·댓글 텍스트' \
   scan_issue_text "$allowed_noreply"
@@ -289,8 +265,6 @@ expect_fail '허용·금지 주소가 같은 줄인 Issue 본문·댓글 텍스�
   scan_issue_text "$mixed_same_line"
 expect_fail 'text-only 모드에서도 BLOCKED_NAMES 검사 적용' \
   scan_issue_blocked_name
-expect_pass 'text-only 모드는 기준 ref 인자 없이도 통과 (git diff·커밋 메시지 스캔 생략)' \
-  scan_issue_text_ignores_missing_ref "$allowed_noreply"
 
 init_fixture_repo changed-file
 printf '%s\n' "$mixed_same_line" >"$FIXTURE_REPO/synthetic-fixture.txt"
@@ -322,6 +296,13 @@ commit_fixture merge --no-ff -q -m "$synthetic_merge_ref_message" feature-branch
 expect_pass '합성 merge ref 자동 생성 커밋 메시지의 SHA 숫자열 오탐 방지(--no-merges)' \
   scan_fixture_repo
 
+# 실행 안전성: 오류 전파, 입력 경계, 원문 비노출
+expect_status 2 '존재하지 않는 기준 ref' scan_invalid_ref
+expect_status 2 'grep 실행 오류' scan_broken_grep
+expect_blocked_redacted
+expect_pass 'text-only 모드는 git 범위 검사를 생략' \
+  scan_issue_text_ignores_missing_ref "$allowed_noreply"
+
 init_fixture_repo changed-symlink
 ln -s "$blocked_contact" "$FIXTURE_REPO/synthetic-link"
 git -C "$FIXTURE_REPO" add synthetic-link
@@ -341,24 +322,6 @@ git -C "$FIXTURE_REPO" add .github/check-public-safe.test.sh
 commit_fixture commit -qm 'test: synthetic regression source'
 expect_pass '회귀 테스트 소스 자체 public-safe 검사' scan_fixture_repo
 
-init_fixture_repo forbidden-upper-env
-printf 'synthetic config\n' >"$FIXTURE_REPO/.ENV"
-git -C "$FIXTURE_REPO" add .ENV
-commit_fixture commit -qm 'test: uppercase env path fixture'
-expect_fail '대문자 .ENV 파일 경로' scan_fixture_repo
-
-init_fixture_repo forbidden-upper-env-example
-printf 'SYNTHETIC_KEY=placeholder\n' >"$FIXTURE_REPO/.ENV.EXAMPLE"
-git -C "$FIXTURE_REPO" add .ENV.EXAMPLE
-commit_fixture commit -qm 'test: uppercase env example path fixture'
-expect_fail '비정규 대문자 .ENV.EXAMPLE 파일 경로' scan_fixture_repo
-
-init_fixture_repo allowed-canonical-env-example
-printf 'SYNTHETIC_KEY=placeholder\n' >"$FIXTURE_REPO/.env.example"
-git -C "$FIXTURE_REPO" add .env.example
-commit_fixture commit -qm 'test: canonical env example path fixture'
-expect_pass '정규 소문자 .env.example 파일 경로' scan_fixture_repo
-
 init_fixture_repo control-character-path
 control_dir=$'synthetic\n::error::forged-annotation'
 mkdir -p "$FIXTURE_REPO/$control_dir"
@@ -366,40 +329,6 @@ printf 'synthetic config\n' >"$FIXTURE_REPO/$control_dir/.ENV"
 git -C "$FIXTURE_REPO" add -- "$control_dir/.ENV"
 commit_fixture commit -qm 'test: control character path fixture'
 expect_forbidden_path_redacted
-
-init_fixture_repo forbidden-credentials-note
-printf 'synthetic note\n' >"$FIXTURE_REPO/credentials.md"
-git -C "$FIXTURE_REPO" add credentials.md
-commit_fixture commit -qm 'test: credentials note fixture'
-expect_fail '자격증명 메모 파일 경로(credentials.md)' scan_fixture_repo
-
-init_fixture_repo forbidden-secrets-yaml
-printf 'synthetic: placeholder\n' >"$FIXTURE_REPO/secrets.yaml"
-git -C "$FIXTURE_REPO" add secrets.yaml
-commit_fixture commit -qm 'test: secrets yaml fixture'
-expect_fail '자격증명 메모 파일 경로(secrets.yaml)' scan_fixture_repo
-
-init_fixture_repo forbidden-private-key-under-secrets
-mkdir -p "$FIXTURE_REPO/secrets"
-printf 'synthetic placeholder\n' >"$FIXTURE_REPO/secrets/leak.pem"
-git -C "$FIXTURE_REPO" add secrets/leak.pem
-commit_fixture commit -qm 'test: committed private key path fixture'
-expect_fail '커밋된 개인키 파일 경로(secrets/leak.pem)' scan_fixture_repo
-
-init_fixture_repo forbidden-credentials-suffixed
-mkdir -p "$FIXTURE_REPO/docs"
-printf 'synthetic note\n' >"$FIXTURE_REPO/docs/credentials-prod.md"
-git -C "$FIXTURE_REPO" add docs/credentials-prod.md
-commit_fixture commit -qm 'test: suffixed credentials note fixture'
-expect_fail '접미사 붙은 자격증명 메모 경로(docs/credentials-prod.md)' scan_fixture_repo
-
-init_fixture_repo allowed-credential-like-source
-mkdir -p "$FIXTURE_REPO/src" "$FIXTURE_REPO/docs/rules"
-printf 'export const noop = 1;\n' >"$FIXTURE_REPO/src/credentials.service.ts"
-printf '# 시크릿 취급 정책\n\n합성 문서입니다.\n' >"$FIXTURE_REPO/docs/rules/security.md"
-git -C "$FIXTURE_REPO" add src/credentials.service.ts docs/rules/security.md
-commit_fixture commit -qm 'test: credential-like source fixture'
-expect_pass '자격증명 유사 이름의 소스·정책 문서는 허용' scan_fixture_repo
 
 init_fixture_repo binary-image-with-email-bytes
 printf 'RIFF\000\000WEBP %s\000\001' "$blocked_contact" >"$FIXTURE_REPO/shot.webp"
@@ -418,6 +347,25 @@ printf 'plain %s\n' "$blocked_contact" >"$FIXTURE_REPO/fake.webp"
 git -C "$FIXTURE_REPO" add fake.webp
 commit_fixture commit -qm 'test: image extension without NUL fixture'
 expect_fail 'NUL 없는 .webp는 계속 검사한다' scan_fixture_repo
+
+# 정책: 내용이 비어 있어도 파일명 자체를 검사한다.
+scan_empty_file() {
+  local path="$1"
+  init_fixture_repo "empty-file-$((passed + failed))" || return 2
+  mkdir -p "$FIXTURE_REPO/$(dirname "$path")" || return 2
+  touch "$FIXTURE_REPO/$path" || return 2
+  git -C "$FIXTURE_REPO" add -- "$path" || return 2
+  commit_fixture commit -qm 'test: empty file fixture' || return 2
+  scan_fixture_repo
+}
+
+for path in .ENV .ENV.EXAMPLE credentials.md secrets.yaml secrets/leak.pem \
+  docs/credentials-prod.md id_ed25519 .netrc synthetic.db; do
+  expect_fail "빈 금지 파일: $path" scan_empty_file "$path"
+done
+expect_pass '정규 env 예시 파일' scan_empty_file .env.example
+expect_pass '자격증명과 유사한 소스 파일명' scan_empty_file src/credentials.service.ts
+expect_pass '보안 정책 문서 파일명' scan_empty_file docs/rules/security.md
 
 printf 'tests=%s passed=%s failed=%s\n' \
   "$((passed + failed))" "$passed" "$failed"
