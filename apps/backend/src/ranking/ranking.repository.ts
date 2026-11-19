@@ -227,14 +227,17 @@ function rankedMembers(folded: Prisma.Sql, byPeriod = false): Prisma.Sql {
   `;
 }
 
-function timelineCohort(query: RankingMetricsQuery, viewer: string | null) {
+function timelineCohort(
+  query: RankingMetricsQuery,
+  viewerGithubId: bigint | null,
+) {
   return Prisma.sql`
     WITH current_folded AS (${foldedActivity(currentRows(query))}),
     final_ranked AS (${rankedMembers(Prisma.sql`current_folded`)})
     SELECT github_id, login, rank, total
     FROM final_ranked
     WHERE total > 0
-      AND (rank <= ${TIMELINE_LEADERS} OR lower(login) = lower(${viewer ?? ''}))
+      AND (rank <= ${TIMELINE_LEADERS} OR github_id = ${viewerGithubId}::bigint)
   `;
 }
 
@@ -348,11 +351,11 @@ export class RankingRepository {
   async findTimelineSeries(
     year: number,
     lastMonth: number,
-    viewerLogin: string | null,
+    viewerGithubId: bigint | null,
   ): Promise<RankingTimelineRows> {
     const selected = await this.prisma.$queryRaw<RankingTimelineSelectedRow[]>`
       SELECT github_id AS "githubId", login AS "githubLogin", rank, total
-      FROM (${timelineCohort({ currentYear: year }, viewerLogin)}) AS selected
+      FROM (${timelineCohort({ currentYear: year }, viewerGithubId)}) AS selected
       ORDER BY rank
       LIMIT ${TIMELINE_LEADERS + 1}
     `;
@@ -411,11 +414,11 @@ export class RankingRepository {
   }
 
   findAllTimelineSeries(
-    viewer: string | null,
+    viewerGithubId: bigint | null,
   ): Promise<RankingAllTimelineRow[]> {
     return this.allTimeline.readRows({
       member: RANKING_MEMBER,
-      cohort: timelineCohort({}, viewer),
+      cohort: timelineCohort({}, viewerGithubId),
       foldedHistory: foldedActivity(
         Prisma.sql`
           SELECT grid.from_month, changes.*

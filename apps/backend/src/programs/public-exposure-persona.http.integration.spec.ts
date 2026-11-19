@@ -85,6 +85,8 @@ async function fetchRankingPages(
 
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let timelineLeaderPersonas: Awaited<ReturnType<typeof harness.createUser>>[];
+let timelineOwner: Awaited<ReturnType<typeof harness.createUser>>;
+const SHARED_LOGIN = 'persona-shared-login';
 
 let canonicalOnlyStudentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
@@ -247,6 +249,20 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         ),
       );
     }
+    timelineOwner = await harness.createUser(
+      'timeline-owner',
+      'STUDENT',
+      undefined,
+      MemberKind.STUDENT,
+    );
+    const sharedLeader = timelineLeaderPersonas[0];
+    if (!sharedLeader) throw new Error('Expected a timeline leader');
+    await harness.prisma.user.updateMany({
+      where: {
+        githubId: { in: [sharedLeader.githubId, timelineOwner.githubId] },
+      },
+      data: { nickname: SHARED_LOGIN },
+    });
 
     const published = await createRepositoryFixture({
       key: 'published',
@@ -313,6 +329,23 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           commitCount: 10_000 + index,
           observedAt: new Date('2026-08-18T00:00:00.000Z'),
         })),
+        ...[
+          { githubId: sharedLeader.githubId, commitCount: 50 },
+          { githubId: timelineOwner.githubId, commitCount: 5 },
+        ].map(({ githubId, commitCount }) => ({
+          githubId,
+          commitCount,
+          year: RANKING_FIXTURE_YEAR - 1,
+          observedAt: new Date('2025-12-20T00:00:00.000Z'),
+          visibility: 'PUBLIC' as const,
+        })),
+        {
+          githubId: timelineOwner.githubId,
+          commitCount: 7,
+          year: RANKING_FIXTURE_YEAR,
+          observedAt: new Date('2026-08-18T00:00:00.000Z'),
+          visibility: 'PUBLIC',
+        },
       ],
     });
 
@@ -338,6 +371,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           githubId: {
             in: [
               studentPersona.githubId,
+              timelineOwner.githubId,
               ...timelineLeaderPersonas.map(({ githubId }) => githubId),
             ],
           },
@@ -741,34 +775,51 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(order(admin.items)).toEqual(order(anonymous.items));
   });
 
-  it('타임라인 viewer는 익명·다른 사용자를 무시하고 로그인한 본인만 추가한다', async () => {
-    const path = `/ranking/timeline?year=all&viewer=${studentPersona.nickname}`;
-    const [anonymous, self, other] = await Promise.all([
-      harness.request('GET', path),
-      harness.request('GET', path, studentPersona.githubId),
-      harness.request('GET', path, canonicalOnlyStudentPersona.githubId),
-    ]);
+  it.each(['all', String(RANKING_FIXTURE_YEAR)])(
+    'keeps the public leader and same-login owner separate for %s',
+    async (year) => {
+      const path = `/ranking/timeline?year=${year}&viewer=${SHARED_LOGIN.toUpperCase()}`;
+      const [anonymous, self, other] = await Promise.all([
+        harness.request('GET', path),
+        harness.request('GET', path, timelineOwner.githubId),
+        harness.request('GET', path, canonicalOnlyStudentPersona.githubId),
+      ]);
 
-    expect([anonymous.status, self.status, other.status]).toEqual([
-      200, 200, 200,
-    ]);
-    const bodies = (await Promise.all([
-      anonymous.json(),
-      self.json(),
-      other.json(),
-    ])) as {
-      readonly series: readonly { readonly githubLogin: string }[];
-    }[];
-    const logins = bodies.map((body) =>
-      body.series.map(({ githubLogin }) => githubLogin),
-    );
-
-    expect(logins[0]).not.toContain(studentPersona.nickname);
-    expect(logins[1]).toContain(studentPersona.nickname);
-    expect(logins[2]).not.toContain(studentPersona.nickname);
-    expect(logins[0]).toHaveLength(10);
-    expect(logins[2]).toEqual(logins[0]);
-  });
+      expect([anonymous.status, self.status, other.status]).toEqual([
+        200, 200, 200,
+      ]);
+      type TimelineBody = {
+        series: {
+          githubLogin: string;
+          ranks: (number | null)[];
+          totals: (number | null)[];
+        }[];
+      };
+      const { series: leaders } = (await anonymous.json()) as TimelineBody;
+      const { series: own } = (await self.json()) as TimelineBody;
+      expect(((await other.json()) as TimelineBody).series).toEqual(leaders);
+      expect(leaders).toHaveLength(10);
+      expect(own.slice(0, -1)).toEqual(leaders);
+      const pair = own.filter((row) => row.githubLogin === SHARED_LOGIN);
+      expect(pair.map((row) => [row.ranks.at(-1), row.totals.at(-1)])).toEqual(
+        year === 'all'
+          ? [
+              [1, 10050],
+              [12, 12],
+            ]
+          : [
+              [10, 10000],
+              [12, 7],
+            ],
+      );
+      if (year === 'all') {
+        expect(pair.map((row) => [row.ranks[0], row.totals[0]])).toEqual([
+          [2, 50],
+          [3, 5],
+        ]);
+      }
+    },
+  );
 
   it('연도 질의는 그 해 관측만 합산한다 — 지난 연도 행이 있어도 섞이지 않는다', async () => {
     const path = `/ranking?year=${RANKING_FIXTURE_YEAR}`;

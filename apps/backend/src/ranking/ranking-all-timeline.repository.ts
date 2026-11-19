@@ -7,6 +7,7 @@ const CALENDAR_MONTH_COUNT = 12;
 export interface RankingAllTimelineRow {
   readonly fromMonth: string;
   readonly toMonth: string;
+  readonly githubId: bigint | null;
   readonly githubLogin: string | null;
   readonly rank: number | null;
   readonly total: number | null;
@@ -87,20 +88,20 @@ export class RankingAllTimelineRepository {
     historical_ranked AS (${input.rankedHistory}),
     selected AS (${input.cohort} ORDER BY rank LIMIT ${input.cohortLimit}),
     points AS (
-      SELECT ranked.from_month, selected.login, selected.rank AS final_rank,
+      SELECT ranked.from_month, selected.github_id, selected.login, selected.rank AS final_rank,
         ranked.rank, ranked.total
       FROM historical_ranked AS ranked
       JOIN selected USING (github_id)
       WHERE ranked.has_observation
       UNION ALL
-      SELECT grid.from_month, selected.login, selected.rank,
+      SELECT grid.from_month, selected.github_id, selected.login, selected.rank,
         selected.rank, selected.total
       FROM grid CROSS JOIN selected
       WHERE grid.is_latest
     )
     SELECT to_char(grid.from_month, 'YYYY-MM') AS "fromMonth",
       to_char(grid.to_month, 'YYYY-MM') AS "toMonth",
-      points.login AS "githubLogin", points.rank, points.total
+      points.github_id AS "githubId", points.login AS "githubLogin", points.rank, points.total
     FROM grid
     LEFT JOIN points USING (from_month)
     ORDER BY grid.from_month, points.final_rank
