@@ -32,6 +32,7 @@ let githubId: bigint = DIGEST_FIXTURE.staffOnGithub;
 
 beforeAll(async () => {
   await harness.connect();
+  const service = harness.service(sender);
   const moduleRef = await Test.createTestingModule({
     controllers: [DeadlineDigestController],
     providers: [
@@ -47,7 +48,23 @@ beforeAll(async () => {
           return true;
         },
       }),
-      { provide: DeadlineDigestService, useValue: harness.service(sender) },
+      {
+        provide: DeadlineDigestService,
+        useValue: {
+          previewProgramFromRequest: (programId, draft) =>
+            service.previewProgram(programId, DIGEST_FIXTURE.now, draft),
+          sendProgramFromPreview: (programId, preview, actorId) =>
+            service.sendProgramFromPreview(
+              programId,
+              preview,
+              actorId,
+              DIGEST_FIXTURE.now,
+            ),
+        } satisfies Pick<
+          DeadlineDigestService,
+          'previewProgramFromRequest' | 'sendProgramFromPreview'
+        >,
+      },
     ],
   })
     .overrideGuard(OriginGuard)
@@ -70,13 +87,6 @@ beforeEach(async () => {
   await harness.reset();
   sender.sent.length = 0;
   githubId = DIGEST_FIXTURE.staffOnGithub;
-  await harness.prisma.milestone.update({
-    where: { id: DIGEST_FIXTURE.notifyMilestone },
-    data: {
-      startAt: new Date(Date.now() - 3_600_000),
-      dueAt: new Date(Date.now() + 12 * 3_600_000),
-    },
-  });
 });
 afterAll(async () => {
   await app.close();
@@ -244,7 +254,7 @@ it('marks personalized previews as private and non-cacheable', async () => {
 });
 
 it('retains same-day deduplication across automatic and guided manual sends', async () => {
-  await harness.service(sender).sendDeadlineDigests();
+  await harness.service(sender).sendDeadlineDigests(DIGEST_FIXTURE.now);
   const preview = await confirmedPreview({
     studentGuidance: 'manual note',
     staffGuidance: 'staff note',
