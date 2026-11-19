@@ -124,13 +124,13 @@ export function DeadlineDigestDialog({
     setBusy('send');
     setError(null);
     try {
-      setResult(
-        await sendProgramDeadline(programId, {
-          previewedAt: preview.previewedAt,
-          previewVersion: preview.previewVersion,
-          ...guidance,
-        }),
-      );
+      const sent = await sendProgramDeadline(programId, {
+        previewedAt: preview.previewedAt,
+        previewVersion: preview.previewVersion,
+        ...guidance,
+      });
+      setResult(sent);
+      setPreview(null);
     } catch (caught: unknown) {
       setPreview(null);
       setError(deadlineErrorMessage(caught));
@@ -281,6 +281,7 @@ function DeadlineGuidanceFields({
             value={guidance[field.key]}
             disabled={disabled}
             maxLength={GUIDANCE_LIMIT}
+            aria-invalid={guidance[field.key].length > GUIDANCE_LIMIT}
             rows={8}
             onChange={(event) => onChange(field.key, event.target.value)}
           />
