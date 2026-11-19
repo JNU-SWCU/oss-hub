@@ -91,6 +91,10 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
       .querySelector('[data-ranking-streak-tier]')
       ?.getAttribute('data-ranking-streak-tier'),
   ).toBe('celebration');
+  const announcement = container.querySelector('.sr-only');
+  expect(announcement?.closest('[aria-hidden="true"], [hidden]')).toBeNull();
+  expect(announcement?.textContent?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
+  expect(announcement?.textContent?.match(/([0-9]+)\s*일/u)?.[1]).toBe('120');
 
   await act(async () => button?.click());
 
