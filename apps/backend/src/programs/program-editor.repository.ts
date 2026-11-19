@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { READ_CAP } from '../platform/bounded-read.config';
+import { SequentialRepository } from '../platform/sequential.repository';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import {
   type RequirementSubmissionType,
@@ -695,7 +695,9 @@ export class ProgramEditorRepository {
       });
     }
     const consumptions: ProgramAuthoringPendingUploadConsumption[] = [];
-    await this.sequential.forEach(input.documents, async (document, index) => {
+    for await (const [index, document] of this.sequential.items(
+      input.documents.entries(),
+    )) {
       const requirementId =
         document.id ??
         (
@@ -730,7 +732,7 @@ export class ProgramEditorRepository {
         }
         consumptions.push({ requirementId, upload });
       }
-    });
+    }
     await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
       transaction,
       input.actorId,

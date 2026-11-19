@@ -169,6 +169,16 @@ function changeValue(field: string, value: AuditLogChangeValue) {
 }
 
 export function changeLabel(record: AuditLogRecord): ChangeLabel | null {
+  if (record.mailDelivery) {
+    const { sentCount, failedCount, unknownCount, duplicateCount } =
+      record.mailDelivery;
+    return {
+      field: null,
+      before: null,
+      after: null,
+      note: `발송 ${sentCount} · 실패 ${failedCount} · 미확인 ${unknownCount} · 중복 ${duplicateCount}`,
+    };
+  }
   const membership = record.teamMembership;
   const note = membership?.teamDeleted
     ? '남은 팀원이 없어 팀 삭제'

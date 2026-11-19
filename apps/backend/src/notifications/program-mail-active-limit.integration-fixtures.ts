@@ -57,23 +57,28 @@ export function registerProgramMailActiveLimitCase(
     ] as const;
     const first = send(firstService, principal, 'active-1');
     const second = send(secondService, principal, 'active-2');
-    await bounded(entered.promise);
+    try {
+      await bounded(entered.promise);
 
-    const [poolState] = await bounded(
-      world.prisma.$queryRaw<readonly { readonly idleInTransaction: number }[]>`
+      const [poolState] = await bounded(
+        world.prisma.$queryRaw<
+          readonly { readonly idleInTransaction: number }[]
+        >`
         SELECT count(*)::int AS "idleInTransaction"
         FROM pg_stat_activity
         WHERE datname = current_database()
           AND state = 'idle in transaction'
         LIMIT 1
       `,
-    );
-    expect(poolState?.idleInTransaction).toBe(0);
-    await expect(
-      send(thirdService, principal, 'active-3'),
-    ).resolves.toMatchObject({ status: 'IN_PROGRESS', sentCount: 0 });
-
-    release.resolve();
+      );
+      expect(poolState?.idleInTransaction).toBe(0);
+      await expect(
+        send(thirdService, principal, 'active-3'),
+      ).resolves.toMatchObject({ status: 'IN_PROGRESS', sentCount: 0 });
+    } finally {
+      release.resolve();
+      await Promise.allSettled([first, second]);
+    }
     await expect(Promise.all([first, second])).resolves.toEqual([
       expect.objectContaining({ status: 'COMPLETED', sentCount: 1 }),
       expect.objectContaining({ status: 'COMPLETED', sentCount: 1 }),

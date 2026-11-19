@@ -8,7 +8,6 @@ import { Steps } from '@astrojs/starlight/components';
 import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
-import Verified from '~/components/Verified.astro';
 
 Use this screen to review and edit your own profile, choose notification preferences, and deactivate your account.
 
@@ -16,10 +15,10 @@ If your membership type is Student or you have participation records, `참여 �
 
 ## Choose whether to receive notifications
 
-Choose whether to receive deadline reminder email. The automatic reminder goes only to students who have not submitted required documents, and no screen currently sends the summary email for staff and administrators. <Verified status="policy" />
+Automatic reminders go only to students with missing documents. Staff can send a separate [deadline summary](/oss-hub/en/staff/reminder-mail/) to eligible staff and administrators.
 
 <Steps>
-1. Click `설정` (Settings) in the dashboard sidebar. You can also open it from your account menu at the top.
+1. Open your account menu at the top right and choose `설정` (settings).
 2. Under `알림 수신` (Notifications), enter a destination in `수신 이메일` (Recipient email).
 3. Enable `마감 임박 알림 받기` (Receive deadline reminders).
 4. Click `저장` (Save) at the bottom of the screen.

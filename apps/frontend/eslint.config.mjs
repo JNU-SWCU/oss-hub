@@ -216,7 +216,6 @@ export default defineConfig([
       'node_modules/**',
       'next-env.d.ts',
       'index.d.ts',
-      'ds-types/**',
     ],
   },
 ]);

@@ -326,6 +326,7 @@ function setup() {
     findNotifiableStaff,
     claimNotification,
     completeNotification,
+    recordManualSend: jest.fn().mockResolvedValue(undefined),
   };
   const send: jest.MockedFunction<MailSender['send']> = jest
     .fn()
@@ -367,6 +368,7 @@ describe('DeadlineDigestService Program preview and send', () => {
     await service.sendProgramFromPreview(
       'program-1',
       { ...preview, ...draft },
+      'staff-actor',
       new Date(NOW.getTime() + 6 * 60_000),
     );
 
@@ -398,6 +400,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       service.sendProgramFromPreview(
         'program-1',
         { ...preview, ...draft },
+        'staff-actor',
         later,
       ),
     ).rejects.toMatchObject({ errorCode: { status: 409 } });
@@ -455,6 +458,7 @@ describe('DeadlineDigestService Program preview and send', () => {
         previewedAt: preview.previewedAt,
         previewVersion: preview.previewVersion,
       },
+      'staff-actor',
       new Date(NOW.getTime() + 60_000),
     );
 
@@ -481,6 +485,7 @@ describe('DeadlineDigestService Program preview and send', () => {
     const result = await service.sendProgramFromPreview(
       'program-1',
       preview,
+      'staff-actor',
       new Date(NOW.getTime() + 60_000),
     );
 
@@ -536,6 +541,7 @@ describe('DeadlineDigestService Program preview and send', () => {
     await service.sendProgramFromPreview(
       'program-1',
       preview,
+      'staff-actor',
       new Date(NOW.getTime() + 60_000),
     );
 
@@ -557,6 +563,7 @@ describe('DeadlineDigestService Program preview and send', () => {
     await service.sendProgramFromPreview(
       'program-1',
       preview,
+      'staff-actor',
       new Date(NOW.getTime() + 60_000),
     );
 
@@ -582,6 +589,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       service.sendProgramFromPreview(
         'program-1',
         preview,
+        'staff-actor',
         new Date(NOW.getTime() + 60_000),
       ),
     ).rejects.toMatchObject({ errorCode: { status: 409 } });
@@ -597,6 +605,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       service.sendProgramFromPreview(
         'program-1',
         preview,
+        'staff-actor',
         new Date(NOW.getTime() + 10 * 60 * 1000),
       ),
     ).resolves.toMatchObject({ duplicateCount: 1 });
@@ -604,6 +613,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       service.sendProgramFromPreview(
         'program-1',
         preview,
+        'staff-actor',
         new Date(NOW.getTime() + 10 * 60 * 1000 + 1),
       ),
     ).rejects.toMatchObject({ errorCode: { status: 409 } });
@@ -619,6 +629,7 @@ describe('DeadlineDigestService Program preview and send', () => {
       service.sendProgramFromPreview(
         'program-1',
         preview,
+        'staff-actor',
         new Date(NOW.getTime() + 60_000),
       ),
     ).rejects.toMatchObject({ errorCode: { status: 409 } });

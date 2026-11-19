@@ -4,21 +4,33 @@ import path from 'node:path';
 
 const EVIDENCE_DIR = path.resolve(
   process.cwd(),
-  '../../.omo/evidence/ranking-streak/screenshots',
+  '../../.omo/evidence/ranking-egg-polish/after',
 );
 const TABLE_ROW = '[data-slot="table-body"] [data-slot="table-row"]';
-const DAYS = [120, 35, 8, 3, 120, 35, 8, 3, 120, 35] as const;
 const LOGINS = [
-  '왕-leading',
-  'LeftPrime',
-  'RightPrime',
-  'ChiefState',
-  '이조-chief',
-  '호조-chief',
-  '예조-chief',
-  '병조-chief',
-  '형조-chief',
-  '👩‍💻공조-chief',
+  '왕-leading-participant-with-long-name',
+  'LeftPrime-participant',
+  'RightPrime-participant',
+  'ChiefState-participant',
+  'rank-five-participant',
+  'rank-six-participant',
+  'rank-seven-participant',
+  'rank-eight-participant',
+  'rank-nine-participant',
+  '👩‍💻rank-ten-participant',
+] as const;
+
+const DEPARTMENTS = [
+  '인공지능융합학부 소프트웨어전공 매우 긴 학과명',
+  '컴퓨터공학과 데이터사이언스 복수전공',
+  '전자공학부 임베디드시스템 전공',
+  '산업공학과 인간중심컴퓨팅 연구과정',
+  '정보보호학과 네트워크보안 전공',
+  '수학과 계산과학 연계전공',
+  '통계학과 빅데이터 분석전공',
+  '디자인학과 인터랙션디자인 전공',
+  '경영학과 기술경영 연계전공',
+  '기계공학부 지능형로봇 융합전공',
 ] as const;
 
 const RANKING_PAGE = {
@@ -27,6 +39,8 @@ const RANKING_PAGE = {
     rank: index + 1,
     previousRank: index + 1,
     githubLogin,
+    name: `매우 긴 참여자 이름 ${String(index + 1).padStart(2, '0')}`,
+    department: DEPARTMENTS[index],
     commitCount: 100 - index,
     pullRequestCount: 20,
     issueCount: 10,
@@ -36,15 +50,15 @@ const RANKING_PAGE = {
     streak: {
       rankHeldSince: '2026-01-01',
       top10Since: '2026-01-01',
-      rankHeldDays: DAYS[index],
-      top10Days: DAYS[index],
+      rankHeldDays: index === 0 ? 120 : 3,
+      top10Days: index === 0 ? 150 : 35,
     },
   })),
   page: 1,
   pageSize: 20,
   total: 10,
   dataAsOf: '2026-11-18T02:30:00.000Z',
-  viewerClass: 'member',
+  viewerClass: 'staff',
   nextCycleAt: '2026-11-19T00:00:00.000Z',
 };
 
@@ -67,8 +81,8 @@ async function mockRanking(page: Page) {
           name: null,
           email: null,
           avatarUrl: null,
-          memberKind: 'STUDENT',
-          hasStaffAccess: false,
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
           hasAdminAccess: false,
           isProfileComplete: true,
         },
@@ -130,11 +144,30 @@ async function mockRanking(page: Page) {
 
 async function openRanking(page: Page) {
   await page.goto('/ranking?year=2026');
-  await expect(page.locator(TABLE_ROW)).toHaveCount(10);
-  await expect(page.locator('[data-streak-entered="true"]')).toHaveCount(10);
+  await page.evaluate(async () => {
+    const hydrated = () =>
+      document.querySelectorAll('[data-streak-entered="true"]').length === 10;
+    if (!hydrated()) {
+      await new Promise<void>((resolve) => {
+        const observer = new MutationObserver(() => {
+          if (hydrated()) {
+            observer.disconnect();
+            resolve();
+          }
+        });
+        observer.observe(document.body, {
+          childList: true,
+          attributes: true,
+          subtree: true,
+          attributeFilter: ['data-streak-entered'],
+        });
+      });
+    }
+    await document.fonts.ready;
+  });
 }
 
-async function capture(page: Page, name: string) {
+async function capture(page: Page, name: string, fullPage = true) {
   await page.locator('nextjs-portal').evaluateAll((portals) => {
     for (const portal of portals) {
       if (portal instanceof HTMLElement) portal.style.display = 'none';
@@ -144,10 +177,23 @@ async function capture(page: Page, name: string) {
   await page.screenshot({
     path: path.join(EVIDENCE_DIR, `${name}.png`),
     animations: 'allow',
+    fullPage,
   });
 }
 
 async function decorationClearance(page: Page) {
+  await page.evaluate(async () => {
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation instanceof CSSAnimation &&
+            animation.animationName.includes('hat-settle'),
+        )
+        .map((animation) => animation.finished),
+    );
+  });
   return page.evaluate(() => {
     const originalScrollY = window.scrollY;
     const results = [
@@ -162,24 +208,28 @@ async function decorationClearance(page: Page) {
         '[data-streak-first-character]',
       );
       const hat = anchor.querySelector<HTMLElement>('[data-streak-headwear]');
-      if (name === null || tag === null || first === null || hat === null) {
-        return {
-          name: '',
-          nameTagOverlap: true,
-          nameCenterHitsLink: false,
-          hatCoverage: 1,
-          hatVisibleFraction: 0,
-        };
-      }
+      if (name === null || tag === null || first === null || hat === null)
+        throw new Error('Missing ranking decoration');
       const nameRect = name.getBoundingClientRect();
       const tagRect = tag.getBoundingClientRect();
       const firstRect = first.getBoundingClientRect();
       const hatRect = hat.getBoundingClientRect();
-      const nameTagOverlap =
-        Math.min(nameRect.right, tagRect.right) >
-          Math.max(nameRect.left, tagRect.left) &&
-        Math.min(nameRect.bottom, tagRect.bottom) >
-          Math.max(nameRect.top, tagRect.top);
+      const intersects = (left: DOMRect, right: DOMRect) =>
+        Math.min(left.right, right.right) > Math.max(left.left, right.left) &&
+        Math.min(left.bottom, right.bottom) > Math.max(left.top, right.top);
+      const nameTagOverlap = intersects(nameRect, tagRect);
+      const memberCell = anchor.closest('td, th');
+      const row = anchor.closest('tr');
+      const otherCells =
+        row === null
+          ? []
+          : [...row.querySelectorAll<HTMLElement>('td, th')].filter(
+              (cell) => cell !== memberCell,
+            );
+      const otherCellOverlap = otherCells.some((cell) => {
+        const rect = cell.getBoundingClientRect();
+        return intersects(hatRect, rect) || intersects(tagRect, rect);
+      });
       const nameCenterTarget = document.elementFromPoint(
         nameRect.left + nameRect.width / 2,
         nameRect.top + nameRect.height / 2,
@@ -191,6 +241,11 @@ async function decorationClearance(page: Page) {
       );
       const hatSvg = hat.querySelector<SVGElement>('svg');
       const svgRect = hatSvg?.getBoundingClientRect();
+      const paths = [...hat.querySelectorAll('path, circle')].map((path) =>
+        path.getBoundingClientRect(),
+      );
+      const paintLeft = Math.min(...paths.map((rect) => rect.left));
+      const paintRight = Math.max(...paths.map((rect) => rect.right));
       let visibleLeft = svgRect?.left ?? 0;
       let visibleRight = svgRect?.right ?? 0;
       let visibleTop = svgRect?.top ?? 0;
@@ -215,8 +270,14 @@ async function decorationClearance(page: Page) {
         Math.max(0, visibleBottom - visibleTop);
       return {
         name: name.textContent ?? '',
+        paintedWidth: paintRight - paintLeft,
+        aboveFirst:
+          firstRect.top - Math.max(...paths.map((rect) => rect.bottom)),
+        centeredOverFirst:
+          paintLeft < firstRect.right && paintRight > firstRect.left,
         nameTagOverlap,
         nameCenterHitsLink: nameCenterTarget?.closest('a') === name,
+        otherCellOverlap,
         hatCoverage: coveredHeight / firstRect.height,
         hatVisibleFraction: svgArea === 0 ? 0 : visibleArea / svgArea,
       };
@@ -227,11 +288,7 @@ async function decorationClearance(page: Page) {
 }
 
 async function tableGeometry(page: Page) {
-  return page.evaluate(async (rowSelector) => {
-    const nextFrame = () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    const readCls = () =>
-      Number(document.documentElement.dataset.rankingStreakCls ?? '0');
+  const measure = (rowSelector: string) => {
     const rectOf = (element: HTMLElement) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -249,29 +306,49 @@ async function tableGeometry(page: Page) {
     const region = document.querySelector<HTMLElement>(
       '[role="region"][aria-label="활동 랭킹 표"]',
     );
-    const hidden = document.createElement('style');
-    hidden.textContent =
-      '[data-streak-headwear],[data-ranking-streak-tier]{display:none!important}';
-    document.head.append(hidden);
-    await nextFrame();
-    const before = rows.map(rectOf);
-    const hiddenScrollWidth = region?.scrollWidth ?? null;
-    const clsBeforeDecoration = readCls();
-    hidden.remove();
-    await nextFrame();
-    await nextFrame();
-    const after = rows.map(rectOf);
-    const clsAfterDecoration = readCls();
     return {
-      before,
-      after,
-      hiddenScrollWidth,
-      decoratedScrollWidth: region?.scrollWidth ?? null,
+      rows: rows.map(rectOf),
+      scrollWidth: region?.scrollWidth ?? null,
       clientWidth: region?.clientWidth ?? null,
-      totalCls: clsAfterDecoration,
-      decorationCls: clsAfterDecoration - clsBeforeDecoration,
     };
-  }, TABLE_ROW);
+  };
+  const hidden = await page.addStyleTag({
+    content:
+      '[data-streak-headwear],[data-ranking-streak-tier]{display:none!important}',
+  });
+  await page.screenshot();
+  const before = await page.evaluate(measure, TABLE_ROW);
+  const meter = await page.evaluateHandle(() => {
+    let score = 0;
+    const collect = (entries: PerformanceEntry[]) => {
+      for (const entry of entries) {
+        if ('value' in entry && typeof entry.value === 'number')
+          score += entry.value;
+      }
+    };
+    const observer = new PerformanceObserver((list) =>
+      collect(list.getEntries()),
+    );
+    observer.observe({ type: 'layout-shift' });
+    return () => {
+      collect(observer.takeRecords());
+      observer.disconnect();
+      return score;
+    };
+  });
+  await hidden.evaluate((style) => {
+    document.head.removeChild(style);
+  });
+  await page.screenshot();
+  const after = await page.evaluate(measure, TABLE_ROW);
+  return {
+    before: before.rows,
+    after: after.rows,
+    hiddenScrollWidth: before.scrollWidth,
+    decoratedScrollWidth: after.scrollWidth,
+    clientWidth: after.clientWidth,
+    decorationCls: await meter.evaluate((finish) => finish()),
+  };
 }
 
 async function pauseAnimation(
@@ -298,26 +375,56 @@ async function pauseAnimation(
   );
 }
 
-test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바꾸지 않는다', async ({
+for (const width of [390, 1440]) {
+  test(`${width}px: 스트릭이 반짝이는 동안 학과 픽셀은 변하지 않는다`, async ({
+    page,
+  }) => {
+    await mkdir(EVIDENCE_DIR, { recursive: true });
+    await mockRanking(page);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    await openRanking(page);
+    const departments = page.locator('[data-ranking-department]');
+    const captures = async () =>
+      Promise.all(
+        [0, 1].map((rank) =>
+          departments.nth(rank).screenshot({ animations: 'allow' }),
+        ),
+      );
+    await departments
+      .nth(1)
+      .evaluate((element) =>
+        element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+      );
+    const off = await page.addStyleTag({
+      content:
+        '[data-ranking-streak-tier],[data-streak-headwear]{visibility:hidden!important}',
+    });
+    const reference = await captures();
+    await off.evaluate((style) => {
+      document.head.removeChild(style);
+    });
+    for (const time of [800, 980, 1220]) {
+      expect(await pauseAnimation(page, 'streak-shimmer', time)).toBe(10);
+      const painted = await captures();
+      for (const [index, image] of painted.entries()) {
+        expect(
+          image.equals(reference[index]),
+          `rank ${index + 1}, shimmer ${time}ms`,
+        ).toBe(true);
+      }
+      if (time === 980)
+        await page.screenshot({
+          path: path.join(EVIDENCE_DIR, `shimmer-midframe-${width}.png`),
+          animations: 'allow',
+        });
+    }
+  });
+}
+
+test('TOP 10 모자와 스트릭 장식은 행 텍스트와 표 geometry를 침범하지 않는다', async ({
   page,
 }) => {
   await mkdir(EVIDENCE_DIR, { recursive: true });
-  await page.addInitScript(() => {
-    let cls = 0;
-    new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (
-          'hadRecentInput' in entry &&
-          entry.hadRecentInput === false &&
-          'value' in entry &&
-          typeof entry.value === 'number'
-        ) {
-          cls += entry.value;
-        }
-      }
-      document.documentElement.dataset.rankingStreakCls = String(cls);
-    }).observe({ type: 'layout-shift', buffered: true });
-  });
   await mockRanking(page);
 
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -325,27 +432,30 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   const desktopClearance = await decorationClearance(page);
   expect(desktopClearance.filter((row) => row.nameTagOverlap)).toEqual([]);
   expect(desktopClearance.filter((row) => !row.nameCenterHitsLink)).toEqual([]);
-  expect(desktopClearance.filter((row) => row.hatCoverage > 0.2)).toEqual([]);
+  expect(desktopClearance.filter((row) => row.otherCellOverlap)).toEqual([]);
+  for (const row of desktopClearance) {
+    expect(row.hatCoverage).toBe(0);
+    expect(row.aboveFirst).toBeGreaterThanOrEqual(0);
+    expect(row.centeredOverFirst).toBe(true);
+    expect(row.paintedWidth).toBeGreaterThanOrEqual(22);
+    expect(row.paintedWidth).toBeLessThanOrEqual(27);
+  }
   expect(
     desktopClearance.filter((row) => row.hatVisibleFraction < 0.9),
   ).toEqual([]);
-  const hydrationMotion = await page.evaluate(async () => {
-    const nextFrame = () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const hydrationMotion = await page.evaluate(() => {
     const anchors = [
       ...document.querySelectorAll<HTMLElement>('[data-streak-entered]'),
     ];
     for (const anchor of anchors) anchor.removeAttribute('data-streak-entered');
-    await nextFrame();
     const animatedTag = document.querySelector<HTMLElement>(
-      '[data-ranking-streak-tier="celebration"]',
+      '[data-ranking-streak-tier="celebration"] [data-day-count]',
     );
     const beforeHydration =
       animatedTag === null
         ? 'missing'
         : getComputedStyle(animatedTag, '::after').animationName;
     for (const anchor of anchors) anchor.dataset.streakEntered = 'true';
-    await nextFrame();
     const afterHydration =
       animatedTag === null
         ? 'missing'
@@ -354,14 +464,45 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   });
   expect(hydrationMotion.beforeHydration).toBe('none');
   expect(hydrationMotion.afterHydration).toContain('streak-shimmer');
-  await capture(page, 'static-1440');
+  const staticHeadwear = await page.evaluate(() =>
+    [...document.querySelectorAll<SVGElement>('[data-headwear-kind]')].map(
+      (svg) => ({
+        kind: svg.dataset.headwearKind,
+        baseFill: getComputedStyle(
+          svg.querySelector('[class*="hatBase"]') ?? svg,
+        ).fill,
+      }),
+    ),
+  );
+  expect(new Set(staticHeadwear.map((item) => item.kind)).size).toBe(10);
+  expect(new Set(staticHeadwear.map((item) => item.baseFill)).size).toBe(10);
+  const effectLabels = await page
+    .locator('[data-ranking-streak-tier]')
+    .evaluateAll((buttons) =>
+      buttons.map((button) => button.getAttribute('aria-label')),
+    );
+  expect(effectLabels).toEqual([
+    '1위 유지 120일째',
+    ...Array<string>(9).fill('TOP 10 유지 35일째'),
+  ]);
+  const accessibleTierNames = await page
+    .locator('[data-streak-accessible-name]')
+    .allTextContents();
+  expect(new Set(accessibleTierNames).size).toBe(10);
+  const visibleDayCounts = await page
+    .locator('[data-ranking-streak-tier]')
+    .allTextContents();
+  expect(visibleDayCounts).toEqual([
+    '120일째',
+    ...Array<string>(9).fill('35일째'),
+  ]);
+  await capture(page, 'ranking-1440');
 
   const geometry = await tableGeometry(page);
   expect(geometry.after).toEqual(geometry.before);
   expect(geometry.decoratedScrollWidth).toBe(geometry.hiddenScrollWidth);
   expect(geometry.decorationCls).toBe(0);
-  await page.reload();
-  await expect(page.locator('[data-streak-entered="true"]')).toHaveCount(10);
+  await openRanking(page);
   expect(await pauseAnimation(page, 'hat-settle', 240)).toBeGreaterThan(0);
   await capture(page, 'entry-bounce-midframe-1440');
 
@@ -378,13 +519,18 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   await capture(page, 'confetti-midframe-1440');
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.reload();
-  await expect(page.locator(TABLE_ROW)).toHaveCount(10);
+  await openRanking(page);
   const mobileClearance = await decorationClearance(page);
   const mobileGeometry = await tableGeometry(page);
   expect(mobileClearance.filter((row) => row.nameTagOverlap)).toEqual([]);
   expect(mobileClearance.filter((row) => !row.nameCenterHitsLink)).toEqual([]);
-  expect(mobileClearance.filter((row) => row.hatCoverage > 0.2)).toEqual([]);
+  expect(mobileClearance.filter((row) => row.otherCellOverlap)).toEqual([]);
+  for (const row of mobileClearance) {
+    expect(row.hatCoverage).toBe(0);
+    expect(row.aboveFirst).toBeGreaterThanOrEqual(0);
+    expect(row.centeredOverFirst).toBe(true);
+    expect(row.paintedWidth).toBeGreaterThanOrEqual(20);
+  }
   expect(mobileClearance.filter((row) => row.hatVisibleFraction < 0.9)).toEqual(
     [],
   );
@@ -393,7 +539,7 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
     mobileGeometry.hiddenScrollWidth,
   );
   expect(mobileGeometry.decorationCls).toBe(0);
-  await capture(page, 'static-390');
+  await capture(page, 'ranking-390', true);
   await page
     .locator('[data-ranking-streak-tier="celebration"]')
     .first()
@@ -446,15 +592,14 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.reload();
-  await expect(page.locator(TABLE_ROW)).toHaveCount(10);
+  await openRanking(page);
   const reducedButton = page
     .locator('[data-ranking-streak-tier="celebration"]')
     .first();
   await reducedButton.click();
   await reducedButton.hover();
-  await expect(page.locator('[data-streak-interaction="1"]')).toHaveCount(0);
-  await capture(page, 'reduced-motion-1440');
+  expect(await page.locator('[data-streak-interaction="1"]').count()).toBe(0);
+  await capture(page, 'ranking-reduced-motion-1440');
   expect(
     await page.evaluate(() =>
       document
@@ -469,7 +614,12 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   ).toEqual([]);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.reload();
-  await expect(page.locator(TABLE_ROW)).toHaveCount(10);
-  await capture(page, 'reduced-motion-390');
+  await openRanking(page);
+  const reducedKinds = await page
+    .locator('[data-headwear-kind]')
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute('data-headwear-kind')),
+    );
+  expect(new Set(reducedKinds).size).toBe(10);
+  await capture(page, 'ranking-reduced-motion-390', true);
 });
