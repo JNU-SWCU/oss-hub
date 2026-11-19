@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { periodRange } from './audit-log-format';
-import { useAuditLogUrlState } from './audit-log-url-state';
+import {
+  DEFAULT_AUDIT_LOG_PAGE_LIMIT,
+  useAuditLogUrlState,
+} from './audit-log-url-state';
 import { useAuditLogQuery } from './queries';
 import { AuditLogView } from './audit-log-view';
 import type { AuditLogFilters } from './types';
-
-const AUDIT_LOG_PAGE_LIMIT = 50;
 
 export function AuditLogScreen() {
   const { state, navigate } = useAuditLogUrlState();
@@ -33,7 +34,7 @@ export function AuditLogScreen() {
     ...periodRange(applied, now),
     category: state.category,
     page: state.page,
-    limit: AUDIT_LOG_PAGE_LIMIT,
+    limit: state.limit,
   });
   const errorMessage = query.isError
     ? query.error instanceof ApiError
@@ -42,7 +43,7 @@ export function AuditLogScreen() {
     : null;
   const apply = (next: AuditLogFilters) => {
     setSelectedId(null);
-    navigate({ ...next, q: next.q.trim(), page: 1 });
+    navigate({ ...next, page: 1, limit: DEFAULT_AUDIT_LOG_PAGE_LIMIT });
   };
 
   return (
@@ -53,7 +54,7 @@ export function AuditLogScreen() {
       category={state.category}
       view={state.view}
       page={state.page}
-      limit={AUDIT_LOG_PAGE_LIMIT}
+      limit={state.limit}
       total={query.data?.total ?? 0}
       isLoading={query.isFetching}
       errorMessage={errorMessage}
@@ -66,7 +67,7 @@ export function AuditLogScreen() {
       onCancel={() => setDraft({ source, filters: applied })}
       onCategoryChange={(category) => {
         setSelectedId(null);
-        navigate({ category, page: 1 });
+        navigate({ category, page: 1, limit: DEFAULT_AUDIT_LOG_PAGE_LIMIT });
       }}
       onViewChange={(view) => navigate({ view }, 'replace')}
       onPageChange={(page) => {

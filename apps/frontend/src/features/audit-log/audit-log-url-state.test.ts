@@ -13,6 +13,7 @@ const DEFAULTS = {
   to: '',
   view: 'feed',
   page: 1,
+  limit: 50,
 } as const;
 
 describe('AuditLog URL state', () => {
@@ -37,6 +38,7 @@ describe('AuditLog URL state', () => {
       to: '2026-02-01',
       view: 'table',
       page: 2,
+      limit: 50,
     } as const;
     const params = buildAuditLogSearchParams(input);
     expect(params.toString()).toBe(
@@ -45,16 +47,35 @@ describe('AuditLog URL state', () => {
     expect(parseAuditLogSearchParams(params)).toEqual(input);
   });
 
-  it('reads an address that only carries dates as a custom period', () => {
+  it('keeps the page size of dated bookmarks with no explicit period', () => {
     const state = parseAuditLogSearchParams(
-      new URLSearchParams('from=2026-01-01'),
+      new URLSearchParams('from=2026-01-01&page=2'),
     );
 
     expect(state).toEqual({
       ...DEFAULTS,
       period: 'custom',
       from: '2026-01-01',
+      page: 2,
+      limit: 20,
     });
+    expect(parseAuditLogSearchParams(buildAuditLogSearchParams(state))).toEqual(
+      state,
+    );
+  });
+
+  it('distinguishes an all-time q-only link from a recent search', () => {
+    const q = 'synthetic-admin';
+    expect(parseAuditLogSearchParams(new URLSearchParams({ q }))).toEqual({
+      ...DEFAULTS,
+      q,
+      period: 'custom',
+    });
+
+    const recent = { ...DEFAULTS, q };
+    const params = buildAuditLogSearchParams(recent);
+    expect(params.get('period')).toBe('30d');
+    expect(parseAuditLogSearchParams(params)).toEqual(recent);
   });
 
   it('drops dates once a preset period is chosen', () => {

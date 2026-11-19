@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { auditLogRecordKey } from './audit-log-fold';
 import { AuditLogTable } from './audit-log-table';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 import { parseAuditLogPage } from './parser';
@@ -28,12 +29,12 @@ describe('AuditLogTable', () => {
     container.remove();
   });
 
-  async function render(selectedId: string | null) {
+  async function render(selectedId: string | null, rows = records) {
     const onSelect = vi.fn();
     await act(async () =>
       root.render(
         <AuditLogTable
-          records={records}
+          records={rows}
           now={NOW}
           selectedId={selectedId}
           onSelect={onSelect}
@@ -58,11 +59,11 @@ describe('AuditLogTable', () => {
 
     await act(async () => actionButtons()[1].click());
 
-    expect(onSelect).toHaveBeenCalledWith(records[1].id);
+    expect(onSelect).toHaveBeenCalledWith(auditLogRecordKey(records[1]));
   });
 
   it('marks the selected record and clears it when pressed again', async () => {
-    const onSelect = await render(records[0].id);
+    const onSelect = await render(auditLogRecordKey(records[0]));
 
     expect(
       actionButtons().map((button) => button.getAttribute('aria-pressed')),
@@ -82,6 +83,18 @@ describe('AuditLogTable', () => {
       cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(onSelect).toHaveBeenCalledWith(records[2].id);
+    expect(onSelect).toHaveBeenCalledWith(auditLogRecordKey(records[2]));
+  });
+
+  it('preserves each same-ID row when server order changes', async () => {
+    const first = records[0];
+    const second = { ...records[1], id: first.id };
+    await render(null, [first, second]);
+    const [firstButton, secondButton] = actionButtons();
+
+    await render(null, [second, first]);
+
+    expect(actionButtons()[0]).toBe(secondButton);
+    expect(actionButtons()[1]).toBe(firstButton);
   });
 });

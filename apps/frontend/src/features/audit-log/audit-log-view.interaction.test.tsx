@@ -1,6 +1,7 @@
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { auditLogRecordKey } from './audit-log-fold';
 import { AuditLogView, type AuditLogViewProps } from './audit-log-view';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 import { parseAuditLogPage } from './parser';
@@ -173,11 +174,14 @@ describe('AuditLogView', () => {
     expect(row.textContent).not.toContain('synthetic-admin');
     await act(async () => row.click());
 
-    expect(props.onSelect).toHaveBeenCalledWith(change.id);
+    expect(props.onSelect).toHaveBeenCalledWith(auditLogRecordKey(change));
   });
 
   it('shows the selected record in a detail panel that searches its actor and closes', async () => {
-    const props = await render({ records: [change], selectedId: change.id });
+    const props = await render({
+      records: [change],
+      selectedId: auditLogRecordKey(change),
+    });
 
     const panel = element(container, 'aside');
     const [close, actor] = Array.from(panel.querySelectorAll('button'));
@@ -191,6 +195,47 @@ describe('AuditLogView', () => {
     expect(props.onSearchPerson).toHaveBeenCalledWith('synthetic-admin');
     expect(props.onSelect).toHaveBeenCalledWith(null);
   });
+
+  it.each(['feed', 'table'] as const)(
+    'opens the details for either record with the same ID in %s view',
+    async (view) => {
+      const records = RUN.map((record) => ({ ...record, id: 'same-login' }));
+      const props = { ...baseProps(), records, view };
+
+      function SelectableView() {
+        const [selectedId, onSelect] = useState<string | null>(null);
+        return (
+          <AuditLogView
+            {...props}
+            selectedId={selectedId}
+            onSelect={onSelect}
+          />
+        );
+      }
+
+      await act(async () => root.render(<SelectableView />));
+      if (view === 'feed') {
+        const toggle = element<HTMLButtonElement>(container, '[aria-expanded]');
+        await act(async () => toggle.click());
+      }
+      const buttons = Array.from(
+        container.querySelectorAll<HTMLButtonElement>(
+          view === 'table' ? 'tbody button' : 'li > button[aria-pressed]',
+        ),
+      );
+      expect(buttons).toHaveLength(2);
+
+      for (const [index, record] of records.entries()) {
+        await act(async () => buttons[index].click());
+        expect(timestamps(element(container, 'aside'))).toEqual([
+          record.occurredAt,
+        ]);
+        expect(
+          buttons.map((button) => button.getAttribute('aria-pressed')),
+        ).toEqual(records.map((_, row) => String(row === index)));
+      }
+    },
+  );
 
   it('renders five columns and one row per record in table view', async () => {
     await render({ view: 'table' });

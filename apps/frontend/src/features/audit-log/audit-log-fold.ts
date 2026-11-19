@@ -28,25 +28,51 @@ export interface AuditFeedDay {
   readonly items: readonly AuditFeedItem[];
 }
 
-function compareAuditRecords(
-  left: AuditLogRecord,
-  right: AuditLogRecord,
+export function auditLogRecordKey(record: AuditLogRecord): string {
+  return JSON.stringify(record, (_key, value: unknown) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      return value;
+    }
+    const fields = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.keys(fields)
+        .sort()
+        .map((field) => [field, fields[field]]),
+    );
+  });
+}
+
+function compareDescending(left: string, right: string): number {
+  return left === right ? 0 : left < right ? 1 : -1;
+}
+
+function compareAuditEvents(
+  left: AuditFeedEvent,
+  right: AuditFeedEvent,
 ): number {
-  if (left.occurredAt !== right.occurredAt) {
-    return left.occurredAt < right.occurredAt ? 1 : -1;
-  }
-  if (left.id === right.id) return 0;
-  return left.id < right.id ? 1 : -1;
+  return (
+    compareDescending(left.record.occurredAt, right.record.occurredAt) ||
+    compareDescending(left.record.id, right.record.id) ||
+    compareDescending(left.key, right.key)
+  );
 }
 
 function newestFirst(
   records: readonly AuditLogRecord[],
-): readonly AuditLogRecord[] {
-  const unique = new Map<string, AuditLogRecord>();
+): readonly AuditFeedEvent[] {
+  const unique = new Map<string, AuditFeedEvent>();
   for (const record of records) {
-    if (!unique.has(record.id)) unique.set(record.id, record);
+    const key = auditLogRecordKey(record);
+    if (!unique.has(key)) unique.set(key, { kind: 'event', key, record });
   }
-  return [...unique.values()].sort(compareAuditRecords);
+  return [...unique.values()].sort(compareAuditEvents);
+}
+
+function isFoldableLogin({ category, action }: AuditLogRecord): boolean {
+  return (
+    category === 'LOGIN' &&
+    (action === 'LOGIN' || action === 'LOGOUT' || action === 'LOGIN_FAILED')
+  );
 }
 
 function inRunWindow(newer: AuditLogRecord, older: AuditLogRecord): boolean {
@@ -56,20 +82,22 @@ function inRunWindow(newer: AuditLogRecord, older: AuditLogRecord): boolean {
   );
 }
 
-function runItems(run: readonly AuditLogRecord[]): readonly AuditFeedItem[] {
-  if (run.length < LOGIN_RUN_MIN_LENGTH) {
-    return run.map((record) => ({ kind: 'event', key: record.id, record }));
-  }
+function runItems(run: readonly AuditFeedEvent[]): readonly AuditFeedItem[] {
+  if (run.length < LOGIN_RUN_MIN_LENGTH) return run;
   const newest = run[0];
   const oldest = run[run.length - 1];
+  const records = run.map((event) => event.record);
+  const failures = records.filter(
+    (record) => record.action === 'LOGIN_FAILED',
+  ).length;
   return [
     {
       kind: 'run',
-      key: `run:${oldest.id}`,
-      records: run,
-      failures: run.filter((record) => record.action === 'LOGIN_FAILED').length,
-      from: oldest.occurredAt,
-      to: newest.occurredAt,
+      key: `run:${oldest.key}`,
+      records,
+      failures,
+      from: oldest.record.occurredAt,
+      to: newest.record.occurredAt,
     },
   ];
 }
@@ -79,25 +107,26 @@ export function foldAuditFeed(
   options: { readonly foldLogins: boolean },
 ): readonly AuditFeedDay[] {
   const days: { key: string; at: string; items: AuditFeedItem[] }[] = [];
-  let run: AuditLogRecord[] = [];
+  let run: AuditFeedEvent[] = [];
   const flush = () => {
     days.at(-1)?.items.push(...runItems(run));
     run = [];
   };
-  for (const record of newestFirst(records)) {
+  for (const event of newestFirst(records)) {
+    const { record } = event;
     const key = dayKey(record.occurredAt);
     if (days.at(-1)?.key !== key) {
       flush();
       days.push({ key, at: record.occurredAt, items: [] });
     }
-    if (options.foldLogins && record.category === 'LOGIN') {
+    if (options.foldLogins && isFoldableLogin(record)) {
       const newer = run.at(-1);
-      if (newer !== undefined && !inRunWindow(newer, record)) flush();
-      run.push(record);
+      if (newer !== undefined && !inRunWindow(newer.record, record)) flush();
+      run.push(event);
       continue;
     }
     flush();
-    days.at(-1)?.items.push({ kind: 'event', key: record.id, record });
+    days.at(-1)?.items.push(event);
   }
   flush();
   return days;

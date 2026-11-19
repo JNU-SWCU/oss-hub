@@ -24,7 +24,6 @@ function shape(days: readonly AuditFeedDay[]) {
     items: day.items.map((item) =>
       item.kind === 'run'
         ? {
-            run: item.key,
             ids: item.records.map((record) => record.id),
             failures: item.failures,
             from: item.from,
@@ -54,7 +53,6 @@ const FOLDED = [
     day: '2026-11-19',
     items: [
       {
-        run: 'run:l3',
         ids: ['l5', 'l4', 'l3'],
         failures: 1,
         from: '2026-11-19T04:51:00.000Z',
@@ -62,7 +60,6 @@ const FOLDED = [
       },
       { event: 'c2' },
       {
-        run: 'run:l1',
         ids: ['l2', 'l1'],
         failures: 0,
         from: '2026-11-19T03:30:00.000Z',
@@ -77,7 +74,6 @@ const FOLDED = [
     day: '2026-11-18',
     items: [
       {
-        run: 'run:y1',
         ids: ['y2', 'y1'],
         failures: 0,
         from: '2026-11-18T05:16:00.000Z',
@@ -107,19 +103,53 @@ describe('foldAuditFeed', () => {
     }
   });
 
-  it('returns equal output when called again with the same input', () => {
-    expect(foldAuditFeed(RECORDS, { foldLogins: true })).toEqual(
-      foldAuditFeed(RECORDS, { foldLogins: true }),
-    );
+  it('keeps an intervening grant with a colliding ID in either input order', () => {
+    const fixture = AUDIT_LOG_PAGE_RESPONSE_FIXTURE;
+    const { items } = parseAuditLogPage({
+      ...fixture,
+      total: 3,
+      counts: { ACCOUNT: 0, OPERATION: 0, SUBMISSION: 0, LOGIN: 2, SYSTEM: 1 },
+      items: [
+        {
+          ...fixture.items[4],
+          id: 'shared',
+          occurredAt: '2026-11-19T04:35:00.000Z',
+        },
+        {
+          ...fixture.items[3],
+          id: 'shared',
+          occurredAt: '2026-11-19T04:30:00.000Z',
+        },
+        {
+          ...fixture.items[4],
+          action: 'LOGIN_FAILED',
+          occurredAt: '2026-11-19T04:25:00.000Z',
+        },
+      ],
+    });
+
+    for (const order of [items, [...items].reverse()]) {
+      const [day] = foldAuditFeed(order, { foldLogins: true });
+
+      expect(day.items).toMatchObject([
+        { kind: 'event', record: { id: 'shared', action: 'LOGIN' } },
+        {
+          kind: 'event',
+          record: { id: 'shared', action: 'GRANT_ADMIN_ACCESS' },
+        },
+        { kind: 'event', record: { action: 'LOGIN_FAILED' } },
+      ]);
+      expect(new Set(day.items.map((item) => item.key)).size).toBe(3);
+    }
   });
 
-  it('ends a run at the Asia/Seoul day boundary', () => {
+  it('separates runs at the Asia/Seoul day boundary even if their anchors share an ID', () => {
     const days = foldAuditFeed(
       [
         login('after-2', '2026-11-18T15:00:01.000Z'),
-        login('after-1', '2026-11-18T15:00:00.000Z'),
+        login('shared', '2026-11-18T15:00:00.000Z'),
         login('before-2', '2026-11-18T14:59:59.999Z'),
-        login('before-1', '2026-11-18T14:59:58.000Z'),
+        login('shared', '2026-11-18T14:59:58.000Z'),
       ],
       { foldLogins: true },
     );
@@ -129,8 +159,7 @@ describe('foldAuditFeed', () => {
         day: '2026-11-19',
         items: [
           {
-            run: 'run:after-1',
-            ids: ['after-2', 'after-1'],
+            ids: ['after-2', 'shared'],
             failures: 0,
             from: '2026-11-18T15:00:00.000Z',
             to: '2026-11-18T15:00:01.000Z',
@@ -141,8 +170,7 @@ describe('foldAuditFeed', () => {
         day: '2026-11-18',
         items: [
           {
-            run: 'run:before-1',
-            ids: ['before-2', 'before-1'],
+            ids: ['before-2', 'shared'],
             failures: 0,
             from: '2026-11-18T14:59:58.000Z',
             to: '2026-11-18T14:59:59.999Z',
@@ -150,6 +178,7 @@ describe('foldAuditFeed', () => {
         ],
       },
     ]);
+    expect(days[0].items[0].key).not.toBe(days[1].items[0].key);
   });
 
   it('ends a run when the next login is more than an hour older', () => {
@@ -168,7 +197,6 @@ describe('foldAuditFeed', () => {
         day: '2026-11-19',
         items: [
           {
-            run: 'run:n2',
             ids: ['n3', 'n2'],
             failures: 0,
             from: '2026-11-19T03:00:00.000Z',
@@ -195,11 +223,49 @@ describe('foldAuditFeed', () => {
         day: '2026-11-19',
         items: [
           { event: 'd' },
-          { run: 'run:a', ids: ['c', 'b', 'a'], failures: 0, from: at, to: at },
+          { ids: ['c', 'b', 'a'], failures: 0, from: at, to: at },
         ],
       },
     ]);
   });
+
+  it('orders same-time, same-ID records by payload and counts equivalent copies once', () => {
+    const first = login('shared', '2026-11-19T04:00:00.000Z');
+    const second = { ...first, target: { ...first.target, id: 'user-z' } };
+    const { id, ...target } = first.target;
+    const copy = { ...first, target: { id, ...target } };
+    const records = [first, copy, second];
+    const days = foldAuditFeed(records, { foldLogins: true });
+
+    expect(days[0].items).toMatchObject([
+      { kind: 'run', records: [second, first], failures: 0 },
+    ]);
+    expect(foldAuditFeed([...records].reverse(), { foldLogins: true })).toEqual(
+      days,
+    );
+  });
+
+  it.each([
+    ['LOGOUT_FAILED', 'LOGIN'],
+    ['OTHER_LOGIN_ACTION', 'LOGIN'],
+    ['LOGIN', 'SYSTEM'],
+  ] as const)(
+    'keeps %s (%s) as a barrier between logins',
+    (action, category) => {
+      const records = [
+        login('newer', '2026-11-19T04:35:00.000Z'),
+        { ...login('barrier', '2026-11-19T04:30:00.000Z', action), category },
+        login('older', '2026-11-19T04:25:00.000Z', 'LOGIN_FAILED'),
+      ];
+
+      expect(shape(foldAuditFeed(records, { foldLogins: true }))).toEqual([
+        {
+          day: '2026-11-19',
+          items: [{ event: 'newer' }, { event: 'barrier' }, { event: 'older' }],
+        },
+      ]);
+    },
+  );
 
   it('counts a repeated record once', () => {
     const days = foldAuditFeed([...RECORDS, RECORDS[0], RECORDS[3]], {
@@ -212,11 +278,8 @@ describe('foldAuditFeed', () => {
   it('keeps every record as its own row when folding is off', () => {
     const days = foldAuditFeed(RECORDS, { foldLogins: false });
 
-    expect(days.flatMap((day) => day.items.map((item) => item.kind))).toEqual(
-      RECORDS.map(() => 'event'),
-    );
-    expect(days.flatMap((day) => day.items.map((item) => item.key))).toEqual(
-      RECORDS.map((record) => record.id),
+    expect(days.flatMap((day) => day.items)).toMatchObject(
+      RECORDS.map((record) => ({ kind: 'event', record })),
     );
   });
 });

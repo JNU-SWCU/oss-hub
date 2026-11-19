@@ -5,7 +5,11 @@ import { ChevronRight } from 'lucide-react';
 import { ListPanel } from '@/components';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { AuditFeedDay, AuditFeedRun } from './audit-log-fold';
+import {
+  auditLogRecordKey,
+  type AuditFeedDay,
+  type AuditFeedRun,
+} from './audit-log-fold';
 import {
   AUDIT_LOG_CATEGORY_LABELS,
   dayLabel,
@@ -31,7 +35,7 @@ const ROW_ITEM_CLASS = 'border-t border-border/50';
 
 interface RowSelection {
   readonly selectedId: string | null;
-  readonly onSelect: (id: string | null) => void;
+  readonly onSelect: (key: string | null) => void;
 }
 
 function EventRow({
@@ -43,7 +47,8 @@ function EventRow({
   readonly record: AuditLogRecord;
   readonly nested: boolean;
 }): ReactElement {
-  const selected = record.id === selectedId;
+  const key = auditLogRecordKey(record);
+  const selected = key === selectedId;
   return (
     <li className={ROW_ITEM_CLASS}>
       <Button
@@ -52,7 +57,7 @@ function EventRow({
         size="content"
         aria-pressed={selected}
         className={cn(ROW_CLASS, nested && 'pl-10')}
-        onClick={() => onSelect(selected ? null : record.id)}
+        onClick={() => onSelect(selected ? null : key)}
       >
         <time
           dateTime={record.occurredAt}
@@ -119,7 +124,7 @@ function RunRow({
         {open
           ? run.records.map((record) => (
               <EventRow
-                key={record.id}
+                key={auditLogRecordKey(record)}
                 record={record}
                 nested
                 selectedId={selectedId}

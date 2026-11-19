@@ -20,7 +20,7 @@ import {
 import { AuditLogDetail } from './audit-log-detail';
 import { AuditLogFeed } from './audit-log-feed';
 import { AuditLogFilterFields, AuditLogFilterSheet } from './audit-log-filters';
-import { foldAuditFeed } from './audit-log-fold';
+import { auditLogRecordKey, foldAuditFeed } from './audit-log-fold';
 import { AUDIT_LOG_CATEGORY_LABELS, formatStamp } from './audit-log-format';
 import { AuditLogTable } from './audit-log-table';
 
@@ -46,7 +46,7 @@ export interface AuditLogViewProps {
   readonly onViewChange: (view: AuditLogViewMode) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
-  readonly onSelect: (id: string | null) => void;
+  readonly onSelect: (key: string | null) => void;
   readonly onSearchPerson: (login: string) => void;
 }
 
@@ -102,7 +102,11 @@ export function AuditLogView(props: AuditLogViewProps) {
     [records, foldLogins],
   );
   const selected =
-    records.find((record) => record.id === props.selectedId) ?? null;
+    props.selectedId === null
+      ? undefined
+      : records.find(
+          (record) => auditLogRecordKey(record) === props.selectedId,
+        );
   const totalPages = Math.max(1, Math.ceil(props.total / props.limit));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

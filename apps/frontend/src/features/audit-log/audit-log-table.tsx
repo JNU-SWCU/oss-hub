@@ -3,6 +3,7 @@
 import type { ReactElement } from 'react';
 import { DataTable, type DataTableColumn } from '@/components';
 import { Button } from '@/components/ui/button';
+import { auditLogRecordKey } from './audit-log-fold';
 import { formatDateTime, resultLabel, targetLabel } from './audit-log-format';
 import {
   AuditLogActionValue,
@@ -26,10 +27,12 @@ export function AuditLogTable({
   readonly records: readonly AuditLogRecord[];
   readonly now: Date;
   readonly selectedId: string | null;
-  readonly onSelect: (id: string | null) => void;
+  readonly onSelect: (key: string | null) => void;
 }): ReactElement {
-  const toggle = (record: AuditLogRecord) =>
-    onSelect(record.id === selectedId ? null : record.id);
+  const toggle = (record: AuditLogRecord) => {
+    const key = auditLogRecordKey(record);
+    onSelect(key === selectedId ? null : key);
+  };
   const columns: DataTableColumn<AuditLogRecord>[] = [
     {
       id: 'occurredAt',
@@ -64,7 +67,7 @@ export function AuditLogTable({
           type="button"
           variant="bare"
           size="content"
-          aria-pressed={record.id === selectedId}
+          aria-pressed={auditLogRecordKey(record) === selectedId}
           className="text-left aria-pressed:font-semibold"
           onClick={() => toggle(record)}
         >
@@ -105,7 +108,7 @@ export function AuditLogTable({
       scrollRegionLabel="감사 로그 표"
       columns={columns}
       data={[...records]}
-      rowKey={(record) => record.id}
+      rowKey={auditLogRecordKey}
       onRowClick={toggle}
     />
   );
