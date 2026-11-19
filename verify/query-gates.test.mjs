@@ -49,7 +49,7 @@ async function recordChecks(argv, options) {
       env: {},
       ...options,
       checks: Object.fromEntries(
-        ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'].map((name) => [
+        ['secrets', 'api', 'query-gates', 'cwv'].map((name) => [
           name,
           record(name),
         ]),
@@ -61,7 +61,7 @@ async function recordChecks(argv, options) {
   }
 }
 
-const EVERY_CHECK = ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'];
+const EVERY_CHECK = ['secrets', 'api', 'query-gates', 'cwv'];
 
 test('verify full runs every check on an already-pushed checkout', async (t) => {
   const repo = tempRepo(t);

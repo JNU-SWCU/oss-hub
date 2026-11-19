@@ -19,6 +19,32 @@ const BOTH_PATTERNS = [
   /^\.github\/workflows\//,
 ];
 
+const NGINX_PATTERNS = [/^deploy\/(?:nginx|host-nginx|checks)\//];
+const JENKINS_PATTERNS = [
+  /^Jenkinsfile$/,
+  /^compose\.yml$/,
+  /^apps\/[^/]+\/Dockerfile$/,
+  /^\.dockerignore$/,
+  /^\.env\.example$/,
+  /^deploy\/(?:jenkins|nginx|host-nginx)\//,
+];
+const SHELL_PATTERNS = [
+  /^dev\.sh$/,
+  /^deploy\/.*\.sh$/,
+  /^apps\/backend\/(?:prisma|test)\/.*\.sh$/,
+  /^\.github\/.*\.sh$/,
+  /^\.githooks\//,
+];
+const NODE_SCRIPT_PATTERNS = [/^deploy\/.*\.mjs$/, /^verify\/.*\.mjs$/];
+const RAILS_PATTERNS = [
+  /^eslint\.shared\.mjs$/,
+  /^eslint-rules\//,
+  /^knip\.json$/,
+  /^package\.json$/,
+  /^pnpm-(?:lock|workspace)\.yaml$/,
+];
+const WORKFLOW = /^\.github\/workflows\//;
+
 const QUERY_GATE_PATTERNS = [
   /^apps\/backend\/src\/.*(?<!\.spec)\.ts$/,
   /^apps\/backend\/prisma\//,
@@ -26,19 +52,28 @@ const QUERY_GATE_PATTERNS = [
   /^apps\/backend\/eslint-rules\//,
 ];
 
+function matches(files, patterns) {
+  return files.some((file) => patterns.some((pattern) => pattern.test(file)));
+}
+
 export function classifyFiles(files) {
-  const both = files.some((file) =>
-    BOTH_PATTERNS.some((pattern) => pattern.test(file)),
-  );
+  const workflow = files.some((file) => WORKFLOW.test(file));
+  const both = matches(files, BOTH_PATTERNS);
+  const frontend = files.some((file) => file.startsWith('apps/frontend/'));
+  const backend = files.some((file) => file.startsWith('apps/backend/'));
+  const sharedRails = matches(files, RAILS_PATTERNS);
+  const shared = both || sharedRails;
   return {
-    frontend: both || files.some((file) => file.startsWith('apps/frontend/')),
-    backend: both || files.some((file) => file.startsWith('apps/backend/')),
-    queryGates:
-      both ||
-      files.some((file) =>
-        QUERY_GATE_PATTERNS.some((pattern) => pattern.test(file)),
-      ),
-    both,
+    frontend: shared || frontend,
+    backend: shared || backend,
+    api: both || backend,
+    queryGates: both || matches(files, QUERY_GATE_PATTERNS),
+    nginx: workflow || matches(files, NGINX_PATTERNS),
+    jenkins: workflow || matches(files, JENKINS_PATTERNS),
+    shellScripts: workflow || matches(files, SHELL_PATTERNS),
+    nodeScripts: workflow || matches(files, NODE_SCRIPT_PATTERNS),
+    rails: workflow || frontend || backend || sharedRails,
+    both: shared,
     securityAlways: true,
   };
 }

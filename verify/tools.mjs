@@ -20,7 +20,6 @@ export const SPECTRAL_PACKAGE = '@stoplight/spectral-cli@6.17.1';
 export const REDOCLY_PACKAGE = '@redocly/cli@2.79.0';
 
 const VERIFY_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1907';
-const URL_RULES_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1859';
 const QUERY_ISSUE = 'https://github.com/JNU-SWCU/oss-hub/issues/1909';
 
 export const RULE_SOURCES = {
@@ -33,10 +32,6 @@ export const RULE_SOURCES = {
   'api-break-unapproved': VERIFY_ISSUE,
   'api-route-reconciliation': VERIFY_ISSUE,
   'api-route-unresolved': VERIFY_ISSUE,
-  'url-ia-unreachable-page':
-    'https://developers.google.com/search/docs/crawling-indexing/links-crawlable',
-  'url-ia-duplicate-screen':
-    'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
   'query-lint': QUERY_ISSUE,
   'query-growth': QUERY_ISSUE,
   'cwv-run-failed':

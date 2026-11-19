@@ -1,5 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { checkApi } from './api.mjs';
 import { createCiApproval } from './approval.mjs';
 import { checkFull } from './full.mjs';
@@ -12,57 +11,32 @@ import {
   interruptedExitCode,
   isEntry,
 } from './tools.mjs';
-import { checkUrlIa } from './url-ia.mjs';
 
 const CHECKS = {
   secrets: (context) => checkSecrets(context),
-  'url-ia': (context) => checkUrlIa(context),
   api: (context) => checkApi(context),
   'query-gates': (context) => checkQueryGates(context),
   cwv: () => checkFull({}),
 };
 
-const REPORT_ONLY = new Set(['url-ia']);
-
-function writeReport(reportDir, name, ranges, payload) {
-  mkdirSync(reportDir, { recursive: true });
-  const file = join(reportDir, `${name}.json`);
-  writeFileSync(
-    file,
-    `${JSON.stringify({ at: new Date().toISOString(), ranges, ...payload }, null, 2)}\n`,
-  );
-  return file;
-}
-
 const COMMANDS = {
-  frontend: ['secrets', 'url-ia'],
+  frontend: ['secrets'],
   backend: ['secrets', 'api', 'query-gates'],
-  full: ['secrets', 'url-ia', 'api', 'query-gates', 'cwv'],
-  'url-ia': ['url-ia'],
+  full: ['secrets', 'api', 'query-gates', 'cwv'],
 };
 
 const USAGE =
-  'usage: node verify/index.mjs <frontend|backend|full|scoped|scope|url-ia> [--pre-push]';
+  'usage: node verify/index.mjs <frontend|backend|full|scoped|scope> [--pre-push]';
 
 function scopedChecks(scope) {
-  return [
-    'secrets',
-    ...(scope.frontend ? ['url-ia'] : []),
-    ...(scope.backend ? ['api', 'query-gates'] : []),
-  ];
+  return ['secrets', ...(scope.api ? ['api', 'query-gates'] : [])];
 }
 
 const SCOPE_GATED = { 'query-gates': 'queryGates' };
 
 export async function main(
   argv,
-  {
-    cwd = REPO_ROOT,
-    env = process.env,
-    stdin,
-    reportDir = join(REPO_ROOT, 'verify/reports'),
-    checks: overrides = {},
-  } = {},
+  { cwd = REPO_ROOT, env = process.env, stdin, checks: overrides = {} } = {},
 ) {
   const checkImpls = { ...CHECKS, ...overrides };
   const [command] = argv;
@@ -88,12 +62,6 @@ export async function main(
                 : undefined,
           });
   } catch (error) {
-    if (REPORT_ONLY.has(command)) {
-      console.log(
-        `NOTICE ${command}: scope could not be resolved (${error.message}); report only, the exit code is unaffected`,
-      );
-      return 0;
-    }
     console.error(`ERROR scope (${source}): ${error.message}`);
     return 2;
   }
@@ -125,33 +93,6 @@ export async function main(
   let errored = 0;
   for (const name of checks) {
     if (interruptedExitCode()) break;
-    if (REPORT_ONLY.has(name)) {
-      try {
-        const findings = await checkImpls[name]({
-          cwd,
-          source,
-          ranges: scope.ranges,
-        });
-        for (const item of findings) console.log(formatFinding(item, 'REPORT'));
-        const file = writeReport(reportDir, name, scope.ranges, { findings });
-        console.log(
-          `REPORT ${name}: ${findings.length} finding(s) -> ${file} (report only, does not affect the exit code)`,
-        );
-      } catch (error) {
-        let file = '';
-        try {
-          file = writeReport(reportDir, name, scope.ranges, {
-            error: error.message,
-          });
-        } catch (writeError) {
-          file = `report not written: ${writeError.message}`;
-        }
-        console.log(
-          `NOTICE ${name}: analysis failed (${error.message}); ${file}; report only, the exit code is unaffected`,
-        );
-      }
-      continue;
-    }
     try {
       const findings = await checkImpls[name]({
         cwd,
