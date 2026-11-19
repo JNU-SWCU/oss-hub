@@ -296,7 +296,7 @@ function recentActivitySql(window: StaffInsightsRecentWindow): Prisma.Sql {
           : Prisma.sql`
             UNION ALL
             SELECT github_id, commit_count, pull_request_count, issue_count, repository_count,
-              FALSE AS reobserved
+              standing.observed_at BETWEEN ${window.cutoff} AND ${window.now} AS reobserved
             FROM (${PUBLIC_STANDING}) AS standing
             WHERE year = ${window.nowYear}
               AND NOT EXISTS (

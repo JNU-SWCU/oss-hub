@@ -1116,6 +1116,48 @@ describe('StaffInsightsRepository student finder', () => {
     ]);
   });
 
+  it('distinguishes a measured zero from stale-only data across the Seoul year boundary', async () => {
+    const stale = {
+      year: 2095,
+      visibility: ActivityVisibility.PUBLIC,
+      observedAt: new Date('2095-11-20T00:00:00Z'),
+      commitCount: 5,
+    };
+    await prisma.githubUserActivityObservation.createMany({
+      data: [
+        { ...stale, githubId: githubId(5) },
+        { ...stale, githubId: githubId(6) },
+        {
+          ...stale,
+          githubId: githubId(5),
+          year: 2096,
+          observedAt: new Date('2095-12-31T15:30:00Z'),
+          commitCount: 0,
+        },
+      ],
+    });
+
+    const now = new Date('2095-12-31T16:00:00Z');
+    const query = { year: '2095', search: prefix, minActivity: 1 };
+    const page = await service.findStudents(query, now);
+    expect(page.rows.find((row) => row.githubLogin === login(5))).toMatchObject(
+      {
+        recentTotal: 0,
+      },
+    );
+    expect(page.rows.find((row) => row.githubLogin === login(6))).toMatchObject(
+      {
+        recentTotal: null,
+      },
+    );
+
+    const inactive = await service.findStudents(
+      { ...query, recentActivity: 'inactive' },
+      now,
+    );
+    expect(inactive.rows.map((row) => row.githubLogin)).toEqual([login(5)]);
+  });
+
   it.each([
     [login(20).toUpperCase(), 20],
     [` ${name(0).toUpperCase()} `, 0],
