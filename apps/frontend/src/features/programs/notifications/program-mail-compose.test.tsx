@@ -30,7 +30,10 @@ afterEach(async () => {
   await mounted?.unmount();
 });
 
-async function render(audience: typeof teams) {
+async function render(
+  audience: typeof teams,
+  selectedIds: readonly string[] = [],
+) {
   const selection = vi.fn<(ids: ReadonlySet<string>) => void>();
   mounted = await renderWithQuery(
     <ProgramMailCompose
@@ -40,7 +43,7 @@ async function render(audience: typeof teams) {
           programName: 'Program',
           teams: audience,
         },
-        selectedIds: new Set(),
+        selectedIds: new Set(selectedIds),
         subject: '',
         body: '',
       }}
@@ -61,11 +64,16 @@ async function choose(name: string) {
 it.each([
   ['전체 선택', ['eligible', 'other']],
   ['24시간 이내 필수 서류 미제출자 선택', ['eligible']],
-  ['선택 해제', []],
 ] as const)('projects the selected IDs for %s', async (name, ids) => {
   const selection = await render(teams);
   await choose(name);
   expect(selection).toHaveBeenCalledExactlyOnceWith(new Set(ids));
+});
+
+it('clears an existing recipient selection', async () => {
+  const selection = await render(teams, ['eligible']);
+  await choose('선택 해제');
+  expect(selection).toHaveBeenCalledExactlyOnceWith(new Set());
 });
 
 it('cannot select recipients from an empty audience', async () => {

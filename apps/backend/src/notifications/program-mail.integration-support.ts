@@ -91,8 +91,10 @@ export type ProgramMailIntegrationWorld = {
   close(): Promise<void>;
 };
 
-export async function startProgramMailIntegration(): Promise<ProgramMailIntegrationWorld> {
-  const harness = createDeadlineDigestIntegrationHarness();
+export async function startProgramMailIntegration(
+  prisma: PrismaService,
+): Promise<ProgramMailIntegrationWorld> {
+  const harness = createDeadlineDigestIntegrationHarness(prisma);
   const mailSender = new RecordingMailSender();
   const repository = new ProgramMailRepository(harness.prisma);
   const createRuntime = (
@@ -281,10 +283,6 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
         data: { status: 'APPROVED', archivedAt: null },
       });
     },
-    close: async () => {
-      await clearProgramMail();
-      await app.close();
-      await harness.prisma.$disconnect();
-    },
+    close: () => app.close(),
   };
 }

@@ -553,8 +553,9 @@ describe('DeadlineDigestDialog', () => {
     await flush();
 
     expect(
-      document.querySelector('[role="alert"] [data-slot="alert-description"]'),
-    ).not.toBeNull();
+      document.querySelector('[role="alert"] [data-slot="alert-description"]')
+        ?.textContent,
+    ).toBe(serverProblem.detail);
     expect(studentGuidance.value).toBe('학생 초안');
     expect(queryButton('보내기')).toBeUndefined();
     expect(button('미리보기').disabled).toBe(false);

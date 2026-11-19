@@ -1,3 +1,4 @@
+import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createAuditLogReadService } from '../platform/audit-log-mapping.fixture';
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
@@ -21,17 +22,33 @@ const externalGithubId = BigInt(randomBytes(6).readUIntBE(0, 6));
 jest.setTimeout(30_000);
 
 let world: ProgramMailIntegrationWorld;
+let database:
+  Awaited<ReturnType<typeof createOwnedIntegrationDatabase>> | undefined;
 
 beforeAll(async () => {
-  world = await startProgramMailIntegration();
-});
+  database = await createOwnedIntegrationDatabase();
+  world = await startProgramMailIntegration(database.prisma);
+}, 90_000);
 
 beforeEach(async () => {
   await world.reset();
 });
 
 afterAll(async () => {
-  await world?.close();
+  try {
+    await world?.close();
+  } finally {
+    await database?.close();
+  }
+});
+
+it('keeps the digest fixture IDs outside the shared runner database', async () => {
+  const sharedName = new URL(process.env.DATABASE_URL ?? '').pathname.slice(1);
+  const [current] = await world.prisma.$queryRaw<
+    { name: string }[]
+  >`SELECT current_database() AS name LIMIT 1`;
+  expect(current?.name).toEqual(expect.stringMatching(/^oss_hub_fixture_/));
+  expect(current?.name).not.toBe(sharedName);
 });
 
 it('lists all application statuses, sends mail, and records an attributable audit event', async () => {
@@ -87,15 +104,46 @@ it('lists all application statuses, sends mail, and records an attributable audi
       idempotencyKey,
     },
   });
+  const unrelatedBatch = 'program-mail-send:foreign-audit';
+  await world.prisma.userHistory.create({
+    data: {
+      id: `user:program-mail-result:${unrelatedBatch}`,
+      userId: PROGRAM_MAIL_STAFF_FIXTURE.id,
+      actorId: PROGRAM_MAIL_STAFF_FIXTURE.id,
+      event: 'PROFILE_UPDATED',
+      source: 'APPLICATION',
+      sourceTable: 'ProgramMail',
+      sourceId: unrelatedBatch,
+      sourcePart: 'RESULT',
+      occurredAt: new Date(),
+      data: {
+        schemaVersion: 1,
+        recordKind: 'DOMAIN_EVENT',
+        action: 'PROGRAM_MAIL_SENT',
+        targetType: 'PROGRAM',
+        targetId: DIGEST_FIXTURE.silentProgram,
+        requestId: unrelatedBatch,
+        metadata: {},
+        request: null,
+      },
+    },
+  });
   const feed = await createAuditLogReadService(
     new AuditLogReadRepository(world.prisma),
   ).list({ action: 'PROGRAM_MAIL_SENT', page: 1, limit: 20 });
-  expect(feed.items).toHaveLength(1);
-  expect(feed.items[0]?.action).toBe('PROGRAM_MAIL_SENT');
-  expect(feed.items[0]?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
-  expect(feed.items[0]?.target.type).toBe('PROGRAM');
-  expect(feed.items[0]?.target.id).toBe(DIGEST_FIXTURE.notifyProgram);
-  expect(feed.items[0]?.requestId).toBe(idempotencyKey);
+  expect(feed.items).toContainEqual(
+    expect.objectContaining({ requestId: unrelatedBatch }),
+  );
+  const ownItems = feed.items.filter(
+    (item) => item.requestId === idempotencyKey,
+  );
+  expect(ownItems).toHaveLength(1);
+  const [own] = ownItems;
+  expect(own?.action).toBe('PROGRAM_MAIL_SENT');
+  expect(own?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
+  expect(own?.target.type).toBe('PROGRAM');
+  expect(own?.target.id).toBe(DIGEST_FIXTURE.notifyProgram);
+  expect(own?.requestId).toBe(idempotencyKey);
 });
 
 it('matches the legacy deadline recipient selection on approved teams only', async () => {
