@@ -1,4 +1,5 @@
 import { StaffInsightsService } from './staff-insights.service';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import {
   GUARDS_METADATA,
   HEADERS_METADATA,
@@ -6,6 +7,7 @@ import {
 } from '@nestjs/common/constants';
 import { RolesGuard } from '../platform/roles.guard';
 import { ProgramTrackType } from '@prisma/client';
+import { StaffDashboardSummaryRequestDto } from './dto/staff-dashboard-summary-request.dto';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
@@ -24,6 +26,16 @@ function readGuards(
 }
 
 describe('StaffDashboardController', () => {
+  const validation = new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  });
+  const queryMetadata = {
+    type: 'query',
+    metatype: StaffDashboardSummaryRequestDto,
+  } as const;
+
   it('applies route metadata, no-store cache, and only the role guard', () => {
     const summary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,
@@ -91,6 +103,7 @@ describe('StaffDashboardController', () => {
               changesRequested: 0,
               rejected: 0,
             },
+            milestones: [],
           },
         ],
       });
@@ -145,6 +158,7 @@ describe('StaffDashboardController', () => {
               changesRequested: 0,
               rejected: 0,
             },
+            milestones: [],
           },
         ],
       });
@@ -155,6 +169,62 @@ describe('StaffDashboardController', () => {
         search: '',
         status: 'all',
       });
+    },
+  );
+
+  it.each([
+    {},
+    ...['name', 'deadline', 'submission', 'pending'].flatMap((sort) =>
+      ['asc', 'desc'].map((direction) => ({ sort, direction })),
+    ),
+  ])('forwards validated summary query parameters %j', async (params) => {
+    const query: unknown = await validation.transform(
+      { page: '2', ...params },
+      queryMetadata,
+    );
+    if (!(query instanceof StaffDashboardSummaryRequestDto)) {
+      throw new TypeError('Expected parsed staff dashboard query');
+    }
+    const summary = jest.fn().mockResolvedValue({
+      page: 2,
+      pageSize: 20,
+      total: 21,
+      catalogTotal: 21,
+      programs: [],
+      statusSummary: { recruiting: 0, inProgress: 0, ended: 0 },
+    });
+    const controller = new StaffDashboardController(
+      { summary },
+      { summarizeFromRequest: jest.fn() },
+    );
+
+    await controller.summary(query);
+
+    expect(summary).toHaveBeenCalledWith({
+      page: 2,
+      pageSize: 20,
+      search: '',
+      status: 'all',
+      ...params,
+    });
+  });
+
+  it.each([
+    { sort: 'name' },
+    { direction: 'asc' },
+    { sort: 'status', direction: 'asc' },
+    { sort: 'name', direction: 'DESC' },
+    { sort: ['name', 'deadline'], direction: 'asc' },
+    { sort: 'name', direction: ['asc', 'desc'] },
+    { sort: null, direction: 'asc' },
+    { sort: 'name', direction: null },
+    { sort: '', direction: '' },
+  ])(
+    'rejects invalid or incomplete summary sort parameters %j',
+    async (params) => {
+      await expect(validation.transform(params, queryMetadata)).rejects.toThrow(
+        BadRequestException,
+      );
     },
   );
 

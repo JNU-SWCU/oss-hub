@@ -317,6 +317,7 @@ const summaryBody = {
       id: PROGRAM_ID,
       name: '합성 프로그램',
       trackType: ProgramTrackType.EXTRACURRICULAR,
+      milestones: [],
       applicationPeriod: {
         startsAt: '2026-07-01T00:00:00.000Z',
         endsAt: '2026-07-31T23:59:59.000Z',
