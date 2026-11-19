@@ -8,6 +8,7 @@ import {
   buildStaffDashboardPageModel,
   type StaffDashboardPageModel,
 } from './staff-dashboard-page-model';
+import { DEFAULT_STAFF_DASHBOARD_ORDER } from './staff-dashboard-overview';
 import {
   StaffDashboardPageView,
   type StaffDashboardPageViewState,
@@ -34,12 +35,9 @@ export function StaffDashboardPage(): ReactElement {
   const { page, search, status, sort, direction } = urlState;
   const order =
     sort === undefined || direction === undefined
-      ? undefined
+      ? DEFAULT_STAFF_DASHBOARD_ORDER
       : { sort, direction };
-  const params = { page, search, status };
-  const query = useStaffDashboardQuery(
-    order === undefined ? params : { ...params, ...order },
-  );
+  const query = useStaffDashboardQuery({ page, search, status, ...order });
   const loadState: LoadState = query.isPending
     ? { kind: 'loading' }
     : query.isError

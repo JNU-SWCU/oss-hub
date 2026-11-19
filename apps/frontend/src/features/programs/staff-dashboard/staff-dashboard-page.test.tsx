@@ -225,14 +225,24 @@ describe('StaffDashboardOverview', () => {
   it('활성 열에만 정렬 속성을 두고 새 열은 지정된 방향으로, 같은 열은 반대로 요청한다', async () => {
     const onSortChange = vi.fn();
     const table = await renderOverview([operating], { onSortChange });
-    expect(table.querySelectorAll('th[aria-sort]')).toHaveLength(0);
-    expect(table.querySelector('thead svg')).toBeNull();
+    expect(table.querySelectorAll('th[aria-sort]')).toHaveLength(1);
+    const defaultHeader = element(table, 'th[aria-sort="descending"]');
+    expect(defaultHeader.textContent).toBe('처리 대기');
+    expect(
+      table.querySelector('thead th:last-child svg.lucide-chevron-down'),
+    ).not.toBeNull();
+    await act(async () =>
+      element<HTMLButtonElement>(defaultHeader, 'button').click(),
+    );
+    expect(onSortChange).toHaveBeenLastCalledWith({
+      sort: 'pending',
+      direction: 'asc',
+    });
 
-    for (const [column, sort, direction] of [
-      [1, 'name', 'asc'],
-      [3, 'deadline', 'asc'],
-      [4, 'submission', 'asc'],
-      [5, 'pending', 'desc'],
+    for (const [column, sort] of [
+      [1, 'name'],
+      [3, 'deadline'],
+      [4, 'submission'],
     ] as const) {
       await act(async () =>
         element<HTMLButtonElement>(
@@ -240,7 +250,7 @@ describe('StaffDashboardOverview', () => {
           `thead th:nth-child(${column}) button`,
         ).click(),
       );
-      expect(onSortChange).toHaveBeenLastCalledWith({ sort, direction });
+      expect(onSortChange).toHaveBeenLastCalledWith({ sort, direction: 'asc' });
     }
     await renderOverview([operating], {
       order: { sort: 'deadline', direction: 'asc' },

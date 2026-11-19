@@ -64,6 +64,11 @@ const INITIAL_DIRECTIONS = {
   pending: 'desc',
 } as const satisfies Record<StaffDashboardSort, StaffDashboardSortDirection>;
 
+export const DEFAULT_STAFF_DASHBOARD_ORDER: StaffDashboardOrder = {
+  sort: 'pending',
+  direction: INITIAL_DIRECTIONS.pending,
+};
+
 const STAGE_STATUS_LABELS = {
   upcoming: '모집 전',
   recruiting: '모집',
@@ -120,7 +125,7 @@ export function StaffDashboardOverview({
   programs,
   totalPrograms = programs.length,
   now,
-  order,
+  order = DEFAULT_STAFF_DASHBOARD_ORDER,
   onSortChange,
 }: StaffDashboardOverviewProps): ReactElement {
   const rows = programs.map((program) => dashboardRow(program, now));
@@ -199,10 +204,10 @@ export function StaffDashboardOverview({
 function sortHeader(
   label: string,
   sort: StaffDashboardSort,
-  order: StaffDashboardOrder | undefined,
+  order: StaffDashboardOrder,
   onSortChange: StaffDashboardOverviewProps['onSortChange'],
 ): Pick<DataTableColumn<DashboardRow>, 'header' | 'headProps'> {
-  const direction = sort === order?.sort ? order.direction : null;
+  const direction = sort === order.sort ? order.direction : null;
   const Arrow = direction === 'asc' ? ChevronUp : ChevronDown;
 
   return {
