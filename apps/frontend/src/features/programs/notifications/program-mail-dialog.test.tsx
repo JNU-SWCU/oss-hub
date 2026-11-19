@@ -61,6 +61,14 @@ function queryButton(name: string) {
   );
 }
 
+function receiptCounts() {
+  return Object.fromEntries(
+    [...document.querySelectorAll<HTMLDataElement>('data[data-outcome]')].map(
+      (item) => [item.dataset.outcome ?? '', Number(item.value)] as const,
+    ),
+  );
+}
+
 function button(name: string): HTMLButtonElement {
   const found = queryButton(name);
   if (found === undefined) throw new TypeError(`Missing button: ${name}`);
@@ -174,18 +182,12 @@ describe('ProgramMailDialog', () => {
 
     expect(sendProgramMailMock).toHaveBeenCalledWith('program-1', preview);
     expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
-    const result = document.body.querySelector('[role="alert"]');
-    expect(
-      result?.querySelector<HTMLDataElement>('[data-slot="alert-title"] data')
-        ?.value,
-    ).toBe('1');
-    const description = result?.querySelector(
-      '[data-slot="alert-description"]',
-    );
-    expect(description?.textContent?.match(/\d+/g)).toEqual(['0', '0', '2']);
-    expect(description?.querySelector<HTMLDataElement>('data')?.value).toBe(
-      '2',
-    );
+    expect(receiptCounts()).toEqual({
+      sentCount: 1,
+      failedCount: 0,
+      unknownCount: 2,
+      duplicateCount: 0,
+    });
     expect(button('닫기').disabled).toBe(false);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });
@@ -247,10 +249,13 @@ describe('ProgramMailDialog', () => {
       expect.any(AbortSignal),
     );
     await act(async () => vi.advanceTimersByTimeAsync(2000));
-    expect(
-      document.querySelector<HTMLDataElement>('[data-slot="alert-title"] data')
-        ?.value,
-    ).toBe('3');
+    const counts = {
+      sentCount: 3,
+      failedCount: 1,
+      unknownCount: 2,
+      duplicateCount: 0,
+    };
+    expect(receiptCounts()).toEqual(counts);
     await act(async () => vi.advanceTimersByTimeAsync(20000));
     expect(getMailJob).toHaveBeenCalledTimes(2);
     await mounted?.unmount();
@@ -269,11 +274,7 @@ describe('ProgramMailDialog', () => {
     expect(entry).not.toBeNull();
     await act(async () => entry?.click());
     expect(getMailJob).toHaveBeenCalledTimes(3);
-    expect(
-      document.querySelector<HTMLDataElement>(
-        '[data-slot="alert-description"] data',
-      )?.value,
-    ).toBe('2');
+    expect(receiptCounts()).toEqual(counts);
     expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
   });
 });

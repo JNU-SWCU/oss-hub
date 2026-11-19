@@ -49,10 +49,10 @@ for (const viewport of [
     await page.locator(`button[value="${receipt.jobId}"]`).click();
     const dialog = page.getByRole('dialog', { name: '발송 결과' });
     await expect(
-      dialog.locator('[data-slot="alert-description"] data'),
+      dialog.locator('data[data-outcome="unknownCount"]'),
     ).toHaveAttribute('value', '1');
     expect(fixture.counts()).toEqual({ previewRequests: 0, sendRequests: 0 });
-    await dialog.screenshot({
+    await page.screenshot({
       path: test.info().outputPath('mail-receipt.png'),
     });
   });
