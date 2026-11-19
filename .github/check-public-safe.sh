@@ -23,6 +23,20 @@ fi
 export LC_ALL="$UTF8_LOCALE"
 
 TEXT_ONLY=0
+if [ "${1:-}" = "--event" ]; then
+  shift
+  case "${GITHUB_EVENT_NAME:-}" in
+    pull_request) ;;
+    issues | issue_comment) TEXT_ONLY=1 ;;
+    *) echo "::error::public-safe 지원하지 않는 이벤트입니다." >&2; exit 2 ;;
+  esac
+  # Read at runtime: Actions prints step env values before scanners can redact them.
+  if ! PR_TEXT="$(jq -er '[.pull_request.title // "", .pull_request.body // ""] | join("\n")' "${GITHUB_EVENT_PATH:-}" 2>/dev/null)" \
+    || ! ISSUE_TEXT="$(jq -er '[.issue.title // "", .issue.body // "", .comment.body // ""] | join("\n")' "${GITHUB_EVENT_PATH:-}" 2>/dev/null)"; then
+    echo "::error::public-safe 이벤트 파일을 읽을 수 없습니다." >&2
+    exit 2
+  fi
+fi
 if [ "${1:-}" = "--text-only" ]; then
   TEXT_ONLY=1
   shift
@@ -42,7 +56,7 @@ fi
 PATTERNS=(
   '주민등록번호|(^|[^0-9])[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[- ]?[1-8][0-9]{6}($|[^0-9])'
   '전화번호|(^|[^0-9])01[016789][-. ]?[0-9]{3,4}[-. ]?[0-9]{4}($|[^0-9])'
-  '개인 머신 경로|/Users/[A-Za-z0-9._-]+|/home/[a-z][a-z0-9._-]*|C:\\Users|(^|[[:space:]`":(])/private/[^[:space:]/]'
+  '개인 머신 경로|/Users/[A-Za-z0-9._-]+|/home/[a-z][a-z0-9._-]*|C:\\Users|(^|[[:space:]`":(])/(private|tmp)/[^[:space:]/]'
   '내부 호스트|[[:alnum:]-]+\.internal($|[^[:alnum:]_.-])'
   '비공개 볼트 참조|obsidian://'
   '학번 추정(20으로 시작하는 연속 9자리)|(^|[^0-9])20[0-9]{7}($|[^0-9])'
@@ -121,7 +135,7 @@ scan_email() {
 }
 
 scan_text() {
-  local src="$1" skip_email="$2" text entry label re hits name name_hits
+  local src="$1" text entry label re hits name name_hits status=0
   text="$(cat)" || return 2
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
@@ -133,9 +147,7 @@ scan_text() {
     fi
   done
 
-  if [ "$skip_email" -eq 0 ]; then
-    scan_email "$src" "$text" || return 2
-  fi
+  scan_email "$src" "$text" || return 2
 
   # Caller-supplied only: the public PR and issue workflows do not receive this list.
   if [ -n "${BLOCKED_NAMES:-}" ]; then
@@ -150,6 +162,16 @@ scan_text() {
       fi
     done
   fi
+  printf '%s\n' "$text" | gitleaks stdin --no-banner --redact \
+    --ignore-gitleaks-allow --exit-code 3 >/dev/null 2>&1 || status=$?
+  case "$status" in
+    0) ;;
+    3) report "시크릿 @ $src" "  gitleaks stdin: secret detected" ;;
+    *)
+      echo "::error::public-safe gitleaks 검사를 실행할 수 없습니다." >&2
+      return 2
+      ;;
+  esac
   return 0
 }
 
@@ -190,7 +212,7 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
         fi
         ;;
     esac
-    scan_text "파일 $file_id" 0 <<<"$file_text"
+    scan_text "파일 $file_id" <<<"$file_text"
   done <"$changed_file_list"
 
   if [ "${#bad_files[@]}" -gt 0 ]; then
@@ -199,16 +221,18 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다"
   fi
 
-  if ! commit_text="$(git log --no-merges --format='%s%n%b' "$BASE_REF"..HEAD)"; then
+  # Ignore only GitHub's generated hash-only subject, never a merge's human text.
+  if ! commit_text="$(git log --format='%s%n%b' "$BASE_REF"..HEAD \
+    | sed -E '/^Merge [0-9a-f]{40} into [0-9a-f]{40}$/d')"; then
     echo "::error::public-safe 커밋 메시지를 읽을 수 없습니다."
     exit 2
   fi
-  scan_text "커밋 메시지" 1 <<<"$commit_text"
+  scan_text "커밋 메시지" <<<"$commit_text"
 
-  scan_text "PR 제목·본문" 0 <<<"${PR_TEXT:-}"
+  scan_text "PR 제목·본문" <<<"${PR_TEXT:-}"
 fi
 
-scan_text "Issue 본문·댓글" 0 <<<"${ISSUE_TEXT:-}"
+scan_text "Issue 본문·댓글" <<<"${ISSUE_TEXT:-}"
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""

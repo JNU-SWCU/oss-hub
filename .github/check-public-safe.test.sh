@@ -32,7 +32,7 @@ synthetic_merge_ref_message="Merge ${merge_head_sha} into ${merge_base_sha}"
 mention_bullet_dot='@GoBeromsu·@Lumiere001의 free-role 예외'
 mention_paren_comma='사람은 GitHub @handle로만 표기했다(@GoBeromsu, @Lumiere001)'
 mention_quoted_sentence='"PM+Tech Lead 이중 승인"에서 "@GoBeromsu 단독"으로 바뀐다'
-mention_backtick_var='`@${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT`'
+mention_backtick_var="\`@\${TECH_LEAD_ACTOR}의 TECH_LEAD_ACCEPT\`"
 mention_shell_assignment_ellipsis="셸 문자열(var='${at_sign}handle...' 형태)"
 mention_dotless_unicode_token="담당자${at_sign}내부도메인"
 mention_quoted_dotless_token='"quoted local"'"${at_sign}"'내부도메인'
@@ -127,6 +127,57 @@ scan_blocked_name() {
     BLOCKED_NAMES="$blocked_name" PR_TEXT="$blocked_name" \
       bash "$SCANNER" HEAD
   )
+}
+
+workflow_isolates_public_input() {
+  local status=0
+  # Security configuration: public workflow code must never receive this secret.
+  grep -Eq 'BLOCKED_NAMES|github\.event\.(pull_request|issue|comment).*(title|body)' \
+    "$ROOT"/.github/workflows/*.yml || status=$?
+  [ "$status" -eq 1 ]
+}
+
+scan_surface() {
+  local surface="$1" sample="$2" output status=0 event=issues
+  case "$surface" in
+    commit-subject | commit-body | merge-subject | merge-body | file)
+      init_fixture_repo "surface-$((passed + failed))" || return 2
+      case "$surface" in
+        commit-subject) commit_fixture commit --allow-empty -qm "$sample" || return 2 ;;
+        commit-body) commit_fixture commit --allow-empty -qm 'test: synthetic message' -m "$sample" || return 2 ;;
+        merge-*)
+          commit_fixture checkout -qb synthetic-feature || return 2
+          commit_fixture commit --allow-empty -qm 'test: synthetic feature' || return 2
+          commit_fixture checkout -q - || return 2
+          if [ "$surface" = merge-subject ]; then
+            commit_fixture merge --no-ff -qm "$sample" synthetic-feature || return 2
+          else
+            commit_fixture merge --no-ff -qm 'test: synthetic merge' -m "$sample" synthetic-feature || return 2
+          fi
+          ;;
+        file)
+          printf '%s\n' "$sample" >"$FIXTURE_REPO/synthetic.txt"
+          git -C "$FIXTURE_REPO" add synthetic.txt || return 2
+          commit_fixture commit -qm 'test: synthetic file' || return 2
+          ;;
+      esac
+      output="$(BLOCKED_NAMES="$blocked_name" scan_fixture_repo 2>&1)" || status=$?
+      ;;
+    *)
+      case "$surface" in
+        pull_request.*) event=pull_request ;;
+        comment.*) event=issue_comment ;;
+      esac
+      jq -n --arg field "$surface" --arg value "$sample" \
+        'setpath($field | split("."); $value)' >"$TEMP_ROOT/event.json" || return 2
+      output="$(cd "$ROOT" && BLOCKED_NAMES="$blocked_name" \
+        GITHUB_EVENT_NAME="$event" GITHUB_EVENT_PATH="$TEMP_ROOT/event.json" \
+        bash "$SCANNER" --event HEAD 2>&1)" || status=$?
+      ;;
+  esac
+  # A leaked fixture is a test error even when the scanner correctly rejects it.
+  [[ "$output" != *"$sample"* ]] || return 2
+  return "$status"
 }
 
 expect_blocked_redacted() {
@@ -247,6 +298,8 @@ expect_fail '외부 LC_ALL=C 환경에서도 한글 도메인 이메일 차단(�
   scan_issue_text_lc_all_c "$blocked_hangul_domain_locale"
 
 expect_fail '하이픈으로 시작하는 BLOCKED_NAMES 값' scan_blocked_name
+expect_pass '공개 workflow에 deny-list secret 및 원문 이벤트 env 미주입' \
+  workflow_isolates_public_input
 expect_fail '주민등록번호 형식' scan_pr_text "000101-1$(printf '%06d' 1)"
 expect_fail '휴대전화 번호 형식' scan_pr_text "010-0000-$(printf '%04d' 1)"
 expect_fail 'PR 제목의 macOS 경로' scan_pr_text "$(printf '/%s/%s\n합성 본문' Users synthetic)"
@@ -274,11 +327,11 @@ expect_fail '허용·금지 주소가 같은 줄인 변경 파일' scan_fixture_
 
 init_fixture_repo commit-message
 commit_fixture commit --allow-empty -qm "$mixed_same_line"
-expect_pass '커밋 메시지의 이메일 후보는 자동 검사하지 않음' scan_fixture_repo
+expect_fail '커밋 메시지의 이메일 후보 차단' scan_fixture_repo
 
 init_fixture_repo commit-message-eai
 commit_fixture commit --allow-empty -qm "$blocked_eai_local"
-expect_pass '커밋 메시지의 비ASCII 이메일 후보도 자동 검사하지 않음' \
+expect_fail '커밋 메시지의 비ASCII 이메일 후보도 차단' \
   scan_fixture_repo
 
 init_fixture_repo commit-message-student-id
@@ -293,7 +346,7 @@ git -C "$FIXTURE_REPO" add feature.txt
 commit_fixture commit -qm 'test: synthetic feature commit'
 commit_fixture checkout -q -
 commit_fixture merge --no-ff -q -m "$synthetic_merge_ref_message" feature-branch
-expect_pass '합성 merge ref 자동 생성 커밋 메시지의 SHA 숫자열 오탐 방지(--no-merges)' \
+expect_pass '합성 merge ref의 해시 전용 제목 숫자열 오탐 방지' \
   scan_fixture_repo
 
 # 실행 안전성: 오류 전파, 입력 경계, 원문 비노출
@@ -366,6 +419,29 @@ done
 expect_pass '정규 env 예시 파일' scan_empty_file .env.example
 expect_pass '자격증명과 유사한 소스 파일명' scan_empty_file src/credentials.service.ts
 expect_pass '보안 정책 문서 파일명' scan_empty_file docs/rules/security.md
+
+# Same runtime event-file path as Actions, plus real committed messages and files.
+# Never put fixture values in labels, shell tracing, or hosted event payloads.
+surface_samples=(
+  "$blocked_contact" "$blocked_quoted_ascii_contact" "$blocked_eai_local"
+  "$blocked_punycode_domain" "$(printf '/%s/%s' tmp synthetic-fixture)"
+  "$(printf '/%s/%s' Users synthetic)" "$(printf '/%s/%s' private synthetic)"
+  "$(printf '/%s/%s' home synthetic)" "$(printf '%s\\%s\\%s' C: Users synthetic)"
+  "$blocked_name" "$(printf '%s.%s' synthetic internal)"
+  "$(printf '%s://open?vault=synthetic' obsidian)"
+  "000101-1$(printf '%06d' 1)" "010-0000-$(printf '%04d' 1)"
+  "$blocked_student_id_like" 'ghp_'"aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3bC5"
+)
+for surface in pull_request.title pull_request.body issue.title issue.body comment.body \
+  commit-subject commit-body merge-subject merge-body file; do
+  for i in "${!surface_samples[@]}"; do
+    expect_fail "전면 차단·비노출: $surface case $i" \
+      scan_surface "$surface" "${surface_samples[$i]}"
+  done
+  for sample in synthetic-control "$allowed_noreply" "$allowed_reserved"; do
+    expect_pass "안전한 입력 허용: $surface" scan_surface "$surface" "$sample"
+  done
+done
 
 printf 'tests=%s passed=%s failed=%s\n' \
   "$((passed + failed))" "$passed" "$failed"
