@@ -130,6 +130,7 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   const result = await service.sendProgramFromPreview(
     DIGEST_FIXTURE.notifyProgram,
     preview,
+    DIGEST_FIXTURE.staffOn,
     DIGEST_FIXTURE.now,
   );
 
@@ -166,6 +167,7 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   await service.sendProgramFromPreview(
     DIGEST_FIXTURE.notifyProgram,
     preview,
+    DIGEST_FIXTURE.staffOn,
     DIGEST_FIXTURE.now,
   );
 

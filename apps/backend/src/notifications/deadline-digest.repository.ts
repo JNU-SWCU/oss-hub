@@ -1,3 +1,4 @@
+import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
@@ -39,6 +40,30 @@ export type DeadlineProgramSource = {
   }[];
 };
 export type DigestNotificationStatus = 'SENT' | 'FAILED';
+type ManualSendAudit = {
+  readonly actorId: string;
+  readonly requestId: string;
+  readonly programId: string;
+  readonly previewVersion: string;
+  readonly occurredAt: Date;
+} & (
+  | {
+      readonly phase: 'attempt';
+      readonly counts: {
+        readonly recipientCount: number;
+        readonly staffRecipientCount: number;
+      };
+    }
+  | {
+      readonly phase: 'result';
+      readonly counts: ManualDeadlineDigestAuditResult;
+    }
+);
+type ManualDeadlineDigestAuditResult = {
+  readonly sentCount: number;
+  readonly duplicateCount: number;
+  readonly failedCount: number;
+};
 export interface DeadlineDigestRepositoryPort {
   findAutomaticProgramIds(window: DeadlineWindow): Promise<readonly string[]>;
   findDeadlineProgram(programId: string): Promise<DeadlineProgramSource | null>;
@@ -53,6 +78,7 @@ export interface DeadlineDigestRepositoryPort {
     status: DigestNotificationStatus,
     payload: Prisma.InputJsonValue,
   ): Promise<void>;
+  recordManualSend(input: ManualSendAudit): Promise<void>;
 }
 const deadlineRecipientSelect = {
   id: true,
@@ -68,6 +94,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
+    private readonly audit: ProgramMailAuditRepository,
   ) {}
   async findAutomaticProgramIds(
     window: DeadlineWindow,
@@ -246,6 +273,27 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         status,
         payload,
         sentAt: status === 'SENT' ? new Date() : null,
+      },
+    });
+  }
+  async recordManualSend(input: ManualSendAudit): Promise<void> {
+    await this.audit.recordEvent(this.prisma, {
+      id: `user:deadline-digest-${input.phase}:${input.requestId}`,
+      sourceTable: 'DeadlineDigest',
+      sourcePart: input.phase,
+      actorId: input.actorId,
+      programId: input.programId,
+      requestId: input.requestId,
+      occurredAt: input.occurredAt,
+      action:
+        input.phase === 'attempt'
+          ? 'DEADLINE_DIGEST_SEND_ATTEMPTED'
+          : 'DEADLINE_DIGEST_SEND_COMPLETED',
+      metadata: {
+        schemaVersion: 1,
+        source: 'MANUAL',
+        previewVersion: input.previewVersion,
+        ...input.counts,
       },
     });
   }
