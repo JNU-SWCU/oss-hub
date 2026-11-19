@@ -8,7 +8,6 @@ import { Steps } from '@astrojs/starlight/components';
 import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
-import Verified from '~/components/Verified.astro';
 
 관리자 본인의 계정 설정입니다. 프로필 확인·수정, 알림 수신과 계정 비활성화를 한 화면에서 다룹니다.
 
@@ -16,10 +15,10 @@ import Verified from '~/components/Verified.astro';
 
 ## 알림 수신 정하기
 
-마감 임박 알림 메일을 받을지 정합니다. 자동으로 가는 마감 알림은 필수 서류를 내지 않은 학생에게만 가고, 교직원과 관리자에게 가는 요약 메일은 지금 보낼 수 있는 화면이 없습니다. <Verified status="policy" />
+자동 알림은 필수 서류를 내지 않은 학생에게만 갑니다. 교직원은 [마감 알림 보내기](/oss-hub/staff/reminder-mail/)에서 수신 대상인 교직원과 관리자에게 요약 메일을 보냅니다.
 
 <Steps>
-1. 대시보드 왼쪽의 `설정`을 누릅니다. 위쪽 내 계정 메뉴의 `설정`으로도 엽니다.
+1. 오른쪽 위 계정 메뉴에서 `설정`을 누릅니다.
 2. `알림 수신`의 `수신 이메일`에 받을 주소를 입력합니다.
 3. `마감 임박 알림 받기`를 켭니다.
 4. 화면 맨 아래의 `저장`을 누릅니다.
