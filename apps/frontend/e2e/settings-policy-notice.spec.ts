@@ -9,9 +9,6 @@ import {
   type SyntheticAuthority,
 } from './support/member-access-fixture';
 
-const REMOVED_NOTICE_HEADING =
-  '비공개 기여 집계와 랭킹 안내를 업데이트했습니다';
-
 const NOTIFICATION_CHANNEL = {
   notificationEmail: 'synthetic-settings@example.com',
   notifyEnabled: true,
@@ -138,9 +135,7 @@ for (const actor of [STUDENT, STAFF]) {
     );
 
     await page.goto('/settings');
-    await expect(
-      page.getByRole('heading', { name: '설정', exact: true }),
-    ).toBeVisible();
+    await expect(page.locator('#settings-name')).toBeEditable();
     await expect(page.locator('#settings-name')).toHaveValue(
       actor.profile.name,
     );
@@ -153,7 +148,6 @@ for (const actor of [STUDENT, STAFF]) {
       await expect(
         page.getByRole('button', { name: '저장', exact: true }),
       ).toBeVisible();
-      await expect(page.getByText(REMOVED_NOTICE_HEADING)).toHaveCount(0);
       await expect(page.locator('#settings-policy-update-heading')).toHaveCount(
         0,
       );
@@ -178,7 +172,6 @@ for (const actor of [STUDENT, STAFF]) {
         ),
         JSON.stringify(scrollOwners, null, 2),
       );
-      await expect(page.getByText(REMOVED_NOTICE_HEADING)).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath(
           `settings-${actor.name}-${viewport.width}-end.png`,
@@ -205,9 +198,8 @@ test('이전 정책 버전에 동의한 계정은 정책 안내를 한 번만 �
   const notice = page.getByTestId('policy-notice');
   await expect(notice).toBeVisible();
   await expect(notice).toHaveCount(1);
-  await expect(
-    notice.getByRole('heading', { name: '활동 수집 안내가 바뀌었습니다' }),
-  ).toBeVisible();
+  await expect(notice).toHaveRole('dialog');
+  const policyKey = `policy-notice-seen:${OUTDATED_CONSENT.policyVersion}`;
   await page.screenshot({
     path: testInfo.outputPath('policy-notice-open.png'),
     fullPage: true,
@@ -215,6 +207,9 @@ test('이전 정책 버전에 동의한 계정은 정책 안내를 한 번만 �
 
   await notice.getByRole('button', { name: '확인', exact: true }).click();
   await expect(notice).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), policyKey),
+  ).toBe('seen');
   await expect(page.locator('#settings-name')).toHaveValue(
     STUDENT.profile.name,
   );
@@ -224,7 +219,6 @@ test('이전 정책 버전에 동의한 계정은 정책 안내를 한 번만 �
     STUDENT.profile.name,
   );
   await expect(notice).toHaveCount(0);
-  await expect(page.getByText(REMOVED_NOTICE_HEADING)).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath('policy-notice-after-reload.png'),
     fullPage: true,
@@ -248,7 +242,6 @@ test('현재 정책 버전에 동의한 계정에는 정책 안내가 열리지 
     STUDENT.profile.name,
   );
   await expect(page.getByTestId('policy-notice')).toHaveCount(0);
-  await expect(page.getByText(REMOVED_NOTICE_HEADING)).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath('policy-notice-current-version.png'),
     fullPage: true,

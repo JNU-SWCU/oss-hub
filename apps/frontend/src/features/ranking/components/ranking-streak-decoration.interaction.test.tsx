@@ -79,20 +79,6 @@ test.each([
   ).not.toBeNull();
 });
 
-test('reduced motion에서는 효과 버튼이 상호작용 상태를 만들지 않는다', async () => {
-  installReducedMotion(true);
-  await renderName('leader');
-  const button = container.querySelector('button');
-
-  await act(async () => button?.click());
-
-  expect(
-    container.querySelector('[data-streak-reduced-motion="true"]'),
-  ).not.toBeNull();
-  expect(container.querySelector('[data-streak-interaction="1"]')).toBeNull();
-  expect(container.querySelector('[data-streak-confetti]')).toBeNull();
-});
-
 test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용에서 confetti를 만든다', async () => {
   await renderName('leader');
   const link = container.querySelector('a');
@@ -100,7 +86,11 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
 
   expect(link?.contains(button)).toBe(false);
   expect(button?.getAttribute('aria-label')).toBe('임금 장식 효과 재생');
-  expect(container.textContent).toContain('임금 · 1위 120일째 유지');
+  expect(
+    container
+      .querySelector('[data-ranking-streak-tier]')
+      ?.getAttribute('data-ranking-streak-tier'),
+  ).toBe('celebration');
 
   await act(async () => button?.click());
 

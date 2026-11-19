@@ -1,36 +1,39 @@
+import { randomBytes } from 'node:crypto';
 import { ActivityVisibility } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { PrismaService } from '../platform/prisma.service';
+import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
+import type { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
 
-assertIsolatedIntegrationDatabase({
-  databaseUrl: process.env.DATABASE_URL,
-  runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
-});
+jest.setTimeout(30_000);
 
-const prisma = new PrismaService();
-const ranking = new RankingRepository(prisma);
-const timeline = new RankingTimelineService(ranking, new RankingYearService());
-const MINA = { githubId: 9_118_001n, nickname: 'synthetic-all-mina' };
-const SUHO = { githubId: 9_118_002n, nickname: 'synthetic-all-suho' };
+let database:
+  Awaited<ReturnType<typeof createOwnedIntegrationDatabase>> | undefined;
+let prisma: PrismaService;
+let ranking: RankingRepository;
+let timeline: RankingTimelineService;
+const baseId = BigInt(randomBytes(6).readUIntBE(0, 6));
+const MINA = { githubId: baseId, nickname: `synthetic-all-mina-${baseId}` };
+const SUHO = {
+  githubId: baseId + 1n,
+  nickname: `synthetic-all-suho-${baseId}`,
+};
 const members = [MINA, SUHO];
 const profileAt = new Date('2024-01-01T00:00:00Z');
 
-async function clearObservations(): Promise<void> {
-  await prisma.githubUserActivityObservation.deleteMany({
-    where: { githubId: { in: members.map(({ githubId }) => githubId) } },
-  });
-}
-
-beforeAll(async () => {
-  await prisma.$connect();
+beforeEach(async () => {
+  database = await createOwnedIntegrationDatabase();
+  prisma = database.prisma;
+  ranking = new RankingRepository(prisma);
+  timeline = new RankingTimelineService(ranking, new RankingYearService());
   await prisma.user.createMany({
-    data: members.map((member) => ({
+    data: members.map((member, index) => ({
       ...member,
       id: member.nickname,
-      studentId: member.githubId.toString(),
+      studentId: String(
+        1_000_000_000 + Number(baseId % 100_000_000n) * 2 + index,
+      ),
       type: 'STUDENT',
       name: 'Synthetic student',
       department: 'Synthetic department',
@@ -39,16 +42,12 @@ beforeAll(async () => {
       profileUpdatedAt: profileAt,
     })),
   });
-});
+}, 60_000);
 
-afterEach(clearObservations);
-
-afterAll(async () => {
-  await prisma.user.deleteMany({
-    where: { githubId: { in: members.map(({ githubId }) => githubId) } },
-  });
-  await prisma.$disconnect();
-});
+afterEach(async () => {
+  await database?.close();
+  database = undefined;
+}, 30_000);
 
 function observation(
   member: typeof MINA,

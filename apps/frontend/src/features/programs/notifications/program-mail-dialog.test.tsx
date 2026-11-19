@@ -111,9 +111,7 @@ describe('ProgramMailDialog', () => {
     );
     await flush();
 
-    expect(document.body.textContent).not.toContain(
-      '프로그램 신청 학생을 선택하고 메일 내용을 확인한 뒤 발송합니다.',
-    );
+    expect(button('미리보기').disabled).toBe(true);
     await act(async () =>
       button('24시간 이내 필수 서류 미제출자 선택').click(),
     );
@@ -132,20 +130,32 @@ describe('ProgramMailDialog', () => {
     await act(async () => button('미리보기').click());
     await flush();
 
-    expect(document.body.textContent).toContain(
-      '보낸 메일은 취소할 수 없습니다.',
-    );
+    expect(previewProgramMailMock).toHaveBeenCalledWith('program-1', {
+      subject: preview.subject,
+      body: preview.body,
+      applicantIds: ['student-1'],
+    });
+    expect(document.querySelector('#program-mail-subject')).toBeNull();
     expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(document.activeElement?.textContent?.trim()).toBe('수정');
+    expect(document.activeElement).toBe(button('수정'));
 
     await act(async () => button('보내기').click());
     await flush();
 
     expect(sendProgramMailMock).toHaveBeenCalledWith('program-1', preview);
     expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain('1명에게 메일을 보냈습니다.');
-    expect(document.body.textContent).toContain('발송 결과 확인 불가 2명');
+    const result = document.querySelector('[role="alert"]');
+    expect(
+      result
+        ?.querySelector('[data-slot="alert-title"]')
+        ?.textContent?.match(/\d+/g),
+    ).toEqual(['1']);
+    expect(
+      result
+        ?.querySelector('[data-slot="alert-description"]')
+        ?.textContent?.match(/\d+/g),
+    ).toEqual(['0', '0', '2']);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });
 });

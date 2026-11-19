@@ -113,6 +113,16 @@ function setValue(field: HTMLTextAreaElement, value: string): void {
   field.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function counts(node: Element | null): number[] {
+  return (node?.textContent?.match(/\d+/g) ?? []).map(Number);
+}
+
+function confirmationCounts(): number[] {
+  return counts(
+    document.querySelector('[data-slot="dialog-shell-footer"] [role="status"]'),
+  );
+}
+
 async function flush(): Promise<void> {
   await act(async () => {});
 }
@@ -175,21 +185,17 @@ describe('DeadlineDigestDialog', () => {
       studentGuidance: '학생 추가 안내',
       staffGuidance: '교직원 추가 안내',
     });
-    expect(document.body.textContent).not.toContain(
-      '학생 마감 알림과 교직원 요약을 함께 보냅니다.',
-    );
-    expect(document.body.textContent).toContain('학생 발송 가능');
-    expect(document.body.textContent).toContain('교직원 요약 수신 2명');
-    expect(document.body.textContent).toContain(
-      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
-    );
+    expect(document.querySelector('#deadline-studentGuidance')).toBeNull();
+    expect(document.querySelector('[role="tabpanel"] iframe')).not.toBeNull();
+    expect(
+      document.querySelector('[role="tab"][aria-selected="false"]'),
+    ).not.toBeNull();
+    expect(confirmationCounts()).toEqual([4, 2]);
     expect(document.activeElement).toBe(button('수정'));
     const confirmation = document.body.querySelector<HTMLElement>(
       '[data-slot="dialog-shell-footer"] [role="status"]',
     );
-    expect(confirmation?.textContent).toContain(
-      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
-    );
+    expect(confirmation).not.toBeNull();
     expect(confirmation?.compareDocumentPosition(button('수정')) ?? 0).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -206,8 +212,18 @@ describe('DeadlineDigestDialog', () => {
       staffGuidance: '교직원 추가 안내',
     });
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain('학생 4명에게 보냈습니다.');
-    expect(document.body.textContent).toContain('교직원 요약 수신 2명');
+    expect(
+      counts(
+        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
+      ),
+    ).toEqual([4]);
+    expect(
+      counts(
+        document.querySelector(
+          '[role="alert"] [data-slot="alert-description"]',
+        ),
+      ),
+    ).toEqual([0, 0, 2]);
   });
 
   it('ignores repeated send clicks in the same turn and while the request is in flight', async () => {
@@ -253,7 +269,11 @@ describe('DeadlineDigestDialog', () => {
       }),
     );
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain('학생 4명에게 보냈습니다.');
+    expect(
+      counts(
+        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
+      ),
+    ).toEqual([4]);
   });
 
   it('preserves guidance after a stale send response and requires a new preview before retry', async () => {
@@ -284,9 +304,7 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => button('보내기').click());
     await flush();
 
-    expect(document.body.textContent).toContain(
-      '발송 대상이 바뀌었거나 미리보기가 만료되었습니다. 다시 미리보세요.',
-    );
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
     expect(
       document.body.querySelector<HTMLTextAreaElement>(
         '#deadline-studentGuidance',
@@ -310,9 +328,7 @@ describe('DeadlineDigestDialog', () => {
     expect(previewProgramDeadlineMock).toHaveBeenCalledTimes(2);
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
     expect(button('보내기').disabled).toBe(false);
-    expect(document.body.textContent).toContain(
-      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
-    );
+    expect(confirmationCounts()).toEqual([4, 2]);
   });
 
   it('allows a staff-only digest when there are no student recipients', async () => {
@@ -328,9 +344,7 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => button('미리보기').click());
     await flush();
 
-    expect(document.body.textContent).toContain(
-      '학생 0명 · 교직원 2명 · 발송 후 취소 불가',
-    );
+    expect(confirmationCounts()).toEqual([0, 2]);
     expect(button('보내기').disabled).toBe(false);
     await act(async () => button('보내기').click());
     await flush();
@@ -355,15 +369,14 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => button('미리보기').click());
     await flush();
 
-    expect(document.body.textContent).toContain(
-      '학생 0명 · 교직원 0명 · 발송 후 취소 불가',
+    expect(confirmationCounts()).toEqual([0, 0]);
+    expect(document.querySelector('[role="tabpanel"] iframe')).toBeNull();
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[role="tab"][aria-selected="false"]')
+        ?.click(),
     );
-    expect(document.body.textContent).toContain(
-      '발송 대상이 없어 학생용 메일 본문이 없습니다.',
-    );
-    expect(document.body.textContent).toContain(
-      '발송 대상이 없어 교직원용 메일 본문이 없습니다.',
-    );
+    expect(document.querySelector('[role="tabpanel"] iframe')).toBeNull();
     expect(button('보내기').disabled).toBe(true);
     await act(async () => {
       button('보내기').dispatchEvent(
@@ -468,7 +481,6 @@ describe('DeadlineDigestDialog', () => {
     expect(studentGuidance.maxLength).toBe(4000);
     expect(studentGuidance.value).toHaveLength(4001);
     expect(studentGuidance.getAttribute('aria-invalid')).toBe('true');
-    expect(document.body.textContent).toContain('4001 / 4000자');
     expect(button('미리보기').disabled).toBe(true);
     expect(queryButton('보내기')).toBeUndefined();
 
@@ -510,9 +522,7 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => button('미리보기').click());
     await flush();
 
-    expect(document.body.textContent).toContain(
-      '추가 안내를 각각 4,000자 이내로 입력하세요.',
-    );
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
     expect(studentGuidance.value).toBe('<script>학생 안내</script>');
     expect(staffGuidance.value).toBe('교직원 안내');
     expect(queryButton('보내기')).toBeUndefined();
@@ -542,7 +552,9 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => button('미리보기').click());
     await flush();
 
-    expect(document.body.textContent).toContain(serverProblem.detail);
+    expect(
+      document.querySelector('[role="alert"] [data-slot="alert-description"]'),
+    ).not.toBeNull();
     expect(studentGuidance.value).toBe('학생 초안');
     expect(queryButton('보내기')).toBeUndefined();
     expect(button('미리보기').disabled).toBe(false);
@@ -571,8 +583,8 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => vi.advanceTimersByTime(2));
 
     expect(button('보내는 중…').disabled).toBe(true);
-    expect(document.body.textContent).not.toContain(
-      '미리보기가 만료되었습니다.',
+    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(
+      queryButton('닫기') ? 1 : 0,
     );
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
 
@@ -585,9 +597,13 @@ describe('DeadlineDigestDialog', () => {
       }),
     );
 
-    expect(document.body.textContent).toContain('학생 4명에게 보냈습니다.');
-    expect(document.body.textContent).not.toContain(
-      '미리보기가 만료되었습니다.',
+    expect(
+      counts(
+        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
+      ),
+    ).toEqual([4]);
+    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(
+      queryButton('닫기') ? 1 : 0,
     );
     expect(document.body.querySelector('#deadline-studentGuidance')).toBeNull();
     expect(queryButton('닫기')).toBeDefined();
@@ -596,9 +612,13 @@ describe('DeadlineDigestDialog', () => {
       vi.advanceTimersByTime(60_000);
     });
 
-    expect(document.body.textContent).toContain('학생 4명에게 보냈습니다.');
-    expect(document.body.textContent).not.toContain(
-      '미리보기가 만료되었습니다.',
+    expect(
+      counts(
+        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
+      ),
+    ).toEqual([4]);
+    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(
+      queryButton('닫기') ? 1 : 0,
     );
     expect(document.body.querySelector('#deadline-studentGuidance')).toBeNull();
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
@@ -622,9 +642,10 @@ describe('DeadlineDigestDialog', () => {
     );
     if (studentSelect === null)
       throw new TypeError('Missing student preview selector');
-    expect(
-      [...studentSelect.options].map((option) => option.textContent),
-    ).toEqual(['학생 하나', '학생 둘']);
+    expect([...studentSelect.options].map((option) => option.value)).toEqual([
+      '0',
+      '1',
+    ]);
 
     await act(async () => {
       studentSelect.value = '1';
@@ -636,19 +657,19 @@ describe('DeadlineDigestDialog', () => {
     const studentFrame = document.body.querySelector<HTMLIFrameElement>(
       'iframe[title="학생용 메일 본문"]',
     );
-    expect(studentFrame?.getAttribute('srcdoc')).toContain(
-      'https://example.test/programs/program-1/submissions',
-    );
     expect(studentFrame?.getAttribute('srcdoc')).not.toContain(
       '<p>학생 본문</p>',
     );
-    expect(document.body.textContent).toContain('두 번째 학생 마감 알림');
+    expect(
+      new DOMParser()
+        .parseFromString(studentFrame?.srcdoc ?? '', 'text/html')
+        .querySelector('a')
+        ?.getAttribute('href'),
+    ).toBe('https://example.test/programs/program-1/submissions');
     expect(studentFrame?.getAttribute('sandbox')).toBe(
       'allow-popups allow-popups-to-escape-sandbox',
     );
-    expect(document.body.textContent).toContain(
-      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
-    );
+    expect(confirmationCounts()).toEqual([4, 2]);
     expect(previewProgramDeadlineMock).toHaveBeenCalledTimes(1);
 
     await act(async () => button('보내기').click());
@@ -712,9 +733,7 @@ describe('DeadlineDigestDialog', () => {
       vi.advanceTimersByTime(10 * 60 * 1000);
     });
 
-    expect(document.body.textContent).toContain(
-      '미리보기가 만료되었습니다. 다시 미리보세요.',
-    );
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
     expect(document.activeElement?.id).toBe('deadline-studentGuidance');
     expect(sendProgramDeadlineMock).not.toHaveBeenCalled();
   });

@@ -20,6 +20,7 @@ import {
   DIGEST_FIXTURE,
   RecordingMailSender,
 } from './deadline-digest.integration-support';
+import { DIGEST_USER_IDS } from './deadline-digest.integration-fixtures';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { ProgramMailBatchRepository } from './program-mail-batch.repository';
@@ -129,7 +130,10 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
   const service = createService(mailSender);
   const clearProgramMail = async () => {
     await harness.prisma.notification.deleteMany({
-      where: { type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] } },
+      where: {
+        type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] },
+        userId: { in: [...DIGEST_USER_IDS, PROGRAM_MAIL_STAFF_FIXTURE.id] },
+      },
     });
   };
   const sessions = new AuthSessionService();

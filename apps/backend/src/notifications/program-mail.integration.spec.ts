@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createAuditLogReadService } from '../platform/audit-log-mapping.fixture';
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -13,6 +14,12 @@ import {
   type ProgramMailIntegrationWorld,
 } from './program-mail.integration-support';
 
+import { ProgramMailService } from './program-mail.service';
+
+const externalScope = randomUUID();
+const externalGithubId = BigInt(randomBytes(6).readUIntBE(0, 6));
+jest.setTimeout(30_000);
+
 let world: ProgramMailIntegrationWorld;
 
 beforeAll(async () => {
@@ -24,7 +31,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await world.close();
+  await world?.close();
 });
 
 it('lists all application statuses, sends mail, and records an attributable audit event', async () => {
@@ -39,7 +46,7 @@ it('lists all application statuses, sends mail, and records an attributable audi
   const recipients: unknown = await recipientsResponse.json();
   expect(recipientsResponse.status).toBe(200);
   const serializedRecipients = JSON.stringify(recipients);
-  expect(serializedRecipients).toContain(DIGEST_FIXTURE.notifyProgram);
+  expect(recipients).toMatchObject({ programId: DIGEST_FIXTURE.notifyProgram });
   expect(serializedRecipients).toContain('"status":"APPROVED"');
   expect(serializedRecipients).toContain('"status":"REJECTED"');
 
@@ -128,11 +135,16 @@ it.each([
   async (_label, userId, status) => {
     const cookie = userId === null ? null : await world.cookieForUser(userId);
 
-    const response = await fetch(world.endpoint('recipients'), {
-      headers: cookie === null ? {} : { cookie },
-    });
-
-    expect(response.status).toBe(status);
+    const recipients = jest.spyOn(ProgramMailService.prototype, 'recipients');
+    try {
+      const response = await fetch(world.endpoint('recipients'), {
+        headers: cookie === null ? {} : { cookie },
+      });
+      expect(response.status).toBe(status);
+      expect(recipients).not.toHaveBeenCalled();
+    } finally {
+      recipients.mockRestore();
+    }
     expect(world.mailSender.sent).toEqual([]);
     expect(
       await world.prisma.notification.count({
@@ -143,32 +155,32 @@ it.each([
 );
 
 it('rejects a recipient who belongs to another program', async () => {
-  const externalUserId = 'test:notifications:external-student';
-  const externalTeamId = 'test:notifications:external-team';
-  await world.prisma.user.create({
-    data: {
-      ...canonicalUserCreateFromLabel('STUDENT', {
-        id: externalUserId,
-        githubId: 9_600_000_000_127_099n,
-        nickname: 'synthetic-external-student',
-      }),
-      notifyEnabled: true,
-      notificationEmail: 'external-student@example.com',
-    },
-  });
-  await world.prisma.team.create({
-    data: {
-      id: externalTeamId,
-      programId: DIGEST_FIXTURE.silentProgram,
-      name: 'external-team',
-      leaderId: externalUserId,
-      applicantId: externalUserId,
-      answers: {},
-      applicationTemplateVersion: 1,
-      status: 'APPROVED',
-    },
-  });
+  const externalUserId = `test:notifications:external-student:${externalScope}`;
+  const externalTeamId = `test:notifications:external-team:${externalScope}`;
   try {
+    await world.prisma.user.create({
+      data: {
+        ...canonicalUserCreateFromLabel('STUDENT', {
+          id: externalUserId,
+          githubId: externalGithubId,
+          nickname: 'synthetic-external-student',
+        }),
+        notifyEnabled: true,
+        notificationEmail: 'external-student@example.com',
+      },
+    });
+    await world.prisma.team.create({
+      data: {
+        id: externalTeamId,
+        programId: DIGEST_FIXTURE.silentProgram,
+        name: 'external-team',
+        leaderId: externalUserId,
+        applicantId: externalUserId,
+        answers: {},
+        applicationTemplateVersion: 1,
+        status: 'APPROVED',
+      },
+    });
     const response = await world.post(
       'preview',
       {
@@ -182,8 +194,8 @@ it('rejects a recipient who belongs to another program', async () => {
     expect(response.status).toBe(400);
     expect(world.mailSender.sent).toEqual([]);
   } finally {
-    await world.prisma.team.delete({ where: { id: externalTeamId } });
-    await world.prisma.user.delete({ where: { id: externalUserId } });
+    await world.prisma.team.deleteMany({ where: { id: externalTeamId } });
+    await world.prisma.user.deleteMany({ where: { id: externalUserId } });
   }
 });
 

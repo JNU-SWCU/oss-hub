@@ -29,6 +29,7 @@ queryLogClient.$on('query', (event) => queries.push(event.query));
 const prisma = loadPrismaQueryLintConfig().createLintedClient(queryLogClient);
 const read = legacyRead;
 const history = legacyRead;
+const SEQUENTIAL_WARM_READ_TIMEOUT_MS = 60_000;
 
 beforeAll(prepareLegacyFixture, 60_000);
 afterAll(async () => {
@@ -36,85 +37,87 @@ afterAll(async () => {
   await cleanupMigrationFixture();
 });
 
-it('records legacy source SQL counts and twenty sequential warm read samples', async () => {
-  await withUserConsolidationFixture(prisma, async (transaction) => {
-    const operations = [
-      {
-        name: 'legacy-source-user-list',
-        run: () =>
-          read.listAdminAccessUsers(transaction, {
-            query: CONSOLIDATION_PREFIX,
-            page: 1,
-            limit: 20,
-          }),
-      },
-      {
-        name: 'legacy-source-user-detail',
-        run: () =>
-          read.findAdminAccessUserById(
-            transaction,
-            consolidationId('student-admin-staff'),
-          ),
-      },
-      {
-        name: 'legacy-source-request-history',
-        run: () =>
-          history.listAdminAccessStaffAccessRequestHistory(
-            transaction,
-            consolidationId('staff-rejected'),
-            { page: 1, limit: 20 },
-          ),
-      },
-    ];
-    for (const operation of operations) {
-      await operation.run();
-      const samples = [];
-      for (let index = 0; index < 20; index += 1) {
-        const offset = queries.length;
-        const start = performance.now();
+it(
+  'records legacy source SQL counts and twenty sequential warm read samples',
+  async () => {
+    await withUserConsolidationFixture(prisma, async (transaction) => {
+      const operations = [
+        {
+          name: 'legacy-source-user-list',
+          run: () =>
+            read.listAdminAccessUsers(transaction, {
+              query: CONSOLIDATION_PREFIX,
+              page: 1,
+              limit: 20,
+            }),
+        },
+        {
+          name: 'legacy-source-user-detail',
+          run: () =>
+            read.findAdminAccessUserById(
+              transaction,
+              consolidationId('student-admin-staff'),
+            ),
+        },
+        {
+          name: 'legacy-source-request-history',
+          run: () =>
+            history.listAdminAccessStaffAccessRequestHistory(
+              transaction,
+              consolidationId('staff-rejected'),
+              { page: 1, limit: 20 },
+            ),
+        },
+      ];
+      for (const operation of operations) {
         await operation.run();
-        samples.push({
-          milliseconds: performance.now() - start,
-          sqlCount: queries.length - offset,
-        });
+        const samples = [];
+        for (let index = 0; index < 20; index += 1) {
+          const offset = queries.length;
+          const start = performance.now();
+          await operation.run();
+          samples.push({
+            milliseconds: performance.now() - start,
+            sqlCount: queries.length - offset,
+          });
+        }
+        const sorted = samples
+          .map((sample) => sample.milliseconds)
+          .sort((a, b) => a - b);
+        console.info(
+          'CONSOLIDATION_LEGACY_SOURCE_READ',
+          JSON.stringify({
+            name: operation.name,
+            samples,
+            medianMs: ((sorted[9] ?? 0) + (sorted[10] ?? 0)) / 2,
+            p95Ms: sorted[18],
+            surface:
+              'legacy raw-SQL source contract, not current repository or performance proof',
+          }),
+        );
       }
-      const sorted = samples
-        .map((sample) => sample.milliseconds)
-        .sort((a, b) => a - b);
+      const page = await read.listAdminAccessUsers(transaction, {
+        query: CONSOLIDATION_PREFIX,
+        page: 1,
+        limit: 200,
+      });
+      expect(page.total).toBe(162);
+      expect(page.items).toHaveLength(162);
+      const snapshot = await readUserConsolidationSnapshot(transaction);
       console.info(
-        'CONSOLIDATION_LEGACY_SOURCE_READ',
+        'CONSOLIDATION_SOURCE_ROWS',
         JSON.stringify({
-          name: operation.name,
-          samples,
-          medianMs: ((sorted[9] ?? 0) + (sorted[10] ?? 0)) / 2,
-          p95Ms: sorted[18],
-          surface:
-            'legacy raw-SQL source contract, not current repository or performance proof',
+          profiles: snapshot.profiles.filter(
+            (row) => !row.userId.includes(':filler-'),
+          ),
+          requests: snapshot.requests,
+          consents: snapshot.consents,
+          audits: snapshot.audits,
         }),
       );
-    }
-    const page = await read.listAdminAccessUsers(transaction, {
-      query: CONSOLIDATION_PREFIX,
-      page: 1,
-      limit: 200,
-    });
-    expect(page.total).toBe(162);
-    expect(page.items).toHaveLength(162);
-    const snapshot = await readUserConsolidationSnapshot(transaction);
-    console.info(
-      'CONSOLIDATION_SOURCE_ROWS',
-      JSON.stringify({
-        profiles: snapshot.profiles.filter(
-          (row) => !row.userId.includes(':filler-'),
-        ),
-        requests: snapshot.requests,
-        consents: snapshot.consents,
-        audits: snapshot.audits,
-      }),
-    );
-    const catalog = await transaction.$queryRaw<
-      readonly { readonly inventory: Prisma.JsonValue }[]
-    >`
+      const catalog = await transaction.$queryRaw<
+        readonly { readonly inventory: Prisma.JsonValue }[]
+      >`
       SELECT jsonb_build_object(
         'postgres', version(),
         'tables', (SELECT count(*) FROM information_schema.tables
@@ -136,6 +139,8 @@ it('records legacy source SQL counts and twenty sequential warm read samples', a
           FROM pg_trigger t WHERE t.tgrelid = '"AuditLog"'::regclass AND NOT t.tgisinternal)
       ) AS inventory
     `;
-    console.info('CONSOLIDATION_DATABASE_BASELINE', JSON.stringify(catalog));
-  });
-});
+      console.info('CONSOLIDATION_DATABASE_BASELINE', JSON.stringify(catalog));
+    });
+  },
+  SEQUENTIAL_WARM_READ_TIMEOUT_MS,
+);

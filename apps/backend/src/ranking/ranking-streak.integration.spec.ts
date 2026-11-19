@@ -1,41 +1,30 @@
+import { randomBytes } from 'node:crypto';
 import { ActivityVisibility } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import { PrismaService } from '../platform/prisma.service';
+import type { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 import { RankingService } from './ranking.service';
 import { RankingYearService, RANKING_YEAR_ALL } from './ranking-year.service';
 
-assertIsolatedIntegrationDatabase({
-  databaseUrl: process.env.DATABASE_URL,
-  runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
-});
-
 jest.setTimeout(180_000);
 
-const prisma = new PrismaService();
-const repository = new RankingRepository(prisma);
-const service = new RankingService(
-  repository,
-  new RankingYearService(),
-  new CollectionScheduleService(),
-);
+let database:
+  Awaited<ReturnType<typeof createOwnedIntegrationDatabase>> | undefined;
+let prisma: PrismaService;
+let repository: RankingRepository;
+let service: RankingService;
 
-const PREFIX = 'synthetic-ranking-streak';
-const BASE_ID = 9_000_000_000_000_000_000n;
+const BASE_ID = BigInt(randomBytes(6).readUIntBE(0, 6));
+const PREFIX = `synthetic-ranking-streak-${BASE_ID}`;
 const START = new Date('2098-01-01T00:00:00.000Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(START.getTime() + 400 * DAY_MS + 12 * 60 * 60 * 1000);
-const OTHER_SPEC_SCORE_CEILING = 1_000_000;
-const outranksOtherSpecs = (value: number): number =>
-  OTHER_SPEC_SCORE_CEILING + value;
 const students = Array.from({ length: 12 }, (_, index) => ({
   githubId: BASE_ID + BigInt(index + 1),
   login: `${PREFIX}-${String(index + 1).padStart(2, '0')}`,
-  score: outranksOtherSpecs(11_000 - index * 1_000),
+  score: 11_000 - index * 1_000,
 }));
-const ids = students.map((student) => student.githubId);
-const userIds = students.map((student) => `${PREFIX}-${student.githubId}`);
 
 function studentAt(index: number) {
   const student = students[index];
@@ -55,16 +44,15 @@ function atDay(day: number): Date {
   return new Date(START.getTime() + day * DAY_MS);
 }
 
-async function purge(): Promise<void> {
-  await prisma.githubUserActivityObservation.deleteMany({
-    where: { githubId: { in: ids } },
-  });
-  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
-}
-
-beforeAll(async () => {
-  await prisma.$connect();
-  await purge();
+beforeEach(async () => {
+  database = await createOwnedIntegrationDatabase();
+  prisma = database.prisma;
+  repository = new RankingRepository(prisma);
+  service = new RankingService(
+    repository,
+    new RankingYearService(),
+    new CollectionScheduleService(),
+  );
   await prisma.user.createMany({
     data: students.map((student) => ({
       id: `${PREFIX}-${student.githubId}`,
@@ -86,7 +74,7 @@ beforeAll(async () => {
       githubId: LEADER.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: outranksOtherSpecs(day >= 201 ? 11_002 : 11_000),
+      commitCount: day >= 201 ? 11_002 : 11_000,
       observedAt: atDay(day),
     });
   }
@@ -95,30 +83,30 @@ beforeAll(async () => {
       githubId: CHALLENGER.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: outranksOtherSpecs(11_001),
+      commitCount: 11_001,
       observedAt: atDay(200),
     },
     {
       githubId: ELEVENTH.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: outranksOtherSpecs(2_100),
+      commitCount: 2_100,
       observedAt: atDay(390),
     },
     {
       githubId: TENTH.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: outranksOtherSpecs(2_200),
+      commitCount: 2_200,
       observedAt: atDay(395),
     },
   );
   await prisma.githubUserActivityObservation.createMany({ data: observations });
-}, 30_000);
+}, 60_000);
 
-afterAll(async () => {
-  await purge();
-  await prisma.$disconnect();
+afterEach(async () => {
+  await database?.close();
+  database = undefined;
 }, 30_000);
 
 test('400일 이력에서 현재 동일 순위와 TOP 10 연속 시작을 서울 날짜로 계산한다', async () => {
@@ -157,14 +145,14 @@ test('동점은 기존 login·github id 규칙으로 결정되고 행 순서가 
         githubId: TIE_FIRST.githubId,
         year: 2098,
         visibility: ActivityVisibility.PUBLIC,
-        commitCount: outranksOtherSpecs(8_000),
+        commitCount: 8_000,
         observedAt: atDay(400),
       },
       {
         githubId: TIE_SECOND.githubId,
         year: 2098,
         visibility: ActivityVisibility.PUBLIC,
-        commitCount: outranksOtherSpecs(8_000),
+        commitCount: 8_000,
         observedAt: atDay(400),
       },
     ],
@@ -223,29 +211,23 @@ test('서울 자정 직후 시작한 동일 순위 run은 시작일을 포함해
     ],
   });
 
-  try {
-    const page = await service.findPage(
-      2100,
-      1,
-      10,
-      null,
-      new Date('2100-01-02T15:00:00.000Z'),
-    );
+  const page = await service.findPage(
+    2100,
+    1,
+    10,
+    null,
+    new Date('2100-01-02T15:00:00.000Z'),
+  );
 
-    expect(page.items[0]).toMatchObject({
-      githubLogin: LEADER.login,
-      streak: {
-        rankHeldSince: '2100-01-02',
-        top10Since: '2100-01-01',
-        rankHeldDays: 2,
-        top10Days: 3,
-      },
-    });
-  } finally {
-    await prisma.githubUserActivityObservation.deleteMany({
-      where: { githubId: { in: ids }, year: 2100 },
-    });
-  }
+  expect(page.items[0]).toMatchObject({
+    githubLogin: LEADER.login,
+    streak: {
+      rankHeldSince: '2100-01-02',
+      top10Since: '2100-01-01',
+      rankHeldDays: 2,
+      top10Days: 3,
+    },
+  });
 });
 
 test('선택 연도 밖 backfill로 현재 순위가 바뀌면 오래된 run을 노출하지 않는다', async () => {
@@ -270,25 +252,19 @@ test('선택 연도 밖 backfill로 현재 순위가 바뀌면 오래된 run을 
     ],
   });
 
-  try {
-    const page = await service.findPage(
-      2099,
-      1,
-      10,
-      null,
-      new Date('2100-01-03T00:00:00.000Z'),
-    );
+  const page = await service.findPage(
+    2099,
+    1,
+    10,
+    null,
+    new Date('2100-01-03T00:00:00.000Z'),
+  );
 
-    expect(page.items[0]).toMatchObject({
-      githubLogin: LEADER.login,
-      rank: 1,
-      streak: null,
-    });
-  } finally {
-    await prisma.githubUserActivityObservation.deleteMany({
-      where: { githubId: { in: ids }, year: 2099 },
-    });
-  }
+  expect(page.items[0]).toMatchObject({
+    githubLogin: LEADER.login,
+    rank: 1,
+    streak: null,
+  });
 });
 
 test('1배와 10배 관측 이력 모두 한 ranking SQL과 한 count 문장만 실행한다', async () => {
