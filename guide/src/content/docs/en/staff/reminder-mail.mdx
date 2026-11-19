@@ -1,6 +1,6 @@
 ---
 title: Email the applicants of a program
-description: Pick recipients in the mail popup on the program overview, check the preview, and send.
+description: Send a custom message to applicants, or preview deadline reminders and a staff summary.
 sidebar:
   order: 10
 ---
@@ -8,15 +8,14 @@ import { Steps } from '@astrojs/starlight/components';
 import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
-import Verified from '~/components/Verified.astro';
 
-Staff can email the students who applied to a program. You write the subject and the body yourself, then check the recipients and the message before sending. Email about documents due soon is sent separately and automatically; the end of this page covers it.
+Choose a custom message when you want to pick the recipients and write the subject. Choose a deadline reminder when you want students to see what they still owe and staff to receive a summary.
 
 ## Open the mail popup
 
 Click ① `메일 보내기` (send mail) at the top right of the program overview. The same button sits under `제출 마감 알림` (submission deadline reminders) in the `운영 설정` (operating settings) section of the editor. It appears only for accounts whose member type is `교직원` (staff).
 
-<Shot src="staff/mail-entry.webp" alt="Top of the program overview. The edit button and the send mail button sit to the right of the title, and ① points at the send mail button." caption="① `메일 보내기` (send mail)" />
+<Shot src="staff/mail-entry.webp" alt="Separate custom mail and deadline reminder buttons in the program overview." caption="① Custom mail ② Deadline reminders" />
 
 ## Choose the recipients
 
@@ -76,6 +75,32 @@ A failure shows a `메일을 처리하지 못했습니다` (the mail could not b
 - `선택한 학생이 이 프로그램의 메일 발송 대상이 아닙니다.` (a selected student is not a recipient for this program): close the popup, open it again, and choose the recipients. A student's notification setting or account status changed while you were choosing.
 </Recover>
 
+## Send deadline reminders and a staff summary
+
+Choose ② `마감 알림 보내기` (send deadline reminders) on the program overview, or ① in the editor’s `운영 설정` (operating settings). Unlike a custom message, a reminder goes to eligible students who still owe required documents due within 24 hours. Eligible staff and administrators receive a summary.
+
+<Shot src="staff/deadline-settings.webp" alt="The editor shows two separate mail actions below the submission deadline reminder setting." caption="① Open deadline reminders from the editor" />
+
+<Steps>
+1. To add a note, use ① `학생용 추가 안내` (note to students) or ② `교직원용 추가 안내` (note to staff). Each is optional and allows up to 4,000 characters.
+2. Choose ③ `미리보기` (preview).
+</Steps>
+
+<Shot src="staff/deadline-compose.webp" alt="The reminder dialog has separate note fields for the two audiences." caption="① Student note ② Staff note ③ Preview" />
+
+Read the student count and `교직원 요약 수신` (staff summary recipients) under ① `발송 대상` (recipients). Use `미리 볼 학생` (student to preview) to inspect an individual reminder alongside the staff summary. On narrow screens, switch between the `학생용` (student) and `교직원용` (staff) tabs.
+
+<Shot src="staff/deadline-preview.webp" alt="Recipient counts above the student reminder and staff summary previews, with the send button at the bottom." caption="① Recipients ② Send" />
+
+Read the final line, `학생 N명 · 교직원 N명 · 발송 후 취소 불가` (N students · N staff · cannot be recalled). Choose ② `보내기` (send) only when you are ready to send both messages. To change a note, choose `수정` (edit).
+
+<Success>The result lists student messages sent, duplicates skipped, failures, and the staff summary recipient count.</Success>
+
+<Recover title="If you cannot send deadline reminders">
+- If the button is replaced by `제출 마감 알림을 켜야 합니다.` (enable submission deadline reminders), turn on `제출 마감 알림` in the editor and save. The separate `메일 보내기` action is still available.
+- A preview is valid for 10 minutes. Preview again if it expires or the recipients change. If neither group has recipients, the send button is unavailable.
+</Recover>
+
 ## Automatic deadline reminders
 
 When a program has `제출 마감 알림` (submission deadline reminders) enabled, the system sends email every day at 9 a.m. Korea Standard Time under these rules.
@@ -83,7 +108,7 @@ When a program has `제출 마감 알림` (submission deadline reminders) enable
 - A milestone has required documents due within 24 hours.
 - Only students who have not submitted those documents receive the email.
 - One person does not receive two messages for the same program on the same day.
-- The summary email for staff and administrators is not sent automatically, and no screen sends it. <Verified status="policy" />
+- The automatic reminder does not include a staff summary.
 
 Automatic subjects also begin with `[oss-hub]`. For one milestone the subject carries the remaining time and the name, such as `[oss-hub] 제출 마감 24시간 전 · 마일스톤 이름` (24 hours until submission deadline · milestone name); for several it becomes `마감 임박 제출 N건` (N submissions due soon). The body lists the program, milestone, and deadline, and carries a `제출하러 가기` (go to submission) button.
 
