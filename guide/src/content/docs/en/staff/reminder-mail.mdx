@@ -1,6 +1,6 @@
 ---
 title: Email the applicants of a program
-description: Send a custom message to applicants, or preview deadline reminders and a staff summary.
+description: Send a custom message to applicants and check the outcome, or send deadline reminders and a staff summary.
 sidebar:
   order: 10
 ---
@@ -61,14 +61,27 @@ Write the message in `메일 내용` (message).
 
 Below the body sits `이 메일은 oss-hub에서 발송했습니다.` (this mail was sent from oss-hub), which recipients also see, and then `보낸 메일은 취소할 수 없습니다.` (sent mail cannot be recalled). The mail a student receives opens with `안녕하세요, 이름님.` (hello, name) and names the program and the sender. Nothing can undo a send, so read the recipient count and the body once more first. A preview is valid for 10 minutes, and changing the recipients or the message means previewing again.
 
+## Check the result after closing the popup
+
+<Steps>
+1. In the same program, reopen `메일 보내기` (Send mail) and choose ① `발송 기록` (Send history) next to the popup title.
+2. Select ② the send time, shown in Korea Standard Time. To look for an older send, choose `이전 기록` (Older records).
+</Steps>
+
+<Shot src="staff/mail-history-entry.webp" alt="① marks Send history next to the Send mail popup title." caption="① Open send history" />
+<Shot src="staff/mail-history.webp" alt="② marks a record labeled with its date and time in the send history list." caption="② Select the send time" />
+
+Opening a record does not resend the message.
+
 <Success>
-`N명에게 메일을 보냈습니다.` (sent to N people) appears with `중복 생략 N명 · 발송 실패 N명 · 발송 결과 확인 불가 N명` (N skipped as duplicates · N failed · N with an unconfirmed result) below it. `발송 결과 확인 불가` counts people for whom delivery could not be confirmed. With many recipients, `메일 발송을 처리 중입니다.` (sending is in progress) appears first and the rest continues in the background. Close the popup with `닫기` (close).
+When processing finishes, the result shows `발송` (Sent), `실패` (Failed), `확인 불가` (Unconfirmed), and `중복 제외` (Duplicates skipped). Unconfirmed means the system could not verify whether the message was sent. If you see `메일 발송을 처리 중입니다.` (Sending is in progress), it continues even if you choose `닫기` (Close). Open the same record later to check the outcome.
 </Success>
 
 <Recover title="If the mail cannot be sent">
 A failure shows a `메일을 처리하지 못했습니다` (the mail could not be processed) alert in the popup with the reason below it.
 
 - `메일 수신자를 불러오지 못했습니다` (could not load recipients): click `다시 시도` (retry).
+- If `발송 기록을 불러오지 못했습니다` (could not load send history) or `발송 결과를 불러오지 못했습니다` (could not load the result) appears, choose `다시 시도` (Retry) to look it up rather than sending again. If you see `발송 기록이 없습니다.` (No send records), check that you opened the same program.
 - If the preview expires or the recipients change, click `미리보기` (preview) again before sending.
 - `메일을 연속으로 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.` (you cannot send repeatedly): within 10 minutes one person can send three times and one program five times. Wait and send again.
 - `한 번에 선택할 수 있는 학생 수를 초과했습니다.` (too many students selected): split the send into groups of 200 or fewer.
