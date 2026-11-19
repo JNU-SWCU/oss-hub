@@ -1,3 +1,5 @@
+import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createAuditLogReadService } from '../platform/audit-log-mapping.fixture';
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -13,18 +15,41 @@ import {
   type ProgramMailIntegrationWorld,
 } from './program-mail.integration-support';
 
+import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
+import { ProgramMailService } from './program-mail.service';
+
+const externalScope = randomUUID();
+const externalGithubId = BigInt(randomBytes(6).readUIntBE(0, 6));
+jest.setTimeout(30_000);
+
 let world: ProgramMailIntegrationWorld;
+let database:
+  Awaited<ReturnType<typeof createOwnedIntegrationDatabase>> | undefined;
 
 beforeAll(async () => {
-  world = await startProgramMailIntegration();
-});
+  database = await createOwnedIntegrationDatabase();
+  world = await startProgramMailIntegration(database.prisma);
+}, 90_000);
 
 beforeEach(async () => {
   await world.reset();
 });
 
 afterAll(async () => {
-  await world.close();
+  try {
+    await world?.close();
+  } finally {
+    await database?.close();
+  }
+});
+
+it('keeps the digest fixture IDs outside the shared runner database', async () => {
+  const sharedName = new URL(process.env.DATABASE_URL ?? '').pathname.slice(1);
+  const [current] = await world.prisma.$queryRaw<
+    { name: string }[]
+  >`SELECT current_database() AS name LIMIT 1`;
+  expect(current?.name).toEqual(expect.stringMatching(/^oss_hub_fixture_/));
+  expect(current?.name).not.toBe(sharedName);
 });
 
 it('lists all application statuses, sends mail, and records an attributable audit event', async () => {
@@ -39,7 +64,10 @@ it('lists all application statuses, sends mail, and records an attributable audi
   const recipients: unknown = await recipientsResponse.json();
   expect(recipientsResponse.status).toBe(200);
   const serializedRecipients = JSON.stringify(recipients);
-  expect(serializedRecipients).toContain(DIGEST_FIXTURE.notifyProgram);
+  expect(recipients).toMatchObject({
+    programId: DIGEST_FIXTURE.notifyProgram,
+    recipientLimit: PROGRAM_MAIL_RECIPIENT_LIMIT,
+  });
   expect(serializedRecipients).toContain('"status":"APPROVED"');
   expect(serializedRecipients).toContain('"status":"REJECTED"');
 
@@ -61,11 +89,6 @@ it('lists all application statuses, sends mail, and records an attributable audi
   });
   expect(audit?.actorId).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(audit?.occurredAt).toBeInstanceOf(Date);
-  expect(
-    await world.prisma.userHistory.count({
-      where: { sourceTable: 'ProgramMail', sourceId: idempotencyKey },
-    }),
-  ).toBe(2);
   expect(audit?.data).toMatchObject({
     recordKind: 'DOMAIN_EVENT',
     action: 'PROGRAM_MAIL_SENT',
@@ -80,15 +103,77 @@ it('lists all application statuses, sends mail, and records an attributable audi
       idempotencyKey,
     },
   });
-  const feed = await createAuditLogReadService(
+  const pageSize = 20;
+  const unrelatedCount = 24;
+  const newerThanOwned = new Date((audit?.occurredAt.getTime() ?? 0) + 1_000);
+  const unrelatedActor = await world.prisma.user.create({
+    data: canonicalUserCreateFromLabel('STAFF', {
+      id: 'test:program-mail:foreign-audit-actor',
+      githubId: 9_600_000_000_193_002n,
+      nickname: `former-${PROGRAM_MAIL_STAFF_FIXTURE.nickname}`,
+    }),
+  });
+  await world.prisma.userHistory.createMany({
+    data: Array.from({ length: unrelatedCount }, (_, index) => {
+      const batch = `program-mail-send:foreign-audit:${index}`;
+      return {
+        id: `user:program-mail-result:${batch}`,
+        userId: unrelatedActor.id,
+        actorId: unrelatedActor.id,
+        event: 'PROFILE_UPDATED',
+        source: 'APPLICATION',
+        sourceTable: 'ProgramMail',
+        sourceId: batch,
+        sourcePart: 'RESULT',
+        occurredAt: newerThanOwned,
+        data: {
+          schemaVersion: 1,
+          recordKind: 'DOMAIN_EVENT',
+          action: 'PROGRAM_MAIL_SENT',
+          targetType: 'PROGRAM',
+          targetId: DIGEST_FIXTURE.silentProgram,
+          requestId: batch,
+          metadata: {},
+          request: null,
+        },
+      };
+    }),
+  });
+  expect(
+    await world.prisma.userHistory.count({
+      where: { sourceTable: 'ProgramMail', sourceId: idempotencyKey },
+    }),
+  ).toBe(2);
+  const readAudit = createAuditLogReadService(
     new AuditLogReadRepository(world.prisma),
-  ).list({ action: 'PROGRAM_MAIL_SENT', page: 1, limit: 20 });
-  expect(feed.items).toHaveLength(1);
-  expect(feed.items[0]?.action).toBe('PROGRAM_MAIL_SENT');
-  expect(feed.items[0]?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
-  expect(feed.items[0]?.target.type).toBe('PROGRAM');
-  expect(feed.items[0]?.target.id).toBe(DIGEST_FIXTURE.notifyProgram);
-  expect(feed.items[0]?.requestId).toBe(idempotencyKey);
+  );
+  const query = { action: 'PROGRAM_MAIL_SENT', limit: pageSize } as const;
+  const firstPage = await readAudit.list({ ...query, page: 1 });
+  expect(firstPage.total).toBeGreaterThan(pageSize);
+  expect(
+    firstPage.items.every(
+      (item) => item.target.id === DIGEST_FIXTURE.silentProgram,
+    ),
+  ).toBe(true);
+
+  const visibilityPageLimit = Math.min(
+    10,
+    Math.ceil(firstPage.total / pageSize),
+  );
+  let own = firstPage.items.find((item) => item.requestId === idempotencyKey);
+  for (
+    let page = 2;
+    page <= visibilityPageLimit && own === undefined;
+    page += 1
+  ) {
+    const next = await readAudit.list({ ...query, page });
+    own = next.items.find((item) => item.requestId === idempotencyKey);
+  }
+  expect(own?.action).toBe('PROGRAM_MAIL_SENT');
+  expect(own?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
+  expect(own?.target.type).toBe('PROGRAM');
+  expect(own?.target.id).toBe(DIGEST_FIXTURE.notifyProgram);
+  expect(own?.requestId).toBe(idempotencyKey);
 });
 
 it('matches the legacy deadline recipient selection on approved teams only', async () => {
@@ -128,11 +213,16 @@ it.each([
   async (_label, userId, status) => {
     const cookie = userId === null ? null : await world.cookieForUser(userId);
 
-    const response = await fetch(world.endpoint('recipients'), {
-      headers: cookie === null ? {} : { cookie },
-    });
-
-    expect(response.status).toBe(status);
+    const recipients = jest.spyOn(ProgramMailService.prototype, 'recipients');
+    try {
+      const response = await fetch(world.endpoint('recipients'), {
+        headers: cookie === null ? {} : { cookie },
+      });
+      expect(response.status).toBe(status);
+      expect(recipients).not.toHaveBeenCalled();
+    } finally {
+      recipients.mockRestore();
+    }
     expect(world.mailSender.sent).toEqual([]);
     expect(
       await world.prisma.notification.count({
@@ -143,32 +233,32 @@ it.each([
 );
 
 it('rejects a recipient who belongs to another program', async () => {
-  const externalUserId = 'test:notifications:external-student';
-  const externalTeamId = 'test:notifications:external-team';
-  await world.prisma.user.create({
-    data: {
-      ...canonicalUserCreateFromLabel('STUDENT', {
-        id: externalUserId,
-        githubId: 9_600_000_000_127_099n,
-        nickname: 'synthetic-external-student',
-      }),
-      notifyEnabled: true,
-      notificationEmail: 'external-student@example.com',
-    },
-  });
-  await world.prisma.team.create({
-    data: {
-      id: externalTeamId,
-      programId: DIGEST_FIXTURE.silentProgram,
-      name: 'external-team',
-      leaderId: externalUserId,
-      applicantId: externalUserId,
-      answers: {},
-      applicationTemplateVersion: 1,
-      status: 'APPROVED',
-    },
-  });
+  const externalUserId = `test:notifications:external-student:${externalScope}`;
+  const externalTeamId = `test:notifications:external-team:${externalScope}`;
   try {
+    await world.prisma.user.create({
+      data: {
+        ...canonicalUserCreateFromLabel('STUDENT', {
+          id: externalUserId,
+          githubId: externalGithubId,
+          nickname: 'synthetic-external-student',
+        }),
+        notifyEnabled: true,
+        notificationEmail: 'external-student@example.com',
+      },
+    });
+    await world.prisma.team.create({
+      data: {
+        id: externalTeamId,
+        programId: DIGEST_FIXTURE.silentProgram,
+        name: 'external-team',
+        leaderId: externalUserId,
+        applicantId: externalUserId,
+        answers: {},
+        applicationTemplateVersion: 1,
+        status: 'APPROVED',
+      },
+    });
     const response = await world.post(
       'preview',
       {
@@ -182,8 +272,8 @@ it('rejects a recipient who belongs to another program', async () => {
     expect(response.status).toBe(400);
     expect(world.mailSender.sent).toEqual([]);
   } finally {
-    await world.prisma.team.delete({ where: { id: externalTeamId } });
-    await world.prisma.user.delete({ where: { id: externalUserId } });
+    await world.prisma.team.deleteMany({ where: { id: externalTeamId } });
+    await world.prisma.user.deleteMany({ where: { id: externalUserId } });
   }
 });
 

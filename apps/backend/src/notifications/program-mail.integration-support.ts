@@ -20,6 +20,7 @@ import {
   DIGEST_FIXTURE,
   RecordingMailSender,
 } from './deadline-digest.integration-support';
+import { DIGEST_USER_IDS } from './deadline-digest.integration-fixtures';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { ProgramMailBatchRepository } from './program-mail-batch.repository';
@@ -44,6 +45,7 @@ assertIsolatedIntegrationDatabase({
 
 export const PROGRAM_MAIL_STAFF_FIXTURE = {
   id: 'test:program-mail:staff',
+  nickname: 'program-mail-staff',
   githubId: 9_600_000_000_193_001n,
 } as const;
 
@@ -90,8 +92,10 @@ export type ProgramMailIntegrationWorld = {
   close(): Promise<void>;
 };
 
-export async function startProgramMailIntegration(): Promise<ProgramMailIntegrationWorld> {
-  const harness = createDeadlineDigestIntegrationHarness();
+export async function startProgramMailIntegration(
+  prisma: PrismaService,
+): Promise<ProgramMailIntegrationWorld> {
+  const harness = createDeadlineDigestIntegrationHarness(prisma);
   const mailSender = new RecordingMailSender();
   const repository = new ProgramMailRepository(harness.prisma);
   const createRuntime = (
@@ -129,7 +133,10 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
   const service = createService(mailSender);
   const clearProgramMail = async () => {
     await harness.prisma.notification.deleteMany({
-      where: { type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] } },
+      where: {
+        type: { in: ['PROGRAM_MAIL', 'PROGRAM_MAIL_SEND'] },
+        userId: { in: [...DIGEST_USER_IDS, PROGRAM_MAIL_STAFF_FIXTURE.id] },
+      },
     });
   };
   const sessions = new AuthSessionService();
@@ -142,7 +149,7 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
       ...canonicalUserCreateFromLabel('STAFF', {
         id: PROGRAM_MAIL_STAFF_FIXTURE.id,
         githubId: PROGRAM_MAIL_STAFF_FIXTURE.githubId,
-        nickname: 'program-mail-staff',
+        nickname: PROGRAM_MAIL_STAFF_FIXTURE.nickname,
       }),
       notifyEnabled: false,
       notificationEmail: null,
@@ -277,10 +284,6 @@ export async function startProgramMailIntegration(): Promise<ProgramMailIntegrat
         data: { status: 'APPROVED', archivedAt: null },
       });
     },
-    close: async () => {
-      await clearProgramMail();
-      await app.close();
-      await harness.prisma.$disconnect();
-    },
+    close: () => app.close(),
   };
 }

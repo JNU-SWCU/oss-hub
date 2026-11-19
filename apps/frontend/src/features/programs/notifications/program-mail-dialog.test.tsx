@@ -145,6 +145,12 @@ describe('ProgramMailDialog', () => {
     expect(send.disabled).toBe(false);
     const warningId = send.getAttribute('aria-describedby');
     expect(document.getElementById(warningId ?? '')).not.toBeNull();
+    expect(previewProgramMailMock).toHaveBeenCalledWith('program-1', {
+      subject: preview.subject,
+      body: preview.body,
+      applicantIds: ['student-1'],
+    });
+    expect(document.querySelector('#program-mail-subject')).toBeNull();
     expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(button('수정'));
@@ -159,11 +165,13 @@ describe('ProgramMailDialog', () => {
       result?.querySelector<HTMLDataElement>('[data-slot="alert-title"] data')
         ?.value,
     ).toBe('1');
-    expect(
-      result?.querySelector<HTMLDataElement>(
-        '[data-slot="alert-description"] data',
-      )?.value,
-    ).toBe('2');
+    const description = result?.querySelector(
+      '[data-slot="alert-description"]',
+    );
+    expect(description?.textContent?.match(/\d+/g)).toEqual(['0', '0', '2']);
+    expect(description?.querySelector<HTMLDataElement>('data')?.value).toBe(
+      '2',
+    );
     expect(button('닫기').disabled).toBe(false);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });

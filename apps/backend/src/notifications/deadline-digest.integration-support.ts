@@ -38,8 +38,9 @@ export class IsolatingMailSender implements MailSender {
       : Promise.resolve();
   }
 }
-export function createDeadlineDigestIntegrationHarness() {
-  const prisma = new PrismaService();
+export function createDeadlineDigestIntegrationHarness(
+  prisma = new PrismaService(),
+) {
   const repository = new DeadlineDigestRepository(
     prisma,
     new ProgramMailAuditRepository(),

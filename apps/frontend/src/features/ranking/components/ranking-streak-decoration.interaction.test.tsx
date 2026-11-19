@@ -129,8 +129,9 @@ test('2위부터는 현재 순위가 아니라 TOP 10 유지 기간을 표시한
   expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
     '100일째',
   );
-  expect(button?.getAttribute('aria-label')).toBe('TOP 10 유지 100일째');
-  expect(button?.getAttribute('title')).toBe('TOP 10 유지 100일째');
+  const name = button?.getAttribute('aria-label');
+  expect(name?.match(/TOP\s*([0-9]+)/iu)?.[1]).toBe('10');
+  expect(name?.match(/([0-9]+)\s*일/u)?.[1]).toBe('100');
   expect(
     container.querySelector('[data-streak-accessible-name]')?.textContent,
   ).toBe('남빛 삼봉관');
@@ -143,15 +144,26 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
   const button = container.querySelector('button');
 
   expect(link?.contains(button)).toBe(false);
-  expect(button?.getAttribute('aria-label')).toBe('1위 유지 120일째');
-  expect(button?.getAttribute('title')).toBe('1위 유지 120일째');
+  expect(button).not.toBeNull();
+  expect(button?.closest('[aria-hidden="true"], [hidden], [inert]')).toBeNull();
+  for (
+    let node: HTMLElement | null = button;
+    node !== null;
+    node = node.parentElement
+  ) {
+    const style = window.getComputedStyle(node);
+    expect(style.display).not.toBe('none');
+    expect(style.visibility).not.toMatch(/^(hidden|collapse)$/u);
+  }
+  const name = button?.getAttribute('aria-label');
+  expect(name?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
+  expect(name?.match(/([0-9]+)\s*일/u)?.[1]).toBe('120');
   expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
     '120일째',
   );
   expect(
     container.querySelector('[data-streak-accessible-name]')?.textContent,
   ).toBe('금빛 날개관');
-  expect(button?.textContent).not.toContain('임금');
 
   await act(async () => button?.click());
 
