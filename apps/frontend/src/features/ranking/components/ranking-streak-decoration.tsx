@@ -89,7 +89,7 @@ export function RankingStreakDecoration({
         </span>
       </a>
       <span className="sr-only" data-streak-accessible-name>
-        {accessibleTierName} · {streakMeaning}
+        {accessibleTierName}
       </span>
       <Button
         type="button"

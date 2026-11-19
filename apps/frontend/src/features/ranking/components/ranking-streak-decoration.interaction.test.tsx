@@ -131,7 +131,9 @@ test('2위부터는 현재 순위가 아니라 TOP 10 유지 기간을 표시한
   );
   expect(button?.getAttribute('aria-label')).toBe('TOP 10 유지 100일째');
   expect(button?.getAttribute('title')).toBe('TOP 10 유지 100일째');
-  expect(container.textContent).toContain('남빛 삼봉관 · TOP 10 유지 100일째');
+  expect(
+    container.querySelector('[data-streak-accessible-name]')?.textContent,
+  ).toBe('남빛 삼봉관');
   expect(container.textContent).not.toContain('2위 100일째 유지');
 });
 
@@ -146,7 +148,9 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
   expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
     '120일째',
   );
-  expect(container.textContent).toContain('금빛 날개관 · 1위 유지 120일째');
+  expect(
+    container.querySelector('[data-streak-accessible-name]')?.textContent,
+  ).toBe('금빛 날개관');
   expect(button?.textContent).not.toContain('임금');
 
   await act(async () => button?.click());
