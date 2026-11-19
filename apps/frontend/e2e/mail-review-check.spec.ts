@@ -8,6 +8,46 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
 ]) {
+  test(`reopens a persisted mail result at ${viewport.width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    const fixture = await installMailReviewRoutes(page, 1);
+    const receipt = {
+      jobId: 'persisted',
+      acceptedAt: '2026-11-19T00:00:00.000Z',
+    };
+    await page.route('**/mail/jobs', (route) =>
+      route.fulfill({ json: { items: [receipt] } }),
+    );
+    await page.route('**/mail/jobs/persisted', (route) =>
+      route.fulfill({
+        json: {
+          ...receipt,
+          status: 'COMPLETED',
+          finishedAt: receipt.acceptedAt,
+          sentCount: 2,
+          failedCount: 0,
+          duplicateCount: 0,
+          unknownCount: 1,
+        },
+      }),
+    );
+    await page.goto(`/programs/${mailReviewProgramId}`);
+    await page
+      .getByRole('button', { name: '메일 보내기', exact: true })
+      .click();
+    await page.getByRole('button', { name: '발송 기록', exact: true }).click();
+    await page.locator(`button[value="${receipt.jobId}"]`).click();
+    const dialog = page.getByRole('dialog', { name: '발송 결과' });
+    await expect(
+      dialog.locator('[data-slot="alert-description"] data'),
+    ).toHaveAttribute('value', '1');
+    expect(fixture.counts()).toEqual({ previewRequests: 0, sendRequests: 0 });
+    await dialog.screenshot({
+      path: test.info().outputPath('mail-receipt.png'),
+    });
+  });
   test(`mail recipient limit at ${viewport.width}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const fixture = await installMailReviewRoutes(page);

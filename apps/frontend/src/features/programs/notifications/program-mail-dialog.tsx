@@ -39,6 +39,7 @@ import {
   type ProgramMailDialogDraft,
 } from './program-mail-dialog-state';
 import { usePreviewExpiry } from './use-preview-expiry';
+import { ProgramMailJobs, ProgramMailJobStatus } from './program-mail-jobs';
 
 export function ProgramMailDialog({
   programId,
@@ -62,6 +63,8 @@ export function ProgramMailDialog({
     readonly version: number;
   } | null>(null);
   const [result, setResult] = useState<ProgramMailSendResult | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
   const [busy, setBusy] = useState<ProgramMailDialogBusy>(null);
   const [error, setError] = useState<MailDialogError>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
@@ -90,6 +93,8 @@ export function ProgramMailDialog({
     setDraft(EMPTY_PROGRAM_MAIL_DRAFT);
     setLoaded(null);
     setResult(null);
+    setJobId(null);
+    setShowHistory(false);
     setBusy(null);
     setError(null);
   }, [open]);
@@ -165,64 +170,71 @@ export function ProgramMailDialog({
     setBusy('send');
     setError(null);
     try {
-      setResult(await sendProgramMail(programId, loaded.preview));
+      const sent = await sendProgramMail(programId, loaded.preview);
+      if (loaded.version !== previewRequestVersion.current) return;
+      setResult(sent);
+      if (sent.status === 'IN_PROGRESS' && sent.jobId) setJobId(sent.jobId);
     } catch (caught: unknown) {
+      if (loaded.version !== previewRequestVersion.current) return;
       setLoaded(null);
       setError(programMailErrorMessage(caught));
     } finally {
-      sendInFlight.current = false;
-      setBusy(null);
+      if (loaded.version === previewRequestVersion.current) {
+        sendInFlight.current = false;
+        setBusy(null);
+      }
     }
   };
 
-  const footer = result ? (
-    <Button type="button" onClick={onClose}>
-      닫기
-    </Button>
-  ) : preview ? (
-    <>
-      <Button
-        ref={editButtonRef}
-        type="button"
-        variant="outline"
-        disabled={busy !== null}
-        onClick={() => changeDraft({})}
-      >
-        수정
+  const footer =
+    showHistory || jobId || result ? (
+      <Button type="button" onClick={onClose}>
+        닫기
       </Button>
-      <Button
-        type="button"
-        aria-describedby="mail-send-warning"
-        disabled={!canSend}
-        onClick={() => void send()}
-      >
-        {busy === 'send' ? '보내는 중…' : '보내기'}
-      </Button>
-    </>
-  ) : (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={busy !== null}
-        onClick={onClose}
-      >
-        취소
-      </Button>
-      <Button
-        type="button"
-        disabled={!canPreview}
-        onClick={() => void loadPreview()}
-      >
-        {busy === 'preview' ? '미리보는 중…' : '미리보기'}
-      </Button>
-    </>
-  );
+    ) : preview ? (
+      <>
+        <Button
+          ref={editButtonRef}
+          type="button"
+          variant="outline"
+          disabled={busy !== null}
+          onClick={() => changeDraft({})}
+        >
+          수정
+        </Button>
+        <Button
+          type="button"
+          aria-describedby="mail-send-warning"
+          disabled={!canSend}
+          onClick={() => void send()}
+        >
+          {busy === 'send' ? '보내는 중…' : '보내기'}
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy !== null}
+          onClick={onClose}
+        >
+          취소
+        </Button>
+        <Button
+          type="button"
+          disabled={!canPreview}
+          onClick={() => void loadPreview()}
+        >
+          {busy === 'preview' ? '미리보는 중…' : '미리보기'}
+        </Button>
+      </>
+    );
 
   return (
     <DialogShell
       open={open}
-      title="메일 보내기"
+      title={jobId ? '발송 결과' : showHistory ? '발송 기록' : '메일 보내기'}
       size="lg"
       busy={busy !== null}
       returnFocusRef={returnFocusRef}
@@ -231,7 +243,11 @@ export function ProgramMailDialog({
       onCancel={onClose}
       footer={footer}
     >
-      {recipientsQuery.isPending ? (
+      {open && jobId ? (
+        <ProgramMailJobStatus programId={programId} jobId={jobId} />
+      ) : open && showHistory ? (
+        <ProgramMailJobs programId={programId} onSelect={setJobId} />
+      ) : recipientsQuery.isPending ? (
         <Skeleton label="메일 수신자 불러오는 중" className="grid gap-4">
           <SkeletonBlock className="h-32 rounded-card" />
           <SkeletonBlock className="h-32 rounded-card" />
@@ -263,6 +279,15 @@ export function ProgramMailDialog({
         />
       )}
       <MailDialogErrorNotice error={error} title="메일을 처리하지 못했습니다" />
+      {!showHistory && !jobId && !preview && !result && busy === null && (
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => setShowHistory(true)}
+        >
+          발송 기록
+        </Button>
+      )}
     </DialogShell>
   );
 }

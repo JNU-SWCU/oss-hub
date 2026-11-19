@@ -188,7 +188,7 @@ export function ProgramMailPreviewView({
 export function ProgramMailResult({
   result,
 }: {
-  readonly result: ProgramMailSendResult;
+  readonly result: Omit<ProgramMailSendResult, 'previewVersion'>;
 }) {
   return (
     <Alert>
