@@ -132,6 +132,18 @@ export class CollectionUserActivityRepository {
 
   constructor(private readonly db: PrismaService) {}
 
+  async refreshRankingSnapshots(): Promise<void> {
+    await this.db.$transaction(
+      [
+        this.db
+          .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_activity_snapshot`,
+        this.db
+          .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_streak_snapshot`,
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
+
   async listActiveUsers(): Promise<CollectionActivityUserRow[]> {
     return this.boundedReads.readAllInBatches(
       (after: bigint | undefined, take) =>

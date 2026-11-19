@@ -50,6 +50,8 @@ describe('CollectionUserActivityService', () => {
       now,
     );
 
+  afterEach(() => jest.restoreAllMocks());
+
   const metrics = (commitCount: number) => ({
     commitCount,
     pullRequestCount: 2,
@@ -59,6 +61,12 @@ describe('CollectionUserActivityService', () => {
   });
 
   beforeEach(() => {
+    jest
+      .spyOn(
+        CollectionUserActivityRepository.prototype,
+        'refreshRankingSnapshots',
+      )
+      .mockResolvedValue();
     findMany.mockReset();
     queryRaw.mockReset();
     queryRaw.mockResolvedValue([{ present: false }]);
@@ -177,6 +185,10 @@ describe('CollectionUserActivityService', () => {
       providerStarted.resolve(undefined);
       return provider.promise;
     });
+    const refresh = jest.spyOn(
+      CollectionUserActivityRepository.prototype,
+      'refreshRankingSnapshots',
+    );
     const service = buildService();
 
     const firstRun = service.run();
@@ -191,6 +203,7 @@ describe('CollectionUserActivityService', () => {
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(fetchUserActivityMetrics).toHaveBeenCalledTimes(1);
     expect(executeRaw).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(firstResult).toBe(secondResult);
   });
 

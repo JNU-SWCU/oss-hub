@@ -39,7 +39,7 @@ describe('RankingRepository standing read', () => {
     expect(call.values).toEqual(expect.arrayContaining([2026, 20, 30]));
     expect(call.sql).toContain('ROW_NUMBER() OVER');
     expect(call.sql).toContain('COLLATE "C"');
-    expect(call.sql).toContain('github_user_activity_history');
+    expect(call.sql).not.toContain('github_user_activity_history');
   });
 
   it('reads only the selected timeline series with hard limits', async () => {
