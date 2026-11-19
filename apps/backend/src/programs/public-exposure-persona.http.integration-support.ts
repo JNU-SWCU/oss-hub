@@ -170,9 +170,10 @@ export class PublicExposurePersonaHttpHarness {
             }),
             findActivePrincipal: jest
               .fn<Promise<ActivePrincipal>, [bigint]>()
-              .mockImplementation((githubId) =>
-                Promise.resolve(makePersonaPrincipal(githubId)),
-              ),
+              .mockImplementation(async (githubId) => ({
+                ...makePersonaPrincipal(githubId),
+                ...(await databaseSessionPrincipal(this.prisma, githubId)),
+              })),
           },
         },
       ],

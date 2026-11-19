@@ -1,14 +1,20 @@
 import { randomBytes } from 'node:crypto';
 import { ActivityVisibility } from '@prisma/client';
 import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
-import type { PrismaService } from '../platform/prisma.service';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
 import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
+import type { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
 
 jest.setTimeout(30_000);
 
+const anonymousAuth = {
+  kind: HTTP_AUTH_KINDS.ANONYMOUS,
+  hasSessionCookie: false,
+} satisfies OptionalSessionRequest['auth'];
 let database:
   Awaited<ReturnType<typeof createOwnedIntegrationDatabase>> | undefined;
 let prisma: PrismaService;
@@ -99,7 +105,10 @@ it('folds each observed cutoff across years and ends at the current All leaderbo
     ],
   });
 
-  const all = await timeline.findTimelineFromRequest({ year: 'all' });
+  const all = await timeline.findTimelineFromRequest(
+    { year: 'all' },
+    anonymousAuth,
+  );
 
   expect(all).toEqual({
     year: 'all',
@@ -153,7 +162,10 @@ it('coarsens the full span and keeps the earliest and latest observations', asyn
       },
     ],
   });
-  const all = await timeline.findTimelineFromRequest({ year: 'all' });
+  const all = await timeline.findTimelineFromRequest(
+    { year: 'all' },
+    anonymousAuth,
+  );
   expect(all).toMatchObject({
     year: 'all',
     series: [
@@ -174,7 +186,7 @@ it('coarsens the full span and keeps the earliest and latest observations', asyn
 
 it('does not fabricate a chart without stored observations', async () => {
   await expect(
-    timeline.findTimelineFromRequest({ year: 'all' }),
+    timeline.findTimelineFromRequest({ year: 'all' }, anonymousAuth),
   ).resolves.toEqual({
     year: 'all',
     periods: [],

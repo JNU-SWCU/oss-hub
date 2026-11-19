@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { RankingRepository } from './ranking.repository';
 import { RANKING_YEAR_ALL, RankingYearService } from './ranking-year.service';
 
@@ -36,33 +38,40 @@ export class RankingTimelineService {
     private readonly rankingYear: RankingYearService,
   ) {}
 
-  async findTimelineFromRequest(request: {
-    readonly year: string;
-    readonly viewer?: string;
-  }): Promise<RankingTimeline> {
+  async findTimelineFromRequest(
+    request: {
+      readonly year: string;
+      readonly viewer?: string;
+    },
+    auth: OptionalSessionRequest['auth'],
+  ): Promise<RankingTimeline> {
     const year =
       request.year === RANKING_YEAR_ALL
         ? RANKING_YEAR_ALL
         : Number(request.year);
-    const viewer = request.viewer ?? null;
-    const key = `${year}:${viewer?.toLowerCase() ?? ''}`;
+    const viewerGithubId =
+      auth.kind === HTTP_AUTH_KINDS.AUTHENTICATED &&
+      request.viewer?.toLowerCase() === auth.principal.nickname.toLowerCase()
+        ? auth.principal.githubId
+        : null;
+    const key = `${year}:${viewerGithubId ?? ''}`;
     const existingBuild = this.inFlightBuilds.get(key);
     if (existingBuild) return existingBuild;
 
     const build = (
       year === RANKING_YEAR_ALL
-        ? this.findAllTimeline(viewer)
-        : this.findTimeline(year, viewer)
+        ? this.findAllTimeline(viewerGithubId)
+        : this.findTimeline(year, viewerGithubId)
     ).finally(() => this.inFlightBuilds.delete(key));
     this.inFlightBuilds.set(key, build);
     return build;
   }
 
-  async findTimeline(
+  private async findTimeline(
     year: number,
-    viewer: string | null,
-    now: Date = new Date(),
+    viewerGithubId: bigint | null,
   ): Promise<RankingYearTimeline> {
+    const now = new Date();
     const lastMonth =
       this.rankingYear.rankingYearInAsiaSeoul(now) === year
         ? this.rankingYear.rankingMonthInAsiaSeoul(now)
@@ -70,7 +79,7 @@ export class RankingTimelineService {
     const { selected, points } = await this.ranking.findTimelineSeries(
       year,
       lastMonth,
-      viewer,
+      viewerGithubId,
     );
     const pastMonths = [...new Set(points.map((point) => point.month))].sort(
       (left, right) => left - right,
@@ -110,38 +119,51 @@ export class RankingTimelineService {
   }
 
   private async findAllTimeline(
-    viewer: string | null,
+    viewerGithubId: bigint | null,
   ): Promise<RankingAllTimeline> {
-    const rows = await this.ranking.findAllTimelineSeries(viewer);
+    const rows = await this.ranking.findAllTimelineSeries(viewerGithubId);
     const slots = new Map<
       string,
       {
         readonly period: RankingTimelinePeriod;
-        readonly points: Map<string, { rank: number; total: number }>;
+        readonly points: Map<
+          bigint,
+          { githubLogin: string; rank: number; total: number }
+        >;
       }
     >();
-    for (const { fromMonth, toMonth, githubLogin, rank, total } of rows) {
+    for (const {
+      fromMonth,
+      toMonth,
+      githubId,
+      githubLogin,
+      rank,
+      total,
+    } of rows) {
       let slot = slots.get(fromMonth);
       if (slot === undefined) {
         slot = { period: { fromMonth, toMonth }, points: new Map() };
         slots.set(fromMonth, slot);
       }
-      if (githubLogin !== null && rank !== null && total !== null) {
-        slot.points.set(githubLogin, { rank, total });
+      if (
+        githubId !== null &&
+        githubLogin !== null &&
+        rank !== null &&
+        total !== null
+      ) {
+        slot.points.set(githubId, { githubLogin, rank, total });
       }
     }
     const periods = [...slots.values()];
-    const finalPoints = periods.at(-1)?.points.keys() ?? [];
+    const finalPoints = periods.at(-1)?.points ?? [];
     return {
       year: RANKING_YEAR_ALL,
       periods: periods.map(({ period }) => period),
-      series: [...finalPoints].map((githubLogin) => ({
+      series: [...finalPoints].map(([githubId, { githubLogin }]) => ({
         githubLogin,
-        ranks: periods.map(
-          ({ points }) => points.get(githubLogin)?.rank ?? null,
-        ),
+        ranks: periods.map(({ points }) => points.get(githubId)?.rank ?? null),
         totals: periods.map(
-          ({ points }) => points.get(githubLogin)?.total ?? null,
+          ({ points }) => points.get(githubId)?.total ?? null,
         ),
       })),
     };

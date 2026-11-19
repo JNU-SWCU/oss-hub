@@ -1,3 +1,5 @@
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import type {
   RankingRepository,
   RankingTimelineRows,
@@ -6,6 +8,30 @@ import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
 
 const NOW = new Date('2026-03-15T00:00:00.000Z');
+const anonymousAuth = {
+  kind: HTTP_AUTH_KINDS.ANONYMOUS,
+  hasSessionCookie: false,
+} satisfies OptionalSessionRequest['auth'];
+const authenticatedAs = (
+  nickname: string,
+  githubId: bigint,
+): OptionalSessionRequest['auth'] => ({
+  kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+  hasSessionCookie: true,
+  principal: {
+    nickname,
+    githubId,
+    id: String(githubId),
+    name: null,
+    avatarUrl: null,
+    accountStatus: 'ACTIVE',
+    sessionVersion: 0,
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    isProfileComplete: true,
+  },
+});
 
 function serviceWith(rows: RankingTimelineRows) {
   const findTimelineSeries = jest.fn().mockResolvedValue(rows);
@@ -19,6 +45,13 @@ function serviceWith(rows: RankingTimelineRows) {
 }
 
 describe('RankingTimelineService', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('assembles past monthly ranks and the current point for each selected series', async () => {
     const { service, findTimelineSeries } = serviceWith({
       selected: [
@@ -32,9 +65,12 @@ describe('RankingTimelineService', () => {
       ],
     });
 
-    const timeline = await service.findTimeline(2026, 'late', NOW);
+    const timeline = await service.findTimelineFromRequest(
+      { year: '2026', viewer: 'late' },
+      authenticatedAs('late', 2n),
+    );
 
-    expect(findTimelineSeries).toHaveBeenCalledWith(2026, 3, 'late');
+    expect(findTimelineSeries).toHaveBeenCalledWith(2026, 3, 2n);
     expect(timeline).toEqual({
       year: 2026,
       months: [1, 2, 3],
@@ -51,25 +87,75 @@ describe('RankingTimelineService', () => {
       points: [{ month: 4, githubId: null, rank: null, total: null }],
     });
 
-    const timeline = await service.findTimeline(2025, null, NOW);
+    const timeline = await service.findTimelineFromRequest(
+      { year: '2025' },
+      anonymousAuth,
+    );
 
     expect(findTimelineSeries).toHaveBeenCalledWith(2025, 12, null);
-    expect(timeline.months).toEqual([4, 12]);
-    expect(timeline.series).toEqual([]);
+    expect(timeline).toEqual({ year: 2025, months: [4, 12], series: [] });
   });
 
-  it('shares one read between concurrent requests for the same year and viewer', async () => {
+  it('ignores an anonymous viewer target', async () => {
+    const { service, findTimelineSeries } = serviceWith({
+      selected: [],
+      points: [],
+    });
+
+    await service.findTimelineFromRequest(
+      { year: '2026', viewer: 'Mina' },
+      anonymousAuth,
+    );
+
+    expect(findTimelineSeries).toHaveBeenCalledWith(
+      2026,
+      expect.any(Number),
+      null,
+    );
+  });
+
+  it('coalesces case variants for one principal but not two principals with the same login', async () => {
     const { service, findTimelineSeries } = serviceWith({
       selected: [],
       points: [],
     });
 
     await Promise.all([
-      service.findTimelineFromRequest({ year: '2026', viewer: 'Mina' }),
-      service.findTimelineFromRequest({ year: '2026', viewer: 'mina' }),
-      service.findTimelineFromRequest({ year: '2026' }),
+      service.findTimelineFromRequest(
+        { year: '2026', viewer: 'Mina' },
+        authenticatedAs('mina', 1n),
+      ),
+      service.findTimelineFromRequest(
+        { year: '2026', viewer: 'mina' },
+        authenticatedAs('mina', 1n),
+      ),
+      service.findTimelineFromRequest(
+        { year: '2026', viewer: 'mina' },
+        authenticatedAs('mina', 2n),
+      ),
     ]);
 
-    expect(findTimelineSeries).toHaveBeenCalledTimes(2);
+    expect(findTimelineSeries.mock.calls).toEqual([
+      [2026, 3, 1n],
+      [2026, 3, 2n],
+    ]);
+  });
+
+  it('ignores another user login requested by an authenticated viewer', async () => {
+    const { service, findTimelineSeries } = serviceWith({
+      selected: [],
+      points: [],
+    });
+
+    await service.findTimelineFromRequest(
+      { year: '2026', viewer: 'other-user' },
+      authenticatedAs('mina', 1n),
+    );
+
+    expect(findTimelineSeries).toHaveBeenCalledWith(
+      2026,
+      expect.any(Number),
+      null,
+    );
   });
 });
