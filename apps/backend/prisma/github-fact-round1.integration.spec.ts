@@ -1,3 +1,4 @@
+import { CollectionUserActivityRepository } from '../src/github/collection-user-activity.repository';
 import type { UserType } from '@prisma/client';
 import { PrismaService } from '../src/platform/prisma.service';
 import { loadPrismaQueryLintConfig } from '../src/platform/prisma-query-lint.config';
@@ -198,6 +199,9 @@ describe('github fact round 1', () => {
       previousAt,
     });
 
+    await new CollectionUserActivityRepository(
+      database,
+    ).refreshRankingSnapshots();
     const page = await rankingPage.findPage(YEAR, 1, 20, null);
     const gamma = page.items.find(
       (item) => item.githubLogin === `${PREFIX}gamma`,

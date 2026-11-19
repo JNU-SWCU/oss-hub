@@ -1,3 +1,5 @@
+import { Test } from '@nestjs/testing';
+import * as pool from '../platform/prisma-pool.config';
 import { Logger } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 
@@ -6,6 +8,42 @@ import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
+
+it.each([1, 2, 3])(
+  'starts and reports insufficient collection pool capacity only below the minimum (pool size %i)',
+  async (limit) => {
+    const config = pool.loadPrismaPoolConfig(
+      'postgresql://localhost/synthetic?connection_limit=' + limit,
+    );
+    const spy = jest
+      .spyOn(pool, 'loadPrismaPoolConfig')
+      .mockReturnValue(config);
+    const app = await Test.createTestingModule({
+      providers: [
+        CollectionUserActivityRepository,
+        { provide: PrismaService, useValue: {} },
+      ],
+    }).compile();
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    try {
+      await expect(app.init()).resolves.toBe(app);
+      if (limit === 1) {
+        expect(error).toHaveBeenCalledTimes(1);
+        expect(error).toHaveBeenCalledWith({
+          event: 'platform.db_pool.below_minimum',
+          effectiveLimit: 1,
+          requiredMinimum: 2,
+        });
+      } else {
+        expect(error).not.toHaveBeenCalled();
+      }
+    } finally {
+      error.mockRestore();
+      spy.mockRestore();
+      await app.close();
+    }
+  },
+);
 
 function deferred<T>(): {
   readonly promise: Promise<T>;
@@ -50,6 +88,8 @@ describe('CollectionUserActivityService', () => {
       now,
     );
 
+  afterEach(() => jest.restoreAllMocks());
+
   const metrics = (commitCount: number) => ({
     commitCount,
     pullRequestCount: 2,
@@ -59,6 +99,12 @@ describe('CollectionUserActivityService', () => {
   });
 
   beforeEach(() => {
+    jest
+      .spyOn(
+        CollectionUserActivityRepository.prototype,
+        'refreshRankingSnapshots',
+      )
+      .mockResolvedValue();
     findMany.mockReset();
     queryRaw.mockReset();
     queryRaw.mockResolvedValue([{ present: false }]);
@@ -177,6 +223,10 @@ describe('CollectionUserActivityService', () => {
       providerStarted.resolve(undefined);
       return provider.promise;
     });
+    const refresh = jest.spyOn(
+      CollectionUserActivityRepository.prototype,
+      'refreshRankingSnapshots',
+    );
     const service = buildService();
 
     const firstRun = service.run();
@@ -191,6 +241,7 @@ describe('CollectionUserActivityService', () => {
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(fetchUserActivityMetrics).toHaveBeenCalledTimes(1);
     expect(executeRaw).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(firstResult).toBe(secondResult);
   });
 

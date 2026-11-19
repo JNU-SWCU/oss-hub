@@ -1,3 +1,4 @@
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { deleteRepos, seedRepo } from '../../test/repo-ledger.fixture';
 import {
@@ -291,6 +292,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       ],
     });
 
+    await new CollectionUserActivityRepository(
+      harness.prisma,
+    ).refreshRankingSnapshots();
     gateRepoForStaff = await createRepositoryFixture({
       key: 'gate-staff',
       visibility: RepositoryVisibility.PRIVATE,

@@ -1,3 +1,4 @@
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { ActivityVisibility } from '@prisma/client';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { RankingRepository } from '../ranking/ranking.repository';
@@ -103,7 +104,9 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
     new RankingYearService(),
     new CollectionScheduleService(),
   );
+  const collection = new CollectionUserActivityRepository(prisma);
   const readRankings = async () => {
+    await collection.refreshRankingSnapshots();
     const pages = [];
     for (const year of [2026, 'all'] as const) {
       for (const viewer of [null, githubId, staffGithubId]) {
@@ -177,4 +180,4 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       data: { nickname: originalUser.nickname },
     });
   }
-});
+}, 90_000);

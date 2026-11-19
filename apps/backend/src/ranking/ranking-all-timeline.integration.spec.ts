@@ -5,6 +5,8 @@ import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
 
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -120,6 +122,7 @@ it('folds each observed cutoff across years and ends at the current All leaderbo
       },
     ],
   });
+  await new CollectionUserActivityRepository(prisma).refreshRankingSnapshots();
   const leaderboard = await ranking.findRankedPage(
     {},
     { offset: 0, limit: 2 },
