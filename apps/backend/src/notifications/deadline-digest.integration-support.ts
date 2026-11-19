@@ -84,7 +84,20 @@ export function createDeadlineDigestIntegrationHarness() {
     await prisma.admin.deleteMany({
       where: { userId: { in: DIGEST_USER_IDS } },
     });
-    await prisma.user.deleteMany({ where: { id: { in: DIGEST_USER_IDS } } });
+    const retainedUsers = await prisma.userHistory.findMany({
+      take: DIGEST_USER_IDS.length + 1,
+      where: { userId: { in: DIGEST_USER_IDS } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: DIGEST_USER_IDS,
+          notIn: retainedUsers.map((history) => history.userId),
+        },
+      },
+    });
   }
   async function seed(): Promise<void> {
     await prisma.program.createMany({
@@ -154,17 +167,21 @@ export function createDeadlineDigestIntegrationHarness() {
       notificationEmail,
       accountStatus,
     ] of DIGEST_USER_FIXTURES) {
-      await prisma.user.create({
-        data: {
-          ...canonicalUserCreateFromLabel(role, {
-            id: String(id),
-            githubId,
-            nickname: `synthetic-${id}`,
-            accountStatus,
-          }),
-          notifyEnabled,
-          notificationEmail,
-        },
+      const data = {
+        ...canonicalUserCreateFromLabel(role, {
+          id: String(id),
+          githubId,
+          nickname: `synthetic-${id}`,
+          accountStatus,
+        }),
+        notifyEnabled,
+        notificationEmail,
+      };
+      const { id: userId, ...update } = data;
+      await prisma.user.upsert({
+        where: { id: userId },
+        create: data,
+        update,
       });
     }
     await prisma.team.createMany({

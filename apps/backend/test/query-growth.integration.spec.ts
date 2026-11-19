@@ -102,6 +102,12 @@ const ENDPOINTS: readonly Endpoint[] = [
     path: (world) => `/api/v1/programs/${world.targetProgramId}/viewer`,
   },
   {
+    name: 'GET /programs/:programId/mail/recipients',
+    viewer: 'staff',
+    path: (world) =>
+      `/api/v1/programs/${world.targetProgramId}/mail/recipients`,
+  },
+  {
     name: 'GET /programs/:programId/overview',
     viewer: 'staff',
     path: (world) => `/api/v1/programs/${world.targetProgramId}/overview`,

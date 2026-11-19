@@ -180,6 +180,8 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'Program->File',
       'Program->Application',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
+      'logical:Program->Notification[PROGRAM_MAIL_SEND,payload.programId]',
+      'logical:Program->Notification[PROGRAM_MAIL,payload.batchKey]',
     ]) {
       expect(teamCovers).not.toContain(programOnly);
     }
@@ -315,6 +317,15 @@ const NOTIFICATION_TYPE_CLASSIFICATION: Record<
   DEADLINE_DIGEST: {
     programLinked: true,
     shape: 'idempotencyKey contains `:${programId}:`',
+  },
+  PROGRAM_MAIL_SEND: {
+    programLinked: true,
+    shape: 'payload.programId',
+  },
+  PROGRAM_MAIL: {
+    programLinked: true,
+    shape:
+      'payload.batchKey references a program-linked PROGRAM_MAIL_SEND idempotencyKey',
   },
   TEAM_DELETED: {
     programLinked: true,

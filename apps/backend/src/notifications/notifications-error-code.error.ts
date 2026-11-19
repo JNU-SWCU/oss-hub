@@ -6,6 +6,11 @@ export enum NotificationsErrorCode {
   PROGRAM_NOT_FOUND = 'NOT_003',
   DEADLINE_DISABLED = 'NOT_004',
   DEADLINE_PREVIEW_STALE = 'NOT_005',
+  PROGRAM_MAIL_RECIPIENT_INVALID = 'NOT_006',
+  PROGRAM_MAIL_PREVIEW_STALE = 'NOT_007',
+  PROGRAM_MAIL_CONTENT_INVALID = 'NOT_008',
+  PROGRAM_MAIL_RATE_LIMITED = 'NOT_009',
+  PROGRAM_MAIL_RECIPIENT_LIMIT = 'NOT_010',
 }
 
 export const NOTIFICATIONS_ERROR_CODES: Record<
@@ -36,5 +41,31 @@ export const NOTIFICATIONS_ERROR_CODES: Record<
     code: NotificationsErrorCode.DEADLINE_PREVIEW_STALE,
     status: 409,
     message: '미리보기 대상이 만료되었거나 변경되었습니다. 다시 미리보세요.',
+  },
+  [NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_INVALID]: {
+    code: NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_INVALID,
+    status: 400,
+    message: '선택한 학생이 이 프로그램의 메일 발송 대상이 아닙니다.',
+  },
+  [NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE]: {
+    code: NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE,
+    status: 409,
+    message:
+      '메일 미리보기가 만료되었거나 대상이 변경되었습니다. 다시 미리보세요.',
+  },
+  [NotificationsErrorCode.PROGRAM_MAIL_CONTENT_INVALID]: {
+    code: NotificationsErrorCode.PROGRAM_MAIL_CONTENT_INVALID,
+    status: 400,
+    message: '메일 제목과 본문을 입력해 주세요.',
+  },
+  [NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED]: {
+    code: NotificationsErrorCode.PROGRAM_MAIL_RATE_LIMITED,
+    status: 429,
+    message: '메일을 연속으로 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  },
+  [NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_LIMIT]: {
+    code: NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_LIMIT,
+    status: 400,
+    message: '한 번에 선택할 수 있는 학생 수를 초과했습니다.',
   },
 };
