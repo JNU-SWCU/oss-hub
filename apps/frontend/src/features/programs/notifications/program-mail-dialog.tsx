@@ -6,7 +6,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { DialogShell, FailureState } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { ApiError } from '@/lib/api-client';
 import {
   getProgramMailRecipients,
   previewProgramMail,
@@ -20,36 +19,14 @@ import {
   ProgramMailCompose,
   ProgramMailPreviewView,
 } from './program-mail-compose';
-
-const SUBJECT_LIMIT = 200;
-const BODY_LIMIT = 4000;
-
-type Busy = 'preview' | 'send' | null;
-type Draft = {
-  readonly selectedIds: ReadonlySet<string>;
-  readonly subject: string;
-  readonly body: string;
-  readonly selectionRejected: boolean;
-};
-const EMPTY_DRAFT: Draft = {
-  selectedIds: new Set(),
-  subject: '',
-  body: '',
-  selectionRejected: false,
-};
-
-function isReady(draft: Draft, recipientLimit: number | undefined) {
-  return (
-    recipientLimit !== undefined &&
-    !draft.selectionRejected &&
-    draft.selectedIds.size > 0 &&
-    draft.selectedIds.size <= recipientLimit &&
-    draft.subject.trim().length > 0 &&
-    draft.subject.length <= SUBJECT_LIMIT &&
-    draft.body.trim().length > 0 &&
-    draft.body.length <= BODY_LIMIT
-  );
-}
+import {
+  canSendProgramMail,
+  EMPTY_PROGRAM_MAIL_DRAFT,
+  isProgramMailDraftReady,
+  programMailErrorMessage,
+  type ProgramMailDialogBusy,
+  type ProgramMailDialogDraft,
+} from './program-mail-dialog-state';
 
 export function ProgramMailDialog({
   programId,
@@ -67,34 +44,30 @@ export function ProgramMailDialog({
     queryFn: () => getProgramMailRecipients(programId),
     enabled: open,
   });
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [draft, setDraft] = useState(EMPTY_PROGRAM_MAIL_DRAFT);
   const [loaded, setLoaded] = useState<{
     readonly preview: ProgramMailPreview;
     readonly version: number;
   } | null>(null);
   const [result, setResult] = useState<ProgramMailSendResult | null>(null);
-  const [busy, setBusy] = useState<Busy>(null);
+  const [busy, setBusy] = useState<ProgramMailDialogBusy>(null);
   const [error, setError] = useState<string | null>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
-  const draftRef = useRef(EMPTY_DRAFT);
+  const draftRef = useRef(EMPTY_PROGRAM_MAIL_DRAFT);
   const previewRequestVersion = useRef(0);
   const previewInFlight = useRef(false);
   const sendInFlight = useRef(false);
   const preview = loaded?.preview ?? null;
   const recipientLimit = recipientsQuery.data?.recipientLimit;
-  const canSend =
-    preview !== null &&
-    recipientLimit !== undefined &&
-    preview.applicantIds.length <= recipientLimit &&
-    busy === null;
+  const canSend = canSendProgramMail(preview, recipientLimit, busy);
 
   useEffect(() => {
     if (open) return;
     previewRequestVersion.current += 1;
     previewInFlight.current = false;
     sendInFlight.current = false;
-    draftRef.current = EMPTY_DRAFT;
-    setDraft(EMPTY_DRAFT);
+    draftRef.current = EMPTY_PROGRAM_MAIL_DRAFT;
+    setDraft(EMPTY_PROGRAM_MAIL_DRAFT);
     setLoaded(null);
     setResult(null);
     setBusy(null);
@@ -115,9 +88,10 @@ export function ProgramMailDialog({
     queueMicrotask(() => editButtonRef.current?.focus());
   }, [busy, preview, result]);
 
-  const canPreview = busy === null && isReady(draft, recipientLimit);
+  const canPreview =
+    busy === null && isProgramMailDraftReady(draft, recipientLimit);
 
-  const changeDraft = (change: Partial<Draft>) => {
+  const changeDraft = (change: Partial<ProgramMailDialogDraft>) => {
     previewRequestVersion.current += 1;
     previewInFlight.current = false;
     draftRef.current = { ...draftRef.current, ...change };
@@ -131,7 +105,7 @@ export function ProgramMailDialog({
   const loadPreview = async () => {
     const current = draftRef.current;
     if (
-      !isReady(current, recipientLimit) ||
+      !isProgramMailDraftReady(current, recipientLimit) ||
       previewInFlight.current ||
       sendInFlight.current
     )
@@ -150,7 +124,7 @@ export function ProgramMailDialog({
       setLoaded({ preview: loadedPreview, version: requestVersion });
     } catch (caught: unknown) {
       if (requestVersion !== previewRequestVersion.current) return;
-      setError(apiErrorMessage(caught));
+      setError(programMailErrorMessage(caught));
     } finally {
       if (requestVersion === previewRequestVersion.current) {
         previewInFlight.current = false;
@@ -173,7 +147,7 @@ export function ProgramMailDialog({
       setResult(await sendProgramMail(programId, loaded.preview));
     } catch (caught: unknown) {
       setLoaded(null);
-      setError(apiErrorMessage(caught));
+      setError(programMailErrorMessage(caught));
     } finally {
       sendInFlight.current = false;
       setBusy(null);
@@ -283,10 +257,4 @@ export function ProgramMailDialog({
       ) : null}
     </DialogShell>
   );
-}
-
-function apiErrorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? error.problem.detail
-    : '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 }

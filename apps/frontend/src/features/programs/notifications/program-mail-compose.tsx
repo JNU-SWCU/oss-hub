@@ -8,10 +8,11 @@ import type {
   ProgramMailPreview,
   ProgramMailRecipients,
 } from './program-mail-dto';
+import {
+  PROGRAM_MAIL_BODY_LIMIT,
+  PROGRAM_MAIL_SUBJECT_LIMIT,
+} from './program-mail-dialog-state';
 import { ProgramMailRecipientTree } from './program-mail-recipient-tree';
-
-const SUBJECT_LIMIT = 200;
-const BODY_LIMIT = 4000;
 
 type ProgramMailComposeModel = {
   readonly recipients: ProgramMailRecipients;
@@ -112,11 +113,11 @@ export function ProgramMailCompose({
           <Input
             id="program-mail-subject"
             value={model.subject}
-            maxLength={SUBJECT_LIMIT}
+            maxLength={PROGRAM_MAIL_SUBJECT_LIMIT}
             onChange={(event) => onChange.subject(event.target.value)}
           />
           <p className="text-small tabular-nums text-muted-foreground">
-            {model.subject.length} / {SUBJECT_LIMIT}자
+            {model.subject.length} / {PROGRAM_MAIL_SUBJECT_LIMIT}자
           </p>
         </Field>
         <Field>
@@ -124,12 +125,12 @@ export function ProgramMailCompose({
           <Textarea
             id="program-mail-body"
             value={model.body}
-            maxLength={BODY_LIMIT}
+            maxLength={PROGRAM_MAIL_BODY_LIMIT}
             rows={8}
             onChange={(event) => onChange.body(event.target.value)}
           />
           <p className="text-small tabular-nums text-muted-foreground">
-            {model.body.length} / {BODY_LIMIT}자
+            {model.body.length} / {PROGRAM_MAIL_BODY_LIMIT}자
           </p>
         </Field>
       </section>
