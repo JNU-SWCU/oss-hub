@@ -1,5 +1,5 @@
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AccountStatus, ActivityVisibility, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 
@@ -128,20 +128,39 @@ const writeActivityLedgerRow = async (
 
 @Injectable()
 export class CollectionUserActivityRepository {
+  private readonly logger = new Logger(CollectionUserActivityRepository.name);
   private readonly boundedReads = new BoundedReadRepository();
 
   constructor(private readonly db: PrismaService) {}
 
   async refreshRankingSnapshots(): Promise<void> {
-    await this.db.$transaction(
-      [
-        this.db
-          .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_activity_snapshot`,
-        this.db
-          .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_streak_snapshot`,
-      ],
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-    );
+    const budgetMs = 30_000;
+    const startedAt = Date.now();
+    try {
+      await this.db.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL statement_timeout = '30s'`;
+          await tx.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_activity_snapshot`;
+          await tx.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_streak_snapshot`;
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          timeout: budgetMs,
+        },
+      );
+    } catch (error) {
+      this.logger.error({
+        event: 'collection.ranking_snapshot.refresh_failed',
+        durationMs: Date.now() - startedAt,
+        budgetMs,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+        code:
+          error instanceof Prisma.PrismaClientKnownRequestError
+            ? error.code
+            : undefined,
+      });
+      throw error;
+    }
   }
 
   async listActiveUsers(): Promise<CollectionActivityUserRow[]> {
