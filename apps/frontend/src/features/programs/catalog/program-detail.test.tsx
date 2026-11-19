@@ -173,7 +173,7 @@ describe('ProgramDetailPage states', () => {
   );
 
   it.each(['STAFF'] as const)(
-    '%s에게 제목 줄의 버튼 묶음 하나에 편집·일반 메일·마감 알림 입구만 노출한다',
+    '%s에게 제목 줄의 버튼 묶음 하나에 편집·일반 메일·마감 알림 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
     (role) => {
       const html = renderToStaticMarkup(
         <QueryClientProvider client={queryClient}>

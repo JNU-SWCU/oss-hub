@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQuery } from '../../../../test-support/render-with-query';
+import { ApiError } from '@/lib/api-client';
 
 const previewProgramDeadlineMock = vi.hoisted(() => vi.fn());
 const sendProgramDeadlineMock = vi.hoisted(() => vi.fn());
@@ -36,6 +37,29 @@ const preview = {
     text: '교직원 본문',
     html: '<p>교직원 본문</p>',
   },
+};
+
+const emptyPreview = {
+  ...preview,
+  recipientCount: 0,
+  staffRecipientCount: 0,
+  studentPreviews: [],
+  staffPreview: null,
+};
+
+const staffOnlyPreview = {
+  ...emptyPreview,
+  staffRecipientCount: 2,
+  staffPreview: preview.staffPreview,
+};
+
+const staleProblem = {
+  type: 'https://oss-hub.dev/problems/deadline-preview-stale',
+  title: 'Deadline preview stale',
+  status: 409,
+  detail: 'Preview expired or eligibility changed.',
+  instance: '/programs/program-1/deadline-digest/send',
+  code: 'NOT_005',
 };
 
 function button(name: string): HTMLButtonElement {
@@ -149,6 +173,169 @@ describe('DeadlineDigestDialog', () => {
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
     expect(document.body.textContent).toContain('학생 4명에게 보냈습니다.');
     expect(document.body.textContent).toContain('교직원 요약 수신 2명');
+  });
+
+  it('ignores repeated send clicks in the same turn and while the request is in flight', async () => {
+    let resolveSend: (value: unknown) => void = () => undefined;
+    sendProgramDeadlineMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+    mounted = await renderWithQuery(
+      <DeadlineDigestDialog
+        programId="program-1"
+        returnFocusRef={{ current: trigger }}
+        onClose={() => undefined}
+      />,
+    );
+    await flush();
+    await act(async () => button('미리보기').click());
+    await flush();
+
+    const sendButton = button('보내기');
+    await act(async () => {
+      sendButton.click();
+      sendButton.click();
+      sendButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(button('보내는 중…').disabled).toBe(true);
+    await act(async () => {
+      button('보내는 중…').dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+    expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      resolveSend({
+        ...preview,
+        sentCount: 4,
+        duplicateCount: 0,
+        failedCount: 0,
+      }),
+    );
+    expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain('학생 4명에게 보냈습니다.');
+  });
+
+  it('preserves guidance after a stale send response and requires a new preview before retry', async () => {
+    sendProgramDeadlineMock.mockRejectedValueOnce(new ApiError(staleProblem));
+    mounted = await renderWithQuery(
+      <DeadlineDigestDialog
+        programId="program-1"
+        returnFocusRef={{ current: trigger }}
+        onClose={() => undefined}
+      />,
+    );
+    await flush();
+
+    const studentGuidance = document.body.querySelector<HTMLTextAreaElement>(
+      '#deadline-studentGuidance',
+    );
+    const staffGuidance = document.body.querySelector<HTMLTextAreaElement>(
+      '#deadline-staffGuidance',
+    );
+    if (studentGuidance === null || staffGuidance === null)
+      throw new TypeError('Missing guidance fields');
+    await act(async () => {
+      setValue(studentGuidance, '학생 초안');
+      setValue(staffGuidance, '교직원 초안');
+    });
+    await act(async () => button('미리보기').click());
+    await flush();
+    await act(async () => button('보내기').click());
+    await flush();
+
+    expect(document.body.textContent).toContain(
+      '발송 대상이 바뀌었거나 미리보기가 만료되었습니다. 다시 미리보세요.',
+    );
+    expect(
+      document.body.querySelector<HTMLTextAreaElement>(
+        '#deadline-studentGuidance',
+      )?.value,
+    ).toBe('학생 초안');
+    expect(
+      document.body.querySelector<HTMLTextAreaElement>(
+        '#deadline-staffGuidance',
+      )?.value,
+    ).toBe('교직원 초안');
+    expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(document.body.querySelector('[role="status"]')).toBeNull();
+
+    previewProgramDeadlineMock.mockResolvedValueOnce({
+      ...preview,
+      previewVersion: 'b'.repeat(64),
+    });
+    await act(async () => button('미리보기').click());
+    await flush();
+
+    expect(previewProgramDeadlineMock).toHaveBeenCalledTimes(2);
+    expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(button('보내기').disabled).toBe(false);
+    expect(document.body.textContent).toContain(
+      '학생 4명 · 교직원 2명 · 발송 후 취소 불가',
+    );
+  });
+
+  it('allows a staff-only digest when there are no student recipients', async () => {
+    previewProgramDeadlineMock.mockResolvedValueOnce(staffOnlyPreview);
+    mounted = await renderWithQuery(
+      <DeadlineDigestDialog
+        programId="program-1"
+        returnFocusRef={{ current: trigger }}
+        onClose={() => undefined}
+      />,
+    );
+    await flush();
+    await act(async () => button('미리보기').click());
+    await flush();
+
+    expect(document.body.textContent).toContain(
+      '학생 0명 · 교직원 2명 · 발송 후 취소 불가',
+    );
+    expect(button('보내기').disabled).toBe(false);
+    await act(async () => button('보내기').click());
+    await flush();
+
+    expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(sendProgramDeadlineMock).toHaveBeenCalledWith(
+      'program-1',
+      expect.objectContaining({ previewVersion: preview.previewVersion }),
+    );
+  });
+
+  it('disables sending when both student and staff recipient counts are zero', async () => {
+    previewProgramDeadlineMock.mockResolvedValueOnce(emptyPreview);
+    mounted = await renderWithQuery(
+      <DeadlineDigestDialog
+        programId="program-1"
+        returnFocusRef={{ current: trigger }}
+        onClose={() => undefined}
+      />,
+    );
+    await flush();
+    await act(async () => button('미리보기').click());
+    await flush();
+
+    expect(document.body.textContent).toContain(
+      '학생 0명 · 교직원 0명 · 발송 후 취소 불가',
+    );
+    expect(document.body.textContent).toContain(
+      '발송 대상이 없어 학생용 메일 본문이 없습니다.',
+    );
+    expect(document.body.textContent).toContain(
+      '발송 대상이 없어 교직원용 메일 본문이 없습니다.',
+    );
+    expect(button('보내기').disabled).toBe(true);
+    await act(async () => {
+      button('보내기').dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+    expect(sendProgramDeadlineMock).not.toHaveBeenCalled();
   });
 
   it('exposes keyboard-operable student and staff preview tabs', async () => {

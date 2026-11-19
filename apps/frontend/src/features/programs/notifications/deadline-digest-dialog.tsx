@@ -51,6 +51,7 @@ export function DeadlineDigestDialog({
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const studentGuidanceRef = useRef<HTMLTextAreaElement>(null);
   const focusGuidanceOnRender = useRef(false);
+  const sendInFlight = useRef(false);
 
   const invalidGuidance =
     guidance.studentGuidance.length > GUIDANCE_LIMIT ||
@@ -112,13 +113,14 @@ export function DeadlineDigestDialog({
   };
 
   const send = async () => {
-    if (preview === null || busy !== null) return;
+    if (preview === null || busy !== null || sendInFlight.current) return;
     if (new Date(preview.expiresAt).getTime() <= Date.now()) {
       focusGuidanceOnRender.current = true;
       setPreview(null);
       setError('미리보기가 만료되었습니다. 다시 미리보세요.');
       return;
     }
+    sendInFlight.current = true;
     setBusy('send');
     setError(null);
     try {
@@ -133,6 +135,7 @@ export function DeadlineDigestDialog({
       setPreview(null);
       setError(deadlineErrorMessage(caught));
     } finally {
+      sendInFlight.current = false;
       setBusy(null);
     }
   };
