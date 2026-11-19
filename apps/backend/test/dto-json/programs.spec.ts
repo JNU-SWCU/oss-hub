@@ -329,14 +329,13 @@ const collectionResult = {
 } as const satisfies RequirementCollectionResult;
 const deliveryCollectionResult = {
   ...collectionResult,
-  documents: [optionalDocumentRecord, documentRecord],
   rows: [
     {
       application: {
         ...collectionResult.rows[0].application,
         leaderName: 'Cat',
       },
-      cells: [collectionResult.rows[0].cells[0]],
+      cells: collectionResult.rows[0].cells,
       deliveryStatus: 'COMPLETE',
     },
     {
@@ -344,12 +343,11 @@ const deliveryCollectionResult = {
         ...collectionResult.rows[1].application,
         leaderName: null,
       },
-      cells: [{ requirementId: 'document-1', submittedAt: null }],
+      cells: collectionResult.rows[1].cells,
       deliveryStatus: 'MISSING',
     },
   ],
   pageSize: 2,
-  total: 4,
   statusCounts: {
     NOT_SUBMITTED: 2,
     SUBMITTED: 1,
@@ -1424,7 +1422,11 @@ describe('programs response DTO JSON', () => {
 
     expect(
       response.rows.map((row) => row.cells.map((cell) => cell.documentId)),
-    ).toEqual([['document-1'], ['document-1']]);
+    ).toEqual([
+      ['document-1', 'document-2'],
+      ['document-1', 'document-2'],
+    ]);
+    expect(response.total).toBe(2);
     expect(response.rows[0]?.cells[0]).toMatchObject({
       isSubmitted: true,
       revision: 2,
@@ -1434,6 +1436,10 @@ describe('programs response DTO JSON', () => {
       isSubmitted: false,
       revision: null,
       submittedAt: null,
+    });
+    expect(response.rows[0]?.cells[1]).toMatchObject({
+      isSubmitted: true,
+      revision: 1,
     });
   });
 });
