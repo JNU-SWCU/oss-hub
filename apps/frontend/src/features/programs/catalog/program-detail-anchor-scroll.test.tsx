@@ -16,6 +16,11 @@ vi.mock('../documents/requirement-list', () => ({
   RequirementSection: () => null,
 }));
 
+vi.mock('../notifications', () => ({
+  DeadlineDigestAction: () => null,
+  ProgramMailAction: () => null,
+}));
+
 import { ProgramDetailReadyState } from './program-detail-view';
 
 const program = {
