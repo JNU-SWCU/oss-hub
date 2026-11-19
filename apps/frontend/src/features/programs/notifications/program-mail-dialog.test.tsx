@@ -17,6 +17,7 @@ import { ProgramMailDialog } from './program-mail-dialog';
 const recipients = {
   programId: 'program-1',
   programName: '합성 프로그램',
+  recipientLimit: 200,
   teams: [
     {
       id: 'team-1',
@@ -50,10 +51,14 @@ const preview = {
   previewVersion: 'a'.repeat(64),
 };
 
-function button(name: string): HTMLButtonElement {
-  const found = [...document.body.querySelectorAll('button')].find(
+function queryButton(name: string) {
+  return [...document.body.querySelectorAll('button')].find(
     (candidate) => candidate.textContent?.trim() === name,
   );
+}
+
+function button(name: string): HTMLButtonElement {
+  const found = queryButton(name);
   if (found === undefined) throw new TypeError(`Missing button: ${name}`);
   return found;
 }
@@ -79,6 +84,8 @@ describe('ProgramMailDialog', () => {
   let trigger: HTMLButtonElement | undefined;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date(preview.previewedAt));
     getProgramMailRecipientsMock.mockReset().mockResolvedValue(recipients);
     previewProgramMailMock.mockReset().mockResolvedValue(preview);
     sendProgramMailMock.mockReset().mockResolvedValue({
@@ -96,9 +103,10 @@ describe('ProgramMailDialog', () => {
     mounted = undefined;
     trigger?.remove();
     trigger = undefined;
+    vi.useRealTimers();
   });
 
-  it('sends from the preview step without opening a second confirmation dialog', async () => {
+  async function openPreview() {
     trigger = document.createElement('button');
     document.body.append(trigger);
     mounted = await renderWithQuery(
@@ -129,7 +137,14 @@ describe('ProgramMailDialog', () => {
     });
     await act(async () => button('미리보기').click());
     await flush();
+  }
 
+  it('sends from the preview step without opening a second confirmation dialog', async () => {
+    await openPreview();
+    const send = button('보내기');
+    expect(send.disabled).toBe(false);
+    const warningId = send.getAttribute('aria-describedby');
+    expect(document.getElementById(warningId ?? '')).not.toBeNull();
     expect(previewProgramMailMock).toHaveBeenCalledWith('program-1', {
       subject: preview.subject,
       body: preview.body,
@@ -145,17 +160,47 @@ describe('ProgramMailDialog', () => {
 
     expect(sendProgramMailMock).toHaveBeenCalledWith('program-1', preview);
     expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
-    const result = document.querySelector('[role="alert"]');
+    const result = document.body.querySelector('[role="alert"]');
     expect(
-      result
-        ?.querySelector('[data-slot="alert-title"]')
-        ?.textContent?.match(/\d+/g),
-    ).toEqual(['1']);
+      result?.querySelector<HTMLDataElement>('[data-slot="alert-title"] data')
+        ?.value,
+    ).toBe('1');
     expect(
-      result
-        ?.querySelector('[data-slot="alert-description"]')
-        ?.textContent?.match(/\d+/g),
-    ).toEqual(['0', '0', '2']);
+      result?.querySelector<HTMLDataElement>(
+        '[data-slot="alert-description"] data',
+      )?.value,
+    ).toBe('2');
+    expect(button('닫기').disabled).toBe(false);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });
+
+  it.each(['timer', 'click-before-timer'])(
+    'requires a fresh preview at the server expiry (%s)',
+    async (delivery) => {
+      const expiresAt = '2026-11-18T00:00:07.000Z';
+      previewProgramMailMock.mockResolvedValueOnce({ ...preview, expiresAt });
+      await openPreview();
+      await act(async () => vi.advanceTimersByTime(6999));
+      const send = button('보내기');
+      expect(send.disabled).toBe(false);
+      if (delivery === 'timer') {
+        await act(async () => vi.advanceTimersByTime(1));
+      } else {
+        vi.setSystemTime(new Date(expiresAt));
+        await act(async () => send.click());
+      }
+      expect(queryButton('보내기')).toBeUndefined();
+      expect(document.body.querySelector('[role="alert"]')).not.toBeNull();
+      expect(sendProgramMailMock).not.toHaveBeenCalled();
+
+      const fresh = { ...preview, previewVersion: 'b'.repeat(64) };
+      previewProgramMailMock.mockResolvedValueOnce(fresh);
+      await act(async () => button('미리보기').click());
+      await act(async () => button('보내기').click());
+      expect(sendProgramMailMock).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        fresh,
+      );
+    },
+  );
 });

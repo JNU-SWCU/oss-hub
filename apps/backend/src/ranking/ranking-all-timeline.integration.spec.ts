@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { ActivityVisibility } from '@prisma/client';
 import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
 import type { PrismaService } from '../platform/prisma.service';
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
@@ -119,6 +120,7 @@ it('folds each observed cutoff across years and ends at the current All leaderbo
       },
     ],
   });
+  await new CollectionUserActivityRepository(prisma).refreshRankingSnapshots();
   const leaderboard = await ranking.findRankedPage(
     {},
     { offset: 0, limit: 2 },

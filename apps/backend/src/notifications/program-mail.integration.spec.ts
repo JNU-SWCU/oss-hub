@@ -15,6 +15,7 @@ import {
   type ProgramMailIntegrationWorld,
 } from './program-mail.integration-support';
 
+import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
 import { ProgramMailService } from './program-mail.service';
 
 const externalScope = randomUUID();
@@ -63,7 +64,10 @@ it('lists all application statuses, sends mail, and records an attributable audi
   const recipients: unknown = await recipientsResponse.json();
   expect(recipientsResponse.status).toBe(200);
   const serializedRecipients = JSON.stringify(recipients);
-  expect(recipients).toMatchObject({ programId: DIGEST_FIXTURE.notifyProgram });
+  expect(recipients).toMatchObject({
+    programId: DIGEST_FIXTURE.notifyProgram,
+    recipientLimit: PROGRAM_MAIL_RECIPIENT_LIMIT,
+  });
   expect(serializedRecipients).toContain('"status":"APPROVED"');
   expect(serializedRecipients).toContain('"status":"REJECTED"');
 

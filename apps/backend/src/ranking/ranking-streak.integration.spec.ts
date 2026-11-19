@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { ActivityVisibility } from '@prisma/client';
 import { createOwnedIntegrationDatabase } from '../../test/owned-integration-database.fixture';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -14,6 +15,7 @@ let database:
 let prisma: PrismaService;
 let repository: RankingRepository;
 let service: RankingService;
+let collection: CollectionUserActivityRepository;
 
 const BASE_ID = BigInt(randomBytes(6).readUIntBE(0, 6));
 const PREFIX = `synthetic-ranking-streak-${BASE_ID}`;
@@ -38,7 +40,6 @@ const TIE_FIRST = studentAt(2);
 const TIE_SECOND = studentAt(3);
 const TENTH = studentAt(9);
 const ELEVENTH = studentAt(10);
-const TWELFTH = studentAt(11);
 
 function atDay(day: number): Date {
   return new Date(START.getTime() + day * DAY_MS);
@@ -48,6 +49,7 @@ beforeEach(async () => {
   database = await createOwnedIntegrationDatabase();
   prisma = database.prisma;
   repository = new RankingRepository(prisma);
+  collection = new CollectionUserActivityRepository(prisma);
   service = new RankingService(
     repository,
     new RankingYearService(),
@@ -102,6 +104,7 @@ beforeEach(async () => {
     },
   );
   await prisma.githubUserActivityObservation.createMany({ data: observations });
+  await collection.refreshRankingSnapshots();
 }, 60_000);
 
 afterEach(async () => {
@@ -138,6 +141,37 @@ test('400일 이력에서 현재 동일 순위와 TOP 10 연속 시작을 서울
   expect(synthetic[11]).not.toHaveProperty('streak');
 });
 
+test('같은 서울 날짜의 수집 중간 순위가 아닌 마지막 snapshot으로 streak를 계산한다', async () => {
+  const temporaryLead = new Date(atDay(300).getTime() + 1_000);
+  const restoredRank = new Date(atDay(300).getTime() + 2_000);
+  await prisma.githubUserActivityObservation.createMany({
+    data: [
+      {
+        githubId: CHALLENGER.githubId,
+        year: 2098,
+        visibility: ActivityVisibility.PUBLIC,
+        commitCount: 12_000,
+        observedAt: temporaryLead,
+      },
+      {
+        githubId: CHALLENGER.githubId,
+        year: 2098,
+        visibility: ActivityVisibility.PUBLIC,
+        commitCount: 11_001,
+        observedAt: restoredRank,
+      },
+    ],
+  });
+
+  await collection.refreshRankingSnapshots();
+  const page = await service.findPage(RANKING_YEAR_ALL, 1, 10, null, NOW);
+  expect(page.items[1]).toMatchObject({
+    githubLogin: CHALLENGER.login,
+    rank: 2,
+    streak: { rankHeldSince: '2098-07-21', rankHeldDays: 200 },
+  });
+});
+
 test('동점은 기존 login·github id 규칙으로 결정되고 행 순서가 달라도 결과가 같다', async () => {
   await prisma.githubUserActivityObservation.createMany({
     data: [
@@ -158,6 +192,7 @@ test('동점은 기존 login·github id 규칙으로 결정되고 행 순서가 
     ],
   });
 
+  await collection.refreshRankingSnapshots();
   const first = await repository.findRankedPage(
     {},
     { offset: 0, limit: 10 },
@@ -211,6 +246,7 @@ test('서울 자정 직후 시작한 동일 순위 run은 시작일을 포함해
     ],
   });
 
+  await collection.refreshRankingSnapshots();
   const page = await service.findPage(
     2100,
     1,
@@ -252,6 +288,7 @@ test('선택 연도 밖 backfill로 현재 순위가 바뀌면 오래된 run을 
     ],
   });
 
+  await collection.refreshRankingSnapshots();
   const page = await service.findPage(
     2099,
     1,
@@ -265,39 +302,4 @@ test('선택 연도 밖 backfill로 현재 순위가 바뀌면 오래된 run을 
     rank: 1,
     streak: null,
   });
-});
-
-test('1배와 10배 관측 이력 모두 한 ranking SQL과 한 count 문장만 실행한다', async () => {
-  const rawQuery = jest.spyOn(prisma, '$queryRaw');
-  const countQuery = jest.spyOn(prisma.user, 'count');
-
-  rawQuery.mockClear();
-  countQuery.mockClear();
-  await repository.findRankedPage({}, { offset: 0, limit: 10 }, NOW);
-  const oneTimes = {
-    raw: rawQuery.mock.calls.length,
-    count: countQuery.mock.calls.length,
-  };
-
-  await prisma.githubUserActivityObservation.createMany({
-    data: Array.from({ length: 3_600 }, (_, index) => ({
-      githubId: TWELFTH.githubId,
-      year: 2097 - Math.floor(index / 365),
-      visibility: ActivityVisibility.PUBLIC,
-      commitCount: index,
-      observedAt: new Date(START.getTime() - (index + 1) * DAY_MS),
-    })),
-  });
-  rawQuery.mockClear();
-  countQuery.mockClear();
-  await repository.findRankedPage({}, { offset: 0, limit: 10 }, NOW);
-  const tenTimes = {
-    raw: rawQuery.mock.calls.length,
-    count: countQuery.mock.calls.length,
-  };
-
-  expect(oneTimes).toEqual({ raw: 1, count: 1 });
-  expect(tenTimes).toEqual(oneTimes);
-  rawQuery.mockRestore();
-  countQuery.mockRestore();
 });

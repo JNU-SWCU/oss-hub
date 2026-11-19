@@ -584,9 +584,7 @@ describe('DeadlineDigestDialog', () => {
     await act(async () => vi.advanceTimersByTime(2));
 
     expect(button('보내는 중…').disabled).toBe(true);
-    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(
-      queryButton('닫기') ? 1 : 0,
-    );
+    expect(document.body.querySelector('[role="alert"]')).toBeNull();
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
 
     await act(async () =>
@@ -598,14 +596,13 @@ describe('DeadlineDigestDialog', () => {
       }),
     );
 
+    const result = document.body.querySelector('[role="alert"]');
     expect(
-      counts(
-        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
-      ),
+      result?.querySelector('[data-slot="alert-description"]'),
+    ).not.toBeNull();
+    expect(
+      counts(result?.querySelector('[data-slot="alert-title"]') ?? null),
     ).toEqual([4]);
-    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(
-      queryButton('닫기') ? 1 : 0,
-    );
     expect(document.body.querySelector('#deadline-studentGuidance')).toBeNull();
     expect(queryButton('닫기')).toBeDefined();
 
@@ -613,14 +610,12 @@ describe('DeadlineDigestDialog', () => {
       vi.advanceTimersByTime(60_000);
     });
 
+    expect([...document.body.querySelectorAll('[role="alert"]')]).toEqual([
+      result,
+    ]);
     expect(
-      counts(
-        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
-      ),
+      counts(result?.querySelector('[data-slot="alert-title"]') ?? null),
     ).toEqual([4]);
-    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(
-      queryButton('닫기') ? 1 : 0,
-    );
     expect(document.body.querySelector('#deadline-studentGuidance')).toBeNull();
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
   });
@@ -718,7 +713,11 @@ describe('DeadlineDigestDialog', () => {
     ).not.toBeNull();
   });
 
-  it('expires the preview after ten minutes and focuses the editable guidance', async () => {
+  it('expires at the response deadline and focuses the editable guidance', async () => {
+    previewProgramDeadlineMock.mockResolvedValueOnce({
+      ...preview,
+      expiresAt: '2026-11-19T00:00:13.000Z',
+    });
     mounted = await renderWithQuery(
       <DeadlineDigestDialog
         programId="program-1"
@@ -731,10 +730,12 @@ describe('DeadlineDigestDialog', () => {
     await flush();
 
     await act(async () => {
-      vi.advanceTimersByTime(10 * 60 * 1000);
+      vi.advanceTimersByTime(13_000);
     });
 
-    expect(document.querySelector('[role="alert"]')).not.toBeNull();
+    expect(document.body.querySelector('[role="alert"]')).not.toBeNull();
+    expect(queryButton('보내기')).toBeUndefined();
+    expect(button('미리보기').disabled).toBe(false);
     expect(document.activeElement?.id).toBe('deadline-studentGuidance');
     expect(sendProgramDeadlineMock).not.toHaveBeenCalled();
   });

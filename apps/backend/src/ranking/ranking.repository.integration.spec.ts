@@ -1,3 +1,4 @@
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { AccountStatus, ActivityVisibility } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
@@ -14,6 +15,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new RankingRepository(prisma);
+const collection = new CollectionUserActivityRepository(prisma);
 
 const PREFIX = 'synthetic-ranking-student-only';
 const YEAR = 2116;
@@ -149,6 +151,7 @@ beforeAll(async () => {
   for (const member of MEMBERS) {
     await seed(member);
   }
+  await collection.refreshRankingSnapshots();
 });
 
 afterAll(async () => {
@@ -214,10 +217,12 @@ describe('RankingRepository 순위 행 — PRIVATE 행 합산', () => {
       },
     });
 
+    await collection.refreshRankingSnapshots();
     const rows = await rankingMetrics(repository, { currentYear: YEAR });
     await prisma.githubUserActivityObservation.deleteMany({
       where: { githubId: 8_961_000_000_001n, visibility: 'PRIVATE' },
     });
+    await collection.refreshRankingSnapshots();
     const byLogin = (name: string) =>
       rows.find((row) => row.githubLogin === `${PREFIX}-${name}`);
 
@@ -263,6 +268,7 @@ describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () =>
     });
     let after: Awaited<ReturnType<typeof summarize>>;
     try {
+      await collection.refreshRankingSnapshots();
       after = await summarize();
     } finally {
       await prisma.githubUserActivityObservation.deleteMany({
@@ -273,6 +279,7 @@ describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () =>
       });
     }
 
+    await collection.refreshRankingSnapshots();
     expect(before).toEqual([
       { githubLogin: `${PREFIX}-student`, total: 11 },
       { githubLogin: `${PREFIX}-student-admin`, total: 9 },

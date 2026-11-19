@@ -1,3 +1,4 @@
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -325,6 +326,9 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       );
     }
     const NOW_FOR_RANKING = new Date();
+    await new CollectionUserActivityRepository(
+      prisma,
+    ).refreshRankingSnapshots();
     const beforeRanking = await ranking
       .findRankedPage(
         { currentYear: 2026 },
