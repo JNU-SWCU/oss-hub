@@ -12,6 +12,8 @@ export function useStaffDashboardQuery(params: StaffDashboardSummaryParams) {
       params.search,
       params.status,
       params.page,
+      params.sort,
+      params.direction,
     ),
     queryFn: () => getStaffDashboardSummary(params),
     placeholderData: keepPreviousData,

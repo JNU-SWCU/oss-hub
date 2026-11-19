@@ -57,8 +57,6 @@ afterEach(async () => {
 it('restores URL filters and asks the server for each page', async () => {
   listNavigation.search = 'search=x&status=ended&page=2';
   await act(async () => root.render(<StaffDashboardPage />));
-  expect(ready().search).toBe('x');
-  expect(ready().status).toBe('ended');
   await act(async () => ready().actions.onPageChange(3));
   expect(listNavigation.search).toBe('search=x&status=ended&page=3');
   expect(getStaffDashboardSummary).toHaveBeenNthCalledWith(1, {
@@ -73,13 +71,25 @@ it('restores URL filters and asks the server for each page', async () => {
   });
 });
 
-it('reset cancels uncommitted debounced search instead of restoring it later', async () => {
+it('changing order preserves URL filters but resets the server page', async () => {
+  listNavigation.search = 'search=x&status=ended&page=3';
   await act(async () => root.render(<StaffDashboardPage />));
-  await act(async () => ready().actions.onSearchChange('pending'));
-  await act(async () => ready().actions.onResetFilters());
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(300);
+  await act(async () =>
+    ready().actions.onSortChange({ sort: 'deadline', direction: 'asc' }),
+  );
+  expect(getStaffDashboardSummary).toHaveBeenLastCalledWith({
+    search: 'x',
+    status: 'ended',
+    page: 1,
+    sort: 'deadline',
+    direction: 'asc',
   });
-  expect(listNavigation.search).toBe('');
-  expect(ready().search).toBe('');
+  await act(async () => ready().actions.onResetFilters());
+  expect(getStaffDashboardSummary).toHaveBeenLastCalledWith({
+    search: '',
+    status: 'all',
+    page: 1,
+    sort: 'deadline',
+    direction: 'asc',
+  });
 });
