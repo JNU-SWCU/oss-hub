@@ -28,11 +28,14 @@ type ProgramMailComposeChanges = {
 
 export function ProgramMailCompose({
   model,
+  selectionRejected,
   onChange,
 }: {
   readonly model: ProgramMailComposeModel;
+  readonly selectionRejected: boolean;
   readonly onChange: ProgramMailComposeChanges;
 }) {
+  const { recipientLimit } = model.recipients;
   const availableIds = model.recipients.teams.flatMap((team) =>
     team.applicants.flatMap((applicant) =>
       applicant.mailAvailable ? [applicant.id] : [],
@@ -82,6 +85,11 @@ export function ProgramMailCompose({
             선택 해제
           </Button>
         </div>
+        {selectionRejected || model.selectedIds.size > recipientLimit ? (
+          <p role="alert" className="text-small text-destructive">
+            수신자는 최대 {recipientLimit}명까지 선택할 수 있습니다.
+          </p>
+        ) : null}
         {model.recipients.teams.length === 0 ? (
           <p className="text-small text-muted-foreground">
             신청 학생이 없습니다.
@@ -90,6 +98,7 @@ export function ProgramMailCompose({
           <ProgramMailRecipientTree
             teams={model.recipients.teams}
             selectedIds={model.selectedIds}
+            recipientLimit={recipientLimit}
             onSelectionChange={onChange.selection}
           />
         )}

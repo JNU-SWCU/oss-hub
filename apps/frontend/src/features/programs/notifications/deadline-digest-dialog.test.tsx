@@ -210,6 +210,48 @@ describe('DeadlineDigestDialog', () => {
     expect(document.body.textContent).toContain('교직원 요약 수신 2명');
   });
 
+  it('uses the latest same-turn draft and dispatches only one preview request', async () => {
+    let resolvePreview: (value: typeof preview) => void = () => undefined;
+    previewProgramDeadlineMock.mockReturnValueOnce(
+      new Promise<typeof preview>((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+    mounted = await renderWithQuery(
+      <DeadlineDigestDialog
+        programId="program-1"
+        returnFocusRef={{ current: trigger }}
+        onClose={() => undefined}
+      />,
+    );
+    await flush();
+
+    const studentGuidance = document.body.querySelector<HTMLTextAreaElement>(
+      '#deadline-studentGuidance',
+    );
+    if (studentGuidance === null)
+      throw new TypeError('Missing student guidance');
+    const previewButton = button('미리보기');
+    await act(async () => {
+      setValue(studentGuidance, '최신 학생 안내');
+      previewButton.click();
+      previewButton.click();
+      previewButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(previewProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(previewProgramDeadlineMock).toHaveBeenCalledWith('program-1', {
+      studentGuidance: '최신 학생 안내',
+      staffGuidance: '',
+    });
+    expect(button('미리보는 중…').disabled).toBe(true);
+
+    await act(async () => resolvePreview(preview));
+
+    expect(previewProgramDeadlineMock).toHaveBeenCalledTimes(1);
+    expect(button('보내기').disabled).toBe(false);
+  });
+
   it('ignores repeated send clicks in the same turn and while the request is in flight', async () => {
     let resolveSend: (value: unknown) => void = () => undefined;
     sendProgramDeadlineMock.mockReturnValueOnce(

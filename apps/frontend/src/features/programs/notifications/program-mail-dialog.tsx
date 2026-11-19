@@ -25,6 +25,31 @@ const SUBJECT_LIMIT = 200;
 const BODY_LIMIT = 4000;
 
 type Busy = 'preview' | 'send' | null;
+type Draft = {
+  readonly selectedIds: ReadonlySet<string>;
+  readonly subject: string;
+  readonly body: string;
+  readonly selectionRejected: boolean;
+};
+const EMPTY_DRAFT: Draft = {
+  selectedIds: new Set(),
+  subject: '',
+  body: '',
+  selectionRejected: false,
+};
+
+function isReady(draft: Draft, recipientLimit: number | undefined) {
+  return (
+    recipientLimit !== undefined &&
+    !draft.selectionRejected &&
+    draft.selectedIds.size > 0 &&
+    draft.selectedIds.size <= recipientLimit &&
+    draft.subject.trim().length > 0 &&
+    draft.subject.length <= SUBJECT_LIMIT &&
+    draft.body.trim().length > 0 &&
+    draft.body.length <= BODY_LIMIT
+  );
+}
 
 export function ProgramMailDialog({
   programId,
@@ -42,77 +67,115 @@ export function ProgramMailDialog({
     queryFn: () => getProgramMailRecipients(programId),
     enabled: open,
   });
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [preview, setPreview] = useState<ProgramMailPreview | null>(null);
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [loaded, setLoaded] = useState<{
+    readonly preview: ProgramMailPreview;
+    readonly version: number;
+  } | null>(null);
   const [result, setResult] = useState<ProgramMailSendResult | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
+  const draftRef = useRef(EMPTY_DRAFT);
+  const previewRequestVersion = useRef(0);
+  const previewInFlight = useRef(false);
+  const sendInFlight = useRef(false);
+  const preview = loaded?.preview ?? null;
+  const recipientLimit = recipientsQuery.data?.recipientLimit;
+  const canSend =
+    preview !== null &&
+    recipientLimit !== undefined &&
+    preview.applicantIds.length <= recipientLimit &&
+    busy === null;
 
   useEffect(() => {
     if (open) return;
-    setSelectedIds(new Set());
-    setSubject('');
-    setBody('');
-    setPreview(null);
+    previewRequestVersion.current += 1;
+    previewInFlight.current = false;
+    sendInFlight.current = false;
+    draftRef.current = EMPTY_DRAFT;
+    setDraft(EMPTY_DRAFT);
+    setLoaded(null);
     setResult(null);
     setBusy(null);
     setError(null);
   }, [open]);
+
+  useEffect(
+    () => () => {
+      previewRequestVersion.current += 1;
+      previewInFlight.current = false;
+      sendInFlight.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (preview === null || result !== null || busy !== null) return;
     queueMicrotask(() => editButtonRef.current?.focus());
   }, [busy, preview, result]);
 
-  const canPreview =
-    selectedIds.size > 0 &&
-    subject.trim().length > 0 &&
-    subject.length <= SUBJECT_LIMIT &&
-    body.trim().length > 0 &&
-    body.length <= BODY_LIMIT &&
-    busy === null;
+  const canPreview = busy === null && isReady(draft, recipientLimit);
 
-  const changeDraft = (change: () => void) => {
-    change();
-    setPreview(null);
+  const changeDraft = (change: Partial<Draft>) => {
+    previewRequestVersion.current += 1;
+    previewInFlight.current = false;
+    draftRef.current = { ...draftRef.current, ...change };
+    setDraft(draftRef.current);
+    setLoaded(null);
     setResult(null);
+    setBusy((current) => (current === 'preview' ? null : current));
     setError(null);
   };
 
   const loadPreview = async () => {
-    if (!canPreview) return;
+    const current = draftRef.current;
+    if (
+      !isReady(current, recipientLimit) ||
+      previewInFlight.current ||
+      sendInFlight.current
+    )
+      return;
+    const requestVersion = ++previewRequestVersion.current;
+    previewInFlight.current = true;
     setBusy('preview');
     setError(null);
     try {
-      setPreview(
-        await previewProgramMail(programId, {
-          subject,
-          body,
-          applicantIds: [...selectedIds],
-        }),
-      );
+      const loadedPreview = await previewProgramMail(programId, {
+        subject: current.subject,
+        body: current.body,
+        applicantIds: [...current.selectedIds],
+      });
+      if (requestVersion !== previewRequestVersion.current) return;
+      setLoaded({ preview: loadedPreview, version: requestVersion });
     } catch (caught: unknown) {
+      if (requestVersion !== previewRequestVersion.current) return;
       setError(apiErrorMessage(caught));
     } finally {
-      setBusy(null);
+      if (requestVersion === previewRequestVersion.current) {
+        previewInFlight.current = false;
+        setBusy(null);
+      }
     }
   };
 
   const send = async () => {
-    if (preview === null || busy !== null) return;
+    if (
+      !canSend ||
+      loaded?.version !== previewRequestVersion.current ||
+      sendInFlight.current
+    )
+      return;
+    sendInFlight.current = true;
     setBusy('send');
     setError(null);
     try {
-      setResult(await sendProgramMail(programId, preview));
+      setResult(await sendProgramMail(programId, loaded.preview));
     } catch (caught: unknown) {
-      setPreview(null);
+      setLoaded(null);
       setError(apiErrorMessage(caught));
     } finally {
+      sendInFlight.current = false;
       setBusy(null);
     }
   };
@@ -128,15 +191,11 @@ export function ProgramMailDialog({
         type="button"
         variant="outline"
         disabled={busy !== null}
-        onClick={() => setPreview(null)}
+        onClick={() => changeDraft({})}
       >
         수정
       </Button>
-      <Button
-        type="button"
-        disabled={busy !== null}
-        onClick={() => void send()}
-      >
+      <Button type="button" disabled={!canSend} onClick={() => void send()}>
         {busy === 'send' ? '보내는 중…' : '보내기'}
       </Button>
     </>
@@ -203,14 +262,16 @@ export function ProgramMailDialog({
         <ProgramMailCompose
           model={{
             recipients: recipientsQuery.data,
-            selectedIds,
-            subject,
-            body,
+            ...draft,
           }}
+          selectionRejected={draft.selectionRejected}
           onChange={{
-            selection: (next) => changeDraft(() => setSelectedIds(next)),
-            subject: (next) => changeDraft(() => setSubject(next)),
-            body: (next) => changeDraft(() => setBody(next)),
+            selection: (selectedIds) =>
+              recipientLimit !== undefined && selectedIds.size <= recipientLimit
+                ? changeDraft({ selectedIds, selectionRejected: false })
+                : changeDraft({ selectionRejected: true }),
+            subject: (subject) => changeDraft({ subject }),
+            body: (body) => changeDraft({ body }),
           }}
         />
       )}

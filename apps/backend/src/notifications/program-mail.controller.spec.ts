@@ -12,6 +12,7 @@ import {
 } from '../../test/global-authentication-guard.fixture';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramMailController } from './program-mail.controller';
+import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
 import { ProgramMailService } from './program-mail.service';
 
 const authSessionService = new AuthSessionService();
@@ -120,5 +121,8 @@ it('allows active staff to read program recipients', async () => {
   );
 
   expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    recipientLimit: PROGRAM_MAIL_RECIPIENT_LIMIT,
+  });
   expect(recipients).toHaveBeenCalledWith('program-1');
 });

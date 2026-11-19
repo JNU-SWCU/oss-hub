@@ -44,32 +44,68 @@ export function DeadlineDigestDialog({
     studentGuidance: '',
     staffGuidance: '',
   });
-  const [preview, setPreview] = useState<ProgramDeadlinePreview | null>(null);
+  const [loaded, setLoaded] = useState<{
+    readonly preview: ProgramDeadlinePreview;
+    readonly guidance: ProgramDeadlineGuidance;
+    readonly version: number;
+  } | null>(null);
   const [result, setResult] = useState<ProgramDeadlineSendResult | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const studentGuidanceRef = useRef<HTMLTextAreaElement>(null);
+  const guidanceRef = useRef(guidance);
   const focusGuidanceOnRender = useRef(false);
+  const previewRequestVersion = useRef(0);
+  const previewInFlight = useRef(false);
   const sendInFlight = useRef(false);
+  const preview = loaded?.preview ?? null;
 
   const invalidGuidance =
     guidance.studentGuidance.length > GUIDANCE_LIMIT ||
     guidance.staffGuidance.length > GUIDANCE_LIMIT;
 
   const loadPreview = useCallback(async () => {
-    if (invalidGuidance || busy !== null) return;
+    const draft = guidanceRef.current;
+    if (
+      draft.studentGuidance.length > GUIDANCE_LIMIT ||
+      draft.staffGuidance.length > GUIDANCE_LIMIT ||
+      previewInFlight.current ||
+      sendInFlight.current
+    )
+      return;
+    const requestVersion = ++previewRequestVersion.current;
+    previewInFlight.current = true;
     setBusy('preview');
     setError(null);
     try {
-      setPreview(await previewProgramDeadline(programId, guidance));
+      const loadedPreview = await previewProgramDeadline(programId, draft);
+      if (requestVersion !== previewRequestVersion.current) return;
+      setLoaded({
+        preview: loadedPreview,
+        guidance: draft,
+        version: requestVersion,
+      });
       setResult(null);
     } catch (caught: unknown) {
+      if (requestVersion !== previewRequestVersion.current) return;
       setError(deadlineErrorMessage(caught));
     } finally {
-      setBusy(null);
+      if (requestVersion === previewRequestVersion.current) {
+        previewInFlight.current = false;
+        setBusy(null);
+      }
     }
-  }, [busy, guidance, invalidGuidance, programId]);
+  }, [programId]);
+
+  useEffect(
+    () => () => {
+      previewRequestVersion.current += 1;
+      previewInFlight.current = false;
+      sendInFlight.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (preview === null || result !== null || busy !== null) return;
@@ -88,7 +124,7 @@ export function DeadlineDigestDialog({
     const timer = setTimeout(
       () => {
         focusGuidanceOnRender.current = true;
-        setPreview(null);
+        setLoaded(null);
         setError('미리보기가 만료되었습니다. 다시 미리보세요.');
       },
       Math.max(0, remaining),
@@ -100,23 +136,34 @@ export function DeadlineDigestDialog({
     field: keyof ProgramDeadlineGuidance,
     value: string,
   ) => {
-    setGuidance((current) => ({ ...current, [field]: value }));
-    setPreview(null);
+    previewRequestVersion.current += 1;
+    previewInFlight.current = false;
+    guidanceRef.current = { ...guidanceRef.current, [field]: value };
+    setGuidance(guidanceRef.current);
+    setLoaded(null);
     setResult(null);
+    setBusy((current) => (current === 'preview' ? null : current));
     setError(null);
   };
 
   const edit = () => {
     focusGuidanceOnRender.current = true;
-    setPreview(null);
+    previewRequestVersion.current += 1;
+    setLoaded(null);
     setError(null);
   };
 
   const send = async () => {
-    if (preview === null || busy !== null || sendInFlight.current) return;
+    if (
+      preview === null ||
+      loaded?.version !== previewRequestVersion.current ||
+      busy !== null ||
+      sendInFlight.current
+    )
+      return;
     if (new Date(preview.expiresAt).getTime() <= Date.now()) {
       focusGuidanceOnRender.current = true;
-      setPreview(null);
+      setLoaded(null);
       setError('미리보기가 만료되었습니다. 다시 미리보세요.');
       return;
     }
@@ -127,12 +174,12 @@ export function DeadlineDigestDialog({
       const sent = await sendProgramDeadline(programId, {
         previewedAt: preview.previewedAt,
         previewVersion: preview.previewVersion,
-        ...guidance,
+        ...loaded.guidance,
       });
       setResult(sent);
-      setPreview(null);
+      setLoaded(null);
     } catch (caught: unknown) {
-      setPreview(null);
+      setLoaded(null);
       setError(deadlineErrorMessage(caught));
     } finally {
       sendInFlight.current = false;
