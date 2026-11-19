@@ -158,31 +158,37 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
     expect(payload().notifyOnDeadline).toBe(false);
   });
 
-  it('자동 알림 저장 상태와 무관하게 운영 설정에서 메일 팝업을 연다', async () => {
-    await render(editableProgram);
+  it('운영 설정에서 일반 메일과 마감 알림 팝업을 구분한다', async () => {
+    await render({ ...editableProgram, notifyOnDeadline: true });
 
     expect(mailButton()?.closest('fieldset')?.id).toBe('operations');
+    expect(deadlineButton()?.closest('fieldset')?.id).toBe('operations');
     expect(container.innerHTML).not.toContain('/notifications');
-    await act(async () => {
-      deadlineCheckbox().click();
-    });
-    expect(mailButton()).not.toBeNull();
   });
 
-  it('자동 알림을 꺼도 메일 보내기 동작은 유지한다', async () => {
+  it('마감 알림을 끄면 일반 메일은 유지하고 마감 발송 대신 설정 안내를 표시한다', async () => {
     await render({ ...editableProgram, notifyOnDeadline: true });
 
     await act(async () => {
       deadlineCheckbox().click();
     });
 
-    expect(container.textContent).toContain('자동 알림을 사용하지 않습니다.');
+    expect(container.textContent).toContain('제출 마감 알림을 켜야 합니다.');
     expect(mailButton()).not.toBeNull();
+    expect(deadlineButton()).toBeUndefined();
   });
 
   function mailButton(): HTMLButtonElement | undefined {
+    return buttonNamed('메일 보내기');
+  }
+
+  function deadlineButton(): HTMLButtonElement | undefined {
+    return buttonNamed('마감 알림 보내기');
+  }
+
+  function buttonNamed(name: string): HTMLButtonElement | undefined {
     return [...container.querySelectorAll('button')].find(
-      (candidate) => candidate.textContent?.trim() === '메일 보내기',
+      (candidate) => candidate.textContent?.trim() === name,
     );
   }
 });

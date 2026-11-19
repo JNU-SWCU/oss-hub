@@ -30,7 +30,7 @@ import { getProgramRecruitmentState } from './program-list';
 import { PROGRAM_LIST_STATUS_LABELS } from './program-list-labels';
 import { cn } from '@/lib/utils';
 import type { ProgramDetail, ProgramListItem } from './dto';
-import { ProgramMailAction } from '../notifications';
+import { DeadlineDigestAction, ProgramMailAction } from '../notifications';
 
 export type RenderSignInApply = (applyHref: string) => ReactNode;
 
@@ -284,6 +284,10 @@ export function ProgramDetailReadyState({
       <>
         <ProgramEditAction programId={program.id} />
         <ProgramMailAction
+          programId={program.id}
+          className={HEADER_ACTION_CLASS}
+        />
+        <DeadlineDigestAction
           programId={program.id}
           className={HEADER_ACTION_CLASS}
         />
