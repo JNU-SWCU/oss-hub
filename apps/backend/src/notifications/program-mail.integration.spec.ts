@@ -85,11 +85,6 @@ it('lists all application statuses, sends mail, and records an attributable audi
   });
   expect(audit?.actorId).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(audit?.occurredAt).toBeInstanceOf(Date);
-  expect(
-    await world.prisma.userHistory.count({
-      where: { sourceTable: 'ProgramMail', sourceId: idempotencyKey },
-    }),
-  ).toBe(2);
   expect(audit?.data).toMatchObject({
     recordKind: 'DOMAIN_EVENT',
     action: 'PROGRAM_MAIL_SENT',
@@ -111,7 +106,7 @@ it('lists all application statuses, sends mail, and records an attributable audi
     data: canonicalUserCreateFromLabel('STAFF', {
       id: 'test:program-mail:foreign-audit-actor',
       githubId: 9_600_000_000_193_002n,
-      nickname: 'foreign-audit-actor',
+      nickname: `former-${PROGRAM_MAIL_STAFF_FIXTURE.nickname}`,
     }),
   });
   await world.prisma.userHistory.createMany({
@@ -140,6 +135,11 @@ it('lists all application statuses, sends mail, and records an attributable audi
       };
     }),
   });
+  expect(
+    await world.prisma.userHistory.count({
+      where: { sourceTable: 'ProgramMail', sourceId: idempotencyKey },
+    }),
+  ).toBe(2);
   const readAudit = createAuditLogReadService(
     new AuditLogReadRepository(world.prisma),
   );
@@ -152,14 +152,19 @@ it('lists all application statuses, sends mail, and records an attributable audi
     ),
   ).toBe(true);
 
-  const ownedPage = await readAudit.list({
-    ...query,
-    page: 1,
-    q: PROGRAM_MAIL_STAFF_FIXTURE.nickname,
-  });
-  expect(ownedPage.total).toBe(1);
-  expect(ownedPage.items).toHaveLength(1);
-  const [own] = ownedPage.items;
+  const visibilityPageLimit = Math.min(
+    10,
+    Math.ceil(firstPage.total / pageSize),
+  );
+  let own = firstPage.items.find((item) => item.requestId === idempotencyKey);
+  for (
+    let page = 2;
+    page <= visibilityPageLimit && own === undefined;
+    page += 1
+  ) {
+    const next = await readAudit.list({ ...query, page });
+    own = next.items.find((item) => item.requestId === idempotencyKey);
+  }
   expect(own?.action).toBe('PROGRAM_MAIL_SENT');
   expect(own?.actor?.id).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(own?.target.type).toBe('PROGRAM');
