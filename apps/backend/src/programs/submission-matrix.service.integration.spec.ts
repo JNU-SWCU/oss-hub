@@ -428,11 +428,11 @@ describe('SubmissionMatrixService integration', () => {
     ];
     const at = new Date('2026-07-01T00:00:00Z');
     const statusCounts = {
-      NOT_SUBMITTED: 57,
-      SUBMITTED: 2,
-      CHANGES_REQUESTED: 1,
+      NOT_SUBMITTED: 39,
+      SUBMITTED: 1,
+      CHANGES_REQUESTED: 0,
       REJECTED: 1,
-      APPROVED: 4,
+      APPROVED: 1,
     };
 
     beforeAll(async () => {
@@ -534,7 +534,7 @@ describe('SubmissionMatrixService integration', () => {
             [firstTeamId, optionalDocId, 'CHANGES_REQUESTED'],
             [firstTeamId, optionalApprovedDocId, 'APPROVED'],
             [secondTeamId, primaryDocId, 'SUBMITTED'],
-            [secondTeamId, secondaryDocId, 'SUBMITTED'],
+            [secondTeamId, secondaryDocId, 'APPROVED'],
             [lastTeamId, primaryDocId, 'REJECTED'],
             [lastTeamId, secondaryDocId, 'APPROVED'],
             [lastTeamId, reportDocId, 'APPROVED'],
@@ -616,37 +616,37 @@ describe('SubmissionMatrixService integration', () => {
       expect(beyondPage).toMatchObject({ rows: [], total: 1, statusCounts });
     });
 
-    it('검색 후 상태별 서류 건수를 세고 선택 서류는 제출된 경우에만 센다', async () => {
-      const [search, missing, optional, approved] = await Promise.all([
-        service.matrix(programId, { q: '  zULu  ', status: 'REJECTED' }),
-        service.matrix(programId, { status: 'NOT_SUBMITTED' }),
-        service.matrix(programId, { status: 'CHANGES_REQUESTED' }),
-        service.matrix(programId, { status: 'APPROVED' }),
-      ]);
+    it('검색 후 필수 서류가 있는 단계의 표시 상태만 세고 그 상태로 팀을 필터링한다', async () => {
+      const [search, missing, optional, approved, submitted] =
+        await Promise.all([
+          service.matrix(programId, { q: '  zULu  ', status: 'REJECTED' }),
+          service.matrix(programId, { status: 'NOT_SUBMITTED' }),
+          service.matrix(programId, { status: 'CHANGES_REQUESTED' }),
+          service.matrix(programId, { status: 'APPROVED' }),
+          service.matrix(programId, { status: 'SUBMITTED' }),
+        ]);
       expect(search).toMatchObject({
         rows: [],
         total: 0,
         statusCounts: {
           NOT_SUBMITTED: 2,
           SUBMITTED: 0,
-          CHANGES_REQUESTED: 1,
+          CHANGES_REQUESTED: 0,
           REJECTED: 0,
-          APPROVED: 2,
+          APPROVED: 0,
         },
       });
       expect(missing.rows.map((row) => row.teamId)).toEqual(
         teamIds.slice(0, 20),
       );
       expect(missing).toMatchObject({ total: 20, statusCounts });
-      expect(optional.rows.map((row) => row.teamId)).toEqual([firstTeamId]);
-      expect(optional.total).toBe(1);
-      expect(approved.rows.map((row) => row.teamId)).toEqual([
-        firstTeamId,
-        lastTeamId,
-      ]);
-      expect(approved.total).toBe(2);
-      expect(cellFor(rowFor(approved.rows, firstTeamId), planId).status).toBe(
-        'NOT_SUBMITTED',
+      expect(optional).toMatchObject({ rows: [], total: 0, statusCounts });
+      expect(approved.rows.map((row) => row.teamId)).toEqual([lastTeamId]);
+      expect(approved).toMatchObject({ total: 1, statusCounts });
+      expect(submitted.rows.map((row) => row.teamId)).toEqual([secondTeamId]);
+      expect(submitted).toMatchObject({ total: 1, statusCounts });
+      expect(cellFor(rowFor(submitted.rows, secondTeamId), planId).status).toBe(
+        'SUBMITTED',
       );
     });
 

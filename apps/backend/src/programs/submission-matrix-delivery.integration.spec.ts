@@ -209,11 +209,15 @@ it.each([
     expect(matrix.rows).toHaveLength(4);
     expect(matrix.statusCounts).toEqual({
       NOT_SUBMITTED: required ? 3 : 0,
-      SUBMITTED: 1,
+      SUBMITTED: required ? 1 : 0,
       CHANGES_REQUESTED: 0,
       REJECTED: 0,
       APPROVED: 0,
     });
+    const missing = await service.matrix(fixture.notifyProgram, {
+      status: 'NOT_SUBMITTED',
+    });
+    expect(missing.total).toBe(required ? 3 : 0);
     expect(
       matrix.rows
         .flatMap((row) => row.cells.map((cell) => cell.deliveryStatus))

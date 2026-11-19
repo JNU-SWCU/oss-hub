@@ -662,55 +662,59 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
           AND team."status" = 'APPROVED'
           AND team."archivedAt" IS NULL
           ${search}
+      ), milestones AS (
+        SELECT "id" FROM "Milestone" WHERE "programId" = ${programId}
       ), documents AS (
-        SELECT document."id", document."milestoneId", document."required"
+        SELECT document."id", document."milestoneId"
         FROM "Requirement" AS document
-        JOIN "Milestone" AS milestone ON milestone."id" = document."milestoneId"
-        WHERE milestone."programId" = ${programId}
+        JOIN milestones AS milestone ON milestone."id" = document."milestoneId"
+        WHERE document."required"
       ), required_by_milestone AS (
         SELECT "milestoneId", COUNT(*) AS "total"
         FROM documents
-        WHERE "required"
         GROUP BY "milestoneId"
       ), submitted_by_milestone AS (
         SELECT submission."teamId", document."milestoneId",
-          COUNT(*) FILTER (WHERE document."required") AS "requiredSubmitted",
-          COUNT(*) FILTER (WHERE submission."status" = 'SUBMITTED') AS "SUBMITTED",
-          COUNT(*) FILTER (WHERE submission."status" = 'CHANGES_REQUESTED') AS "CHANGES_REQUESTED",
-          COUNT(*) FILTER (WHERE submission."status" = 'REJECTED') AS "REJECTED",
-          COUNT(*) FILTER (WHERE submission."status" = 'APPROVED') AS "APPROVED",
+          COUNT(*) AS "requiredSubmitted",
           MIN(CASE submission."status"
             WHEN 'REJECTED' THEN 0
             WHEN 'CHANGES_REQUESTED' THEN 1
             WHEN 'SUBMITTED' THEN 3
             WHEN 'APPROVED' THEN 4
-          END) FILTER (WHERE document."required") AS "requiredRank"
+          END) AS "requiredRank"
         FROM scoped_teams AS team
         JOIN "Submission" AS submission ON submission."teamId" = team."id"
         JOIN documents AS document ON document."id" = submission."requirementId"
         GROUP BY submission."teamId", document."milestoneId"
-      ), submitted_by_team AS (
-        SELECT submitted."teamId",
-          SUM("requiredSubmitted") AS "requiredSubmitted",
-          SUM("SUBMITTED") AS "SUBMITTED",
-          SUM("CHANGES_REQUESTED") AS "CHANGES_REQUESTED",
-          SUM("REJECTED") AS "REJECTED",
-          SUM("APPROVED") AS "APPROVED",
-          COUNT(*) FILTER (WHERE "requiredRank" = 4 AND "requiredSubmitted" = required."total") AS "progress",
-          MIN(LEAST(COALESCE("requiredRank", 2),
+      ), ranked_cells AS (
+        -- Match MilestoneCompletionService: a missing required document ranks
+        -- below SUBMITTED but above CHANGES_REQUESTED and REJECTED.
+        SELECT submitted."teamId", submitted."milestoneId",
+          LEAST("requiredRank",
             CASE WHEN "requiredSubmitted" = required."total" THEN 4 ELSE 2 END
-          )) FILTER (WHERE submitted."milestoneId" = ${milestoneId}::text) AS "milestoneRank"
+          ) AS rank
         FROM submitted_by_milestone AS submitted
-        LEFT JOIN required_by_milestone AS required ON required."milestoneId" = submitted."milestoneId"
-        GROUP BY submitted."teamId"
+        JOIN required_by_milestone AS required USING ("milestoneId")
+      ), submitted_by_team AS (
+        SELECT "teamId",
+          COUNT(*) FILTER (WHERE rank = 3) AS "SUBMITTED",
+          COUNT(*) FILTER (WHERE rank = 1) AS "CHANGES_REQUESTED",
+          COUNT(*) FILTER (WHERE rank = 0) AS "REJECTED",
+          COUNT(*) FILTER (WHERE rank = 4) AS "APPROVED",
+          COUNT(*) FILTER (WHERE rank <> 2) AS "nonMissingCells",
+          MIN(rank) FILTER (WHERE "milestoneId" = ${milestoneId}::text) AS "milestoneRank"
+        FROM ranked_cells
+        GROUP BY "teamId"
       ), team_slots AS (
         SELECT team.*,
-          (SELECT COUNT(*) FROM documents WHERE "required") - COALESCE("requiredSubmitted", 0) AS "NOT_SUBMITTED",
+          -- Only stages with required documents display a review status.
+          -- Count the remaining applicable cells without expanding team × milestone pairs.
+          (SELECT COUNT(*) FROM required_by_milestone) - COALESCE("nonMissingCells", 0) AS "NOT_SUBMITTED",
           COALESCE("SUBMITTED", 0) AS "SUBMITTED",
           COALESCE("CHANGES_REQUESTED", 0) AS "CHANGES_REQUESTED",
           COALESCE("REJECTED", 0) AS "REJECTED",
           COALESCE("APPROVED", 0) AS "APPROVED",
-          COALESCE("progress", 0) AS "progress",
+          COALESCE("APPROVED", 0) AS "progress",
           COALESCE("milestoneRank", 2) AS "milestoneRank"
         FROM scoped_teams AS team
         LEFT JOIN submitted_by_team AS submitted ON submitted."teamId" = team."id"
