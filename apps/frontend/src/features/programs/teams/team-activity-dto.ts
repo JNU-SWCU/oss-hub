@@ -39,6 +39,7 @@ export interface TeamActivity {
     readonly timeZone: 'Asia/Seoul';
   };
   readonly canEditRepositoryUrl: boolean;
+  readonly repositoryUrlHistoryCount?: number | null;
   readonly members: readonly TeamActivityMember[];
 }
 

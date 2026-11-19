@@ -7297,8 +7297,8 @@
           "type": {
             "type": "string",
             "enum": [
-              "text",
               "auto",
+              "text",
               "textarea"
             ]
           },
@@ -9182,6 +9182,11 @@
       "TeamActivityResponseDto": {
         "type": "object",
         "properties": {
+          "repositoryUrlHistoryCount": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
           "teamId": {
             "type": "string",
             "nullable": true

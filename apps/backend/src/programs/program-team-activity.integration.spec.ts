@@ -180,6 +180,7 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
 
   expect(activity).toEqual({
     teamId,
+    repositoryUrlHistoryCount: 0,
     repository: {
       id: (base + 101n).toString(),
       url: 'https://github.com/synthetic/b',

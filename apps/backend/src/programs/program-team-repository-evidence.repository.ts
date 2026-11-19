@@ -61,6 +61,16 @@ export interface RepositoryUrlHistoryCursor {
   readonly id: string;
 }
 
+interface RepositoryUrlHistoryScope {
+  readonly programId: string;
+  readonly teamId: string;
+}
+
+function repositoryUrlHistoryFilter(scope: RepositoryUrlHistoryScope) {
+  return Prisma.sql`h."teamId" = ${scope.teamId} AND h."programId" = ${scope.programId}
+    AND h.event = 'REPOSITORY_URL_CHANGED'`;
+}
+
 interface TeamActivityCounts {
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -78,6 +88,7 @@ export interface TeamActivityView {
   readonly lastSuccessAt: string | null;
   readonly window: ActivityWindow;
   readonly canEditRepositoryUrl: boolean;
+  readonly repositoryUrlHistoryCount?: number | null;
   readonly members: readonly {
     readonly userId: string;
     readonly githubLogin: string;
@@ -176,6 +187,7 @@ interface TeamRepositoryMember {
 
 export interface TeamActivityScope {
   readonly leaderId: string;
+  readonly repositoryUrlHistoryScope?: RepositoryUrlHistoryScope;
   readonly program: { readonly startAt: Date; readonly endAt: Date };
   readonly members: readonly (TeamRepositoryMember & {
     readonly user: { readonly nickname: string };
@@ -192,18 +204,14 @@ export class ProgramTeamRepositoryEvidenceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async history(
-    scope: {
-      readonly programId: string;
-      readonly teamId: string;
-    },
+    scope: RepositoryUrlHistoryScope,
     cursor?: RepositoryUrlHistoryCursor,
   ): Promise<RepositoryUrlHistoryRows> {
     const rows = await this.prisma.$queryRaw<RepositoryUrlHistoryRow[]>`
       SELECT h.id, 'APPLICATION_REPOSITORY_URL_CHANGED' AS action, h."occurredAt",
         h.data->'metadata' AS metadata, jsonb_build_object('nickname', u.login) AS actor
       FROM "TeamHistory" h LEFT JOIN "User" u ON u.id = h."actorId"
-      WHERE h."teamId" = ${scope.teamId} AND h."programId" = ${scope.programId}
-        AND h.event = 'REPOSITORY_URL_CHANGED'
+      WHERE ${repositoryUrlHistoryFilter(scope)}
         AND (${cursor?.occurredAt ?? null}::timestamp IS NULL
           OR h."occurredAt" < ${cursor?.occurredAt ?? null}
           OR (h."occurredAt" = ${cursor?.occurredAt ?? null} AND h.id < ${cursor?.id ?? null}))
@@ -212,14 +220,30 @@ export class ProgramTeamRepositoryEvidenceRepository {
     return { rows: rows.slice(0, 20), hasMore: rows.length > 20 };
   }
 
+  private async countHistory(
+    scope: RepositoryUrlHistoryScope,
+  ): Promise<number> {
+    const [row] = await this.prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(*) AS count FROM "TeamHistory" h
+      WHERE ${repositoryUrlHistoryFilter(scope)}
+      LIMIT 1
+    `;
+    return Number(row.count);
+  }
+
   async activity(team: TeamActivityScope, now: Date): Promise<TeamActivityRow> {
     const repository = team.application?.repository ?? null;
-    const ledger = repository
-      ? await this.prisma.repo.findUnique({
-          where: { githubRepoId: repository.githubRepositoryId },
-          select: { lastSuccessAt: true, defaultBranch: true },
-        })
-      : null;
+    const [ledger, repositoryUrlHistoryCount] = await Promise.all([
+      repository
+        ? this.prisma.repo.findUnique({
+            where: { githubRepoId: repository.githubRepositoryId },
+            select: { lastSuccessAt: true, defaultBranch: true },
+          })
+        : null,
+      team.repositoryUrlHistoryScope
+        ? this.countHistory(team.repositoryUrlHistoryScope)
+        : undefined,
+    ]);
     const lastSuccessAt = ledger?.lastSuccessAt ?? null;
     const window = programWindow(team.program);
     const memberGithubIds = team.members.map((member) => member.user.githubId);
@@ -271,6 +295,9 @@ export class ProgramTeamRepositoryEvidenceRepository {
         : 'NOT_CONNECTED',
       lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
       window,
+      ...(repositoryUrlHistoryCount === undefined
+        ? {}
+        : { repositoryUrlHistoryCount }),
       members: team.members.map((member) => {
         const points = rows
           .filter((row) => row.githubId === member.user.githubId)

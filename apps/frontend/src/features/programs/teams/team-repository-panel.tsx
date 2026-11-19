@@ -105,7 +105,11 @@ function TeamRepositoryPanelBody({
         lockedHint={lockedHint}
       >
         {children}
-        <RepositoryUrlHistoryDisclosure programId={programId} teamId={teamId} />
+        <RepositoryUrlHistoryDisclosure
+          programId={programId}
+          teamId={teamId}
+          initialCount={activity?.repositoryUrlHistoryCount}
+        />
       </RepositoryUrlEditor>
     ) : graph.kind === 'failed' ? (
       <FailureState title="저장소를 불러오지 못했습니다" onRetry={refresh} />

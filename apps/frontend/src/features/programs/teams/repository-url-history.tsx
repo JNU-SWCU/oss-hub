@@ -30,9 +30,13 @@ interface RepositoryHistoryScope {
   readonly teamId: string;
 }
 
-export function RepositoryUrlHistoryDisclosure(props: RepositoryHistoryScope) {
+export function RepositoryUrlHistoryDisclosure({
+  initialCount,
+  ...scope
+}: RepositoryHistoryScope & { readonly initialCount?: number | null }) {
   const [requested, setRequested] = useState(false);
-  const [count, setCount] = useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = useState<number | null>(null);
+  const count = initialCount ?? loadedCount;
 
   return (
     <Collapsible
@@ -60,7 +64,7 @@ export function RepositoryUrlHistoryDisclosure(props: RepositoryHistoryScope) {
         forceMount
       >
         {requested ? (
-          <RepositoryUrlHistory {...props} onCountChange={setCount} />
+          <RepositoryUrlHistory {...scope} onCountChange={setLoadedCount} />
         ) : null}
       </CollapsibleContent>
     </Collapsible>

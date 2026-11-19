@@ -84,6 +84,8 @@ export class TeamActivityResponseDto {
     readonly timeZone: TeamActivityView['window']['timeZone'];
   };
   declare readonly canEditRepositoryUrl: boolean;
+  @ApiPropertyOptional({ type: 'integer', nullable: true, minimum: 0 })
+  declare readonly repositoryUrlHistoryCount?: number | null;
   declare readonly members: TeamActivityMemberResponseDto[];
 
   static from(view: TeamActivityView): TeamActivityResponseDto {
@@ -96,6 +98,7 @@ export class TeamActivityResponseDto {
       lastSuccessAt: view.lastSuccessAt,
       window: view.window,
       canEditRepositoryUrl: view.canEditRepositoryUrl,
+      repositoryUrlHistoryCount: view.repositoryUrlHistoryCount,
       members: view.members.map((member) =>
         TeamActivityMemberResponseDto.from(member),
       ),

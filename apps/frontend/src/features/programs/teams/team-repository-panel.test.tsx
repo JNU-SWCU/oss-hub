@@ -312,6 +312,16 @@ describe('TeamRepositoryPanel', () => {
     expect(repositoryCard()?.querySelector('input')?.value).toBe(draft);
   });
 
+  it('활동 응답에 전체 건수가 있으면 이력 조회 전에 표시한다', async () => {
+    vi.mocked(getTeamActivity).mockResolvedValue({
+      ...original,
+      repositoryUrlHistoryCount: 3,
+    });
+    await render();
+    expect(button('변경 이력 3건').getAttribute('aria-expanded')).toBe('false');
+    expect(getRepositoryHistory).not.toHaveBeenCalled();
+  });
+
   it('변경 이력은 접혀 있고 펼칠 때 첫 쪽을 읽으며, 저장하면 다시 읽는다', async () => {
     saveRepositoryUrl.mockResolvedValue({
       repositoryUrl: 'https://github.com/synthetic/b',

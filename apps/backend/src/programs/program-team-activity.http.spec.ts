@@ -224,7 +224,9 @@ beforeEach(() => {
     Promise.resolve(
       sqlOf(query).includes('AS activity_date')
         ? [...ACTIVITY_POINTS]
-        : [...REPOSITORY_URL_HISTORY],
+        : sqlOf(query).includes('COUNT(*)')
+          ? [{ count: BigInt(REPOSITORY_URL_HISTORY.length) }]
+          : [...REPOSITORY_URL_HISTORY],
     ),
   );
   findFirst.mockImplementation(
@@ -289,6 +291,7 @@ it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을
   expect(staff?.shared).toEqual(leader?.shared);
   expect(bodies[0]).toEqual({
     teamId: TEAM_ID,
+    repositoryUrlHistoryCount: REPOSITORY_URL_HISTORY.length,
     repository: {
       id: '4242',
       url: 'https://github.com/synthetic-org/synthetic-repo',
