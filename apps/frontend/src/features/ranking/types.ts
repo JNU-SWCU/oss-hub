@@ -11,9 +11,17 @@ export const RANKING_VIEWER_CLASSES = {
 export type RankingViewerClass =
   (typeof RANKING_VIEWER_CLASSES)[keyof typeof RANKING_VIEWER_CLASSES];
 
+export interface RankingStreak {
+  readonly rankHeldSince: string;
+  readonly top10Since: string;
+  readonly rankHeldDays: number;
+  readonly top10Days: number;
+}
+
 export interface PublicRankingItem {
   readonly rank: number;
   readonly previousRank: number | null;
+  readonly streak?: RankingStreak | null;
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -26,6 +34,7 @@ export interface PublicRankingItem {
 export interface StaffRankingItem {
   readonly rank: number;
   readonly previousRank: number | null;
+  readonly streak?: RankingStreak | null;
   readonly githubLogin: string;
   readonly name: string | null;
   readonly department: string | null;
