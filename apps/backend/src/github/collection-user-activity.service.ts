@@ -157,6 +157,8 @@ export class CollectionUserActivityService {
       if (userFailed) failedUserCount += 1;
     }
 
+    await this.repository.refreshRankingSnapshots();
+
     return {
       observedUserCount: users.length,
       upsertedRowCount,

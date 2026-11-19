@@ -39,7 +39,7 @@ describe('RankingRepository standing read', () => {
     expect(call.values).toEqual(expect.arrayContaining([2026, 20, 30]));
     expect(call.sql).toContain('ROW_NUMBER() OVER');
     expect(call.sql).toContain('COLLATE "C"');
-    expect(call.sql).toContain('github_user_activity_history');
+    expect(call.sql).not.toContain('github_user_activity_history');
   });
 
   it('reads only the selected timeline series with hard limits', async () => {
@@ -53,7 +53,7 @@ describe('RankingRepository standing read', () => {
       $queryRaw: queryRaw,
     } as unknown as PrismaService);
 
-    await repository.findTimelineSeries(2026, 3, 'mina');
+    await repository.findTimelineSeries(2026, 3, 1n);
 
     const [selected, points] = (
       queryRaw.mock.calls as readonly (readonly unknown[])[]
@@ -61,7 +61,7 @@ describe('RankingRepository standing read', () => {
       Prisma.sql(call[0] as string[], ...(call.slice(1) as Prisma.Sql[])),
     );
     expect(selected?.sql).toContain('LIMIT');
-    expect(selected?.values).toEqual(expect.arrayContaining([10, 'mina', 11]));
+    expect(selected?.values).toEqual(expect.arrayContaining([10, 1n, 11]));
     expect(points?.sql).toContain('github_user_activity_history');
     expect(points?.values).toEqual(
       expect.arrayContaining([2026, 3, ['1'], 132]),

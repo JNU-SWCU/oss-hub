@@ -80,7 +80,10 @@ function TeamCheckbox({
       checked={checked === true}
       aria-checked={checked === 'mixed' ? 'mixed' : checked}
       disabled={disabled}
-      onChange={onChange}
+      onChange={(event) => {
+        event.currentTarget.indeterminate = checked === 'mixed';
+        onChange();
+      }}
     />
   );
 }
@@ -88,10 +91,12 @@ function TeamCheckbox({
 export function ProgramMailRecipientTree({
   teams,
   selectedIds,
+  recipientLimit,
   onSelectionChange,
 }: {
   readonly teams: readonly ProgramMailTeam[];
   readonly selectedIds: ReadonlySet<string>;
+  readonly recipientLimit: number;
   readonly onSelectionChange: (selectedIds: ReadonlySet<string>) => void;
 }) {
   return (
@@ -114,7 +119,10 @@ export function ProgramMailRecipientTree({
               <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3">
                 <TeamCheckbox
                   checked={state}
-                  disabled={availableCount === 0}
+                  disabled={
+                    availableCount === 0 ||
+                    (state !== true && selectedIds.size >= recipientLimit)
+                  }
                   onChange={() =>
                     onSelectionChange(toggleTeamSelection(team, selectedIds))
                   }
@@ -146,7 +154,11 @@ export function ProgramMailRecipientTree({
                   <input
                     type="checkbox"
                     checked={selectedIds.has(applicant.id)}
-                    disabled={!applicant.mailAvailable}
+                    disabled={
+                      !applicant.mailAvailable ||
+                      (!selectedIds.has(applicant.id) &&
+                        selectedIds.size >= recipientLimit)
+                    }
                     onChange={(event) => {
                       const next = new Set(selectedIds);
                       if (event.target.checked) next.add(applicant.id);

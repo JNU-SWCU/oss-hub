@@ -19,6 +19,7 @@ export type ProgramMailTeam = {
 export type ProgramMailRecipients = {
   readonly programId: string;
   readonly programName: string;
+  readonly recipientLimit: number;
   readonly teams: readonly ProgramMailTeam[];
 };
 

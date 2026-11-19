@@ -1,9 +1,13 @@
 import { ActivityVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
+
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -13,6 +17,10 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const ranking = new RankingRepository(prisma);
 const timeline = new RankingTimelineService(ranking, new RankingYearService());
+const anonymousAuth = {
+  kind: HTTP_AUTH_KINDS.ANONYMOUS,
+  hasSessionCookie: false,
+} as OptionalSessionRequest['auth'];
 const MINA = { githubId: 9_118_001n, nickname: 'synthetic-all-mina' };
 const SUHO = { githubId: 9_118_002n, nickname: 'synthetic-all-suho' };
 const members = [MINA, SUHO];
@@ -99,7 +107,10 @@ it('folds each observed cutoff across years and ends at the current All leaderbo
     ],
   });
 
-  const all = await timeline.findTimelineFromRequest({ year: 'all' });
+  const all = await timeline.findTimelineFromRequest(
+    { year: 'all' },
+    anonymousAuth,
+  );
 
   expect(all).toEqual({
     year: 'all',
@@ -120,6 +131,7 @@ it('folds each observed cutoff across years and ends at the current All leaderbo
       },
     ],
   });
+  await new CollectionUserActivityRepository(prisma).refreshRankingSnapshots();
   const leaderboard = await ranking.findRankedPage(
     {},
     { offset: 0, limit: 2 },
@@ -152,7 +164,10 @@ it('coarsens the full span and keeps the earliest and latest observations', asyn
       },
     ],
   });
-  const all = await timeline.findTimelineFromRequest({ year: 'all' });
+  const all = await timeline.findTimelineFromRequest(
+    { year: 'all' },
+    anonymousAuth,
+  );
   expect(all).toMatchObject({
     year: 'all',
     series: [
@@ -173,7 +188,7 @@ it('coarsens the full span and keeps the earliest and latest observations', asyn
 
 it('does not fabricate a chart without stored observations', async () => {
   await expect(
-    timeline.findTimelineFromRequest({ year: 'all' }),
+    timeline.findTimelineFromRequest({ year: 'all' }, anonymousAuth),
   ).resolves.toEqual({
     year: 'all',
     periods: [],

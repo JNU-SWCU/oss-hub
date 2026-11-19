@@ -146,6 +146,11 @@ describe('nextConfig redirects', () => {
     await expect(nextConfig.redirects()).resolves.toEqual([
       { source: '/dashboard/me', destination: '/settings', permanent: true },
       {
+        source: '/programs/:id/notifications',
+        destination: '/programs/:id',
+        permanent: true,
+      },
+      {
         source: '/programs/:id/milestones/:milestoneId/documents',
         destination: '/programs/:id/documents?milestoneId=:milestoneId',
         permanent: true,

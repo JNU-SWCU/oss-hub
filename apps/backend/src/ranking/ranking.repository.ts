@@ -9,7 +9,6 @@ import {
   RankingAllTimelineRepository,
   type RankingAllTimelineRow,
 } from './ranking-all-timeline.repository';
-import { RankingStreakRepository } from './ranking-streak.repository';
 
 const STANDING = Prisma.raw(STANDING_SQL);
 import { PrismaService } from '../platform/prisma.service';
@@ -171,7 +170,7 @@ function previousRows(query: RankingMetricsQuery, before: Date): Prisma.Sql {
     SELECT DISTINCT ON (github_id, year, visibility)
       github_id, year, visibility, commit_count, pull_request_count,
       issue_count, repository_count, star_count
-    FROM github_user_activity_history
+    FROM ranking_activity_snapshot
     WHERE observed_at < ${before} ${yearFilter(query)}
     ORDER BY github_id, year, visibility, observed_at DESC
   `;
@@ -228,14 +227,17 @@ function rankedMembers(folded: Prisma.Sql, byPeriod = false): Prisma.Sql {
   `;
 }
 
-function timelineCohort(query: RankingMetricsQuery, viewer: string | null) {
+function timelineCohort(
+  query: RankingMetricsQuery,
+  viewerGithubId: bigint | null,
+) {
   return Prisma.sql`
     WITH current_folded AS (${foldedActivity(currentRows(query))}),
     final_ranked AS (${rankedMembers(Prisma.sql`current_folded`)})
     SELECT github_id, login, rank, total
     FROM final_ranked
     WHERE total > 0
-      AND (rank <= ${TIMELINE_LEADERS} OR lower(login) = lower(${viewer ?? ''}))
+      AND (rank <= ${TIMELINE_LEADERS} OR github_id = ${viewerGithubId}::bigint)
   `;
 }
 
@@ -257,7 +259,6 @@ export class RankingRepository {
     private readonly allTimeline: RankingAllTimelineRepository = new RankingAllTimelineRepository(
       prisma,
     ),
-    private readonly streaks: RankingStreakRepository = new RankingStreakRepository(),
   ) {
     this.contributors = new ContributorReadRepository(prisma);
   }
@@ -296,20 +297,17 @@ export class RankingRepository {
     now: Date,
   ): Promise<RankedPage> {
     const previous = previousRows(query, seoulDayStart(now));
-    const streakCtes = this.streaks.ctes({
-      member: RANKING_MEMBER,
-      order: RANKING_ORDER,
-      query,
-      now,
-    });
+    const asOf = Prisma.sql`LEAST((${now} AT TIME ZONE 'Asia/Seoul')::date,
+      make_date(${query.currentYear ?? null}::int, 12, 31))`;
     const [rows, total] = await Promise.all([
       this.prisma.$queryRaw<RankedPageRow[]>`
-        WITH current_folded AS (${foldedActivity(currentRows(query))}),
+        WITH current_folded AS (${foldedActivity(Prisma.sql`
+          SELECT * FROM ranking_activity_snapshot WHERE current_row ${yearFilter(query)}
+        `)}),
         previous_rows AS (${previous}),
         previous_folded AS (${foldedActivity(Prisma.sql`SELECT * FROM previous_rows`)}),
         current_ranked AS (${rankedMembers(Prisma.sql`current_folded`)}),
-        previous_ranked AS (${rankedMembers(Prisma.sql`previous_folded`)}),
-        ${streakCtes}
+        previous_ranked AS (${rankedMembers(Prisma.sql`previous_folded`)})
         SELECT
           current_ranked.github_id AS "githubId",
           current_ranked.login AS "githubLogin",
@@ -327,16 +325,19 @@ export class RankingRepository {
           CASE WHEN current_ranked.rank <= 10 THEN
             CASE WHEN ranking_streaks.github_id IS NULL THEN NULL ELSE
               jsonb_build_object(
-                'rankHeldSince', ranking_streaks.rank_held_since,
-                'top10Since', ranking_streaks.top_ten_since,
-                'rankHeldDays', ranking_streaks.rank_held_days,
-                'top10Days', ranking_streaks.top_ten_days
+                'rankHeldSince', to_char(ranking_streaks.rank_held_since, 'YYYY-MM-DD'),
+                'top10Since', to_char(ranking_streaks.top_ten_since, 'YYYY-MM-DD'),
+                'rankHeldDays', ${asOf} - ranking_streaks.rank_held_since + 1,
+                'top10Days', ${asOf} - ranking_streaks.top_ten_since + 1
               )
             END
           END AS streak
         FROM current_ranked
         LEFT JOIN previous_ranked USING (github_id)
-        LEFT JOIN ranking_streaks USING (github_id)
+        LEFT JOIN ranking_streak_snapshot AS ranking_streaks
+          ON ranking_streaks.period = ${query.currentYear ?? 0}
+          AND ranking_streaks.github_id = current_ranked.github_id
+          AND ranking_streaks.rank = current_ranked.rank
         WHERE current_ranked.rank > ${window.offset}
           AND current_ranked.rank <= ${window.offset + window.limit}
         ORDER BY current_ranked.rank
@@ -350,11 +351,11 @@ export class RankingRepository {
   async findTimelineSeries(
     year: number,
     lastMonth: number,
-    viewerLogin: string | null,
+    viewerGithubId: bigint | null,
   ): Promise<RankingTimelineRows> {
     const selected = await this.prisma.$queryRaw<RankingTimelineSelectedRow[]>`
       SELECT github_id AS "githubId", login AS "githubLogin", rank, total
-      FROM (${timelineCohort({ currentYear: year }, viewerLogin)}) AS selected
+      FROM (${timelineCohort({ currentYear: year }, viewerGithubId)}) AS selected
       ORDER BY rank
       LIMIT ${TIMELINE_LEADERS + 1}
     `;
@@ -413,11 +414,11 @@ export class RankingRepository {
   }
 
   findAllTimelineSeries(
-    viewer: string | null,
+    viewerGithubId: bigint | null,
   ): Promise<RankingAllTimelineRow[]> {
     return this.allTimeline.readRows({
       member: RANKING_MEMBER,
-      cohort: timelineCohort({}, viewer),
+      cohort: timelineCohort({}, viewerGithubId),
       foldedHistory: foldedActivity(
         Prisma.sql`
           SELECT grid.from_month, changes.*
@@ -458,9 +459,10 @@ export class RankingRepository {
   }
 
   async findDataAsOf(): Promise<Date | null> {
-    return this.contributors.readStandingObservedAt({
-      year: null,
-      visibility: null,
-    });
+    const [row] = await this.prisma.$queryRaw<{ observedAt: Date | null }[]>`
+      SELECT MAX(GREATEST(observed_at, clock_at)) AS "observedAt"
+      FROM ranking_activity_snapshot WHERE current_row LIMIT 1
+    `;
+    return row?.observedAt ?? null;
   }
 }

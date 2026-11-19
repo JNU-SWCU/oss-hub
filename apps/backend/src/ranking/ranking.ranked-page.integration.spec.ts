@@ -1,3 +1,4 @@
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { ActivityVisibility } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -152,6 +153,7 @@ beforeAll(async () => {
   await observe('alpha', PREVIOUS_YEAR, { commitCount: 5 }, now);
   await observe('beta', PREVIOUS_YEAR, { commitCount: 9 }, now);
   await observe('alpha', NO_PREVIOUS_YEAR, { commitCount: 5 }, now);
+  await new CollectionUserActivityRepository(prisma).refreshRankingSnapshots();
 });
 
 afterAll(async () => {

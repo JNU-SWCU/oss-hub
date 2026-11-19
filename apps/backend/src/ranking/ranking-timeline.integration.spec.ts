@@ -1,4 +1,7 @@
 import { AccountStatus, ActivityVisibility } from '@prisma/client';
+import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
@@ -41,13 +44,29 @@ const observe = (
     observedAt: new Date(Date.UTC(YEAR, month - 1, 20)),
   });
 
+const service = new RankingTimelineService(
+  new RankingRepository(prisma),
+  new RankingYearService(),
+);
+const anonymousAuth = {
+  kind: HTTP_AUTH_KINDS.ANONYMOUS,
+  hasSessionCookie: false,
+} as const;
+async function yearlyTimeline(
+  viewer?: string,
+  auth: OptionalSessionRequest['auth'] = anonymousAuth,
+) {
+  const timeline = await service.findTimelineFromRequest(
+    { year: String(YEAR), viewer },
+    auth,
+  );
+  if (timeline.year !== YEAR) throw new Error('Expected the yearly timeline');
+  return timeline;
+}
 const seriesOf = async (member: typeof CLIMBER) =>
-  (
-    await new RankingTimelineService(
-      new RankingRepository(prisma),
-      new RankingYearService(),
-    ).findTimeline(YEAR, null, new Date(Date.UTC(YEAR + 1, 0, 1)))
-  ).series.find((series) => series.githubLogin === member.githubLogin);
+  (await yearlyTimeline()).series.find(
+    (series) => series.githubLogin === member.githubLogin,
+  );
 
 async function purge(members: readonly (typeof CLIMBER)[]): Promise<void> {
   const githubIds = members.map((member) => member.githubId);
@@ -63,7 +82,7 @@ async function createStudents(
   for (const member of members) {
     await prisma.user.create({
       data: {
-        id: member.githubLogin,
+        id: `${PREFIX}-${member.githubId}`,
         githubId: member.githubId,
         nickname: member.githubLogin,
         accountStatus: AccountStatus.ACTIVE,
@@ -98,15 +117,7 @@ it('수집이 달마다 남긴 값으로 순위 변화를 만들고, 같은 달 
   await observe(CLIMBER, 2, 50);
   await observe(LEADER, 2, 40);
 
-  const service = new RankingTimelineService(
-    new RankingRepository(prisma),
-    new RankingYearService(),
-  );
-  const timeline = await service.findTimeline(
-    YEAR,
-    null,
-    new Date(Date.UTC(YEAR + 1, 0, 1)),
-  );
+  const timeline = await yearlyTimeline();
 
   expect(timeline.months).toEqual([1, 2, 12]);
   expect(timeline.series).toEqual([
@@ -156,10 +167,7 @@ it('11월 마지막 관측이 12월 1일(KST) 뒤에 기록되면 12월 값이 �
     ],
   });
 
-  const timeline = await new RankingTimelineService(
-    new RankingRepository(prisma),
-    new RankingYearService(),
-  ).findTimeline(YEAR, null, new Date(Date.UTC(YEAR + 1, 0, 1)));
+  const timeline = await yearlyTimeline();
   const series = timeline.series.find(
     (row) => row.githubLogin === BOUNDARY.githubLogin,
   );
@@ -191,10 +199,7 @@ it('비공개 값만 바뀐 달도 월 값을 남기고, 비공개 이력만 있
     ],
   });
 
-  const timeline = await new RankingTimelineService(
-    new RankingRepository(prisma),
-    new RankingYearService(),
-  ).findTimeline(YEAR, null, new Date(Date.UTC(YEAR + 1, 0, 1)));
+  const timeline = await yearlyTimeline();
   const totalsAt = (member: typeof CLIMBER) => {
     const series = timeline.series.find(
       (row) => row.githubLogin === member.githubLogin,
@@ -207,37 +212,31 @@ it('비공개 값만 바뀐 달도 월 값을 남기고, 비공개 이력만 있
   expect(totalsAt(PRIVATE_ONLY)).toEqual([null, null, null]);
 });
 
-it('returns at most the top ten series plus the viewer', async () => {
+it('adds only the session owner below the top ten even with a higher-ranked namesake', async () => {
+  const viewer = `${PREFIX}-shared`;
   const crowd = Array.from({ length: 13 }, (_, index) => ({
     githubId: 9_117_100n + BigInt(index),
-    githubLogin: `${PREFIX}-crowd-${String(index).padStart(2, '0')}`,
+    githubLogin:
+      index < 2 ? viewer : `${PREFIX}-crowd-${String(index).padStart(2, '0')}`,
   }));
   await createStudents(crowd);
   for (const [index, member] of crowd.entries()) {
     await observe(member, 4, 100 + index);
   }
-  const service = new RankingTimelineService(
-    new RankingRepository(prisma),
-    new RankingYearService(),
-  );
-  const viewer = crowd[0]?.githubLogin ?? '';
-
-  const anonymous = await service.findTimeline(
-    YEAR,
-    null,
-    new Date(Date.UTC(YEAR + 1, 0, 1)),
-  );
-  const withViewer = await service.findTimeline(
-    YEAR,
-    viewer,
-    new Date(Date.UTC(YEAR + 1, 0, 1)),
-  );
+  const anonymous = await yearlyTimeline(viewer);
+  const withViewer = await yearlyTimeline(viewer, {
+    kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+    hasSessionCookie: true,
+    principal: await databaseSessionPrincipal(prisma, 9_117_100n),
+  });
   await purge(crowd);
 
   expect(anonymous.series).toHaveLength(10);
   expect(anonymous.series.map((series) => series.ranks.at(-1))).toEqual([
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
   ]);
-  expect(withViewer.series).toHaveLength(11);
-  expect(withViewer.series.at(-1)?.githubLogin).toBe(viewer);
+  expect(withViewer.series.slice(0, -1)).toEqual(anonymous.series);
+  expect(withViewer.series.at(-1)).toMatchObject({ githubLogin: viewer });
+  expect(withViewer.series.at(-1)?.ranks.at(-1)).toBe(13);
+  expect(withViewer.series.at(-1)?.totals.at(-1)).toBe(100);
 });

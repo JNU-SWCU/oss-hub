@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PROGRAM_MAIL_RECIPIENT_LIMIT } from '../program-mail.config';
 
 class ProgramMailApplicantResponseDto {
   declare readonly id: string;
@@ -42,15 +43,18 @@ class ProgramMailTeamResponseDto {
 export class ProgramMailRecipientsResponseDto {
   declare readonly programId: string;
   declare readonly programName: string;
+  @ApiProperty()
+  declare readonly recipientLimit: number;
   @ApiProperty({ type: () => ProgramMailTeamResponseDto, isArray: true })
   declare readonly teams: readonly ProgramMailTeamResponseDto[];
 
   static from(
-    value: ProgramMailRecipientsResponseDto,
+    value: Omit<ProgramMailRecipientsResponseDto, 'recipientLimit'>,
   ): ProgramMailRecipientsResponseDto {
     return {
       programId: value.programId,
       programName: value.programName,
+      recipientLimit: PROGRAM_MAIL_RECIPIENT_LIMIT,
       teams: value.teams.map((team) => ProgramMailTeamResponseDto.from(team)),
     };
   }
