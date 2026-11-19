@@ -7,7 +7,7 @@ import type { MatrixCell, SubmissionMatrixPage } from '../types';
 import { MatrixBody } from './submission-matrix-body';
 import { SubmissionStatusFilters } from './submission-matrix-controls';
 
-const SECTION_BODY = 'flex min-w-0 flex-col gap-5';
+const SECTION_BODY = 'flex min-w-0 flex-col gap-4';
 
 export interface SubmissionMatrixViewProps {
   readonly programId: string;
@@ -32,21 +32,31 @@ export interface SubmissionMatrixViewProps {
 
 export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
   return (
-    <PageBody>
+    <PageBody className="gap-5 px-4 sm:gap-6 sm:px-12 sm:pt-8">
       <PageHeader title="서류 현황" actions={props.headerActions} />
       <div className={SECTION_BODY}>
-        <TeamSearchForm
-          inputId="matrix-search"
-          search={props.search}
-          resettable={
-            props.search.trim() !== '' ||
-            props.filterActive ||
-            props.status !== undefined
-          }
-          onSearchChange={props.onSearchChange}
-          onSearch={props.onSearch}
-          onReset={props.onResetFilters}
-        />
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          {props.data?.milestones.length !== 0 ? (
+            <SubmissionStatusFilters
+              status={props.status}
+              counts={props.data?.statusCounts}
+              onStatusChange={props.onStatusChange}
+            />
+          ) : null}
+          <TeamSearchForm
+            compact
+            inputId="matrix-search"
+            search={props.search}
+            resettable={
+              props.search.trim() !== '' ||
+              props.filterActive ||
+              props.status !== undefined
+            }
+            onSearchChange={props.onSearchChange}
+            onSearch={props.onSearch}
+            onReset={props.onResetFilters}
+          />
+        </div>
         {props.errorMessage !== null ? (
           <Alert variant="destructive">
             <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -61,13 +71,6 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
               </Button>
             </AlertDescription>
           </Alert>
-        ) : null}
-        {props.data?.milestones.length !== 0 ? (
-          <SubmissionStatusFilters
-            status={props.status}
-            counts={props.data?.statusCounts}
-            onStatusChange={props.onStatusChange}
-          />
         ) : null}
         <MatrixBody {...props} />
       </div>

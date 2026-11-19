@@ -144,12 +144,13 @@ function render(
 }
 
 describe('RequirementCollectionView 머리말', () => {
-  it('제목에 마일스톤 이름을, 부제에 마감 시각을 적는다', () => {
+  it('서류 현황 제목을 유지하고 마일스톤 이름과 마감을 아래에 표시한다', () => {
     const html = render({
       data: collection([document('d1')], [row('a', [missingCell('d1')])]),
     });
 
-    expect(html).toContain('서류 수합 — 기획서 제출');
+    expect(html).toMatch(/<h1[^>]*>서류 현황<\/h1>/);
+    expect(html).toMatch(/<h2[^>]*>기획서 제출<\/h2>/);
     expect(html).toContain('2026년 7월 15일');
     expect(html).toContain('마감');
   });
@@ -442,7 +443,9 @@ describe('RequirementCollectionView 표', () => {
 
     expect(html).toMatch(/전체[^<]*<span[^>]*>25<\/span>/);
     expect(html).toMatch(/미제출[^<]*<span[^>]*>12<\/span>/);
-    expect(html).toContain('서류 2종');
+    expect(html).toMatch(/<h2[^>]*>기획서 제출<\/h2>/);
+    expect(html).toMatch(/<time[^>]*>7\.15 \(수\) 마감<\/time>/);
+    expect(html.match(/서류별 내려받기\(ZIP\)"/g)).toHaveLength(2);
     expect(html).not.toContain('서류별 요약');
   });
 
@@ -535,8 +538,11 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
   it('기본은 팀 기준으로 묶은 ZIP 링크를 건다', () => {
     const html = render({ data: collection(documents, rows) });
 
-    expect(html).toContain('마일스톤 전체 내려받기(ZIP)');
-    expect(html).toContain(TEAM_HREF);
+    const [disclosure] = /<details[^>]*>[\s\S]*?<\/details>/.exec(html) ?? [];
+    expect(disclosure).toMatch(/^<details(?![^>]*\sopen(?:[\s=>]))/);
+    expect(disclosure).toMatch(/<summary[^>]*>[\s\S]*?ZIP 내려받기/);
+    expect(disclosure).toContain('마일스톤 전체 내려받기(ZIP)');
+    expect(disclosure).toContain(TEAM_HREF);
 
     const [archiveLink] = /<a[^>]*archive\?groupBy=TEAM[^>]*>/.exec(html) ?? [];
     expect(archiveLink).toBeDefined();

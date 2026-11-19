@@ -129,10 +129,10 @@ export function SubmissionStatusLegend(): ReactElement {
   return (
     <ul
       aria-label="제출 상태 범례"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-small"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small sm:gap-x-4"
     >
       {STATUSES.map((status) => (
-        <li key={status}>
+        <li key={status} className="[&>span]:gap-1">
           <SubmissionStatusMark status={status} />
         </li>
       ))}

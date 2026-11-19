@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactElement } from 'react';
+import { DeadlineDate, formatDeadlineDate } from '@/components/deadline-date';
 import {
   Tooltip,
   TooltipContent,
@@ -28,35 +29,6 @@ const STATUS_MARKS = {
   MatrixCell['status'],
   { icon: typeof CircleCheck; tone: string }
 >;
-
-const DEADLINE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: 'Asia/Seoul',
-  month: 'numeric',
-  day: 'numeric',
-  weekday: 'short',
-});
-
-function deadlineLabel(dueAt: string): string {
-  const parts = DEADLINE_FORMAT.formatToParts(new Date(dueAt));
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value;
-  return `${part('month')}.${part('day')} (${part('weekday')}) 마감`;
-}
-
-export function SubmissionDeadline({
-  dueAt,
-}: {
-  readonly dueAt: string;
-}): ReactElement {
-  return (
-    <time
-      dateTime={dueAt}
-      className="text-small font-normal text-muted-foreground"
-    >
-      {deadlineLabel(dueAt)}
-    </time>
-  );
-}
 
 export function SubmissionStatusMark({
   status,
@@ -104,10 +76,10 @@ export function SubmissionStatusMark({
           </span>
         </TooltipTrigger>
         <TooltipContent>
-          {deadlineLabel(dueAt)} · {elapsedDays}일 지남
+          {formatDeadlineDate(dueAt)} · {elapsedDays}일 지남
         </TooltipContent>
       </Tooltip>
-      {showOverdueDate ? <SubmissionDeadline dueAt={dueAt} /> : null}
+      {showOverdueDate ? <DeadlineDate dueAt={dueAt} /> : null}
     </span>
   );
 }
@@ -163,7 +135,7 @@ export function MatrixCellContent({
       ) : (
         mark
       )}
-      <SubmissionDeadline dueAt={milestone.dueAt} />
+      <DeadlineDate dueAt={milestone.dueAt} />
       {showSubmission && cell.submittedAt !== null ? (
         <time
           dateTime={cell.submittedAt}

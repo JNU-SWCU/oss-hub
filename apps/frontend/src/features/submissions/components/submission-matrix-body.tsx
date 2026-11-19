@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { EmptyState } from '@/components';
+import { DeadlineDate } from '@/components/deadline-date';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -30,7 +31,6 @@ import type { MatrixCell, MatrixMilestone, MatrixRow } from '../types';
 import {
   hasMatrixSubmissionStatus,
   MatrixCellContent,
-  SubmissionDeadline,
   SubmissionStatusMark,
 } from './submission-matrix-cell';
 import {
@@ -166,7 +166,7 @@ function MatrixOverviewTable({
                   <span className="text-table text-foreground">
                     {milestone.name}
                   </span>
-                  <SubmissionDeadline dueAt={milestone.dueAt} />
+                  <DeadlineDate dueAt={milestone.dueAt} />
                 </span>
               </SubmissionSortHeader>
             ))}

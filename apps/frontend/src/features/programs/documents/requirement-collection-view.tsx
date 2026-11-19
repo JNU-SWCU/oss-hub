@@ -1,10 +1,13 @@
+import { ChevronDown, Download } from 'lucide-react';
 import Link from 'next/link';
 import type { ComponentType, ReactNode } from 'react';
 import { EmptyState, PageBody, PageHeader, TeamSearchForm } from '@/components';
+import { DeadlineDate } from '@/components/deadline-date';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { programEditHref } from '@/lib/program-route';
+import { cn } from '@/lib/utils';
 import {
   isCollectionProgramMismatch,
   requirementCollectionPageState,
@@ -289,11 +292,14 @@ function CollectionBody(props: RequirementCollectionViewProps) {
         counts={data.statusCounts}
         onStatusChange={props.onStatusChange}
       />
-      <CollectionArchiveControls
-        data={data}
-        archiveGrouping={props.archiveGrouping}
-        onArchiveGroupingChange={props.onArchiveGroupingChange}
-      />
+      <div className="flex flex-col gap-1">
+        <h2 className="font-heading text-xl font-bold tracking-tight break-keep">
+          {milestone.name}
+        </h2>
+        <span title={`${formatSeoulDate(milestone.dueAt)} 마감`}>
+          <DeadlineDate dueAt={milestone.dueAt} />
+        </span>
+      </div>
       {filterCounts.all === 0 && props.searchQuery === '' ? (
         <EmptyState
           title="아직 승인된 신청이 없습니다"
@@ -398,30 +404,55 @@ export function RequirementCollectionView(
   props: RequirementCollectionViewProps,
 ) {
   const data = props.data;
-  const showMilestone =
+  const showArchive =
     data !== null &&
+    data.documents.length > 0 &&
+    props.loadPhase !== 'skeleton' &&
     !isCollectionProgramMismatch({
       programId: props.programId,
       milestoneProgramId: data.milestone.programId,
     });
   return (
-    <PageBody>
+    <PageBody className="gap-4 px-4 sm:gap-6 sm:px-12 sm:pt-8">
       <PageHeader
-        title={
-          showMilestone ? `서류 수합 — ${data.milestone.name}` : '서류 수합'
-        }
-        actions={props.headerActions}
-        description={
-          showMilestone ? (
-            <span className="break-keep">
-              {formatSeoulDate(data.milestone.dueAt)} 마감 · 서류{' '}
-              {data.documents.length}종
-            </span>
-          ) : undefined
+        title="서류 현황"
+        className="gap-3"
+        actions={
+          showArchive ? (
+            <>
+              {props.headerActions}
+              <details className="group min-w-0 open:basis-full">
+                <summary
+                  className={cn(
+                    'inline-flex h-control cursor-pointer list-none items-center gap-1.5 rounded-control border border-border',
+                    'bg-background px-3 text-small font-medium hover:bg-muted',
+                    'focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden',
+                  )}
+                >
+                  <Download aria-hidden="true" className="size-4" />
+                  ZIP 내려받기
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="size-3.5 group-open:rotate-180"
+                  />
+                </summary>
+                <div className="mt-2 rounded-card border border-border p-3">
+                  <CollectionArchiveControls
+                    data={data}
+                    archiveGrouping={props.archiveGrouping}
+                    onArchiveGroupingChange={props.onArchiveGroupingChange}
+                  />
+                </div>
+              </details>
+            </>
+          ) : (
+            props.headerActions
+          )
         }
       />
-      <div className="flex min-w-0 flex-col gap-8">
+      <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
         <TeamSearchForm
+          compact
           inputId="collection-search"
           search={props.search}
           resettable={
