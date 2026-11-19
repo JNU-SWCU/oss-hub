@@ -5086,6 +5086,34 @@
                 "ended"
               ]
             }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Required when direction is provided.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "deadline",
+                "submission",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "Required when sort is provided.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
           }
         ],
         "responses": {
@@ -7269,8 +7297,8 @@
           "type": {
             "type": "string",
             "enum": [
-              "auto",
               "text",
+              "auto",
               "textarea"
             ]
           },
@@ -10318,8 +10346,8 @@
           "applicationMode": {
             "type": "string",
             "enum": [
-              "TEAM",
-              "PERSONAL"
+              "PERSONAL",
+              "TEAM"
             ]
           },
           "displayName": {
@@ -10490,8 +10518,8 @@
               },
               "applicationMode": {
                 "enum": [
-                  "TEAM",
-                  "PERSONAL"
+                  "PERSONAL",
+                  "TEAM"
                 ],
                 "type": "string"
               },
@@ -12570,8 +12598,8 @@
           "applicationMode": {
             "type": "string",
             "enum": [
-              "TEAM",
-              "PERSONAL"
+              "PERSONAL",
+              "TEAM"
             ]
           }
         },
@@ -12901,6 +12929,39 @@
           "rejected"
         ]
       },
+      "StaffDashboardMilestoneSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string"
+          },
+          "submittedTeams": {
+            "type": "number",
+            "nullable": true
+          },
+          "totalTeams": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "startAt",
+          "dueAt",
+          "submittedTeams",
+          "totalTeams"
+        ]
+      },
       "StaffDashboardProgramSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -12948,6 +13009,12 @@
           },
           "submissions": {
             "$ref": "#/components/schemas/StaffDashboardSubmissionSummaryResponseDto"
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffDashboardMilestoneSummaryResponseDto"
+            }
           }
         },
         "required": [
@@ -12959,7 +13026,8 @@
           "endAt",
           "applications",
           "activity",
-          "submissions"
+          "submissions",
+          "milestones"
         ]
       },
       "StaffDashboardStatusSummaryResponseDto": {

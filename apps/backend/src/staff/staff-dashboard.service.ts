@@ -4,7 +4,10 @@ import {
   type ProgramActivitySummary,
 } from '../programs/program-activity-summary.service';
 import { SubmissionDashboardSummaryService } from '../programs/submission-matrix.service';
-import type { SubmissionDashboardProgramSummary } from '../programs/submissions.repository';
+import type {
+  SubmissionDashboardMilestoneSummary,
+  SubmissionDashboardProgramSummary,
+} from '../programs/submissions.repository';
 import { TeamApplicationService } from '../programs/team-application.service';
 import type {
   StaffDashboardProgramSummary,
@@ -36,6 +39,7 @@ export type StaffDashboardComposedProgramSummary =
   StaffDashboardProgramSummary & {
     readonly activity: StaffDashboardActivitySummary;
     readonly submissions: StaffDashboardSubmissionSummary;
+    readonly milestones: readonly SubmissionDashboardMilestoneSummary[];
     readonly coverImageUrl: string | null;
   };
 
@@ -83,16 +87,20 @@ export class StaffDashboardService {
 
     return {
       ...base,
-      programs: base.programs.map((program) => ({
-        ...program,
-        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
-          program.id,
-          program.coverId,
-          program.coverExternalImageUrl,
-        ),
-        activity: activityFrom(activityByProgram.get(program.id)),
-        submissions: submissionsFrom(submissionsByProgram.get(program.id)),
-      })),
+      programs: base.programs.map((program) => {
+        const submissionSummary = submissionsByProgram.get(program.id);
+        return {
+          ...program,
+          coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
+            program.id,
+            program.coverId,
+            program.coverExternalImageUrl,
+          ),
+          activity: activityFrom(activityByProgram.get(program.id)),
+          submissions: submissionsFrom(submissionSummary),
+          milestones: submissionSummary?.milestoneSummaries ?? [],
+        };
+      }),
     };
   }
 }
