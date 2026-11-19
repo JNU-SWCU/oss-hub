@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   FilesRepository,
@@ -84,17 +84,22 @@ export class FileCleanupService {
       DEFAULT_BATCH_SIZE,
     );
     let claimedCount = 0;
-    await this.sequential.repeat(limit, async () => {
+    for await (const claim of this.sequential.items(
+      Array.from(
+        { length: limit },
+        () => (claimedAt: Date) =>
+          this.files.claimNextForDeletion({
+            now: claimedAt,
+            leaseExpiresAt: new Date(claimedAt.getTime() + DELETE_LEASE_MS),
+          }),
+      ),
+    )) {
       const claimedAt = this.now();
-      const file = await this.files.claimNextForDeletion({
-        now: claimedAt,
-        leaseExpiresAt: new Date(claimedAt.getTime() + DELETE_LEASE_MS),
-      });
-      if (file === null) return 'stop';
+      const file = await claim(claimedAt);
+      if (file === null) break;
       await this.deleteClaimed(file);
       claimedCount += 1;
-      return undefined;
-    });
+    }
     return claimedCount;
   }
 
@@ -253,14 +258,14 @@ export class StorageOrphanReconciliationService {
     const skippedReferencedKeys: string[] = [];
     if (options.mode === 'delete') {
       await options.onDeletePlan?.(orphanKeys);
-      await this.sequential.forEach(orphanKeys, async (key) => {
+      for await (const key of this.sequential.items(orphanKeys)) {
         if (await this.references.isLiveKey(key)) {
           skippedReferencedKeys.push(key);
-          return;
+          continue;
         }
         await this.storage.delete(key);
         deletedKeys.push(key);
-      });
+      }
     }
 
     return {

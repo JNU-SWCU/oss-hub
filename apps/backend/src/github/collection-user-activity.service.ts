@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable, Logger } from '@nestjs/common';
+import { SequentialRepository } from '../platform/sequential.repository';
 
 import { CollectionDiscoveryClient } from './collection-discovery.client';
 import {
@@ -149,13 +149,13 @@ export class CollectionUserActivityService {
         return true;
       }
     };
-    await this.sequential.forEach(users, async (user) => {
+    for await (const user of this.sequential.items(users)) {
       let userFailed = false;
-      await this.sequential.forEach(targetYears, async (year) => {
+      for await (const year of this.sequential.items(targetYears)) {
         if (await observeYear(user, year)) userFailed = true;
-      });
+      }
       if (userFailed) failedUserCount += 1;
-    });
+    }
 
     return {
       observedUserCount: users.length,

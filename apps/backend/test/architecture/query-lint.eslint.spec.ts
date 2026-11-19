@@ -91,6 +91,16 @@ const cases: { code: string; file: string; ruleIds: string[] }[] = [
     ruleIds: ['no-await-in-loop'],
   },
   {
+    code: 'function run(jobs) { return jobs.reduce(async (pending, job) => { await pending; await job(); }, Promise.resolve()); }',
+    file: 'src/sample.service.ts',
+    ruleIds: ['sequential/no-async-reduce'],
+  },
+  {
+    code: 'async function run(jobs, index = 0) { if (index >= jobs.length) return; await jobs[index](); return run(jobs, index + 1); }',
+    file: 'src/sample.service.ts',
+    ruleIds: ['sequential/no-counter-recursion'],
+  },
+  {
     code: 'class A { list() { return this.prisma.user.findMany(); } }',
     file: 'src/sample.repository.spec.ts',
     ruleIds: [],

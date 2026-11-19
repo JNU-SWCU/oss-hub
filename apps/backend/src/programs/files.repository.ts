@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
+import { SequentialRepository } from '../platform/sequential.repository';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { FileLifecycle, Prisma, AccountStatus } from '@prisma/client';
@@ -290,42 +290,41 @@ export class ProgramAuthoringUploadTransactionRepository {
     actorId: string,
     consumptions: readonly ProgramAuthoringPendingUploadConsumption[],
   ) {
-    await this.sequential.forEach(
+    for await (const { requirementId, upload } of this.sequential.items(
       [...consumptions].sort((left, right) =>
         left.upload.id.localeCompare(right.upload.id),
       ),
-      async ({ requirementId, upload }) => {
-        await transaction.file.updateMany({
-          where: {
-            kind: 'TEMPLATE',
-            requirementId: requirementId,
-            lifecycle: 'ATTACHED',
-          },
-          data: {
-            lifecycle: 'DELETE_PENDING',
-            nextDeleteAttemptAt: new Date(),
-          },
-        });
-        const attached = await transaction.file.updateMany({
-          where: {
-            id: upload.id,
-            uploaderId: actorId,
-            kind: 'UPLOAD',
-            lifecycle: 'PENDING',
-          },
-          data: {
-            kind: 'TEMPLATE',
-            lifecycle: 'ATTACHED',
-            requirementId: requirementId,
-            pendingExpiresAt: null,
-            attachedAt: new Date(),
-          },
-        });
-        if (attached.count !== 1) {
-          throw new ProgramAuthoringUploadConsumptionRaceError(upload.id);
-        }
-      },
-    );
+    )) {
+      await transaction.file.updateMany({
+        where: {
+          kind: 'TEMPLATE',
+          requirementId: requirementId,
+          lifecycle: 'ATTACHED',
+        },
+        data: {
+          lifecycle: 'DELETE_PENDING',
+          nextDeleteAttemptAt: new Date(),
+        },
+      });
+      const attached = await transaction.file.updateMany({
+        where: {
+          id: upload.id,
+          uploaderId: actorId,
+          kind: 'UPLOAD',
+          lifecycle: 'PENDING',
+        },
+        data: {
+          kind: 'TEMPLATE',
+          lifecycle: 'ATTACHED',
+          requirementId: requirementId,
+          pendingExpiresAt: null,
+          attachedAt: new Date(),
+        },
+      });
+      if (attached.count !== 1) {
+        throw new ProgramAuthoringUploadConsumptionRaceError(upload.id);
+      }
+    }
   }
 }
 
