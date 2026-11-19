@@ -165,11 +165,13 @@ describe('ProgramMailDialog', () => {
       result?.querySelector<HTMLDataElement>('[data-slot="alert-title"] data')
         ?.value,
     ).toBe('1');
-    expect(
-      result?.querySelector<HTMLDataElement>(
-        '[data-slot="alert-description"] data',
-      )?.value,
-    ).toBe('2');
+    const description = result?.querySelector(
+      '[data-slot="alert-description"]',
+    );
+    expect(description?.textContent?.match(/\d+/g)).toEqual(['0', '0', '2']);
+    expect(description?.querySelector<HTMLDataElement>('data')?.value).toBe(
+      '2',
+    );
     expect(button('닫기').disabled).toBe(false);
     expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
   });
