@@ -24,6 +24,7 @@ import { ProgramMailDeliveryRepository } from './program-mail-delivery.repositor
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailRepository } from './program-mail.repository';
+import { ProgramMailJobRepository } from './program-mail-job.repository';
 import { ProgramMailSendRepository } from './program-mail-send.repository';
 import { ProgramMailService } from './program-mail.service';
 import { ProgramMailTemplateService } from './program-mail-template.service';
@@ -49,6 +50,7 @@ import { ProgramMailWorkerService } from './program-mail-worker.service';
     ProgramMailBatchPayloadRepository,
     ProgramMailBatchRepository,
     ProgramMailRepository,
+    ProgramMailJobRepository,
     ProgramMailKeyRepository,
     ProgramMailDeliveryRepository,
     ProgramMailSendRepository,

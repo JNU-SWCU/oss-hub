@@ -126,6 +126,8 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/programs/:programId/board/posts/:postId',
   'PROTECTED GET /api/v1/programs/:programId/documents/change-requests/targets',
   'PROTECTED GET /api/v1/programs/:programId/documents/collection/archive',
+  'PROTECTED GET /api/v1/programs/:programId/mail/jobs',
+  'PROTECTED GET /api/v1/programs/:programId/mail/jobs/:jobId',
   'PROTECTED GET /api/v1/programs/:programId/mail/recipients',
   'PROTECTED GET /api/v1/programs/:programId/overview',
   'PROTECTED GET /api/v1/programs/:programId/overview/teams',

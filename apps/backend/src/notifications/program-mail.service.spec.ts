@@ -55,6 +55,7 @@ function harness() {
     send: jest.fn().mockResolvedValue({
       kind: 'COMPLETED',
       batchKey: 'program-mail-send:preview',
+      jobId: 'opaque-job',
       result: {
         sentCount: 1,
         duplicateCount: 0,
@@ -66,7 +67,10 @@ function harness() {
   return {
     repository,
     delivery,
-    service: new ProgramMailService(repository, delivery),
+    service: new ProgramMailService(repository, delivery, {
+      recent: jest.fn(),
+      status: jest.fn(),
+    }),
   };
 }
 
