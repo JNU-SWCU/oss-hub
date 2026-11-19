@@ -73,6 +73,69 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
   expect(page.nextCycleAt).toBeNull();
 });
 
+test('TOP 10 항목의 선택적 연속 기록을 파싱한다', () => {
+  const base = rankingPage(2026);
+  const page = parseRankingPage({
+    ...base,
+    items: [
+      {
+        ...base.items[0],
+        streak: {
+          rankHeldSince: '2025-10-15',
+          top10Since: '2025-09-01',
+          rankHeldDays: 400,
+          top10Days: 444,
+        },
+      },
+    ],
+  });
+
+  expect(page.items[0]).toHaveProperty('streak', {
+    rankHeldSince: '2025-10-15',
+    top10Since: '2025-09-01',
+    rankHeldDays: 400,
+    top10Days: 444,
+  });
+});
+
+test('11위 이하의 연속 기록과 잘못된 날짜 형식을 거부한다', () => {
+  const base = rankingPage(2026);
+
+  expect(() =>
+    parseRankingPage({
+      ...base,
+      items: [
+        {
+          ...base.items[0],
+          rank: 11,
+          streak: {
+            rankHeldSince: '2025-10-15',
+            top10Since: '2025-09-01',
+            rankHeldDays: 1,
+            top10Days: 1,
+          },
+        },
+      ],
+    }),
+  ).toThrow(RankingResponseError);
+  expect(() =>
+    parseRankingPage({
+      ...base,
+      items: [
+        {
+          ...base.items[0],
+          streak: {
+            rankHeldSince: '15-10-2025',
+            top10Since: '2025-09-01',
+            rankHeldDays: 1,
+            top10Days: 1,
+          },
+        },
+      ],
+    }),
+  ).toThrow(RankingResponseError);
+});
+
 test('구식 응답의 notice·period 같은 잔여 필드도 그냥 무시한다', () => {
   const page = parseRankingPage({
     ...rankingPage(2026),

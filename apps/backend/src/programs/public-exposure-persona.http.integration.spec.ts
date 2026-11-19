@@ -369,6 +369,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       'total',
     ];
 
+    const metricItemKeysWithStreak = [...metricItemKeys, 'streak'].sort();
     const staffItemKeys = [
       'commitCount',
       'department',
@@ -382,6 +383,33 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       'starCount',
       'total',
     ].sort();
+    const staffItemKeysWithStreak = [...staffItemKeys, 'streak'].sort();
+    const streakKeys = [
+      'rankHeldDays',
+      'rankHeldSince',
+      'top10Days',
+      'top10Since',
+    ];
+    const expectStreakContract = (item: Record<string, unknown>) => {
+      const rank = item.rank as number;
+      if (rank > 10) {
+        expect(item).not.toHaveProperty('streak');
+        return;
+      }
+      expect(item).toHaveProperty('streak');
+      if (item.streak === null) return;
+      expect(item.streak).toEqual(expect.any(Object));
+      const streak = item.streak as Record<string, unknown>;
+      expect(Object.keys(streak).sort()).toEqual(streakKeys);
+      expect(streak.rankHeldSince).toEqual(
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      );
+      expect(streak.top10Since).toEqual(
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      );
+      expect(streak.rankHeldDays).toEqual(expect.any(Number));
+      expect(streak.top10Days).toEqual(expect.any(Number));
+    };
     for (const githubId of personas) {
       const [list, detail, profile, ranking] = await Promise.all([
         harness.request('GET', '/projects', githubId),
@@ -452,7 +480,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     for (const items of publicClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
-        expect(Object.keys(item).sort()).toEqual(metricItemKeys);
+        expect(Object.keys(item).sort()).toEqual(
+          (item.rank as number) <= 10
+            ? metricItemKeysWithStreak
+            : metricItemKeys,
+        );
+        expectStreakContract(item);
         expect(item).not.toHaveProperty('name');
         expect(item).not.toHaveProperty('department');
         expect(item).not.toHaveProperty('displayName');
@@ -468,7 +501,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     for (const items of memberClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
-        expect(Object.keys(item).sort()).toEqual(metricItemKeys);
+        expect(Object.keys(item).sort()).toEqual(
+          (item.rank as number) <= 10
+            ? metricItemKeysWithStreak
+            : metricItemKeys,
+        );
+        expectStreakContract(item);
 
         expect(item).not.toHaveProperty('name');
         expect(item).not.toHaveProperty('department');
@@ -485,7 +523,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     for (const items of staffClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
-        expect(Object.keys(item).sort()).toEqual(staffItemKeys);
+        expect(Object.keys(item).sort()).toEqual(
+          (item.rank as number) <= 10 ? staffItemKeysWithStreak : staffItemKeys,
+        );
+        expectStreakContract(item);
         expect(item).toHaveProperty('name');
         expect(item.total).toBe(
           (item.commitCount as number) +
