@@ -62,7 +62,9 @@ export class RankingStreakRepository {
       WHERE ${input.member} ${yearFilter} ${historyFilter}
     ),
     streak_events AS (
-      SELECT DISTINCT observed_at AS event_at FROM streak_activity_history
+      SELECT MAX(observed_at) AS event_at
+      FROM streak_activity_history
+      GROUP BY (observed_at AT TIME ZONE 'Asia/Seoul')::date
     ),
     streak_changes AS (
       SELECT streak_activity_history.*,
