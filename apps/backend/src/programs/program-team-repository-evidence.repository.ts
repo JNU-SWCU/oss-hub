@@ -47,6 +47,7 @@ export type TeamActivityRow = Omit<
   readonly repository: {
     readonly id: string;
     readonly nameWithOwner: string;
+    readonly defaultBranch: string | null;
   } | null;
 };
 
@@ -68,7 +69,11 @@ interface TeamActivityCounts {
 
 export interface TeamActivityView {
   readonly teamId: string | null;
-  readonly repository: { readonly id: string; readonly url: string } | null;
+  readonly repository: {
+    readonly id: string;
+    readonly url: string;
+    readonly defaultBranch: string | null;
+  } | null;
   readonly status: 'NOT_CONNECTED' | 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR';
   readonly lastSuccessAt: string | null;
   readonly window: ActivityWindow;
@@ -207,21 +212,15 @@ export class ProgramTeamRepositoryEvidenceRepository {
     return { rows: rows.slice(0, 20), hasMore: rows.length > 20 };
   }
 
-  private async lastSuccessAt(repository: {
-    readonly githubRepositoryId: bigint;
-  }): Promise<Date | null> {
-    const ledger = await this.prisma.repo.findUnique({
-      where: { githubRepoId: repository.githubRepositoryId },
-      select: { lastSuccessAt: true },
-    });
-    return ledger?.lastSuccessAt ?? null;
-  }
-
   async activity(team: TeamActivityScope, now: Date): Promise<TeamActivityRow> {
     const repository = team.application?.repository ?? null;
-    const lastSuccessAt = repository
-      ? await this.lastSuccessAt(repository)
+    const ledger = repository
+      ? await this.prisma.repo.findUnique({
+          where: { githubRepoId: repository.githubRepositoryId },
+          select: { lastSuccessAt: true, defaultBranch: true },
+        })
       : null;
+    const lastSuccessAt = ledger?.lastSuccessAt ?? null;
     const window = programWindow(team.program);
     const memberGithubIds = team.members.map((member) => member.user.githubId);
     const bounds = windowDates(window);
@@ -265,6 +264,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
       repository: repository && {
         id: repository.githubRepositoryId.toString(),
         nameWithOwner: repository.nameWithOwner,
+        defaultBranch: ledger?.defaultBranch ?? null,
       },
       status: repository
         ? collectionStatus(lastSuccessAt, now)

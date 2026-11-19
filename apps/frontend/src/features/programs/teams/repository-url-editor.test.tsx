@@ -58,16 +58,29 @@ describe('RepositoryUrlEditor', () => {
       ),
     );
   }
-  function button(label: string): HTMLButtonElement {
-    const found = Array.from(document.body.querySelectorAll('button')).find(
+  function repositoryCard(): HTMLElement {
+    const found = container.querySelector<HTMLElement>(
+      'section[aria-label="프로젝트 저장소"]',
+    );
+    if (!found) throw new Error('Missing repository region');
+    return found;
+  }
+  function discardDialog(): HTMLElement {
+    const found = document.querySelector<HTMLElement>('[role="alertdialog"]');
+    if (!found) throw new Error('Missing discard dialog');
+    return found;
+  }
+  function button(label: string, scope = repositoryCard()): HTMLButtonElement {
+    const found = Array.from(scope.querySelectorAll('button')).find(
       (element) =>
-        (element.getAttribute('aria-label') ?? element.textContent) === label,
+        (element.getAttribute('aria-label') ?? element.textContent?.trim()) ===
+        label,
     );
     if (!found) throw new Error(`Missing button ${label}`);
     return found;
   }
-  async function click(label: string) {
-    await act(async () => button(label).click());
+  async function click(label: string, scope?: HTMLElement) {
+    await act(async () => button(label, scope).click());
   }
   async function fill(value: string) {
     const input = container.querySelector<HTMLInputElement>('#repository-url');
@@ -97,7 +110,8 @@ describe('RepositoryUrlEditor', () => {
 
   it('makes no mutation when the editor is cancelled', async () => {
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
+    expect(button('취소').textContent?.trim()).toBe('취소');
     await click('취소');
     expect(save).not.toHaveBeenCalled();
     expect(container.querySelector('form')).toBeNull();
@@ -105,30 +119,25 @@ describe('RepositoryUrlEditor', () => {
   it('preserves a dirty URL until discard is confirmed', async () => {
     const value = 'https://github.com/synthetic/replacement';
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill(value);
     await click('취소');
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    await click('이어서 수정하기');
+    await click('이어서 수정하기', discardDialog());
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(input()?.value).toBe(value);
     await click('취소');
-    await click('변경사항 버리기');
+    await click('변경사항 버리기', discardDialog());
     expect(container.querySelector('form')).toBeNull();
     expect(save).not.toHaveBeenCalled();
-    await click('저장소 URL 수정');
+    await click('변경');
     expect(input()?.value).toBe(initial.repositoryUrl);
   });
   it('puts keep-editing before the destructive discard in the confirmation footer', async () => {
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill('https://github.com/synthetic/replacement');
     await click('취소');
-    const buttons = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[role="alertdialog"] [data-slot="button"]',
-      ),
-    );
+    const buttons = Array.from(discardDialog().querySelectorAll('button'));
     expect(buttons.map((item) => item.textContent)).toEqual([
       '이어서 수정하기',
       '변경사항 버리기',
@@ -145,7 +154,7 @@ describe('RepositoryUrlEditor', () => {
     };
     save.mockResolvedValue(replacement);
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     expect(container.querySelector('form [role="alert"]')).toBeNull();
     expect(container.querySelector('textarea')).toBeNull();
     await fill(replacement.repositoryUrl);
@@ -161,7 +170,7 @@ describe('RepositoryUrlEditor', () => {
   it('retains the URL and retry path when the server rejects the change', async () => {
     save.mockRejectedValue(rejected());
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill('https://github.com/synthetic/replacement');
     await submit();
     expect(input()?.value).toBe('https://github.com/synthetic/replacement');
@@ -181,7 +190,7 @@ describe('RepositoryUrlEditor', () => {
   });
   it('disables editing and says who may edit when the server denies it', async () => {
     await render({ ...initial, canEditRepositoryUrl: false });
-    const edit = button('저장소 URL 수정');
+    const edit = button('변경');
     expect(edit.disabled).toBe(true);
     expect(container.textContent).toContain(LOCKED_HINT);
 
@@ -193,21 +202,21 @@ describe('RepositoryUrlEditor', () => {
   });
   it('follows permission the screen re-reads — a leader change closes the open editor', async () => {
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill('https://github.com/synthetic/draft');
 
     await render({ ...initial, canEditRepositoryUrl: false });
 
     expect(container.querySelector('form')).toBeNull();
-    expect(button('저장소 URL 수정').disabled).toBe(true);
+    expect(button('변경').disabled).toBe(true);
 
     await render({ ...initial });
-    expect(button('저장소 URL 수정').disabled).toBe(false);
+    expect(button('변경').disabled).toBe(false);
     expect(container.textContent).not.toContain(LOCKED_HINT);
   });
   it('keeps a draft when a re-read does not change permission', async () => {
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill('https://github.com/synthetic/draft');
     await render({ ...initial });
     expect(input()?.value).toBe('https://github.com/synthetic/draft');
@@ -220,7 +229,7 @@ describe('RepositoryUrlEditor', () => {
       return true;
     });
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill(replacement);
     await submit();
     expect(input()?.value).toBe(replacement);
@@ -240,7 +249,7 @@ describe('RepositoryUrlEditor', () => {
     expect(container.textContent).not.toContain(
       '저장 결과를 확인할 수 없습니다',
     );
-    expect(link()).toBe(replacement);
+    expect(repositoryCard().querySelector('a')).toBeNull();
     expect(input()?.value).toBe(replacement);
     expect(
       container.querySelector<HTMLButtonElement>('button[type="submit"]')
@@ -253,7 +262,7 @@ describe('RepositoryUrlEditor', () => {
     save.mockRejectedValue(new RepositoryUrlResponseError());
     reload.mockRejectedValue(new Error('Synthetic failure'));
     await render();
-    await click('저장소 URL 수정');
+    await click('변경');
     await fill('https://github.com/synthetic/replacement');
     await submit();
     await click('다시 불러오기');

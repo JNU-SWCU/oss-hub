@@ -9067,6 +9067,10 @@
       "TeamActivityRepositoryResponseDto": {
         "type": "object",
         "properties": {
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },

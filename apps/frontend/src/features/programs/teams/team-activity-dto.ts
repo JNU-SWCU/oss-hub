@@ -25,7 +25,11 @@ export type TeamActivityStatus =
 
 export interface TeamActivity {
   readonly teamId: string | null;
-  readonly repository: { readonly id: string; readonly url: string } | null;
+  readonly repository: {
+    readonly id: string;
+    readonly url: string;
+    readonly defaultBranch?: string | null;
+  } | null;
   readonly status: TeamActivityStatus;
   readonly lastSuccessAt: string | null;
 

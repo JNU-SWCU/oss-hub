@@ -263,9 +263,15 @@ describe('ProgramStaffTeamDetailPage', () => {
   function reviewHistoryTrigger(): HTMLButtonElement | undefined {
     return [
       ...container.querySelectorAll<HTMLButtonElement>(
-        '[data-slot="collapsible-trigger"]',
+        'button[data-slot="collapsible-trigger"]',
       ),
     ].find((trigger) => trigger.textContent?.includes('검토 이력'));
+  }
+
+  function sectionHeading(name: string): HTMLHeadingElement | undefined {
+    return Array.from(container.querySelectorAll('h2')).find(
+      (heading) => heading.textContent?.trim() === name,
+    );
   }
 
   it('팀 목록으로 돌아갈 때 운영 화면 선택을 유지한다', async () => {
@@ -310,9 +316,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     expect(
       container.querySelector('[data-slot="page-header-description"]'),
     ).toBeNull();
-    const memberSection = [...container.querySelectorAll('section')].find(
-      (section) => section.textContent?.includes('팀원'),
-    );
+    const memberSection = sectionHeading('팀원')?.closest('[data-slot="card"]');
     expect(memberSection?.textContent).toContain('2명');
   });
 
@@ -320,10 +324,10 @@ describe('ProgramStaffTeamDetailPage', () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
 
-    expect(container.textContent).toContain('가나다');
-
-    expect(container.textContent).toContain('login-b');
-    expect(container.textContent).toContain('팀장');
+    const roster = container.querySelector('ul[aria-label="팀 구성원과 초대"]');
+    expect(roster?.textContent).toContain('가나다');
+    expect(roster?.textContent).toContain('login-b');
+    expect(roster?.textContent).toContain('팀장');
   });
 
   it('신청이 있으면 제목 옆에서 상태를 바꾸고 검토 이력을 접어 둔다', async () => {
@@ -344,11 +348,10 @@ describe('ProgramStaffTeamDetailPage', () => {
       ),
     ).toBe(select);
     expect(
-      container.querySelectorAll('[data-slot="status-badge"]').length,
-    ).toBe(1);
-    expect(
-      container.querySelector('[data-slot="status-badge"]')?.textContent,
-    ).toBe('팀장');
+      container.querySelector(
+        '[data-slot="page-header-actions"] [data-slot="status-badge"]',
+      ),
+    ).toBeNull();
     expect(container.textContent).toContain('검토 이력');
     expect(container.textContent).not.toContain('신청서');
     expect(container.textContent).not.toContain('합성 지원 동기');
@@ -546,13 +549,33 @@ describe('ProgramStaffTeamDetailPage', () => {
   });
 
   describe('저장소 카드 — 학생과 같은 조회', () => {
+    function repositoryCard(): HTMLElement {
+      const found = container.querySelector<HTMLElement>(
+        'section[aria-label="프로젝트 저장소"]',
+      );
+      if (!found) throw new Error('프로젝트 저장소 영역 없음');
+      return found;
+    }
+
+    function repositoryButton(name: string): HTMLButtonElement {
+      const found = Array.from(
+        repositoryCard().querySelectorAll('button'),
+      ).find(
+        (item) =>
+          (item.getAttribute('aria-label') ?? item.textContent?.trim()) ===
+          name,
+      );
+      if (!found) throw new Error(`프로젝트 저장소 버튼 없음: ${name}`);
+      return found;
+    }
+
     const connected: TeamActivity = {
       ...teamActivity,
       repository: { id: 'repository-1', url: 'https://github.com/org/repo' },
       status: 'NOT_COLLECTED',
     };
 
-    it('학생과 같은 조회로 URL 줄·그래프를 그리고 목록형 활동은 두지 않는다', async () => {
+    it('학생과 같은 조회로 저장소 요약·그래프를 그리고 이력은 저장소 안에 둔다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       vi.mocked(getTeamActivity).mockResolvedValue(connected);
       await render();
@@ -561,20 +584,22 @@ describe('ProgramStaffTeamDetailPage', () => {
         'program-1',
         'team-1',
       );
-      const card = container.querySelector(
-        'section[aria-label="프로젝트 저장소"]',
+      const link = repositoryCard().querySelector('a');
+      expect(link?.getAttribute('href')).toBe('https://github.com/org/repo');
+      expect(link?.textContent).toBe('org/repo');
+      expect(repositoryButton('변경').disabled).toBe(false);
+      expect(repositoryButton('변경 이력').getAttribute('aria-expanded')).toBe(
+        'false',
       );
-      expect(card?.querySelector('a')?.getAttribute('href')).toBe(
-        'https://github.com/org/repo',
-      );
-      expect(
-        card?.querySelector<HTMLButtonElement>(
-          'button[aria-label="저장소 URL 수정"]',
-        )?.disabled,
-      ).toBe(false);
-      expect(container.querySelector('[role="region"] h2')?.textContent).toBe(
-        '팀 활동',
-      );
+      const titles = ['프로젝트 저장소', '팀원', '팀 활동'];
+      const sectionOrder = Array.from(
+        container.querySelectorAll('h2'),
+        (heading) => heading.textContent?.trim() ?? '',
+      ).filter((title) => titles.includes(title));
+      expect(sectionOrder).toEqual(titles);
+      const activity = sectionHeading('팀 활동')?.closest('[role="region"]');
+      expect(activity?.getAttribute('role')).toBe('region');
+      expect(activity?.textContent).not.toContain('변경 이력');
       expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
       expect(container.textContent).not.toContain('현재 저장소 활동');
     });
@@ -598,18 +623,40 @@ describe('ProgramStaffTeamDetailPage', () => {
       await render();
       expect(getTeamActivity).toHaveBeenCalledTimes(1);
 
-      await act(async () =>
-        container
-          .querySelector<HTMLButtonElement>(
-            'button[aria-label="login-b 팀에서 제외"]',
-          )
-          ?.click(),
+      const roster = container.querySelector(
+        'ul[aria-label="팀 구성원과 초대"]',
       );
-      await act(async () =>
-        [...document.querySelectorAll<HTMLButtonElement>('button')]
-          .find((button) => button.textContent?.trim() === '팀에서 제외')
-          ?.click(),
+      const trigger = roster?.querySelector<HTMLButtonElement>(
+        'button[aria-label="login-b 작업"]',
       );
+      if (!trigger) throw new Error('login-b 작업 버튼 없음');
+      await act(async () => {
+        trigger.focus();
+        trigger.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      const menu = document.getElementById(
+        trigger.getAttribute('aria-controls') ?? '',
+      );
+      expect(menu?.getAttribute('role')).toBe('menu');
+      const remove = Array.from(
+        menu?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+      ).find((item) => item.textContent?.trim() === '팀에서 제외');
+      if (!remove) throw new Error('팀에서 제외 메뉴 항목 없음');
+      await act(async () => remove.click());
+
+      const dialog = document.querySelector('[role="alertdialog"]');
+      const confirm = Array.from(dialog?.querySelectorAll('button') ?? []).find(
+        (item) => item.textContent?.trim() === '팀에서 제외',
+      );
+      if (!confirm) throw new Error('팀에서 제외 확인 버튼 없음');
+      expect(removeStaffTeamMember).not.toHaveBeenCalled();
+      await act(async () => confirm.click());
 
       expect(removeStaffTeamMember).toHaveBeenCalledExactlyOnceWith(
         'program-1',
@@ -620,7 +667,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(getTeamActivity).toHaveBeenCalledTimes(2);
     });
 
-    it('판정이 바뀌면 연필 권한을 새로 받도록 저장소 카드를 다시 읽는다', async () => {
+    it('판정이 바뀌면 변경 권한을 새로 받도록 저장소 카드를 다시 읽는다', async () => {
       getStaffProgramTeamDetailMock
         .mockResolvedValueOnce(withApplication)
         .mockResolvedValue({
@@ -653,12 +700,12 @@ describe('ProgramStaffTeamDetailPage', () => {
       vi.mocked(getTeamActivity).mockResolvedValue(collected);
       await render();
 
-      const region = container.querySelector('[role="region"]');
+      const region = sectionHeading('팀 활동')?.closest('[role="region"]');
       expect(region?.querySelector('h2')?.textContent).toBe('팀 활동');
       expect(region?.textContent).not.toContain('팀원이 아닌 사람의 기여');
     });
 
-    it('연필로 바꾸면 팀 경로로 저장하고 상세를 조용히 다시 읽는다', async () => {
+    it('같은 카드에서 바꾸면 팀 경로로 저장하고 상세를 조용히 다시 읽는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       vi.mocked(getTeamActivity)
         .mockResolvedValueOnce(connected)
@@ -675,15 +722,9 @@ describe('ProgramStaffTeamDetailPage', () => {
       });
       await render();
 
-      await act(async () =>
-        container
-          .querySelector<HTMLButtonElement>(
-            'button[aria-label="저장소 URL 수정"]',
-          )
-          ?.click(),
-      );
-      const input =
-        container.querySelector<HTMLInputElement>('#repository-url');
+      await act(async () => repositoryButton('변경').click());
+      const card = repositoryCard();
+      const input = card.querySelector<HTMLInputElement>('#repository-url');
       await act(async () => {
         Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
@@ -692,7 +733,7 @@ describe('ProgramStaffTeamDetailPage', () => {
         input?.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await act(async () =>
-        container
+        card
           .querySelector('form')
           ?.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
@@ -707,11 +748,9 @@ describe('ProgramStaffTeamDetailPage', () => {
 
       expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
       expect(container.textContent).toContain('저장소 변경을 저장했습니다.');
-      expect(
-        container
-          .querySelector('section[aria-label="프로젝트 저장소"] a')
-          ?.getAttribute('href'),
-      ).toBe('https://github.com/org/next');
+      expect(repositoryCard().querySelector('a')?.getAttribute('href')).toBe(
+        'https://github.com/org/next',
+      );
     });
 
     it('발급 전 팀은 URL 줄 아래에 발급 상태를 말한다', async () => {
@@ -722,7 +761,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).toContain('저장소 발급 요청 전');
     });
 
-    it('바꿀 수 없으면 연필을 잠그고 이유를 URL 줄 아래에 말한다', async () => {
+    it('바꿀 수 없으면 변경 버튼을 잠그고 이유를 저장소 카드에 말한다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       vi.mocked(getTeamActivity).mockResolvedValue({
         ...teamActivity,
@@ -730,11 +769,8 @@ describe('ProgramStaffTeamDetailPage', () => {
       });
       await render();
 
-      const pencil = container.querySelector<HTMLButtonElement>(
-        'button[aria-label="저장소 URL 수정"]',
-      );
-      expect(pencil?.disabled).toBe(true);
-      expect(container.textContent).toContain(
+      expect(repositoryButton('변경').disabled).toBe(true);
+      expect(repositoryCard().textContent).toContain(
         '승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다.',
       );
     });

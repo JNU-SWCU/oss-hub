@@ -532,6 +532,7 @@ export class TeamMembershipService {
         url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
           activity.repository.nameWithOwner,
         ),
+        defaultBranch: activity.repository.defaultBranch,
       },
 
       canEditRepositoryUrl:

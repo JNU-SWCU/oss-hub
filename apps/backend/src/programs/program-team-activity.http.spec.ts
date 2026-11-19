@@ -55,6 +55,7 @@ const findUnique = jest.fn(
 );
 const findFirst = jest.fn();
 const findMany = jest.fn();
+const repoFindUnique = jest.fn();
 const auditFindMany = jest.fn<
   Promise<unknown[]>,
   [TemplateStringsArray, ...unknown[]]
@@ -185,11 +186,7 @@ beforeAll(async () => {
         useValue: {
           user: { findUnique },
           team: { findFirst },
-          repo: {
-            findUnique: jest
-              .fn()
-              .mockResolvedValue({ lastSuccessAt: LAST_SUCCESS_AT }),
-          },
+          repo: { findUnique: repoFindUnique },
           contribution: { findMany },
           application: {
             findFirst: jest
@@ -218,6 +215,10 @@ beforeAll(async () => {
 beforeEach(() => {
   findFirst.mockReset();
   findMany.mockReset();
+  repoFindUnique.mockReset().mockResolvedValue({
+    lastSuccessAt: LAST_SUCCESS_AT,
+    defaultBranch: 'release/trunk',
+  });
   auditFindMany.mockReset();
   auditFindMany.mockImplementation((query) =>
     Promise.resolve(
@@ -291,6 +292,7 @@ it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을
     repository: {
       id: '4242',
       url: 'https://github.com/synthetic-org/synthetic-repo',
+      defaultBranch: 'release/trunk',
     },
     status: 'COLLECTED',
     lastSuccessAt: LAST_SUCCESS_AT.toISOString(),
@@ -326,6 +328,39 @@ it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을
   });
 });
 
+it('공개 여부와 수집 완료에 관계없이 연결된 저장소의 기본 브랜치를 반환한다', async () => {
+  repoFindUnique.mockResolvedValueOnce({
+    lastSuccessAt: null,
+    defaultBranch: 'release/trunk',
+  });
+  const response = await getActivity('member');
+
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toMatchObject({
+    status: 'NOT_COLLECTED',
+    repository: { defaultBranch: 'release/trunk' },
+    canEditRepositoryUrl: false,
+  });
+  expect(repoFindUnique).toHaveBeenCalledTimes(1);
+  expect(repoFindUnique).toHaveBeenCalledWith({
+    where: { githubRepoId: 4242n },
+    select: { lastSuccessAt: true, defaultBranch: true },
+  });
+});
+
+it('기본 브랜치를 모르면 null을 반환한다', async () => {
+  repoFindUnique.mockResolvedValueOnce({
+    lastSuccessAt: LAST_SUCCESS_AT,
+    defaultBranch: null,
+  });
+  const response = await getActivity('staff');
+
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toMatchObject({
+    repository: { defaultBranch: null },
+  });
+});
+
 it.each([
   ['팀 밖의 학생', 'outsider', TEAM_ID],
   ['없는 팀을 묻는 교직원', 'staff', 'missing-team'],
@@ -339,6 +374,7 @@ it.each([
       status: 404,
       code: 'TEAM_010',
     });
+    expect(repoFindUnique).not.toHaveBeenCalled();
     expect(findMany).not.toHaveBeenCalled();
     expect(
       auditFindMany.mock.calls.filter(([query]) =>

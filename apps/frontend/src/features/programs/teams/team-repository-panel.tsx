@@ -1,22 +1,15 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useId, useMemo, type ReactNode } from 'react';
 import { FailureState } from '@/components';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import type { RepositoryUrlState } from './repository-url-dto';
-import { RepositoryUrlEditor } from './repository-url-editor';
-import { RepositoryUrlHistory } from './repository-url-history';
-import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProgram } from '../catalog/queries';
 import { useTeamActivityQuery } from './queries';
+import type { RepositoryUrlState } from './repository-url-dto';
+import { RepositoryUrlEditor } from './repository-url-editor';
+import { RepositoryUrlHistoryDisclosure } from './repository-url-history';
 import type { TeamActivity } from './team-activity-dto';
 import { TeamActivityGraph } from './team-activity-graph';
 
@@ -39,6 +32,7 @@ export interface TeamRepositoryPanelProps {
   readonly onSaved?: () => void;
 
   readonly children?: ReactNode;
+  readonly renderBetween?: (activity: TeamActivity | undefined) => ReactNode;
 }
 
 export function TeamRepositoryPanel(props: TeamRepositoryPanelProps) {
@@ -58,6 +52,7 @@ function TeamRepositoryPanelBody({
   lockedHint,
   onSaved,
   children,
+  renderBetween,
 }: TeamRepositoryPanelProps) {
   const queryClient = useQueryClient();
   const query = useTeamActivityQuery(programId, teamId);
@@ -99,27 +94,41 @@ function TeamRepositoryPanelBody({
     [saveRepositoryUrl, queryClient, programId, onSaved],
   );
 
-  if (repository === null) {
-    return graph.kind === 'failed' ? (
-      <FailureState title="저장소를 불러오지 못했습니다" onRetry={refresh} />
-    ) : (
-      <Skeleton label="저장소 불러오는 중" className="grid gap-6">
-        <SkeletonBlock className="h-28 rounded-card" />
-        <SkeletonBlock className="h-80 rounded-card" />
-      </Skeleton>
-    );
-  }
-
-  return (
-    <>
+  const repositoryContent =
+    repository !== null ? (
       <RepositoryUrlEditor
         repository={repository}
+        defaultBranch={activity?.repository?.defaultBranch}
+        lastSuccessAt={activity?.lastSuccessAt}
         save={save}
         reload={load}
         lockedHint={lockedHint}
       >
         {children}
+        <RepositoryUrlHistoryDisclosure programId={programId} teamId={teamId} />
       </RepositoryUrlEditor>
+    ) : graph.kind === 'failed' ? (
+      <FailureState title="저장소를 불러오지 못했습니다" onRetry={refresh} />
+    ) : (
+      <Skeleton label="저장소 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-28 rounded-card" />
+        {renderBetween === undefined ? (
+          <SkeletonBlock className="h-80 rounded-card" />
+        ) : null}
+      </Skeleton>
+    );
+
+  if (repository === null && renderBetween === undefined) {
+    return repositoryContent;
+  }
+
+  const latestActivity =
+    graph.kind === 'ready' && !query.isError ? graph.activity : undefined;
+
+  return (
+    <>
+      {repositoryContent}
+      {renderBetween?.(latestActivity)}
       <Card size="sm" role="region" aria-labelledby={titleId}>
         <CardHeader>
           <CardTitle>
@@ -134,35 +143,13 @@ function TeamRepositoryPanelBody({
               <SkeletonBlock className="h-64 rounded-card" />
             </Skeleton>
           ) : graph.kind === 'failed' ? (
-            <FailureState
-              title="활동을 불러오지 못했습니다"
-              onRetry={refresh}
-            />
+            <FailureState title="활동을 불러오지 못했습니다" />
           ) : (
             <TeamActivityGraph
               activity={graph.activity}
               label={activityTitle}
             />
           )}
-          <Collapsible className="border-t border-border pt-2">
-            <CollapsibleTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="group w-full justify-between"
-              >
-                저장소 URL 변경 이력
-                <ChevronDown
-                  aria-hidden="true"
-                  className="transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"
-                />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2">
-              <RepositoryUrlHistory programId={programId} teamId={teamId} />
-            </CollapsibleContent>
-          </Collapsible>
         </CardContent>
       </Card>
     </>

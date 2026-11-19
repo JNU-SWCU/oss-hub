@@ -148,6 +148,7 @@ beforeAll(async () => {
       githubRepositoryId: base + 100n,
       nameWithOwner: 'synthetic/a',
       source: 'ORG_PROVISIONED',
+      defaultBranch: 'unlinked-branch',
     },
     {
       githubRepositoryId: base + 101n,
@@ -182,6 +183,7 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
     repository: {
       id: (base + 101n).toString(),
       url: 'https://github.com/synthetic/b',
+      defaultBranch: null,
     },
     status: 'NOT_COLLECTED',
     lastSuccessAt: null,
@@ -193,6 +195,10 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
 
 describe('B가 수집된 뒤', () => {
   beforeAll(async () => {
+    await prisma.repo.update({
+      where: { githubRepoId: base + 101n },
+      data: { defaultBranch: 'release/trunk' },
+    });
     await setRepoLastSuccessAt(
       prisma,
       base + 101n,
@@ -271,6 +277,7 @@ describe('B가 수집된 뒤', () => {
     );
 
     expect(activity).toMatchObject({
+      repository: { defaultBranch: 'release/trunk' },
       status: 'COLLECTED',
       lastSuccessAt: '2026-08-20T01:00:00.000Z',
       members: collectedMembers,

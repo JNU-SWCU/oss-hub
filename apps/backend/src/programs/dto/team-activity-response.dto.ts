@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import type { TeamActivityView } from '../program-team-repository-evidence.repository';
 
 class TeamActivityCountsResponseDto {
@@ -58,10 +59,17 @@ class TeamActivityRepositoryResponseDto {
   declare readonly id: string;
   declare readonly url: string;
 
+  @ApiPropertyOptional({ type: String, nullable: true })
+  declare readonly defaultBranch?: string | null;
+
   static from(
     repository: NonNullable<TeamActivityView['repository']>,
   ): TeamActivityRepositoryResponseDto {
-    return { id: repository.id, url: repository.url };
+    return {
+      id: repository.id,
+      url: repository.url,
+      defaultBranch: repository.defaultBranch,
+    };
   }
 }
 
