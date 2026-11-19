@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { randomUUID } from 'node:crypto';
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   COLLECTION_CLOCK_SKEW_MS,
@@ -296,10 +296,10 @@ export class CollectionSyncService {
             (index + 1) * PROBE_BATCH_SIZE,
           ),
       );
-      await this.sequential.forEach(batches, async (batch) => {
+      for await (const batch of this.sequential.items(batches)) {
         if (this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          return 'stop';
+          break;
         }
         const unchanged = await this.probe(
           runtime,
@@ -320,13 +320,13 @@ export class CollectionSyncService {
         });
         await this.recordSuccess(lease, unchanged, succeededAt);
         stats.succeededRepos += unchanged.length;
-        return stoppedForBudget ? 'stop' : undefined;
-      });
+        if (stoppedForBudget) break;
+      }
 
-      await this.sequential.forEach(changed, async (repository) => {
+      for await (const repository of this.sequential.items(changed)) {
         if (stoppedForBudget || this.shouldStop(runtime, deadline)) {
           stoppedForBudget = true;
-          return 'stop';
+          break;
         }
         const outcome = await this.collect(
           runtime,
@@ -340,10 +340,9 @@ export class CollectionSyncService {
         );
         if (outcome === 'STOPPED_FOR_BUDGET') {
           stoppedForBudget = true;
-          return 'stop';
+          break;
         }
-        return undefined;
-      });
+      }
 
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
       status = 'COMPLETED';
@@ -408,7 +407,9 @@ export class CollectionSyncService {
     this.observeRateLimit(stats, result.rateLimit);
 
     const unchanged: bigint[] = [];
-    await this.sequential.forEach(batch, async (target, index) => {
+    for await (const [index, target] of this.sequential.items(
+      batch.entries(),
+    )) {
       const probed = result.repositories[index] ?? null;
       if (
         probed === null ||
@@ -424,7 +425,7 @@ export class CollectionSyncService {
           runId,
         );
         if (relocated !== null) changed.push(relocated);
-        return;
+        continue;
       }
       const current = observationChanged(target, probed)
         ? await this.refresh(lease, source, target.githubRepositoryId, {
@@ -436,14 +437,14 @@ export class CollectionSyncService {
         : target;
       if (current === null) {
         stats.unavailableRepos += 1;
-        return;
+        continue;
       }
       if (kind !== 'hourly' || hasActivitySince(target.lastSuccessAt, probed)) {
         changed.push(current);
       } else {
         unchanged.push(target.githubRepositoryId);
       }
-    });
+    }
     return unchanged;
   }
 
@@ -564,7 +565,7 @@ export class CollectionSyncService {
       this.observeRateLimit(stats, result.rateLimit);
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        await this.sequential.forEach(CONTRIBUTION_KINDS, async (kind) => {
+        for await (const kind of this.sequential.items(CONTRIBUTION_KINDS)) {
           const recorded = await repo.recordContributions(
             repository.githubRepositoryId,
             kind,
@@ -572,7 +573,7 @@ export class CollectionSyncService {
           );
           stats.inserted += recorded.inserted;
           stats.authorFilled += recorded.authorFilled;
-        });
+        }
         await repo.recordRepositorySuccess(
           [repository.githubRepositoryId],
           succeededAt,

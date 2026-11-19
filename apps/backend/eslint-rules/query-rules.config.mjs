@@ -1,7 +1,5 @@
 import { findManyTake } from './find-many-take.mjs';
 import { nestedRelationTake } from './nested-relation-take.mjs';
-import { noAsyncReduce } from './no-async-reduce.mjs';
-import { noCounterRecursion } from './no-counter-recursion.mjs';
 import { noQueryRuleDisable } from './no-query-rule-disable.mjs';
 import { rawSelectLimit } from './raw-select-limit.mjs';
 import { testFiles } from './rails-config.mjs';
@@ -20,8 +18,6 @@ export const queryRuleBlocks = [
       },
       sequential: {
         rules: {
-          'no-async-reduce': noAsyncReduce,
-          'no-counter-recursion': noCounterRecursion,
           'no-query-rule-disable': noQueryRuleDisable,
         },
       },
@@ -31,8 +27,6 @@ export const queryRuleBlocks = [
       'prisma/find-many-take': 'error',
       'prisma/nested-relation-take': 'error',
       'prisma/raw-select-limit': 'error',
-      'sequential/no-async-reduce': 'error',
-      'sequential/no-counter-recursion': 'error',
       'sequential/no-query-rule-disable': 'error',
     },
   },

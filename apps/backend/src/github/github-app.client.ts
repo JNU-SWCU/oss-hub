@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable } from '@nestjs/common';
+import { SequentialRepository } from '../platform/sequential.repository';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
@@ -298,7 +298,9 @@ export class GithubAppClient {
   ): Promise<readonly GithubRepositoryInvitation[]> {
     const invitations: GithubRepositoryInvitation[] = [];
     let complete = false;
-    await this.sequential.repeat(INVITATION_PAGE_LIMIT, async (index) => {
+    for await (const index of this.sequential.items(
+      Array.from({ length: INVITATION_PAGE_LIMIT }, (_, page) => page),
+    )) {
       const response = await this.request(
         `${repositoryPath}/invitations?per_page=${INVITATION_PAGE_SIZE}&page=${index + 1}`,
       );
@@ -309,10 +311,9 @@ export class GithubAppClient {
       invitations.push(...parsed);
       if (parsed.length < INVITATION_PAGE_SIZE) {
         complete = true;
-        return 'stop';
+        break;
       }
-      return undefined;
-    });
+    }
     if (!complete) throw invalidGithubResponseError();
     return invitations;
   }
