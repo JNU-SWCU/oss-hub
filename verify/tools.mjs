@@ -134,7 +134,7 @@ export function run(
     killGraceMs = 10_000,
     signal,
     env,
-    onSpawn,
+    onStdout,
     raw = false,
   } = {},
 ) {
@@ -165,7 +165,10 @@ export function run(
     );
     const onAbort = () => stop('was aborted');
     signal?.addEventListener('abort', onAbort, { once: true });
-    child.stdout.on('data', (chunk) => stdout.push(chunk));
+    child.stdout.on('data', (chunk) => {
+      stdout.push(chunk);
+      onStdout?.(chunk);
+    });
     child.stderr.on('data', (chunk) => stderr.push(chunk));
     child.on('error', (error) => {
       clearTimeout(timer);
@@ -206,13 +209,6 @@ export function run(
     });
     child.stdin.on('error', () => {});
     child.stdin.end(input ?? '');
-    if (child.pid !== undefined && onSpawn) {
-      try {
-        onSpawn(child.pid);
-      } catch (error) {
-        stop(`could not record the child process: ${error.message}`);
-      }
-    }
   });
 }
 
