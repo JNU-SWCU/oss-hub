@@ -1,4 +1,5 @@
 import type { ProgramTrackType } from '@prisma/client';
+import type { SubmissionDashboardMilestoneSummary } from '../../programs/submissions.repository';
 import type { StaffDashboardApplicationCounts } from '../../programs/team.repository';
 import type {
   StaffDashboardActivitySummary,
@@ -71,6 +72,28 @@ export class StaffDashboardSubmissionSummaryResponseDto {
   }
 }
 
+export class StaffDashboardMilestoneSummaryResponseDto {
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly startAt: string;
+  declare readonly dueAt: string;
+  declare readonly submittedTeams: number | null;
+  declare readonly totalTeams: number | null;
+
+  static from(
+    milestone: SubmissionDashboardMilestoneSummary,
+  ): StaffDashboardMilestoneSummaryResponseDto {
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      startAt: milestone.startAt,
+      dueAt: milestone.dueAt,
+      submittedTeams: milestone.submittedTeams,
+      totalTeams: milestone.totalTeams,
+    };
+  }
+}
+
 export class StaffDashboardProgramSummaryResponseDto {
   declare readonly coverImageUrl: string | null;
   declare readonly id: string;
@@ -85,6 +108,7 @@ export class StaffDashboardProgramSummaryResponseDto {
   declare readonly applications: StaffDashboardApplicationCountsResponseDto;
   declare readonly activity: StaffDashboardActivitySummaryResponseDto;
   declare readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
+  declare readonly milestones: StaffDashboardMilestoneSummaryResponseDto[];
 
   static from(
     program: StaffDashboardComposedProgramSummary,
@@ -105,6 +129,9 @@ export class StaffDashboardProgramSummaryResponseDto {
       activity: StaffDashboardActivitySummaryResponseDto.from(program.activity),
       submissions: StaffDashboardSubmissionSummaryResponseDto.from(
         program.submissions,
+      ),
+      milestones: program.milestones.map((milestone) =>
+        StaffDashboardMilestoneSummaryResponseDto.from(milestone),
       ),
     };
   }
