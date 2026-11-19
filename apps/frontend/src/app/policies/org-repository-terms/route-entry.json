@@ -1,0 +1,4 @@
+{
+  "entry": "api-link",
+  "source": "apps/backend/src/users/consents.service.ts"
+}

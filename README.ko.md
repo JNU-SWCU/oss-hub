@@ -291,7 +291,7 @@ BACKEND_ORIGIN=https://backend.example.test pnpm build
 
 ### 문서 길잡이
 
-CI와 pre-push는 같은 프런트엔드 범위에서 분기점에 없던 위반만 차단합니다. `node verify/route-manifest.mjs origin/main`으로 전체 결과를 볼 수 있습니다. 도달 불가 페이지에는 내부 링크를 연결하거나 `page.tsx` 옆 `route-entry.ts`에서 `{ entry, source } satisfies RouteEntry`를 기본 내보내기로 선언합니다(`@/lib/route-entry`). `entry`는 `api-link`, `email-link`, `external-link` 중 하나이고, `source`는 진입점을 제공하거나 소비하는 `apps/` 아래 모듈의 저장소 상대 경로입니다. 검사기는 해당 모듈의 존재를 확인하고 선언된 페이지와 `/`에서 탐색을 시작합니다. 설정 리다이렉트와 익명 요청에 대한 미들웨어 리다이렉트도 확인합니다.
+CI와 pre-push는 같은 프런트엔드 범위에서 분기점에 없던 위반만 차단합니다. `node verify/route-manifest.mjs origin/main`으로 전체 결과를 볼 수 있습니다. 도달 불가 페이지에는 내부 링크를 연결하거나 `page.tsx` 옆 `route-entry.json`에 진입점을 선언합니다. `entry`는 `api-link`, `email-link`, `external-link` 중 하나입니다. `source`에는 해당 페이지의 경로 리터럴이나 정적으로 해석되는 경로 함수 호출이 있는 `apps/` 아래 모듈을 지정합니다. 모듈이 존재하는 것만으로는 통과하지 않습니다. 미들웨어는 익명 요청으로 확인하며, 무조건 리다이렉트하는 페이지의 링크는 따라가지 않습니다. 런타임에서만 계산되는 주소와 다른 세션 상태는 확인할 수 없습니다.
 
 | 알고 싶은 내용 | 문서 |
 | --- | --- |

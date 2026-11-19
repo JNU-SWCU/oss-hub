@@ -42,7 +42,7 @@ export async function checkRouteManifest({ cwd, ranges }) {
             violation,
             head.slice(0, 9),
             violation.startsWith('unreachable ')
-              ? 'Link it from navigation, or declare its entry in route-entry.ts next to the page (entry kind and source module).'
+              ? 'Link it from navigation, or declare its entry in route-entry.json next to the page. Name a source containing a route literal or statically resolvable helper call. Runtime-only URL computations cannot be verified.'
               : `absent at ${ancestor.slice(0, 9)}`,
             'https://github.com/JNU-SWCU/oss-hub/issues/1963',
           ),

@@ -68,10 +68,12 @@ async function manifest(dir) {
   const components = analyzeComponents(dir, [
     ...appRoutes.map((page) => page.filePath),
     ...layouts,
+    ...(middlewareFile ? [middlewareFile] : []),
   ]);
   const pages = new Map();
   const screens = [];
   const entriesFromOutside = [];
+  const declarations = [];
   const links = new Map();
   const violations = new Set();
   for (const { route, filePath } of appRoutes) {
@@ -79,9 +81,9 @@ async function manifest(dir) {
       ? extractInterceptionRouteInformation(route).interceptedRoute
       : route;
     if (!pages.has(path)) pages.set(path, new Set());
-    const contract = join(dirname(filePath), 'route-entry.ts');
+    const contract = join(dirname(filePath), 'route-entry.json');
     if (existsSync(contract)) {
-      const { entry, source } = require(contract).default ?? {};
+      const { entry, source } = require(contract) ?? {};
       const apps = resolve(dir, '..');
       const modulePath =
         typeof source === 'string' &&
@@ -95,10 +97,10 @@ async function manifest(dir) {
         /\.[cm]?[jt]sx?$/.test(modulePath) &&
         statSync(modulePath, { throwIfNoEntry: false })?.isFile()
       ) {
-        entriesFromOutside.push(path);
+        declarations.push({ path, modulePath, source });
       } else
         violations.add(
-          `invalid entry ${path}: route-entry.ts needs an entry kind and an existing apps/ source module`,
+          `invalid entry ${path}: route-entry.json needs an entry kind and an existing apps/ source module`,
         );
     }
     for (const file of [
@@ -132,6 +134,27 @@ async function manifest(dir) {
     ...rule,
     match: getPathMatch(rule.source),
   }));
+  const match = (url) =>
+    url.startsWith('/') &&
+    !url.startsWith('//') &&
+    routes.find(([, re]) => re.test(url.split(/[?#]/, 1)[0]))?.[0];
+  for (const { path, modulePath, source } of declarations) {
+    const workspace = resolve(dir, '../..', ...source.split('/').slice(0, 2));
+    const refs = analyzeComponents(workspace, [modulePath]).references(
+      modulePath,
+    );
+    if (refs.some((url) => match(url) === path)) entriesFromOutside.push(path);
+    else
+      violations.add(
+        `invalid entry ${path}: declared source ${source} does not reference the page`,
+      );
+  }
+  const unconditional =
+    middlewareFile &&
+    components.alwaysRedirects(middlewareFile) &&
+    [middleware.config?.matcher ?? '/:path*']
+      .flat()
+      .every((m) => typeof m === 'string' || (!m.has && !m.missing));
   const reached = new Set();
   const visited = new Set();
   async function visit(url, chain = new Set()) {
@@ -175,9 +198,10 @@ async function manifest(dir) {
         const target = new URL(location, requestUrl);
         if (target.origin === requestUrl.origin)
           await visit(target.pathname + target.search);
+        if (unconditional) return;
       }
     }
-    const route = routes.find(([, re]) => re.test(path))?.[0];
+    const route = match(path);
     if (!route || reached.has(route)) return;
     reached.add(route);
     for (const target of pages.get(route)) await visit(target);

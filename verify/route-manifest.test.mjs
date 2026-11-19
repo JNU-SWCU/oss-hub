@@ -58,14 +58,92 @@ test('new unreachable pages and shared screens block; existing ones do not', asy
   ]);
 });
 
+test('external entry needs an exact route reference, not merely a source module', async (t) => {
+  const repo = tempRepo(t);
+  const app = 'apps/frontend/src/app/';
+  const page = 'export default function Page(){return <main/>}';
+  const source = 'apps/backend/src/mail.ts';
+  const base = repo.commit('home', { [app + 'page.tsx']: page });
+  const add = repo.commit('stale attribution', {
+    [app + 'welcome/page.tsx']: page,
+    [app + 'welcome/route-entry.json']: JSON.stringify({
+      entry: 'email-link',
+      source,
+    }),
+    [source]: `// '/welcome'\nexport const wrong='/welcome-back';`,
+  });
+  const compare = async (head) =>
+    (await checkRouteManifest({ cwd: repo.dir, ranges: [{ base, head }] })).map(
+      (f) => f.message,
+    );
+  assert.deepEqual(await compare(add), [
+    `invalid entry /welcome: declared source ${source} does not reference the page`,
+    'unreachable /welcome',
+  ]);
+  const fixed = repo.commit('produce link with imported helper', {
+    'apps/backend/src/paths.ts':
+      'export function path(segment:string){return `/${segment}`}',
+    [source]: `import {path} from './paths'; export const link=path('welcome');`,
+  });
+  assert.deepEqual(await compare(fixed), []);
+});
+
+test('navigation projects object and tuple bindings, nested aliases and defaults', async (t) => {
+  const repo = tempRepo(t);
+  const app = 'apps/frontend/src/app/';
+  const page = 'export default function Page(){return <main/>}';
+  const base = repo.commit('home', { [app + 'page.tsx']: page });
+  const home = `const tuples:[string,string][]=[['Label','/tuple']];
+    const rows:{href:string, child:[{url:string}],missing?:string}[]=[
+    {href:'/object', child:[{url:'/nested'}]}];
+    export default function Page(){return <>{tuples.map(([label, href])=><a href={href}>{label}</a>)}
+    {rows.map(({href:renamed,child:[{url}],missing='/default'})=><><a href={renamed}/><a href={url}/><a href={missing}/></>)}</>}`;
+  const routes = ['tuple', 'object', 'nested', 'default'];
+  const head = repo.commit('menu', {
+    [app + 'page.tsx']: home,
+    ...Object.fromEntries(routes.map((p) => [app + p + '/page.tsx', page])),
+  });
+  const compare = async (head) =>
+    (await checkRouteManifest({ cwd: repo.dir, ranges: [{ base, head }] })).map(
+      (f) => f.message,
+    );
+  assert.deepEqual(await compare(head), []);
+  assert.deepEqual(
+    await compare(repo.commit('no menu', { [app + 'page.tsx']: page })),
+    routes.sort().map((p) => 'unreachable /' + p),
+  );
+});
+
+test('middleware redirect does not render the shadowed page or its links', async (t) => {
+  const repo = tempRepo(t);
+  const app = 'apps/frontend/src/app/';
+  const base = repo.commit('home', {
+    [app + 'page.tsx']:
+      `export default function Page(){return <a href="/legacy"/>}`,
+  });
+  const head = repo.commit('shadowed link', {
+    [app + 'legacy/page.tsx']:
+      `export default function Legacy(){return <a href="/library"/>}`,
+    [app + 'library/page.tsx']:
+      `export default function Library(){return <main/>}`,
+    [app + 'inbox/page.tsx']: `export default function Inbox(){return <main/>}`,
+    'apps/frontend/src/middleware.js': `import {NextResponse} from 'next/server';export const config={matcher:'/legacy'};export function middleware(req){return NextResponse.redirect(new URL('/inbox',req.url))}`,
+  });
+  assert.deepEqual(
+    (await checkRouteManifest({ cwd: repo.dir, ranges: [{ base, head }] })).map(
+      (f) => f.message,
+    ),
+    ['unreachable /legacy', 'unreachable /library'],
+  );
+});
+
 test('external contracts, equivalent menu bindings and middleware reach distinct pages', async (t) => {
   const repo = tempRepo(t);
   const app = 'apps/frontend/src/app/';
   const page = 'export default function Page(){return <main/>}';
   const base = repo.commit('home', { [app + 'page.tsx']: page });
   const sources = 'apps/backend/src/consent.ts';
-  const contract = (source) =>
-    `export default {entry:'api-link',source:'${source}'} as const`;
+  const contract = (source) => JSON.stringify({ entry: 'api-link', source });
   const home = `const links: {href:string}[] = [{href:'/library'}];
     const books = [{href:'/books'}] as const;
     export default function Home() {return <>{links.map(({href:to})=><a href={to}/>)}{books.map(item=><a href={item.href}/>)}<a href="/legacy"/></>}`;
@@ -82,7 +160,7 @@ test('external contracts, equivalent menu bindings and middleware reach distinct
       `import {Loading} from '../shared'; export default function Page({ready}){if(!ready)return <Loading/>;return <h1>Inbox</h1>}`,
     [app + 'consent/page.tsx']:
       `import {Loading} from '../shared'; export default function Page({ready}){if(!ready)return <Loading/>;return <h1>Consent</h1>}`,
-    [app + 'consent/route-entry.ts']: contract(sources),
+    [app + 'consent/route-entry.json']: contract(sources),
     [sources]: `export const documentUrl='/consent'`,
   });
   const compare = (base, head) =>
@@ -97,7 +175,7 @@ test('external contracts, equivalent menu bindings and middleware reach distinct
   assert.deepEqual(
     findings.map((f) => f.message),
     [
-      'invalid entry /consent: route-entry.ts needs an entry kind and an existing apps/ source module',
+      'invalid entry /consent: route-entry.json needs an entry kind and an existing apps/ source module',
       'unreachable /consent',
       'unreachable /inbox',
       'unreachable /library',

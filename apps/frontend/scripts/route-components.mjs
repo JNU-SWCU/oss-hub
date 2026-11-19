@@ -51,10 +51,67 @@ export function analyzeComponents(dir, roots) {
       sym.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(sym) : sym
     ).valueDeclaration;
   }
-  function values(n, inputs, env = new Map(), seen = new Set()) {
+  function literal(n, seen = new Set()) {
+    if (!n || seen.has(n)) return;
+    seen.add(n);
+    if (ts.isIdentifier(n)) return literal(decl(n)?.initializer, seen);
+    if (
+      ts.isAsExpression(n) ||
+      ts.isParenthesizedExpression(n) ||
+      ts.isSatisfiesExpression(n)
+    )
+      return literal(n.expression, seen);
+    return n;
+  }
+  function bindingSources(binding, inputs) {
+    const steps = [];
+    let root = binding;
+    while (ts.isBindingElement(root)) {
+      const pattern = root.parent;
+      steps.unshift({
+        key: ts.isArrayBindingPattern(pattern)
+          ? pattern.elements.indexOf(root)
+          : (root.propertyName ?? root.name).text,
+        fallback: root.initializer,
+      });
+      root = pattern.parent;
+    }
+    let sources = inputs.get(root) ?? [root.initializer];
+    if (ts.isParameter(root) && root.parent.parameters[0] === root) {
+      const call = root.parent.parent;
+      if (
+        ts.isCallExpression(call) &&
+        ts.isPropertyAccessExpression(call.expression) &&
+        call.expression.name.text === 'map'
+      ) {
+        const list = literal(call.expression.expression);
+        if (list && ts.isArrayLiteralExpression(list)) sources = list.elements;
+      }
+    }
+    for (const { key, fallback } of steps) {
+      sources = sources.map((source) => {
+        const node = literal(source);
+        if (node && ts.isArrayLiteralExpression(node))
+          return node.elements[key] ?? fallback;
+        if (node && ts.isObjectLiteralExpression(node)) {
+          const prop = node.properties.find((p) => p.name?.text === key);
+          return (
+            prop?.initializer ??
+            (prop && ts.isShorthandPropertyAssignment(prop)
+              ? checker.getShorthandAssignmentValueSymbol(prop)
+                  ?.valueDeclaration?.initializer
+              : fallback)
+          );
+        }
+        return fallback;
+      });
+    }
+    return sources;
+  }
+  function values(n, inputs, env = new Map(), seen = new Set(), exact = false) {
     if (!n || seen.has(n)) return [];
     seen = new Set([...seen, n]);
-    const val = (x) => values(x, inputs, env, seen);
+    const val = (x) => values(x, inputs, env, seen, exact);
     if (ts.isStringLiteralLike(n)) return [n.text];
     if (
       ts.isIdentifier(n) ||
@@ -79,6 +136,7 @@ export function analyzeComponents(dir, roots) {
       let prefixes = [n.head.text];
       for (const span of n.templateSpans) {
         const parts = val(span.expression);
+        if (exact && !parts.length) return [];
         prefixes = prefixes.flatMap((p) =>
           (parts.length ? parts : ['~']).map(
             (part) => p + part + span.literal.text,
@@ -95,10 +153,14 @@ export function analyzeComponents(dir, roots) {
       fn.parameters?.forEach((p, i) =>
         bindings.set(p, val(n.arguments[i] ?? p.initializer)),
       );
-      return returned(fn).flatMap((x) => values(x, inputs, bindings, seen));
+      return returned(fn).flatMap((x) =>
+        values(x, inputs, bindings, seen, exact),
+      );
     }
     const d = decl(n);
-    if (d && ts.isBindingElement(d) && ts.isObjectBindingPattern(d.parent)) {
+    if (d && ts.isBindingElement(d)) {
+      const projected = bindingSources(d, inputs).flatMap(val);
+      if (projected.length) return projected;
       const property = (d.propertyName ?? d.name).getText();
       const member = checker
         .getTypeAtLocation(d.parent)
@@ -118,6 +180,43 @@ export function analyzeComponents(dir, roots) {
         : local(d)
           ? val(d.initializer)
           : [])
+    );
+  }
+
+  function references(file) {
+    const urls = [];
+    walk(program.getSourceFile(file), (n) => {
+      if (
+        ts.isTypeNode(n) ||
+        ts.isImportDeclaration(n) ||
+        ts.isExportDeclaration(n)
+      )
+        return false;
+      if (ts.isStringLiteralLike(n) || ts.isCallExpression(n))
+        urls.push(...values(n, new Map(), new Map(), new Set(), true));
+    });
+    return urls;
+  }
+
+  function alwaysRedirects(file) {
+    const symbol = checker.getSymbolAtLocation(program.getSourceFile(file));
+    const handler = checker
+      .getExportsOfModule(symbol)
+      .find(
+        (s) => s.name === 'middleware' || s.name === 'default',
+      )?.valueDeclaration;
+    const body = (handler?.initializer ?? handler)?.body;
+    const expr =
+      body && ts.isBlock(body)
+        ? body.statements.length === 1 &&
+          ts.isReturnStatement(body.statements[0]) &&
+          body.statements[0].expression
+        : body;
+    return (
+      expr &&
+      ts.isCallExpression(expr) &&
+      decl(expr.expression)?.name?.text === 'redirect' &&
+      decl(expr.expression)?.parent?.name?.text === 'NextResponse'
     );
   }
 
@@ -269,5 +368,5 @@ export function analyzeComponents(dir, roots) {
     }
     return { direct, branch };
   }
-  return { links, screens };
+  return { links, screens, references, alwaysRedirects };
 }
