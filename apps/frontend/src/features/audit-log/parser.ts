@@ -184,6 +184,27 @@ const RECORD_KEYS = [
   'metadata',
 ] as const;
 
+function mailDelivery(
+  action: string,
+  metadata: unknown,
+): AuditLogRecord['mailDelivery'] {
+  if (!isRecord(metadata)) return null;
+  switch (action) {
+    case 'PROGRAM_MAIL_SENT':
+    case 'PROGRAM_MAIL_FAILED':
+    case 'PROGRAM_MAIL_PARTIALLY_FAILED':
+    case 'PROGRAM_MAIL_DELIVERY_UNKNOWN':
+      return {
+        sentCount: nonNegativeInteger(metadata.sentCount),
+        failedCount: nonNegativeInteger(metadata.failedCount),
+        unknownCount: nonNegativeInteger(metadata.unknownCount),
+        duplicateCount: nonNegativeInteger(metadata.duplicateCount),
+      };
+    default:
+      return null;
+  }
+}
+
 function auditLogRecord(value: unknown): AuditLogRecord {
   const record = exactRecord(value, RECORD_KEYS);
   if (typeof record.legacy !== 'boolean') return invalidResponse();
@@ -202,6 +223,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
     requestId: nullableString(record.requestId),
     teamMembership: teamMembership(record.teamMembership),
     phoneTransition: phoneTransition(action, record.metadata),
+    mailDelivery: mailDelivery(action, record.metadata),
   };
 }
 
