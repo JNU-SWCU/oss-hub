@@ -55,6 +55,17 @@ async function renderName(name: string, days = 120) {
   });
 }
 
+test('announces the rank and day count to assistive technology', async () => {
+  await renderName('leader', 123);
+  const tier = container.querySelector('[data-streak-accessible-name]');
+  const announcement =
+    tier === null
+      ? container.querySelector('.sr-only')?.textContent
+      : container.querySelector('button')?.getAttribute('aria-label');
+  expect(announcement?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
+  expect(announcement?.match(/([0-9]+)\s*일/u)?.[1]).toBe('123');
+});
+
 test.each([
   ['김', '김', ''],
   ['Latin', 'L', 'atin'],
@@ -79,6 +90,20 @@ test.each([
   ).not.toBeNull();
 });
 
+test('reduced motion에서는 효과 버튼이 상호작용 상태를 만들지 않는다', async () => {
+  installReducedMotion(true);
+  await renderName('leader');
+  const button = container.querySelector('button');
+
+  await act(async () => button?.click());
+
+  expect(
+    container.querySelector('[data-streak-reduced-motion="true"]'),
+  ).not.toBeNull();
+  expect(container.querySelector('[data-streak-interaction="1"]')).toBeNull();
+  expect(container.querySelector('[data-streak-confetti]')).toBeNull();
+});
+
 test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용에서 confetti를 만든다', async () => {
   await renderName('leader');
   const link = container.querySelector('a');
@@ -86,15 +111,7 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
 
   expect(link?.contains(button)).toBe(false);
   expect(button?.getAttribute('aria-label')).toBe('임금 장식 효과 재생');
-  expect(
-    container
-      .querySelector('[data-ranking-streak-tier]')
-      ?.getAttribute('data-ranking-streak-tier'),
-  ).toBe('celebration');
-  const announcement = container.querySelector('.sr-only');
-  expect(announcement?.closest('[aria-hidden="true"], [hidden]')).toBeNull();
-  expect(announcement?.textContent?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
-  expect(announcement?.textContent?.match(/([0-9]+)\s*일/u)?.[1]).toBe('120');
+  expect(container.textContent).toContain('임금 · 1위 120일째 유지');
 
   await act(async () => button?.click());
 
