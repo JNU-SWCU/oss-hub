@@ -135,10 +135,14 @@ export class CollectionUserActivityRepository implements OnModuleInit {
   constructor(private readonly db: PrismaService) {}
 
   onModuleInit(): void {
-    if (loadPrismaPoolConfig().max < 2) {
-      throw new Error(
-        'Collection requires connection_limit >= 2: one connection for ranking preparation and one for ordinary collection reads',
-      );
+    const effectiveLimit = loadPrismaPoolConfig().max;
+    const requiredMinimum = 2;
+    if (effectiveLimit < requiredMinimum) {
+      this.logger.error({
+        event: 'platform.db_pool.below_minimum',
+        effectiveLimit,
+        requiredMinimum,
+      });
     }
   }
 

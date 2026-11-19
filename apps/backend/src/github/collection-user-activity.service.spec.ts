@@ -9,8 +9,8 @@ import { CollectionUserActivityRepository } from './collection-user-activity.rep
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
-it.each([1, 2])(
-  'requires capacity for collection reads during refresh (pool size %i)',
+it.each([1, 2, 3])(
+  'starts and reports insufficient collection pool capacity only below the minimum (pool size %i)',
   async (limit) => {
     const config = pool.loadPrismaPoolConfig(
       'postgresql://localhost/synthetic?connection_limit=' + limit,
@@ -24,15 +24,23 @@ it.each([1, 2])(
         { provide: PrismaService, useValue: {} },
       ],
     }).compile();
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     try {
-      if (limit === 1)
-        await expect(app.init()).rejects.toThrow('connection_limit >= 2');
-      else {
-        await expect(app.init()).resolves.toBe(app);
-        await app.close();
+      await expect(app.init()).resolves.toBe(app);
+      if (limit === 1) {
+        expect(error).toHaveBeenCalledTimes(1);
+        expect(error).toHaveBeenCalledWith({
+          event: 'platform.db_pool.below_minimum',
+          effectiveLimit: 1,
+          requiredMinimum: 2,
+        });
+      } else {
+        expect(error).not.toHaveBeenCalled();
       }
     } finally {
+      error.mockRestore();
       spy.mockRestore();
+      await app.close();
     }
   },
 );
