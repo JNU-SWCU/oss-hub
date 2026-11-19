@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { Injectable } from '@nestjs/common';
+import { SequentialRepository } from '../platform/sequential.repository';
 import { CollectionAppConfigValues } from './collection-app.config';
 import { CollectionAppClientError } from './collection-app.error';
 
@@ -315,9 +315,9 @@ export class CollectionAppClient {
       ).get(kind);
       return collectPages(kind, next, pageIndex + 1);
     };
-    await this.sequential.forEach(pending, async (kind) => {
+    for await (const kind of this.sequential.items(pending)) {
       await collectPages(kind, first.get(kind), 1);
-    });
+    }
 
     return {
       contributions: {

@@ -32,6 +32,7 @@ let githubId: bigint = DIGEST_FIXTURE.staffOnGithub;
 
 beforeAll(async () => {
   await harness.connect();
+  const service = harness.service(sender);
   const moduleRef = await Test.createTestingModule({
     controllers: [DeadlineDigestController],
     providers: [
@@ -47,7 +48,23 @@ beforeAll(async () => {
           return true;
         },
       }),
-      { provide: DeadlineDigestService, useValue: harness.service(sender) },
+      {
+        provide: DeadlineDigestService,
+        useValue: {
+          previewProgramFromRequest: (programId, draft) =>
+            service.previewProgram(programId, DIGEST_FIXTURE.now, draft),
+          sendProgramFromPreview: (programId, preview, actorId) =>
+            service.sendProgramFromPreview(
+              programId,
+              preview,
+              actorId,
+              DIGEST_FIXTURE.now,
+            ),
+        } satisfies Pick<
+          DeadlineDigestService,
+          'previewProgramFromRequest' | 'sendProgramFromPreview'
+        >,
+      },
     ],
   })
     .overrideGuard(OriginGuard)
@@ -70,13 +87,6 @@ beforeEach(async () => {
   await harness.reset();
   sender.sent.length = 0;
   githubId = DIGEST_FIXTURE.staffOnGithub;
-  await harness.prisma.milestone.update({
-    where: { id: DIGEST_FIXTURE.notifyMilestone },
-    data: {
-      startAt: new Date(Date.now() - 3_600_000),
-      dueAt: new Date(Date.now() + 12 * 3_600_000),
-    },
-  });
 });
 afterAll(async () => {
   await app.close();
@@ -137,6 +147,41 @@ it('renders, confirms, and sends separate escaped guidance through the real HTTP
       .filter((mail) => mail.to !== 'student-missing@example.com')
       .every((mail) => mail.body.includes(draft.staffGuidance)),
   ).toBe(true);
+  const audit = await harness.prisma.userHistory.findMany({
+    take: 3,
+    where: {
+      sourceTable: 'DeadlineDigest',
+      data: {
+        path: ['metadata', 'previewVersion'],
+        equals: preview.previewVersion,
+      },
+    },
+    select: { actorId: true, sourceId: true, sourcePart: true, data: true },
+    orderBy: { sourcePart: 'asc' },
+  });
+  expect(audit).toHaveLength(2);
+  const requestId = audit[0]?.sourceId;
+  expect(requestId).toEqual(expect.any(String));
+  expect(audit.map((entry) => entry.actorId)).toEqual([
+    DIGEST_FIXTURE.staffOn,
+    DIGEST_FIXTURE.staffOn,
+  ]);
+  expect(audit.map((entry) => entry.sourcePart)).toEqual(['attempt', 'result']);
+  expect(audit[0]?.data).toMatchObject({
+    action: 'DEADLINE_DIGEST_SEND_ATTEMPTED',
+    targetId: DIGEST_FIXTURE.notifyProgram,
+    requestId,
+  });
+  expect(audit[1]?.data).toMatchObject({
+    action: 'DEADLINE_DIGEST_SEND_COMPLETED',
+    targetId: DIGEST_FIXTURE.notifyProgram,
+    requestId,
+    metadata: {
+      sentCount: 2,
+      duplicateCount: 0,
+      failedCount: 0,
+    },
+  });
 });
 
 it('rejects changed guidance with 409 before creating any notification', async () => {
@@ -209,13 +254,18 @@ it('marks personalized previews as private and non-cacheable', async () => {
 });
 
 it('retains same-day deduplication across automatic and guided manual sends', async () => {
-  await harness.service(sender).sendDeadlineDigests();
+  await harness.service(sender).sendDeadlineDigests(DIGEST_FIXTURE.now);
   const preview = await confirmedPreview({
     studentGuidance: 'manual note',
     staffGuidance: 'staff note',
   });
 
   const first = await post('send', preview);
+  const secondStaff = await harness.prisma.user.findUniqueOrThrow({
+    where: { id: DIGEST_FIXTURE.staffOff },
+    select: { githubId: true },
+  });
+  githubId = secondStaff.githubId;
   const repeated = await post('send', preview);
 
   expect(first.status).toBe(201);
@@ -231,6 +281,23 @@ it('retains same-day deduplication across automatic and guided manual sends', as
   expect(
     sender.sent.find((mail) => mail.to === 'student-missing@example.com')?.body,
   ).not.toContain('manual note');
+  const results = await harness.prisma.userHistory.findMany({
+    where: {
+      sourceTable: 'DeadlineDigest',
+      sourcePart: 'result',
+      data: {
+        path: ['metadata', 'previewVersion'],
+        equals: preview.previewVersion,
+      },
+    },
+    select: { actorId: true, sourceId: true },
+    take: 3,
+  });
+  expect(results.map((row) => row.actorId).sort()).toEqual([
+    DIGEST_FIXTURE.staffOff,
+    DIGEST_FIXTURE.staffOn,
+  ]);
+  expect(new Set(results.map((row) => row.sourceId)).size).toBe(2);
 });
 
 it('does not claim or send when no milestone meets existing eligibility', async () => {

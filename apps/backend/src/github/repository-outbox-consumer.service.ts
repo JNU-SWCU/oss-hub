@@ -1,5 +1,5 @@
-import { SequentialRepository } from '../platform/sequential.repository';
 import { randomUUID } from 'node:crypto';
+import { SequentialRepository } from '../platform/sequential.repository';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
@@ -59,10 +59,13 @@ export class RepositoryOutboxConsumerService {
   }
 
   async runBatch(): Promise<void> {
-    const drain = (next: () => Promise<{ readonly kind: string }>) =>
-      this.sequential.repeat(PROVISION_BATCH_SIZE, async () =>
-        (await next()).kind === 'EMPTY' ? 'stop' : undefined,
-      );
+    const drain = async (next: () => Promise<{ readonly kind: string }>) => {
+      for await (const run of this.sequential.items(
+        Array.from({ length: PROVISION_BATCH_SIZE }, () => next),
+      )) {
+        if ((await run()).kind === 'EMPTY') break;
+      }
+    };
     await drain(() => this.consumeNext(this.workerId, this.now()));
     await drain(() => this.worker.runNext(this.workerId));
   }

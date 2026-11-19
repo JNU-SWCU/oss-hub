@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { SequentialRepository } from './sequential.repository';
 import { Prisma } from '@prisma/client';
+import { SequentialRepository } from './sequential.repository';
 
 const SERIALIZATION_FAILURE_CODE = 'P2034';
 
@@ -50,11 +50,14 @@ export class PrismaSerializationRetryRepository {
     const backoffMs = options.backoffMs ?? defaultBackoffMs;
 
     let outcome: { readonly value: T } | undefined;
-    await this.sequential.repeat(maxAttempts, async (index) => {
+    function* attempts() {
+      for (let index = 0; index < maxAttempts; index += 1) yield index;
+    }
+    for await (const index of this.sequential.items(attempts())) {
       const count = index + 1;
       try {
         outcome = { value: await run() };
-        return 'stop';
+        break;
       } catch (error) {
         if (!this.isSerializationFailure(error)) {
           throw error;
@@ -66,9 +69,8 @@ export class PrismaSerializationRetryRepository {
         if (delay > 0) {
           await sleep(delay);
         }
-        return undefined;
       }
-    });
+    }
     if (outcome === undefined) {
       throw new Error('Serialization retry ended without a result');
     }

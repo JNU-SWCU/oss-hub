@@ -13,6 +13,7 @@ import {
   DIGEST_USER_IDS,
 } from './deadline-digest.integration-fixtures';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
 import { NotificationSettingsRepository } from './application-decision-notifications.repository';
 import { type DeadlineDigestMail, type MailSender } from './gmail-mail.client';
@@ -39,7 +40,10 @@ export class IsolatingMailSender implements MailSender {
 }
 export function createDeadlineDigestIntegrationHarness() {
   const prisma = new PrismaService();
-  const repository = new DeadlineDigestRepository(prisma);
+  const repository = new DeadlineDigestRepository(
+    prisma,
+    new ProgramMailAuditRepository(),
+  );
   const settingsRepository = new NotificationSettingsRepository(prisma);
   async function cleanup(): Promise<void> {
     await prisma.notification.deleteMany({
@@ -90,11 +94,16 @@ export function createDeadlineDigestIntegrationHarness() {
       select: { userId: true },
       distinct: ['userId'],
     });
+    const retainedIds = retainedUsers.map((history) => history.userId);
+    await prisma.user.updateMany({
+      where: { id: { in: retainedIds } },
+      data: { notifyEnabled: false },
+    });
     await prisma.user.deleteMany({
       where: {
         id: {
           in: DIGEST_USER_IDS,
-          notIn: retainedUsers.map((history) => history.userId),
+          notIn: retainedIds,
         },
       },
     });

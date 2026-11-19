@@ -80,6 +80,26 @@ describe('SequentialRepository', () => {
     expect(indices).toEqual([0, 1]);
   });
 
+  it('closes the iterator when its second pull throws and preserves that error', async () => {
+    const failure = new Error('second pull failed');
+    const next = jest
+      .fn<IteratorResult<string>, []>()
+      .mockReturnValueOnce({ value: 'first', done: false })
+      .mockImplementationOnce(() => {
+        throw failure;
+      });
+    const close = jest.fn(() => ({ value: undefined, done: true as const }));
+    const step = jest
+      .fn<Promise<void>, [string, number]>()
+      .mockResolvedValue(undefined);
+    const items: Iterable<string> = {
+      [Symbol.iterator]: () => ({ next, return: close }),
+    };
+    await expect(sequential.forEach(items, step)).rejects.toBe(failure);
+    expect(step.mock.calls).toEqual([['first', 0]]);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   it('preserves the step failure when closing the iterator also fails', async () => {
     const failure = new Error('step failed');
     const items: Iterable<string> = {

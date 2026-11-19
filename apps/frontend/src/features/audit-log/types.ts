@@ -56,6 +56,12 @@ export interface AuditLogRecord {
   readonly requestId: string | null;
   readonly teamMembership: TeamMembershipChange | null;
   readonly phoneTransition: 'SET' | 'REPLACED' | null;
+  readonly mailDelivery: {
+    readonly sentCount: number;
+    readonly failedCount: number;
+    readonly unknownCount: number;
+    readonly duplicateCount: number;
+  } | null;
 }
 
 export const AUDIT_LOG_ACTION_LABELS = {
@@ -95,6 +101,13 @@ export const AUDIT_LOG_ACTION_LABELS = {
   SUBMISSION_CHANGES_REQUESTED: '서류 수정 요청',
   SUBMISSION_APPROVED: '서류 승인',
   SUBMISSION_REJECTED: '서류 반려',
+  PROGRAM_MAIL_SEND_ATTEMPTED: '프로그램 메일 발송 시도',
+  PROGRAM_MAIL_SENT: '프로그램 메일 발송 완료',
+  PROGRAM_MAIL_PARTIALLY_FAILED: '프로그램 메일 일부 실패',
+  PROGRAM_MAIL_FAILED: '프로그램 메일 발송 실패',
+  PROGRAM_MAIL_DELIVERY_UNKNOWN: '프로그램 메일 전달 결과 미확인',
+  DEADLINE_DIGEST_SEND_ATTEMPTED: '마감 알림 발송 시도',
+  DEADLINE_DIGEST_SEND_COMPLETED: '마감 알림 발송 결과',
   LOGIN: '로그인',
   LOGIN_FAILED: '로그인 실패',
   LOGOUT: '로그아웃',

@@ -1,3 +1,4 @@
+import { ProgramMailAuditRepository } from '../notifications/program-mail-audit.repository';
 import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
@@ -71,7 +72,7 @@ const editor = new ProgramEditorService(
 );
 const sentMails: DeadlineDigestMail[] = [];
 const digest = new DeadlineDigestService(
-  new DeadlineDigestRepository(prisma),
+  new DeadlineDigestRepository(prisma, new ProgramMailAuditRepository()),
   {
     send: (mail: DeadlineDigestMail) => {
       sentMails.push(mail);

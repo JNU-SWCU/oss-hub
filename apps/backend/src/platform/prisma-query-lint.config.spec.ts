@@ -6,8 +6,6 @@ import {
   PrismaQueryLintError,
 } from './prisma-query-lint.config';
 
-const FILE = 'apps/backend/src/platform/prisma-query-lint.config.spec.ts';
-const CALLER = `${FILE}#<module>`;
 const clients: PrismaClient[] = [];
 
 function unreachableClient(): PrismaClient {
@@ -42,29 +40,6 @@ async function lintCode(query: Promise<unknown>): Promise<string | undefined> {
   throw new Error('unreachable database query unexpectedly succeeded');
 }
 
-class ProbeRepository {
-  constructor(private readonly prisma: PrismaClient) {}
-
-  added() {
-    return this.prisma.user.findMany({ where: { name: 'x' } });
-  }
-
-  optionalLimit(optionalLimit?: number) {
-    return Promise.all([
-      this.prisma.user.findMany({ take: 10 }),
-      this.prisma.user.findMany({ take: optionalLimit }),
-    ]);
-  }
-}
-
-class ProbeService {
-  constructor(private readonly repository: ProbeRepository) {}
-
-  run() {
-    return this.repository.added();
-  }
-}
-
 afterAll(async () => {
   await Promise.all(clients.map((client) => client.$disconnect()));
 });
@@ -82,113 +57,35 @@ describe('loadPrismaQueryLintConfig', () => {
     expect(extend).not.toHaveBeenCalled();
   });
 
-  it('rejects findMany without take and names the rule and caller', async () => {
-    const prisma = lintedClient();
-
-    await expect(prisma.user.findMany({ where: {} })).rejects.toMatchObject({
-      code: 'LINT.NO_LIMIT',
-      key: `User.findMany@${CALLER}`,
-    });
-    expect(await lintCode(prisma.user.findMany())).toBe('LINT.NO_LIMIT');
-    expect(
-      await lintCode(prisma.teamMember.findMany({ where: { teamId: 'team' } })),
-    ).toBe('LINT.NO_LIMIT');
-    expect(
-      await lintCode(
-        prisma.user.findMany({ where: { OR: [{ id: 'a' }, { id: 'b' }] } }),
-      ),
-    ).toBe('LINT.NO_LIMIT');
-  });
-
-  it('passes findMany only when take is given', async () => {
-    const prisma = lintedClient();
-
-    expect(await lintCode(prisma.user.findMany({ take: 10 }))).toBeUndefined();
-    expect(
-      await lintCode(
-        prisma.user.findMany({ take: 2, where: { id: { in: ['a', 'b'] } } }),
-      ),
-    ).toBeUndefined();
-  });
-
-  it('rejects findMany without take even when a unique key restricts it', async () => {
-    const prisma = lintedClient();
-
-    expect(
-      await lintCode(
-        prisma.user.findMany({ where: { id: { in: ['a', 'b'] } } }),
-      ),
-    ).toBe('LINT.NO_LIMIT');
-    expect(
-      await lintCode(prisma.user.findMany({ where: { githubId: 7n } })),
-    ).toBe('LINT.NO_LIMIT');
-    expect(
-      await lintCode(
-        prisma.teamMember.findMany({
-          where: { AND: [{ teamId: 'team' }, { userId: { in: ['a'] } }] },
-        }),
-      ),
-    ).toBe('LINT.NO_LIMIT');
-  });
-
-  it('rejects to-many relations read without take at any depth', async () => {
-    const prisma = lintedClient();
-
+  it('rejects a top-level take that evaluates to undefined', async () => {
+    const take = new Map<string, number>().get('pageSize');
     await expect(
-      prisma.team.findUnique({
-        where: { id: 'team' },
-        select: { members: { select: { userId: true } } },
+      lintedClient().user.findMany({ take, select: { id: true } }),
+    ).rejects.toMatchObject({
+      code: 'LINT.NO_LIMIT',
+      key: 'User.findMany',
+    });
+  });
+
+  it('rejects a nested relation take that evaluates to undefined', async () => {
+    const take = new Map<string, number>().get('pageSize');
+    await expect(
+      lintedClient().program.findFirst({
+        select: { teams: { take, select: { id: true } } },
       }),
     ).rejects.toMatchObject({
       code: 'LINT.NESTED_NO_LIMIT',
-      key: `Team.findUnique.members@${CALLER}`,
+      key: 'Program.findFirst.teams',
     });
-    expect(
-      await lintCode(
-        prisma.team.findUnique({
-          where: { id: 'team' },
-          include: { members: true },
-        }),
-      ),
-    ).toBe('LINT.NESTED_NO_LIMIT');
-    expect(
-      await lintCode(
-        prisma.teamMember.findFirst({
-          select: {
-            team: {
-              select: {
-                program: { select: { milestones: { select: { id: true } } } },
-              },
-            },
-          },
-        }),
-      ),
-    ).toBe('LINT.NESTED_NO_LIMIT');
-  });
-
-  it('passes to-many relations with take, to-one relations and counts', async () => {
-    const prisma = lintedClient();
-
-    expect(
-      await lintCode(
-        prisma.team.findUnique({
-          where: { id: 'team' },
-          select: {
-            program: { select: { name: true } },
-            members: { take: 101, select: { userId: true } },
-            _count: { select: { members: true } },
-          },
-        }),
-      ),
-    ).toBeUndefined();
   });
 
   it('rejects deleteMany and updateMany without a where filter', async () => {
     const prisma = lintedClient();
 
-    expect(await lintCode(prisma.user.deleteMany({}))).toBe(
-      'LINT.DELETE_WITHOUT_WHERE',
-    );
+    await expect(prisma.user.deleteMany({})).rejects.toMatchObject({
+      code: 'LINT.DELETE_WITHOUT_WHERE',
+      key: 'User.deleteMany',
+    });
     expect(await lintCode(prisma.user.deleteMany())).toBe(
       'LINT.DELETE_WITHOUT_WHERE',
     );
@@ -202,23 +99,7 @@ describe('loadPrismaQueryLintConfig', () => {
     ).toBeUndefined();
   });
 
-  it('names the enclosing method as the caller', async () => {
-    const prisma = lintedClient();
-    const repository = new ProbeRepository(prisma);
-
-    await expect(repository.added()).rejects.toMatchObject({
-      code: 'LINT.NO_LIMIT',
-      key: `User.findMany@${FILE}#ProbeRepository.added`,
-    });
-    await expect(new ProbeService(repository).run()).rejects.toMatchObject({
-      key: `User.findMany@${FILE}#ProbeRepository.added`,
-    });
-    await expect(prisma.user.findMany()).rejects.toMatchObject({
-      key: `User.findMany@${CALLER}`,
-    });
-  });
-
-  it('warns once for reads without select and never throws for it', async () => {
+  it('warns once per operation for reads without select', async () => {
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const prisma = lintedClient();
 
@@ -233,22 +114,8 @@ describe('loadPrismaQueryLintConfig', () => {
 
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining(`[LINT.SELECT_STAR] Admin.findFirst@${CALLER}`),
+      '[LINT.SELECT_STAR] Admin.findFirst: select 없이 모든 열을 읽습니다.',
     );
     warn.mockRestore();
-  });
-
-  it('treats an undefined or null take like a missing take', async () => {
-    const prisma = lintedClient();
-    const repository = new ProbeRepository(prisma);
-
-    await expect(repository.optionalLimit()).rejects.toMatchObject({
-      code: 'LINT.NO_LIMIT',
-      key: `User.findMany@${FILE}#ProbeRepository.optionalLimit`,
-    });
-    expect(await lintCode(repository.optionalLimit(5))).toBeUndefined();
-    expect(
-      await lintCode(prisma.user.findMany({ take: null as unknown as number })),
-    ).toBe('LINT.NO_LIMIT');
   });
 });

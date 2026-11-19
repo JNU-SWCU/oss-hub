@@ -4,6 +4,7 @@ import {
   Header,
   Param,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
@@ -13,6 +14,7 @@ import { DeadlineDigestSendResponseDto } from './dto/deadline-digest-send-respon
 import { DeadlineDigestSendRequestDto } from './dto/deadline-digest-send-request.dto';
 import { DeadlineDigestGuidanceRequestDto } from './dto/deadline-digest-guidance-request.dto';
 import { Protected } from '../auth/auth-route.decorator';
+import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
@@ -25,6 +27,8 @@ const staffOnly = () =>
   new DomainException(
     NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.STAFF_ONLY],
   );
+
+type SessionIdentity = Pick<AuthenticatedRequest, 'principal'>;
 
 @Controller('programs/:programId/deadline-digest')
 export class DeadlineDigestController {
@@ -50,11 +54,16 @@ export class DeadlineDigestController {
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   async send(
+    @Req() request: SessionIdentity,
     @Param('programId') programId: string,
     @Body() input: DeadlineDigestSendRequestDto,
   ): Promise<DeadlineDigestSendResponseDto> {
     return DeadlineDigestSendResponseDto.from(
-      await this.service.sendProgramFromPreview(programId, input),
+      await this.service.sendProgramFromPreview(
+        programId,
+        input,
+        request.principal.id,
+      ),
     );
   }
 }
