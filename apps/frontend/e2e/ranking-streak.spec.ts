@@ -375,6 +375,52 @@ async function pauseAnimation(
   );
 }
 
+for (const width of [390, 1440]) {
+  test(`${width}px: 스트릭이 반짝이는 동안 학과 픽셀은 변하지 않는다`, async ({
+    page,
+  }) => {
+    await mkdir(EVIDENCE_DIR, { recursive: true });
+    await mockRanking(page);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    await openRanking(page);
+    const departments = page.locator('[data-ranking-department]');
+    const captures = async () =>
+      Promise.all(
+        [0, 1].map((rank) =>
+          departments.nth(rank).screenshot({ animations: 'allow' }),
+        ),
+      );
+    await departments
+      .nth(1)
+      .evaluate((element) =>
+        element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+      );
+    const off = await page.addStyleTag({
+      content:
+        '[data-ranking-streak-tier],[data-streak-headwear]{visibility:hidden!important}',
+    });
+    const reference = await captures();
+    await off.evaluate((style) => {
+      document.head.removeChild(style);
+    });
+    for (const time of [800, 980, 1220]) {
+      expect(await pauseAnimation(page, 'streak-shimmer', time)).toBe(10);
+      const painted = await captures();
+      for (const [index, image] of painted.entries()) {
+        expect(
+          image.equals(reference[index]),
+          `rank ${index + 1}, shimmer ${time}ms`,
+        ).toBe(true);
+      }
+      if (time === 980)
+        await page.screenshot({
+          path: path.join(EVIDENCE_DIR, `shimmer-midframe-${width}.png`),
+          animations: 'allow',
+        });
+    }
+  });
+}
+
 test('TOP 10 모자와 스트릭 장식은 행 텍스트와 표 geometry를 침범하지 않는다', async ({
   page,
 }) => {
@@ -403,7 +449,7 @@ test('TOP 10 모자와 스트릭 장식은 행 텍스트와 표 geometry를 침�
     ];
     for (const anchor of anchors) anchor.removeAttribute('data-streak-entered');
     const animatedTag = document.querySelector<HTMLElement>(
-      '[data-ranking-streak-tier="celebration"]',
+      '[data-ranking-streak-tier="celebration"] [data-day-count]',
     );
     const beforeHydration =
       animatedTag === null

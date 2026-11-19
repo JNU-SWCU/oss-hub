@@ -201,14 +201,16 @@
 }
 
 .days {
+  display: block;
   position: relative;
+  overflow: clip;
   z-index: 1;
   font-weight: 600;
 }
 
-.anchor[data-streak-entered] .shimmer::after,
-.anchor[data-streak-entered] .strong::after,
-.anchor[data-streak-entered] .celebration::after {
+.anchor[data-streak-entered] .shimmer .days::after,
+.anchor[data-streak-entered] .strong .days::after,
+.anchor[data-streak-entered] .celebration .days::after {
   content: '';
   pointer-events: none;
   position: absolute;
@@ -225,8 +227,8 @@
   animation: streak-shimmer 700ms 620ms ease-out 1 both;
 }
 
-.anchor[data-streak-entered] .strong::after,
-.anchor[data-streak-entered] .celebration::after {
+.anchor[data-streak-entered] .strong .days::after,
+.anchor[data-streak-entered] .celebration .days::after {
   width: 48%;
   animation-duration: 900ms;
   background: linear-gradient(
@@ -404,12 +406,12 @@
     .rightWing,
   .anchor:has(.tag:hover) .leftWing,
   .anchor:has(.tag:hover) .rightWing,
-  .anchor[data-streak-entered] .tag::after,
+  .anchor[data-streak-entered] .days::after,
   .confetti i {
     animation: none;
   }
 
-  .anchor[data-streak-entered] .tag::after,
+  .anchor[data-streak-entered] .days::after,
   .confetti {
     display: none;
   }
