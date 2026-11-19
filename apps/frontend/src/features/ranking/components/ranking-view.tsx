@@ -16,7 +16,7 @@ import {
   formatRankChange,
   type RankingRankChange,
 } from './ranking-history-model';
-import { RankingCourtMember } from './ranking-court-theme';
+import { RankingRankMember } from './ranking-rank-theme';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
@@ -81,7 +81,7 @@ const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
 const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'member',
   header: '참여자',
-  cell: (item) => <RankingCourtMember item={item} />,
+  cell: (item) => <RankingRankMember item={item} />,
   headClassName: 'w-24',
 };
 
@@ -152,7 +152,10 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
           {EMPTY_CELL}
         </span>
       ) : (
-        <span className="break-keep whitespace-normal font-medium">
+        <span
+          className="break-keep whitespace-normal font-medium"
+          data-ranking-person-name
+        >
           {item.name}
         </span>
       ),
@@ -168,7 +171,9 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
           {EMPTY_CELL}
         </span>
       ) : (
-        <span className="break-keep whitespace-normal">{item.department}</span>
+        <span className="break-keep whitespace-normal" data-ranking-department>
+          {item.department}
+        </span>
       ),
     headClassName: 'w-20',
   },
