@@ -22,8 +22,10 @@ import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramListStatusFilterRepository,
+  type ProgramListQueryDirection,
   type ProgramListQueryStatus,
 } from './programs.repository';
+import { SUBMISSION_DASHBOARD_STAGE_COUNT_CTES } from './submission-matrix.config';
 import {
   RepositoryProvisionGenerationRepository,
   type RepositoryProvisionHistoryPayloadParser,
@@ -513,8 +515,12 @@ export interface StaffDashboardSummaryQuery {
   readonly pageSize: number;
   readonly search: string;
   readonly status: StaffDashboardStatusFilter;
+  readonly sort?: StaffDashboardSort;
+  readonly direction?: ProgramListQueryDirection;
   readonly now: Date;
 }
+
+export type StaffDashboardSort = 'name' | 'deadline' | 'submission' | 'pending';
 
 export type StaffDashboardStatusFilter = Exclude<
   ProgramListQueryStatus,
@@ -552,6 +558,78 @@ function staffDashboardSearchSql(search: string): Prisma.Sql {
     strpos(lower(p."name"), ${needle}) > 0
     OR p."trackType"::text = ANY(${trackTypes}::text[])
   )`;
+}
+
+function staffDashboardSortSql(query: StaffDashboardSummaryQuery) {
+  let ctes = Prisma.empty;
+  let joins = Prisma.empty;
+  let value: Prisma.Sql | undefined;
+
+  switch (query.sort) {
+    case 'name':
+      value = Prisma.sql`p."name"`;
+      break;
+    case 'deadline':
+    case 'submission':
+      ctes = Prisma.sql`, milestones AS (
+        SELECT DISTINCT ON (milestone."programId")
+          milestone."id", milestone."programId", milestone."dueAt"
+        FROM "Milestone" AS milestone
+        JOIN filtered_programs AS p ON p."id" = milestone."programId"
+        WHERE p.status = 'in_progress' AND milestone."startAt" <= ${query.now}
+        ORDER BY milestone."programId", milestone."startAt" DESC,
+          milestone."dueAt" DESC, milestone."id" DESC
+      )`;
+      joins = Prisma.sql`LEFT JOIN milestones AS milestone
+        ON milestone."programId" = p."id"`;
+      if (query.sort === 'deadline') {
+        value = Prisma.sql`CASE p.status
+          WHEN 'recruiting' THEN p."applicationEndAt"
+          WHEN 'in_progress' THEN milestone."dueAt"
+        END`;
+      } else {
+        ctes = Prisma.sql`${ctes}, program_ids AS (
+          SELECT "programId" FROM milestones
+        ), ${Prisma.raw(SUBMISSION_DASHBOARD_STAGE_COUNT_CTES)}`;
+        joins = Prisma.sql`${joins}
+          LEFT JOIN milestone_counts ON milestone_counts."milestoneId" = milestone."id"`;
+        value = Prisma.sql`milestone_counts."submittedTeams"::numeric
+          / NULLIF(milestone_counts."totalTeams", 0)`;
+      }
+      break;
+    case 'pending':
+      ctes = Prisma.sql`, program_ids AS (
+        SELECT "id" AS "programId" FROM filtered_programs
+      ), milestones AS (
+        SELECT milestone."id", milestone."programId"
+        FROM "Milestone" AS milestone
+        JOIN program_ids USING ("programId")
+      ), ${Prisma.raw(SUBMISSION_DASHBOARD_STAGE_COUNT_CTES)}`;
+      joins = Prisma.sql`
+        LEFT JOIN (
+          SELECT team."programId", COUNT(*) AS total
+          FROM "Team" AS team
+          JOIN program_ids USING ("programId")
+          WHERE team."status" = 'SUBMITTED' AND team."archivedAt" IS NULL
+          GROUP BY team."programId"
+        ) AS pending_applications ON pending_applications."programId" = p."id"
+        LEFT JOIN (
+          SELECT milestones."programId", SUM(milestone_counts.submitted) AS total
+          FROM milestones
+          JOIN milestone_counts ON milestone_counts."milestoneId" = milestones."id"
+          GROUP BY milestones."programId"
+        ) AS pending_reviews ON pending_reviews."programId" = p."id"`;
+      value = Prisma.sql`COALESCE(pending_applications.total, 0)
+        + COALESCE(pending_reviews.total, 0)`;
+      break;
+  }
+
+  const direction =
+    query.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  const orderBy = value
+    ? Prisma.sql`${value} ${direction} NULLS LAST, p."id" ASC`
+    : Prisma.sql`p."applicationStartAt" DESC, p."name" ASC, p."id" ASC`;
+  return { ctes, joins, orderBy };
 }
 
 type ApplicationWithProgram = PrismaTypes.TeamGetPayload<{
@@ -884,13 +962,19 @@ export class ApplicationsRepository {
       query.page,
       Math.max(1, Math.ceil(total / query.pageSize)),
     );
+    const { ctes, joins, orderBy } = staffDashboardSortSql(query);
     const programs = await this.prisma.$queryRaw<StaffDashboardProgramRow[]>`
-      SELECT p."id", p."name", p."trackType"::text AS "trackType",
-        p."coverFileId", p."coverImageUrl", p."applicationStartAt",
-        p."applicationEndAt", p."endAt"
-      FROM "Program" AS p
-      WHERE p."lifecycle" <> 'DELETED' ${filter}
-      ORDER BY p."applicationStartAt" DESC, p."name" ASC, p."id" ASC
+      WITH filtered_programs AS (
+        SELECT p."id", p."name", p."trackType"::text AS "trackType",
+          p."coverFileId", p."coverImageUrl", p."applicationStartAt",
+          p."applicationEndAt", p."endAt", (${status}) AS status
+        FROM "Program" AS p
+        WHERE p."lifecycle" <> 'DELETED' ${filter}
+      ) ${ctes}
+      SELECT p.*
+      FROM filtered_programs AS p
+      ${joins}
+      ORDER BY ${orderBy}
       LIMIT ${query.pageSize} OFFSET ${(page - 1) * query.pageSize}
     `;
     const pageInfo = {

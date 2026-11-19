@@ -29,7 +29,10 @@ import {
   SubmissionMembershipChangedError,
 } from './submissions.error';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
-import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
+import {
+  MATRIX_APPLICATION_MODES,
+  SUBMISSION_DASHBOARD_STAGE_COUNT_CTES,
+} from './submission-matrix.config';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
 import type { SubmissionCompletionTargetRow } from './submission-completion.config';
 @Injectable()
@@ -289,9 +292,18 @@ const attachedFileSelect = {
   mimeType: true,
   sizeBytes: true,
 } satisfies Prisma.FileSelect;
+export interface SubmissionDashboardMilestoneSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly startAt: string;
+  readonly dueAt: string;
+  readonly submittedTeams: number | null;
+  readonly totalTeams: number | null;
+}
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
   readonly milestones: number;
+  readonly milestoneSummaries: readonly SubmissionDashboardMilestoneSummary[];
   readonly total: number;
   readonly notSubmitted: number;
   readonly submitted: number;
@@ -311,59 +323,41 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     programIds: readonly string[],
   ): Promise<readonly SubmissionDashboardProgramSummary[]> {
     if (programIds.length === 0) return [];
-    const programs = Prisma.join(programIds);
     return this.prisma.$queryRaw<SubmissionDashboardProgramSummary[]>`
-      WITH teams AS (
-        SELECT team."id", team."programId"
-        FROM "Team" AS team
-        WHERE team."programId" IN (${programs})
-          AND team."status" = 'APPROVED'
-          AND team."archivedAt" IS NULL
+      WITH program_ids AS (
+        SELECT DISTINCT unnest(ARRAY[${Prisma.join(programIds)}]::text[]) AS "programId"
       ),
-      documents AS (
-        SELECT requirement."id", requirement."milestoneId", milestone."programId"
-        FROM "Requirement" AS requirement
-        JOIN "Milestone" AS milestone ON milestone."id" = requirement."milestoneId"
-        WHERE requirement."required"
-          AND milestone."programId" IN (${programs})
+      milestones AS (
+        SELECT milestone."id", milestone."programId", milestone."name",
+          milestone."startAt", milestone."dueAt"
+        FROM "Milestone" AS milestone
+        JOIN program_ids USING ("programId")
       ),
-      cells AS (
-        SELECT teams."programId", MIN(
-          CASE submission."status"::text
-            WHEN 'REJECTED' THEN 0
-            WHEN 'CHANGES_REQUESTED' THEN 1
-            WHEN 'SUBMITTED' THEN 3
-            WHEN 'APPROVED' THEN 4
-            ELSE 2
-          END
-        ) AS worst
-        FROM teams
-        JOIN documents ON documents."programId" = teams."programId"
-        LEFT JOIN "Submission" AS submission
-          ON submission."teamId" = teams."id"
-          AND submission."requirementId" = documents."id"
-        GROUP BY teams."programId", teams."id", documents."milestoneId"
-      ),
-      program_ids AS (
-        SELECT DISTINCT unnest(ARRAY[${programs}]::text[]) AS "programId"
-      )
+      ${Prisma.raw(SUBMISSION_DASHBOARD_STAGE_COUNT_CTES)}
       SELECT
         program_ids."programId",
-        (SELECT COUNT(DISTINCT documents."milestoneId") FROM documents
-          WHERE documents."programId" = program_ids."programId")::int AS milestones,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId")::int
-          AS total,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 2)::int AS "notSubmitted",
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 3)::int AS submitted,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 4)::int AS approved,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 1)::int AS "changesRequested",
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 0)::int AS rejected
+        COUNT(milestone_counts."milestoneId")::int AS milestones,
+        COALESCE(SUM(milestone_counts."totalTeams"), 0)::int AS total,
+        COALESCE(SUM(milestone_counts."notSubmitted"), 0)::int AS "notSubmitted",
+        COALESCE(SUM(milestone_counts.submitted), 0)::int AS submitted,
+        COALESCE(SUM(milestone_counts.approved), 0)::int AS approved,
+        COALESCE(SUM(milestone_counts."changesRequested"), 0)::int AS "changesRequested",
+        COALESCE(SUM(milestone_counts.rejected), 0)::int AS rejected,
+        COALESCE(
+          jsonb_agg(jsonb_build_object(
+            'id', milestone."id",
+            'name', milestone."name",
+            'startAt', to_char(milestone."startAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'dueAt', to_char(milestone."dueAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'submittedTeams', milestone_counts."submittedTeams",
+            'totalTeams', milestone_counts."totalTeams"
+          ) ORDER BY milestone."dueAt", milestone."id") FILTER (WHERE milestone."id" IS NOT NULL),
+          '[]'::jsonb
+        ) AS "milestoneSummaries"
       FROM program_ids
+      LEFT JOIN milestones AS milestone USING ("programId")
+      LEFT JOIN milestone_counts ON milestone_counts."milestoneId" = milestone."id"
+      GROUP BY program_ids."programId"
       LIMIT ${programIds.length}
     `;
   }
