@@ -54,6 +54,7 @@ const happyDomTests = [
   'src/features/programs/documents/components/{milestone-notice.test.tsx,program-milestone-timeline.test.tsx}',
   'src/features/programs/notifications/{deadline-digest-action.test.tsx,deadline-digest-dialog.test.tsx,program-mail-dialog.test.tsx,program-mail-recipient-tree.test.tsx}',
   'src/features/ranking/components/ranking-screen.test.tsx',
+  'src/features/ranking/components/ranking-streak-decoration.interaction.test.tsx',
   'src/features/reviews/{submission-review-conflict.test.tsx,submission-review-refresh.test.tsx,submission-review-request-order.test.tsx,submission-review-screen.test.tsx}',
   'src/features/reviews/components/repository-publish-card.test.tsx',
   'src/features/roles/access-administration/{admin-access-authority-actions.test.tsx,admin-access-confirmation-snapshot.test.tsx,admin-access-detail-actions.test.tsx,admin-access-detail-dialogs.test.tsx,admin-access-detail-history.test.tsx,admin-access-detail-layout.test.tsx,admin-access-detail-post-decision.test.tsx,admin-access-detail-view.test.tsx,admin-access-list-interactive.test.tsx,admin-access-mutation-actions.test.tsx,admin-access-revocation-contract.test.tsx}',

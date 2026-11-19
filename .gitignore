@@ -50,13 +50,6 @@ verify/reports/
 
 .pnpm-store/
 
-.ds-sync/
-ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
-apps/frontend/.ds-css/
-apps/frontend/ds-types/
 apps/frontend/index.d.ts
 
 /artifacts/

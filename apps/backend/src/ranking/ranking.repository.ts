@@ -9,6 +9,7 @@ import {
   RankingAllTimelineRepository,
   type RankingAllTimelineRow,
 } from './ranking-all-timeline.repository';
+import { RankingStreakRepository } from './ranking-streak.repository';
 
 const STANDING = Prisma.raw(STANDING_SQL);
 import { PrismaService } from '../platform/prisma.service';
@@ -49,10 +50,18 @@ export interface RankingTimelineRows {
   readonly points: readonly RankingTimelinePointRow[];
 }
 
+export interface RankingStreak {
+  readonly rankHeldSince: string;
+  readonly top10Since: string;
+  readonly rankHeldDays: number;
+  readonly top10Days: number;
+}
+
 export interface RankedPageRow extends RankingMetricRow {
   readonly total: number;
   readonly rank: number;
   readonly previousRank: number | null;
+  readonly streak?: RankingStreak | null;
 }
 
 export interface RankedPage {
@@ -248,6 +257,7 @@ export class RankingRepository {
     private readonly allTimeline: RankingAllTimelineRepository = new RankingAllTimelineRepository(
       prisma,
     ),
+    private readonly streaks: RankingStreakRepository = new RankingStreakRepository(),
   ) {
     this.contributors = new ContributorReadRepository(prisma);
   }
@@ -286,13 +296,20 @@ export class RankingRepository {
     now: Date,
   ): Promise<RankedPage> {
     const previous = previousRows(query, seoulDayStart(now));
+    const streakCtes = this.streaks.ctes({
+      member: RANKING_MEMBER,
+      order: RANKING_ORDER,
+      query,
+      now,
+    });
     const [rows, total] = await Promise.all([
       this.prisma.$queryRaw<RankedPageRow[]>`
         WITH current_folded AS (${foldedActivity(currentRows(query))}),
         previous_rows AS (${previous}),
         previous_folded AS (${foldedActivity(Prisma.sql`SELECT * FROM previous_rows`)}),
         current_ranked AS (${rankedMembers(Prisma.sql`current_folded`)}),
-        previous_ranked AS (${rankedMembers(Prisma.sql`previous_folded`)})
+        previous_ranked AS (${rankedMembers(Prisma.sql`previous_folded`)}),
+        ${streakCtes}
         SELECT
           current_ranked.github_id AS "githubId",
           current_ranked.login AS "githubLogin",
@@ -306,9 +323,20 @@ export class RankingRepository {
           current_ranked.rank,
           CASE WHEN EXISTS (SELECT 1 FROM previous_rows)
             THEN previous_ranked.rank
-          END AS "previousRank"
+          END AS "previousRank",
+          CASE WHEN current_ranked.rank <= 10 THEN
+            CASE WHEN ranking_streaks.github_id IS NULL THEN NULL ELSE
+              jsonb_build_object(
+                'rankHeldSince', ranking_streaks.rank_held_since,
+                'top10Since', ranking_streaks.top_ten_since,
+                'rankHeldDays', ranking_streaks.rank_held_days,
+                'top10Days', ranking_streaks.top_ten_days
+              )
+            END
+          END AS streak
         FROM current_ranked
         LEFT JOIN previous_ranked USING (github_id)
+        LEFT JOIN ranking_streaks USING (github_id)
         WHERE current_ranked.rank > ${window.offset}
           AND current_ranked.rank <= ${window.offset + window.limit}
         ORDER BY current_ranked.rank

@@ -309,7 +309,6 @@ The Core Web Vitals verifier pins Lighthouse 13.6.0 after local same-frame text,
 | Tests per changed path, and deployment | [CI workflow](.github/workflows/ci.yml) |
 | Database and seeds | [Prisma notes](apps/backend/prisma/README.md) (Korean) |
 | Frontend feature structure | [Features notes](apps/frontend/src/features/README.md) (Korean) |
-| Design tokens and Figma | [Figma plugin notes](apps/frontend/figma-plugin/README.md) (Korean) |
 | PR and issue templates | [PR template](.github/pull_request_template.md), [issue forms](.github/ISSUE_TEMPLATE/) (Korean) |
 
 ## License
