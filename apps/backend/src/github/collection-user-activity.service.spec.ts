@@ -1,3 +1,5 @@
+import { Test } from '@nestjs/testing';
+import * as pool from '../platform/prisma-pool.config';
 import { Logger } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 
@@ -6,6 +8,34 @@ import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
+
+it.each([1, 2])(
+  'requires capacity for collection reads during refresh (pool size %i)',
+  async (limit) => {
+    const config = pool.loadPrismaPoolConfig(
+      'postgresql://localhost/synthetic?connection_limit=' + limit,
+    );
+    const spy = jest
+      .spyOn(pool, 'loadPrismaPoolConfig')
+      .mockReturnValue(config);
+    const app = await Test.createTestingModule({
+      providers: [
+        CollectionUserActivityRepository,
+        { provide: PrismaService, useValue: {} },
+      ],
+    }).compile();
+    try {
+      if (limit === 1)
+        await expect(app.init()).rejects.toThrow('connection_limit >= 2');
+      else {
+        await expect(app.init()).resolves.toBe(app);
+        await app.close();
+      }
+    } finally {
+      spy.mockRestore();
+    }
+  },
+);
 
 function deferred<T>(): {
   readonly promise: Promise<T>;

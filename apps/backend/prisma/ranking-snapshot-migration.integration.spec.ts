@@ -28,6 +28,15 @@ it('backfills existing daily observations at migrate deploy, before any collecti
         'utf8',
       ),
     );
+    await client.query(
+      await readFile(
+        resolve(
+          __dirname,
+          'migrations/20261119060000_stage_ranking_snapshot/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
     expect(
       (
         await client.query(

@@ -1,6 +1,7 @@
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { AccountStatus, ActivityVisibility, Prisma } from '@prisma/client';
+import { loadPrismaPoolConfig } from '../platform/prisma-pool.config';
 import { PrismaService } from '../platform/prisma.service';
 
 export interface CollectionActivityUserRow {
@@ -127,19 +128,41 @@ const writeActivityLedgerRow = async (
 };
 
 @Injectable()
-export class CollectionUserActivityRepository {
+export class CollectionUserActivityRepository implements OnModuleInit {
   private readonly logger = new Logger(CollectionUserActivityRepository.name);
   private readonly boundedReads = new BoundedReadRepository();
 
   constructor(private readonly db: PrismaService) {}
 
+  onModuleInit(): void {
+    if (loadPrismaPoolConfig().max < 2) {
+      throw new Error(
+        'Collection requires connection_limit >= 2: one connection for ranking preparation and one for ordinary collection reads',
+      );
+    }
+  }
+
   async refreshRankingSnapshots(): Promise<void> {
-    const budgetMs = 30_000;
+    let budgetMs = 30_000;
+    let phase = 'prepare';
     const startedAt = Date.now();
     try {
       await this.db.$transaction(
         async (tx) => {
           await tx.$executeRaw`SET LOCAL statement_timeout = '30s'`;
+          await tx.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_activity_prepared`;
+          await tx.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_streak_prepared`;
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          timeout: budgetMs,
+        },
+      );
+      phase = 'publish';
+      budgetMs = 3_000;
+      await this.db.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL statement_timeout = '3s'`;
           await tx.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_activity_snapshot`;
           await tx.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY ranking_streak_snapshot`;
         },
@@ -153,6 +176,7 @@ export class CollectionUserActivityRepository {
         event: 'collection.ranking_snapshot.refresh_failed',
         durationMs: Date.now() - startedAt,
         budgetMs,
+        phase,
         errorName: error instanceof Error ? error.name : 'UnknownError',
         code:
           error instanceof Prisma.PrismaClientKnownRequestError
