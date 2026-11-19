@@ -67,9 +67,20 @@ describe('StaffDashboardService', () => {
         githubRepositoryId: 123n,
       },
     ]);
+    const stages = [
+      {
+        id: 'stage:1',
+        name: '중간 보고',
+        startAt: '2026-07-01T00:00:00.000Z',
+        dueAt: '2026-07-20T00:00:00.000Z',
+        submittedTeams: 0,
+        totalTeams: 1,
+      },
+    ];
     const submissionSummary = jest.fn().mockResolvedValue([
       {
         programId: 'program:1',
+        milestoneSummaries: stages,
         milestones: 2,
         total: 2,
         notSubmitted: 1,
@@ -104,6 +115,7 @@ describe('StaffDashboardService', () => {
     });
 
     expect(summary.programs[0]).toEqual({
+      milestones: stages,
       coverImageUrl: null,
       id: 'program:1',
       name: 'Synthetic program',

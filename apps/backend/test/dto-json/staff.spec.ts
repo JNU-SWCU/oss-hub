@@ -122,6 +122,7 @@ const history: AdminAccessUserHistory = {
 };
 
 const program: StaffDashboardComposedProgramSummary = {
+  milestones: [],
   id: 'program-1',
   name: 'Program A',
   coverId: 'cover-1',
