@@ -4,21 +4,34 @@ import path from 'node:path';
 
 const EVIDENCE_DIR = path.resolve(
   process.cwd(),
-  '../../.omo/evidence/ranking-streak/screenshots',
+  '../../.omo/evidence/ranking-egg-polish/after',
 );
 const TABLE_ROW = '[data-slot="table-body"] [data-slot="table-row"]';
 const DAYS = [120, 35, 8, 3, 120, 35, 8, 3, 120, 35] as const;
 const LOGINS = [
-  '왕-leading',
-  'LeftPrime',
-  'RightPrime',
-  'ChiefState',
-  '이조-chief',
-  '호조-chief',
-  '예조-chief',
-  '병조-chief',
-  '형조-chief',
-  '👩‍💻공조-chief',
+  '왕-leading-participant-with-long-name',
+  'LeftPrime-participant',
+  'RightPrime-participant',
+  'ChiefState-participant',
+  'rank-five-participant',
+  'rank-six-participant',
+  'rank-seven-participant',
+  'rank-eight-participant',
+  'rank-nine-participant',
+  '👩‍💻rank-ten-participant',
+] as const;
+
+const DEPARTMENTS = [
+  '인공지능융합학부 소프트웨어전공 매우 긴 학과명',
+  '컴퓨터공학과 데이터사이언스 복수전공',
+  '전자공학부 임베디드시스템 전공',
+  '산업공학과 인간중심컴퓨팅 연구과정',
+  '정보보호학과 네트워크보안 전공',
+  '수학과 계산과학 연계전공',
+  '통계학과 빅데이터 분석전공',
+  '디자인학과 인터랙션디자인 전공',
+  '경영학과 기술경영 연계전공',
+  '기계공학부 지능형로봇 융합전공',
 ] as const;
 
 const RANKING_PAGE = {
@@ -27,6 +40,8 @@ const RANKING_PAGE = {
     rank: index + 1,
     previousRank: index + 1,
     githubLogin,
+    name: `매우 긴 참여자 이름 ${String(index + 1).padStart(2, '0')}`,
+    department: DEPARTMENTS[index],
     commitCount: 100 - index,
     pullRequestCount: 20,
     issueCount: 10,
@@ -44,7 +59,7 @@ const RANKING_PAGE = {
   pageSize: 20,
   total: 10,
   dataAsOf: '2026-11-18T02:30:00.000Z',
-  viewerClass: 'member',
+  viewerClass: 'staff',
   nextCycleAt: '2026-11-19T00:00:00.000Z',
 };
 
@@ -67,8 +82,8 @@ async function mockRanking(page: Page) {
           name: null,
           email: null,
           avatarUrl: null,
-          memberKind: 'STUDENT',
-          hasStaffAccess: false,
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
           hasAdminAccess: false,
           isProfileComplete: true,
         },
@@ -134,7 +149,7 @@ async function openRanking(page: Page) {
   await expect(page.locator('[data-streak-entered="true"]')).toHaveCount(10);
 }
 
-async function capture(page: Page, name: string) {
+async function capture(page: Page, name: string, fullPage = false) {
   await page.locator('nextjs-portal').evaluateAll((portals) => {
     for (const portal of portals) {
       if (portal instanceof HTMLElement) portal.style.display = 'none';
@@ -144,6 +159,7 @@ async function capture(page: Page, name: string) {
   await page.screenshot({
     path: path.join(EVIDENCE_DIR, `${name}.png`),
     animations: 'allow',
+    fullPage,
   });
 }
 
@@ -167,6 +183,7 @@ async function decorationClearance(page: Page) {
           name: '',
           nameTagOverlap: true,
           nameCenterHitsLink: false,
+          otherCellOverlap: true,
           hatCoverage: 1,
           hatVisibleFraction: 0,
         };
@@ -175,11 +192,22 @@ async function decorationClearance(page: Page) {
       const tagRect = tag.getBoundingClientRect();
       const firstRect = first.getBoundingClientRect();
       const hatRect = hat.getBoundingClientRect();
-      const nameTagOverlap =
-        Math.min(nameRect.right, tagRect.right) >
-          Math.max(nameRect.left, tagRect.left) &&
-        Math.min(nameRect.bottom, tagRect.bottom) >
-          Math.max(nameRect.top, tagRect.top);
+      const intersects = (left: DOMRect, right: DOMRect) =>
+        Math.min(left.right, right.right) > Math.max(left.left, right.left) &&
+        Math.min(left.bottom, right.bottom) > Math.max(left.top, right.top);
+      const nameTagOverlap = intersects(nameRect, tagRect);
+      const memberCell = anchor.closest('td, th');
+      const row = anchor.closest('tr');
+      const otherCells =
+        row === null
+          ? []
+          : [...row.querySelectorAll<HTMLElement>('td, th')].filter(
+              (cell) => cell !== memberCell,
+            );
+      const otherCellOverlap = otherCells.some((cell) => {
+        const rect = cell.getBoundingClientRect();
+        return intersects(hatRect, rect) || intersects(tagRect, rect);
+      });
       const nameCenterTarget = document.elementFromPoint(
         nameRect.left + nameRect.width / 2,
         nameRect.top + nameRect.height / 2,
@@ -217,6 +245,7 @@ async function decorationClearance(page: Page) {
         name: name.textContent ?? '',
         nameTagOverlap,
         nameCenterHitsLink: nameCenterTarget?.closest('a') === name,
+        otherCellOverlap,
         hatCoverage: coveredHeight / firstRect.height,
         hatVisibleFraction: svgArea === 0 ? 0 : visibleArea / svgArea,
       };
@@ -298,7 +327,7 @@ async function pauseAnimation(
   );
 }
 
-test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바꾸지 않는다', async ({
+test('TOP 10 모자와 스트릭 장식은 행 텍스트와 표 geometry를 침범하지 않는다', async ({
   page,
 }) => {
   await mkdir(EVIDENCE_DIR, { recursive: true });
@@ -325,6 +354,7 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   const desktopClearance = await decorationClearance(page);
   expect(desktopClearance.filter((row) => row.nameTagOverlap)).toEqual([]);
   expect(desktopClearance.filter((row) => !row.nameCenterHitsLink)).toEqual([]);
+  expect(desktopClearance.filter((row) => row.otherCellOverlap)).toEqual([]);
   expect(desktopClearance.filter((row) => row.hatCoverage > 0.2)).toEqual([]);
   expect(
     desktopClearance.filter((row) => row.hatVisibleFraction < 0.9),
@@ -354,7 +384,36 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   });
   expect(hydrationMotion.beforeHydration).toBe('none');
   expect(hydrationMotion.afterHydration).toContain('streak-shimmer');
-  await capture(page, 'static-1440');
+  const staticHeadwear = await page.evaluate(() =>
+    [...document.querySelectorAll<SVGElement>('[data-headwear-kind]')].map(
+      (svg) => ({
+        kind: svg.dataset.headwearKind,
+        baseFill: getComputedStyle(svg.querySelector('path') ?? svg).fill,
+      }),
+    ),
+  );
+  expect(new Set(staticHeadwear.map((item) => item.kind)).size).toBe(10);
+  expect(
+    new Set(staticHeadwear.map((item) => item.baseFill)).size,
+  ).toBeGreaterThanOrEqual(4);
+  const effectLabels = await page
+    .locator('[data-ranking-streak-tier]')
+    .evaluateAll((buttons) =>
+      buttons.map((button) => button.getAttribute('aria-label')),
+    );
+  expect(new Set(effectLabels).size).toBe(10);
+  const visibleTenureLabels = await page
+    .locator('[data-tenure-label]')
+    .allTextContents();
+  expect(visibleTenureLabels).toEqual([
+    '1위',
+    ...Array.from({ length: 9 }, () => 'TOP 10'),
+  ]);
+  const visibleDayCounts = await page
+    .locator('[data-day-count]')
+    .allTextContents();
+  expect(visibleDayCounts).toEqual(DAYS.map((days) => `${days}일째`));
+  await capture(page, 'ranking-1440');
 
   const geometry = await tableGeometry(page);
   expect(geometry.after).toEqual(geometry.before);
@@ -384,6 +443,7 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   const mobileGeometry = await tableGeometry(page);
   expect(mobileClearance.filter((row) => row.nameTagOverlap)).toEqual([]);
   expect(mobileClearance.filter((row) => !row.nameCenterHitsLink)).toEqual([]);
+  expect(mobileClearance.filter((row) => row.otherCellOverlap)).toEqual([]);
   expect(mobileClearance.filter((row) => row.hatCoverage > 0.2)).toEqual([]);
   expect(mobileClearance.filter((row) => row.hatVisibleFraction < 0.9)).toEqual(
     [],
@@ -393,7 +453,7 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
     mobileGeometry.hiddenScrollWidth,
   );
   expect(mobileGeometry.decorationCls).toBe(0);
-  await capture(page, 'static-390');
+  await capture(page, 'ranking-390', true);
   await page
     .locator('[data-ranking-streak-tier="celebration"]')
     .first()
@@ -454,7 +514,7 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   await reducedButton.click();
   await reducedButton.hover();
   await expect(page.locator('[data-streak-interaction="1"]')).toHaveCount(0);
-  await capture(page, 'reduced-motion-1440');
+  await capture(page, 'ranking-reduced-motion-1440');
   expect(
     await page.evaluate(() =>
       document
@@ -471,5 +531,11 @@ test('조선 관직 스트릭 장식은 TOP 10만 꾸미고 표 geometry를 바�
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(page.locator(TABLE_ROW)).toHaveCount(10);
-  await capture(page, 'reduced-motion-390');
+  const reducedKinds = await page
+    .locator('[data-headwear-kind]')
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute('data-headwear-kind')),
+    );
+  expect(new Set(reducedKinds).size).toBe(10);
+  await capture(page, 'ranking-reduced-motion-390', true);
 });

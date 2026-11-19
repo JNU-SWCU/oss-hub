@@ -1,18 +1,32 @@
 .anchor {
   position: relative;
-  display: inline-block;
+  display: inline-grid;
+  grid-template-rows: 1rem 1rem;
+  align-items: center;
+  max-width: min(100%, 7rem);
+  vertical-align: middle;
+}
+
+.nameLink,
+.nameText {
+  min-width: 0;
   max-width: 100%;
 }
 
 .nameLink {
   position: relative;
   display: inline-block;
-  max-width: 100%;
   overflow: visible;
   vertical-align: bottom;
 }
 
-.nameText,
+.nameText {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .firstCharacter {
   display: inline-block;
 }
@@ -21,10 +35,10 @@
   pointer-events: none;
   position: absolute;
   z-index: 2;
-  left: 0.5em;
-  bottom: 96%;
-  width: 0.9rem;
-  height: 0.58rem;
+  left: 0.75em;
+  bottom: 115%;
+  width: 1.25rem;
+  height: 0.8rem;
   translate: -50% 0;
   rotate: -15deg;
   transform-origin: 50% 100%;
@@ -46,35 +60,80 @@
   width: 100%;
   height: 100%;
   overflow: visible;
-  fill: var(--foreground);
   stroke: var(--background);
-  stroke-width: 0.9;
+  stroke-width: 1.1;
   stroke-linejoin: round;
 }
 
-.ikseongwan {
+.rankHeadwear .hatBase,
+.rankHeadwear .hatBand {
+  fill: var(--headwear-base, var(--foreground));
+}
+
+.rankHeadwear .hatAccent {
+  fill: var(--headwear-accent, var(--background));
+  stroke: var(--foreground);
+  stroke-width: 1.2;
+}
+
+.rankHeadwear[data-headwear-rank='1'] {
+  --headwear-base: var(--palette-amber-500);
+  --headwear-accent: var(--palette-amber-100);
   scale: 1.18;
   transform-origin: bottom center;
 }
 
-.ikseongwan .crownBody,
-.ikseongwan .crownBand {
-  fill: var(--palette-amber-500);
-  stroke: var(--foreground);
-  stroke-width: 1.4;
+.rankHeadwear[data-headwear-rank='2'] {
+  --headwear-base: var(--palette-navy-400);
+  --headwear-accent: var(--palette-red-300);
 }
 
-.ikseongwan .leftWing,
-.ikseongwan .rightWing {
+.rankHeadwear[data-headwear-rank='3'] {
+  --headwear-base: var(--palette-green-500);
+  --headwear-accent: var(--palette-amber-500);
+}
+
+.rankHeadwear[data-headwear-rank='4'] {
+  --headwear-base: var(--palette-red-500);
+  --headwear-accent: var(--palette-navy-200);
+}
+
+.rankHeadwear[data-headwear-rank='5'] {
+  --headwear-base: var(--palette-green-600);
+  --headwear-accent: var(--palette-navy-300);
+}
+
+.rankHeadwear[data-headwear-rank='6'] {
+  --headwear-base: var(--palette-amber-700);
+  --headwear-accent: var(--palette-red-100);
+}
+
+.rankHeadwear[data-headwear-rank='7'] {
+  --headwear-base: var(--palette-navy-600);
+  --headwear-accent: var(--palette-green-300);
+}
+
+.rankHeadwear[data-headwear-rank='8'] {
+  --headwear-base: var(--palette-red-600);
+  --headwear-accent: var(--palette-amber-100);
+}
+
+.rankHeadwear[data-headwear-rank='9'] {
+  --headwear-base: var(--palette-green-700);
+  --headwear-accent: var(--palette-red-100);
+}
+
+.rankHeadwear[data-headwear-rank='10'] {
+  --headwear-base: var(--palette-navy-700);
+  --headwear-accent: var(--palette-amber-500);
+}
+
+.rankHeadwear .leftWing,
+.rankHeadwear .rightWing {
   fill: none;
   stroke: var(--foreground);
   stroke-width: 3.2;
   stroke-linecap: round;
-}
-
-.samo.smallSamo {
-  scale: 0.84;
-  transform-origin: bottom center;
 }
 
 .headwear[data-streak-interaction]:not([data-streak-interaction='0'])
@@ -93,11 +152,13 @@
   pointer-events: auto;
   position: absolute;
   z-index: 3;
-  top: -0.55rem;
-  left: calc(100% + 0.4rem);
+  top: 1rem;
+  left: 0;
   width: max-content;
-  min-height: 1.5rem;
-  max-width: 7.25rem;
+  min-height: 1rem;
+  max-width: 4.25rem;
+  margin-top: 0.08rem;
+  translate: 0 0.48rem;
   rotate: -3deg;
   border: 1px solid color-mix(in srgb, var(--foreground) 32%, transparent);
   border-radius: 0.2rem 0.32rem 0.24rem 0.18rem;
@@ -106,11 +167,11 @@
     1px 2px 0 color-mix(in srgb, var(--foreground) 14%, transparent),
     0 2px 6px color-mix(in srgb, var(--foreground) 12%, transparent);
   color: var(--foreground);
-  padding: 0.05rem 0.28rem;
+  padding: 0 0.24rem;
   font: inherit;
-  font-size: 0.58rem;
+  font-size: 0.5rem;
   font-weight: 750;
-  line-height: 1.05rem;
+  line-height: 0.85rem;
   white-space: nowrap;
   isolation: isolate;
   overflow: visible;
@@ -138,12 +199,15 @@
   }
 }
 
-.title {
-  color: color-mix(in srgb, var(--foreground) 82%, #7a3d00);
+.days {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.16rem;
+  font-weight: 850;
 }
 
-.days {
-  font-weight: 850;
+.tenure {
+  color: color-mix(in srgb, var(--foreground) 76%, var(--primary));
 }
 
 .anchor[data-streak-entered] .shimmer::after,
@@ -311,51 +375,34 @@
   }
 }
 
+.tag::before {
+  content: '';
+  position: absolute;
+  inset: -0.25rem 0;
+}
+
 @media (max-width: 639px) {
   .anchor {
-    display: inline-grid;
-    grid-template-rows: 1rem 1rem;
-    align-items: center;
     max-width: 4.5rem;
-    vertical-align: middle;
-  }
-
-  .nameLink,
-  .nameText {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .nameText {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .headwear {
-    bottom: 96%;
-    width: 0.85rem;
-    height: 0.55rem;
+    bottom: 112%;
+    width: 1rem;
+    height: 0.65rem;
   }
 
   .tag {
-    position: relative;
-    top: auto;
-    left: auto;
-    justify-self: start;
-    min-height: 1rem;
-    max-width: 4.25rem;
-    margin-top: 0.08rem;
-    translate: 0 0.25rem;
-    padding: 0 0.2rem;
-    font-size: 0.45rem;
-    line-height: 0.8rem;
+    max-width: 2.25rem;
+    padding-inline: 0.2rem;
+    font-size: 0.43rem;
+    line-height: 0.65rem;
   }
 
-  .tag::before {
-    content: '';
-    position: absolute;
-    inset: -0.25rem 0;
+  .days {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
   }
 }
 
