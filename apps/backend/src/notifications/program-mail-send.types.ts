@@ -27,14 +27,10 @@ export type ProgramMailBatchContent = {
   readonly occurredAt: Date;
 };
 
-export type ProgramMailReservation =
+export type ProgramMailReservation = { readonly jobId: string } & (
   | { readonly kind: 'OWNER'; readonly batchKey: string }
-  | { readonly kind: 'IN_PROGRESS'; readonly batchKey: string }
-  | {
-      readonly kind: 'COMPLETED';
-      readonly batchKey: string;
-      readonly result: ProgramMailDeliveryResult;
-    };
+  | ProgramMailProcessResult
+);
 
 export type ProgramMailProcessResult =
   | { readonly kind: 'IN_PROGRESS'; readonly batchKey: string }

@@ -4593,6 +4593,100 @@
         ]
       }
     },
+    "/api/v1/programs/{programId}/mail/jobs": {
+      "get": {
+        "operationId": "ProgramMailController_recent",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/mail/jobs/{jobId}": {
+      "get": {
+        "operationId": "ProgramMailController_status",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
     "/api/v1/programs/{programId}/mail/recipients": {
       "get": {
         "operationId": "ProgramMailController_recipients",
@@ -4990,6 +5084,34 @@
                 "in_progress",
                 "upcoming",
                 "ended"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Required when direction is provided.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "deadline",
+                "submission",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "Required when sort is provided.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
               ]
             }
           }
@@ -7175,8 +7297,8 @@
           "type": {
             "type": "string",
             "enum": [
-              "auto",
               "text",
+              "auto",
               "textarea"
             ]
           },
@@ -10220,8 +10342,8 @@
           "applicationMode": {
             "type": "string",
             "enum": [
-              "TEAM",
-              "PERSONAL"
+              "PERSONAL",
+              "TEAM"
             ]
           },
           "displayName": {
@@ -10392,8 +10514,8 @@
               },
               "applicationMode": {
                 "enum": [
-                  "TEAM",
-                  "PERSONAL"
+                  "PERSONAL",
+                  "TEAM"
                 ],
                 "type": "string"
               },
@@ -11637,6 +11759,77 @@
           "failedCount"
         ]
       },
+      "ProgramMailReceiptResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "acceptedAt"
+        ]
+      },
+      "ProgramMailJobListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramMailReceiptResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ProgramMailJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "QUEUED",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "sentCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "number"
+          },
+          "unknownCount": {
+            "type": "number"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "jobId",
+          "acceptedAt"
+        ]
+      },
       "ProgramMailApplicantResponseDto": {
         "type": "object",
         "properties": {
@@ -11853,6 +12046,9 @@
       "ProgramMailSendResponseDto": {
         "type": "object",
         "properties": {
+          "jobId": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -12398,8 +12594,8 @@
           "applicationMode": {
             "type": "string",
             "enum": [
-              "TEAM",
-              "PERSONAL"
+              "PERSONAL",
+              "TEAM"
             ]
           }
         },
@@ -12729,6 +12925,39 @@
           "rejected"
         ]
       },
+      "StaffDashboardMilestoneSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string"
+          },
+          "submittedTeams": {
+            "type": "number",
+            "nullable": true
+          },
+          "totalTeams": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "startAt",
+          "dueAt",
+          "submittedTeams",
+          "totalTeams"
+        ]
+      },
       "StaffDashboardProgramSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -12776,6 +13005,12 @@
           },
           "submissions": {
             "$ref": "#/components/schemas/StaffDashboardSubmissionSummaryResponseDto"
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffDashboardMilestoneSummaryResponseDto"
+            }
           }
         },
         "required": [
@@ -12787,7 +13022,8 @@
           "endAt",
           "applications",
           "activity",
-          "submissions"
+          "submissions",
+          "milestones"
         ]
       },
       "StaffDashboardStatusSummaryResponseDto": {

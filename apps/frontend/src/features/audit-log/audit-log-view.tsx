@@ -1,36 +1,33 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import {
-  EmptyState,
-  FilterChip,
-  FilterChipGroup,
-  PageHeader,
-} from '@/components';
+import { useMemo, useState, type FormEvent } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
+import { EmptyState, PageHeader } from '@/components';
+import { PaginationNav } from '@/components/pagination-nav';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
-  AUDIT_LOG_ACTION_LABELS,
-  AUDIT_LOG_ACTIONS,
   AUDIT_LOG_CATEGORIES,
+  AUDIT_LOG_VIEWS,
   type AuditLogCategory,
   type AuditLogCategoryCounts,
   type AuditLogFilters,
   type AuditLogRecord,
   type AuditLogViewMode,
 } from './types';
-import { AUDIT_LOG_CATEGORY_LABELS } from './audit-log-format';
+import { AuditLogDetail } from './audit-log-detail';
 import { AuditLogFeed } from './audit-log-feed';
+import { AuditLogFilterFields, AuditLogFilterSheet } from './audit-log-filters';
+import { auditLogRecordKey, foldAuditFeed } from './audit-log-fold';
+import { AUDIT_LOG_CATEGORY_LABELS, formatStamp } from './audit-log-format';
 import { AuditLogTable } from './audit-log-table';
 
 export interface AuditLogViewProps {
   readonly records: readonly AuditLogRecord[];
   readonly counts: AuditLogCategoryCounts | null;
   readonly filters: AuditLogFilters;
-  readonly activeFilterCount: number;
   readonly category: AuditLogCategory | '';
   readonly view: AuditLogViewMode;
   readonly page: number;
@@ -39,27 +36,36 @@ export interface AuditLogViewProps {
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
+  readonly fetchedAt: Date | null;
+  readonly foldLogins: boolean;
+  readonly selectedId: string | null;
   readonly onFilterChange: (filters: AuditLogFilters) => void;
-  readonly onSearch: () => void;
-  readonly onReset: () => void;
+  readonly onApply: (filters: AuditLogFilters) => void;
+  readonly onCancel: () => void;
   readonly onCategoryChange: (category: AuditLogCategory | '') => void;
   readonly onViewChange: (view: AuditLogViewMode) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
+  readonly onSelect: (key: string | null) => void;
+  readonly onSearchPerson: (login: string) => void;
 }
-
-const CATEGORY_CHIPS_CLASS = cn(
-  'min-w-0 flex-1 flex-nowrap overflow-x-auto [&>*]:shrink-0 [&>*]:whitespace-nowrap',
-  '[mask-image:linear-gradient(to_right,black_85%,transparent)]',
-  'sm:flex-wrap sm:overflow-visible sm:[mask-image:none]',
-);
 
 const VIEW_LABELS: Readonly<Record<AuditLogViewMode, string>> = {
   feed: '피드',
   table: '표',
 };
 
-function CategoryChip({
+const TAB_CLASS = cn(
+  '-mb-px rounded-none border-b-2 px-0 text-sm font-medium text-muted-foreground',
+  'hover:text-foreground aria-pressed:border-b-primary aria-pressed:font-semibold aria-pressed:text-foreground',
+);
+
+const VIEW_TOGGLE_CLASS = cn(
+  'hidden overflow-hidden rounded-control border border-border xl:inline-flex',
+  '[&>button+button]:border-l-border',
+);
+
+function CategoryTab({
   label,
   count,
   pressed,
@@ -71,171 +77,142 @@ function CategoryChip({
   readonly onClick: () => void;
 }) {
   return (
-    <FilterChip pressed={pressed} onClick={onClick}>
+    <Button
+      type="button"
+      variant="bare"
+      size="sm"
+      aria-pressed={pressed}
+      className={TAB_CLASS}
+      onClick={onClick}
+    >
       {label}
-      {count === null ? null : (
-        <span className="ml-1 text-xs tabular-nums opacity-70">{count}</span>
-      )}
-    </FilterChip>
+      {count === null ? null : <span className="tabular-nums">{count}</span>}
+    </Button>
   );
 }
 
 export function AuditLogView(props: AuditLogViewProps) {
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
-  const counts = props.counts;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const { counts, records, foldLogins } = props;
   const allCount = counts
     ? AUDIT_LOG_CATEGORIES.reduce((sum, category) => sum + counts[category], 0)
     : null;
-
-  const update = (key: keyof AuditLogFilters, value: string) =>
-    props.onFilterChange({ ...props.filters, [key]: value });
+  const days = useMemo(
+    () => foldAuditFeed(records, { foldLogins }),
+    [records, foldLogins],
+  );
+  const selected =
+    props.selectedId === null
+      ? undefined
+      : records.find(
+          (record) => auditLogRecordKey(record) === props.selectedId,
+        );
+  const totalPages = Math.max(1, Math.ceil(props.total / props.limit));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    props.onSearch();
+    props.onApply(props.filters);
   };
+  const feed = (
+    <AuditLogFeed
+      days={days}
+      now={props.now}
+      selectedId={props.selectedId}
+      onSelect={props.onSelect}
+    />
+  );
 
   return (
-    <section className="flex min-w-0 flex-col gap-6 p-4 sm:p-6">
+    <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6">
       <PageHeader
         title="감사 로그"
+        description={
+          props.fetchedAt ? `${formatStamp(props.fetchedAt)} 기준` : undefined
+        }
         actions={
-          <FilterChipGroup aria-label="보기 방식">
-            {(['feed', 'table'] as const).map((view) => (
-              <FilterChip
-                key={view}
-                pressed={props.view === view}
-                onClick={() => props.onViewChange(view)}
-              >
-                {VIEW_LABELS[view]}
-              </FilterChip>
-            ))}
-          </FilterChipGroup>
+          <>
+            <div
+              role="group"
+              aria-label="보기 방식"
+              className={VIEW_TOGGLE_CLASS}
+            >
+              {AUDIT_LOG_VIEWS.map((view) => (
+                <Button
+                  key={view}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={props.view === view}
+                  className="rounded-none aria-pressed:bg-muted"
+                  onClick={() => props.onViewChange(view)}
+                >
+                  {VIEW_LABELS[view]}
+                </Button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="sm:hidden"
+              aria-haspopup="dialog"
+              onClick={() => setSheetOpen(true)}
+            >
+              <SlidersHorizontal data-icon="inline-start" aria-hidden="true" />
+              필터
+            </Button>
+          </>
         }
       />
-      <div className="flex min-w-0 items-center gap-2">
-        <FilterChipGroup aria-label="분류" className={CATEGORY_CHIPS_CLASS}>
-          <CategoryChip
-            label="전체"
-            count={allCount}
-            pressed={props.category === ''}
-            onClick={() => props.onCategoryChange('')}
+      <div
+        role="group"
+        aria-label="분류"
+        className="flex flex-wrap gap-x-6 border-b border-border"
+      >
+        <CategoryTab
+          label="전체"
+          count={allCount}
+          pressed={props.category === ''}
+          onClick={() => props.onCategoryChange('')}
+        />
+        {AUDIT_LOG_CATEGORIES.map((category) => (
+          <CategoryTab
+            key={category}
+            label={AUDIT_LOG_CATEGORY_LABELS[category]}
+            count={counts ? counts[category] : null}
+            pressed={props.category === category}
+            onClick={() => props.onCategoryChange(category)}
           />
-          {AUDIT_LOG_CATEGORIES.map((category) => (
-            <CategoryChip
-              key={category}
-              label={AUDIT_LOG_CATEGORY_LABELS[category]}
-              count={counts ? counts[category] : null}
-              pressed={props.category === category}
-              onClick={() => props.onCategoryChange(category)}
-            />
-          ))}
-        </FilterChipGroup>
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11 shrink-0 sm:hidden"
-          aria-expanded={filtersOpen}
-          aria-controls="audit-filters"
-          onClick={() => setFiltersOpen((open) => !open)}
-        >
-          필터
-          {props.activeFilterCount > 0 ? (
-            <span className="ml-1 tabular-nums">{props.activeFilterCount}</span>
-          ) : null}
-        </Button>
+        ))}
       </div>
       <form
-        id="audit-filters"
         aria-label="필터"
-        className={cn(
-          filtersOpen ? 'grid' : 'hidden',
-          'w-full min-w-0 gap-4 rounded-lg border border-border p-4 sm:grid sm:grid-cols-2 xl:grid-cols-5 xl:items-end',
-        )}
+        className="hidden flex-wrap items-end gap-3 sm:flex"
         onSubmit={submit}
       >
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor="audit-q" className="text-sm font-medium">
-            검색
-          </label>
-          <Input
-            id="audit-q"
-            className="min-h-11 w-full min-w-0"
-            value={props.filters.q}
-            onChange={(event) => update('q', event.target.value)}
-            placeholder="이름 또는 GitHub 아이디"
-          />
-        </div>
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor="audit-action" className="text-sm font-medium">
-            작업 종류
-          </label>
-          <select
-            id="audit-action"
-            className={cn(
-              'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50',
-              'min-h-11 w-full min-w-0 rounded-md border px-3 text-sm outline-none',
-              'focus-visible:ring-[3px]',
-            )}
-            value={props.filters.action}
-            onChange={(event) => update('action', event.target.value)}
-          >
-            <option value="">전체</option>
-            {AUDIT_LOG_ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {AUDIT_LOG_ACTION_LABELS[action]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor="audit-from" className="text-sm font-medium">
-            시작일
-          </label>
-          <Input
-            id="audit-from"
-            className="min-h-11 w-full min-w-0"
-            type="date"
-            value={props.filters.from}
-            onChange={(event) => update('from', event.target.value)}
-          />
-        </div>
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <label htmlFor="audit-to" className="text-sm font-medium">
-            종료일
-          </label>
-          <Input
-            id="audit-to"
-            className="min-h-11 w-full min-w-0"
-            type="date"
-            value={props.filters.to}
-            onChange={(event) => update('to', event.target.value)}
-          />
-        </div>
-        <div className="flex w-full min-w-0 gap-2">
-          <Button type="submit" className="min-h-11 min-w-0 flex-1">
-            조회
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 min-w-0 flex-1"
-            onClick={props.onReset}
-          >
-            초기화
-          </Button>
-        </div>
+        <AuditLogFilterFields
+          filters={props.filters}
+          onChange={props.onApply}
+          onDraft={props.onFilterChange}
+          onSearch={() => props.onApply(props.filters)}
+        />
       </form>
+      <AuditLogFilterSheet
+        open={sheetOpen}
+        filters={props.filters}
+        onChange={props.onFilterChange}
+        onApply={() => {
+          setSheetOpen(false);
+          props.onApply(props.filters);
+        }}
+        onCancel={() => {
+          setSheetOpen(false);
+          props.onCancel();
+        }}
+      />
       {props.errorMessage ? (
         <Alert variant="destructive">
           <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>{props.errorMessage}</span>
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11"
-              onClick={props.onRetry}
-            >
+            <Button type="button" variant="outline" onClick={props.onRetry}>
               다시 시도
             </Button>
           </AlertDescription>
@@ -250,38 +227,53 @@ export function AuditLogView(props: AuditLogViewProps) {
             <SkeletonBlock key={row} className="h-4 w-full rounded" />
           ))}
         </Skeleton>
-      ) : props.records.length === 0 ? (
+      ) : records.length === 0 ? (
         <EmptyState
           title="기록이 없습니다"
           description="조회 조건을 바꿔 보세요."
         />
-      ) : props.view === 'table' ? (
-        <AuditLogTable records={props.records} />
       ) : (
-        <AuditLogFeed records={props.records} now={props.now} />
+        <div
+          className={cn(
+            'grid min-w-0 items-start gap-4',
+            selected && 'xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+          )}
+        >
+          {selected ? (
+            <div className="min-w-0 xl:sticky xl:top-4 xl:order-last">
+              <AuditLogDetail
+                record={selected}
+                onClose={() => props.onSelect(null)}
+                onSearchPerson={props.onSearchPerson}
+              />
+            </div>
+          ) : null}
+          <div className="min-w-0">
+            {props.view === 'table' ? (
+              <>
+                <div className="hidden xl:block">
+                  <AuditLogTable
+                    records={records}
+                    now={props.now}
+                    selectedId={props.selectedId}
+                    onSelect={props.onSelect}
+                  />
+                </div>
+                <div className="xl:hidden">{feed}</div>
+              </>
+            ) : (
+              feed
+            )}
+          </div>
+        </div>
       )}
-      <div className="flex items-center justify-end gap-3 text-sm">
-        <span>총 {props.total}건</span>
-        <span>
-          {props.page} / {lastPage} 페이지
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={props.page <= 1 || props.isLoading}
-          onClick={() => props.onPageChange(props.page - 1)}
-        >
-          이전
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={props.page >= lastPage || props.isLoading}
-          onClick={() => props.onPageChange(props.page + 1)}
-        >
-          다음
-        </Button>
-      </div>
+      <PaginationNav
+        page={props.page}
+        totalPages={totalPages}
+        onPageChange={props.onPageChange}
+        ariaLabel="감사 로그 페이지"
+        isLoading={props.isLoading}
+      />
     </section>
   );
 }

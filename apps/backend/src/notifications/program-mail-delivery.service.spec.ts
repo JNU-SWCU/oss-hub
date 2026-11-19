@@ -28,6 +28,7 @@ describe('ProgramMailDeliveryService', () => {
     const reserve: jest.MockedFunction<Reserve> = jest.fn();
     reserve.mockResolvedValue({
       kind: 'OWNER',
+      jobId: 'opaque-id',
       batchKey: 'program-mail-send:preview-1',
     });
     const process: jest.MockedFunction<Process> = jest.fn();
@@ -45,6 +46,7 @@ describe('ProgramMailDeliveryService', () => {
 
     await expect(service.send(input)).resolves.toMatchObject({
       kind: 'COMPLETED',
+      jobId: 'opaque-id',
       result: { sentCount: 1 },
     });
     expect(reserve).toHaveBeenCalledTimes(1);
@@ -59,6 +61,7 @@ describe('ProgramMailDeliveryService', () => {
     const reserve: jest.MockedFunction<Reserve> = jest.fn();
     reserve.mockResolvedValue({
       kind: 'IN_PROGRESS',
+      jobId: 'opaque-id',
       batchKey: 'program-mail-send:preview-1',
     });
     const process: jest.MockedFunction<Process> = jest.fn();
@@ -66,6 +69,7 @@ describe('ProgramMailDeliveryService', () => {
 
     await expect(service.send(input)).resolves.toEqual({
       kind: 'IN_PROGRESS',
+      jobId: 'opaque-id',
       batchKey: 'program-mail-send:preview-1',
     });
     expect(process).not.toHaveBeenCalled();

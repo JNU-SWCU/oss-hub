@@ -317,8 +317,8 @@ describe('SystemStatusView', () => {
 
       expect(linkHrefs(card)).toEqual([
         '/dashboard/users/user%2F42',
-        '/dashboard/audit-logs?q=synthetic-self',
-        '/dashboard/audit-logs?q=synthetic-admin',
+        '/dashboard/audit-logs?q=synthetic-self&period=custom',
+        '/dashboard/audit-logs?q=synthetic-admin&period=custom',
       ]);
     });
 
@@ -344,8 +344,9 @@ describe('SystemStatusView', () => {
       const query = new URLSearchParams(search);
 
       expect(path).toBe('/dashboard/audit-logs');
-      expect([...query.keys()]).toEqual(['q']);
+      expect([...query.keys()]).toEqual(['q', 'period']);
       expect(query.get('q')).toBe('bootstrap-subject');
+      expect(query.get('period')).toBe('custom');
     });
 
     it('이상 징후가 없으면 목록과 버튼 없이 한 줄만 보여준다', () => {
