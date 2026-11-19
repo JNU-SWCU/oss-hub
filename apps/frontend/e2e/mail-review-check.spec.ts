@@ -37,7 +37,15 @@ for (const viewport of [
     await page
       .getByRole('button', { name: '메일 보내기', exact: true })
       .click();
-    await page.getByRole('button', { name: '발송 기록', exact: true }).click();
+    const history = page.getByRole('button', {
+      name: '발송 기록',
+      exact: true,
+    });
+    await expect(history).toBeInViewport({ ratio: 1 });
+    await page.screenshot({
+      path: test.info().outputPath('history-beside-title.png'),
+    });
+    await history.click();
     await page.locator(`button[value="${receipt.jobId}"]`).click();
     const dialog = page.getByRole('dialog', { name: '발송 결과' });
     await expect(

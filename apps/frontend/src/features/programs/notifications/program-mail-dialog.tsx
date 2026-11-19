@@ -235,6 +235,22 @@ export function ProgramMailDialog({
     <DialogShell
       open={open}
       title={jobId ? '발송 결과' : showHistory ? '발송 기록' : '메일 보내기'}
+      titleAction={
+        !showHistory &&
+        !jobId &&
+        !preview &&
+        !result &&
+        busy === null && (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            onClick={() => setShowHistory(true)}
+          >
+            발송 기록
+          </Button>
+        )
+      }
       size="lg"
       busy={busy !== null}
       returnFocusRef={returnFocusRef}
@@ -279,15 +295,6 @@ export function ProgramMailDialog({
         />
       )}
       <MailDialogErrorNotice error={error} title="메일을 처리하지 못했습니다" />
-      {!showHistory && !jobId && !preview && !result && busy === null && (
-        <Button
-          type="button"
-          variant="link"
-          onClick={() => setShowHistory(true)}
-        >
-          발송 기록
-        </Button>
-      )}
     </DialogShell>
   );
 }
