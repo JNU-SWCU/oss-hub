@@ -26,10 +26,13 @@ const BASE_ID = 9_000_000_000_000_000_000n;
 const START = new Date('2098-01-01T00:00:00.000Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(START.getTime() + 400 * DAY_MS + 12 * 60 * 60 * 1000);
+const OTHER_SPEC_SCORE_CEILING = 1_000_000;
+const outranksOtherSpecs = (value: number): number =>
+  OTHER_SPEC_SCORE_CEILING + value;
 const students = Array.from({ length: 12 }, (_, index) => ({
   githubId: BASE_ID + BigInt(index + 1),
   login: `${PREFIX}-${String(index + 1).padStart(2, '0')}`,
-  score: 11_000 - index * 1_000,
+  score: outranksOtherSpecs(11_000 - index * 1_000),
 }));
 const ids = students.map((student) => student.githubId);
 const userIds = students.map((student) => `${PREFIX}-${student.githubId}`);
@@ -83,7 +86,7 @@ beforeAll(async () => {
       githubId: LEADER.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: day >= 201 ? 11_002 : 11_000,
+      commitCount: outranksOtherSpecs(day >= 201 ? 11_002 : 11_000),
       observedAt: atDay(day),
     });
   }
@@ -92,21 +95,21 @@ beforeAll(async () => {
       githubId: CHALLENGER.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: 11_001,
+      commitCount: outranksOtherSpecs(11_001),
       observedAt: atDay(200),
     },
     {
       githubId: ELEVENTH.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: 2_100,
+      commitCount: outranksOtherSpecs(2_100),
       observedAt: atDay(390),
     },
     {
       githubId: TENTH.githubId,
       year: 2098,
       visibility: ActivityVisibility.PUBLIC,
-      commitCount: 2_200,
+      commitCount: outranksOtherSpecs(2_200),
       observedAt: atDay(395),
     },
   );
@@ -154,14 +157,14 @@ test('동점은 기존 login·github id 규칙으로 결정되고 행 순서가 
         githubId: TIE_FIRST.githubId,
         year: 2098,
         visibility: ActivityVisibility.PUBLIC,
-        commitCount: 8_000,
+        commitCount: outranksOtherSpecs(8_000),
         observedAt: atDay(400),
       },
       {
         githubId: TIE_SECOND.githubId,
         year: 2098,
         visibility: ActivityVisibility.PUBLIC,
-        commitCount: 8_000,
+        commitCount: outranksOtherSpecs(8_000),
         observedAt: atDay(400),
       },
     ],
