@@ -56,6 +56,12 @@ export interface AuditLogRecord {
   readonly requestId: string | null;
   readonly teamMembership: TeamMembershipChange | null;
   readonly phoneTransition: 'SET' | 'REPLACED' | null;
+  readonly mailDelivery: {
+    readonly sentCount: number;
+    readonly failedCount: number;
+    readonly unknownCount: number;
+    readonly duplicateCount: number;
+  } | null;
 }
 
 export const AUDIT_LOG_ACTION_LABELS = {

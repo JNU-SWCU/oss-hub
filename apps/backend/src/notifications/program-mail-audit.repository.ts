@@ -71,11 +71,13 @@ export class ProgramMailAuditRepository {
   }
 
   private resultAction(result: ProgramMailDeliveryResult): string {
-    if (result.unknownCount > 0) return 'PROGRAM_MAIL_DELIVERY_UNKNOWN';
-    if (result.failedCount === 0) return 'PROGRAM_MAIL_SENT';
-    if (result.sentCount + result.duplicateCount > 0)
-      return 'PROGRAM_MAIL_PARTIALLY_FAILED';
-    return 'PROGRAM_MAIL_FAILED';
+    if (result.failedCount > 0)
+      return result.sentCount + result.duplicateCount + result.unknownCount > 0
+        ? 'PROGRAM_MAIL_PARTIALLY_FAILED'
+        : 'PROGRAM_MAIL_FAILED';
+    return result.unknownCount > 0
+      ? 'PROGRAM_MAIL_DELIVERY_UNKNOWN'
+      : 'PROGRAM_MAIL_SENT';
   }
 
   private record(

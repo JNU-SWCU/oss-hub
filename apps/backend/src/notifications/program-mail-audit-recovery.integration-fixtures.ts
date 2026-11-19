@@ -1,4 +1,7 @@
-import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
+import {
+  DIGEST_FIXTURE,
+  IsolatingMailSender,
+} from './deadline-digest.integration-support';
 import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
@@ -31,20 +34,24 @@ class FailingOnceAuditRepository extends ProgramMailAuditRepository {
 export function registerProgramMailAuditRecoveryCase(
   currentWorld: () => ProgramMailIntegrationWorld,
 ): void {
-  it('keeps failed completion rate accounting and recovers one audit result', async () => {
+  it('keeps rate accounting and persists one partial failure result after recovery and replay', async () => {
     const world = currentWorld();
     const principal = await world.principal(
       PROGRAM_MAIL_STAFF_FIXTURE.githubId,
     );
     const regular = world.createRuntime(world.mailSender);
+    const sender = new IsolatingMailSender();
     const failing = world.createRuntime(
-      world.mailSender,
+      sender,
       new FailingOnceAuditRepository(),
     );
     await send(regular.service, principal, 'rate-1');
     await send(regular.service, principal, 'rate-2');
 
-    const third = await request(failing.service, principal, 'rate-3');
+    const third = await request(failing.service, principal, 'rate-3', [
+      DIGEST_FIXTURE.studentMissing,
+      DIGEST_FIXTURE.studentSubmitted,
+    ]);
     await expect(
       failing.service.send(
         DIGEST_FIXTURE.notifyProgram,
@@ -53,7 +60,7 @@ export function registerProgramMailAuditRecoveryCase(
         DIGEST_FIXTURE.now,
       ),
     ).rejects.toThrow('injected audit completion failure');
-    expect(world.mailSender.sent).toHaveLength(3);
+    expect(sender.attempted).toHaveLength(2);
 
     await expect(
       send(regular.service, principal, 'rate-4'),
@@ -93,11 +100,11 @@ export function registerProgramMailAuditRecoveryCase(
       result: {
         sentCount: 1,
         duplicateCount: 0,
-        failedCount: 0,
+        failedCount: 1,
         unknownCount: 0,
       },
     });
-    expect(world.mailSender.sent).toHaveLength(3);
+    expect(sender.attempted).toHaveLength(2);
 
     await expect(
       failing.service.send(
@@ -106,16 +113,37 @@ export function registerProgramMailAuditRecoveryCase(
         third,
         DIGEST_FIXTURE.now,
       ),
-    ).resolves.toMatchObject({ status: 'COMPLETED', sentCount: 1 });
+    ).resolves.toMatchObject({
+      status: 'COMPLETED',
+      sentCount: 1,
+      failedCount: 1,
+    });
+    expect(sender.attempted).toHaveLength(2);
     const audit = await world.prisma.userHistory.findMany({
       take: 3,
       where: { sourceTable: 'ProgramMail', sourceId: batchKey },
-      select: { sourcePart: true },
+      select: { sourcePart: true, actorId: true, data: true },
       orderBy: { sourcePart: 'asc' },
     });
-    expect(audit).toEqual([
-      { sourcePart: 'attempt' },
-      { sourcePart: 'result' },
+    expect(audit).toMatchObject([
+      {
+        sourcePart: 'attempt',
+        actorId: principal.id,
+        data: { action: 'PROGRAM_MAIL_SEND_ATTEMPTED' },
+      },
+      {
+        sourcePart: 'result',
+        actorId: principal.id,
+        data: {
+          action: 'PROGRAM_MAIL_PARTIALLY_FAILED',
+          metadata: {
+            sentCount: 1,
+            failedCount: 1,
+            unknownCount: 0,
+            duplicateCount: 0,
+          },
+        },
+      },
     ]);
   });
 }
@@ -138,17 +166,9 @@ async function request(
   service: ProgramMailService,
   principal: Awaited<ReturnType<ProgramMailIntegrationWorld['principal']>>,
   subject: string,
+  applicantIds: readonly string[] = [DIGEST_FIXTURE.studentMissing],
 ): Promise<ProgramMailSendRequest> {
-  const recipients = await service.recipients(
-    DIGEST_FIXTURE.notifyProgram,
-    DIGEST_FIXTURE.now,
-  );
-  const applicant = recipients.teams
-    .flatMap((team) => team.applicants)
-    .find((candidate) => candidate.mailAvailable);
-  if (applicant === undefined)
-    throw new Error('Missing mail recipient fixture');
-  const draft = { subject, body: '본문', applicantIds: [applicant.id] };
+  const draft = { subject, body: '본문', applicantIds };
   const preview = await service.preview(
     DIGEST_FIXTURE.notifyProgram,
     principal,

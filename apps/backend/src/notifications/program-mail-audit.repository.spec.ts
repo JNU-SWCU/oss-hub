@@ -35,6 +35,14 @@ describe('ProgramMailAuditRepository', () => {
       'PROGRAM_MAIL_FAILED',
     ],
     [
+      { sentCount: 0, duplicateCount: 0, failedCount: 1, unknownCount: 1 },
+      'PROGRAM_MAIL_PARTIALLY_FAILED',
+    ],
+    [
+      { sentCount: 0, duplicateCount: 0, failedCount: 0, unknownCount: 2 },
+      'PROGRAM_MAIL_DELIVERY_UNKNOWN',
+    ],
+    [
       { sentCount: 1, duplicateCount: 0, failedCount: 0, unknownCount: 1 },
       'PROGRAM_MAIL_DELIVERY_UNKNOWN',
     ],
