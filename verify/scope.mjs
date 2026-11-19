@@ -19,26 +19,56 @@ const BOTH_PATTERNS = [
   /^\.github\/workflows\//,
 ];
 
-const QUERY_GATE_PATTERNS = [
-  /^apps\/backend\/src\/.*(?<!\.spec)\.ts$/,
-  /^apps\/backend\/prisma\//,
-  /^apps\/backend\/test\//,
-  /^apps\/backend\/eslint-rules\//,
+const NGINX_PATTERNS = [/^deploy\/(?:nginx|host-nginx|checks)\//];
+const JENKINS_PATTERNS = [
+  /^Jenkinsfile$/,
+  /^compose\.yml$/,
+  /^apps\/[^/]+\/Dockerfile$/,
+  /^\.dockerignore$/,
+  /^\.env\.example$/,
+  /^deploy\/(?:jenkins|nginx|host-nginx)\//,
 ];
+const SHELL_PATTERNS = [
+  /^dev\.sh$/,
+  /^deploy\/.*\.sh$/,
+  /^apps\/backend\/(?:prisma|test)\/.*\.sh$/,
+  /^\.github\/.*\.sh$/,
+  /^\.githooks\//,
+];
+const NODE_SCRIPT_PATTERNS = [/^deploy\/.*\.mjs$/, /^verify\/.*\.mjs$/];
+const RAILS_PATTERNS = [
+  /^eslint\.shared\.mjs$/,
+  /^eslint-rules\//,
+  /^knip\.json$/,
+  /^package\.json$/,
+  /^pnpm-(?:lock|workspace)\.yaml$/,
+];
+const WORKFLOW = /^\.github\/workflows\//;
 
-export function classifyFiles(files) {
-  const both = files.some((file) =>
-    BOTH_PATTERNS.some((pattern) => pattern.test(file)),
-  );
+function matches(files, patterns) {
+  return files.some((file) => patterns.some((pattern) => pattern.test(file)));
+}
+
+export function classifyFiles(files, pushesMain = false) {
+  const workflow = files.some((file) => WORKFLOW.test(file));
+  const both = matches(files, BOTH_PATTERNS);
+  const frontend = files.some((file) => file.startsWith('apps/frontend/'));
+  const backend = files.some((file) => file.startsWith('apps/backend/'));
+  const sharedRails = matches(files, RAILS_PATTERNS);
+  const shared = both || sharedRails;
+  // CI runs the protected query specs in the backend integration suite.
+  const backendIntegration = pushesMain || shared || frontend || backend;
   return {
-    frontend: both || files.some((file) => file.startsWith('apps/frontend/')),
-    backend: both || files.some((file) => file.startsWith('apps/backend/')),
-    queryGates:
-      both ||
-      files.some((file) =>
-        QUERY_GATE_PATTERNS.some((pattern) => pattern.test(file)),
-      ),
-    both,
+    frontend: shared || frontend,
+    backend: backendIntegration,
+    api: both || backend,
+    queryGates: backendIntegration,
+    nginx: workflow || matches(files, NGINX_PATTERNS),
+    jenkins: workflow || matches(files, JENKINS_PATTERNS),
+    shellScripts: workflow || matches(files, SHELL_PATTERNS),
+    nodeScripts: workflow || matches(files, NODE_SCRIPT_PATTERNS),
+    rails: workflow || frontend || backend || sharedRails,
+    both: shared,
     securityAlways: true,
   };
 }
@@ -112,7 +142,7 @@ async function prePushRanges(cwd, stdin, defaultBranch, remote) {
       await confirmOnRemote(cwd, remote, localSha, localRef);
       continue;
     }
-    ranges.push({ base, head: localSha, ref: localRef });
+    ranges.push({ base, head: localSha, ref: remoteRef });
   }
   return ranges;
 }
@@ -216,5 +246,6 @@ export function detectSource(argv, env) {
 export async function resolveScope(options) {
   const ranges = await resolveRanges(options);
   const files = await changedFiles(options.cwd, ranges);
-  return { ranges, files, ...classifyFiles(files) };
+  const pushesMain = ranges.some(({ ref }) => ref === 'refs/heads/main');
+  return { ranges, files, ...classifyFiles(files, pushesMain) };
 }

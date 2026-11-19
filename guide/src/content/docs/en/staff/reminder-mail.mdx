@@ -29,7 +29,7 @@ The popup opens on `받는 학생` (student recipients). Each team that applied 
 
 <Shot src="staff/mail-compose.webp" alt="The student recipient area of the mail popup. Each team carries a rejected, approved, or awaiting review status. ① points at the quick-select button and ② frames one team." caption="① Quick selection ② Team selection and the unavailable row" />
 
-`전체 선택` (select all) picks every student who can receive mail and `선택 해제` (clear selection) removes them all. A student marked `메일 수신 불가` (cannot receive mail) cannot be selected: they turned `마감 임박 알림 받기` (receive deadline reminders) off in their settings, have no recipient address, or their account is inactive. A program with no applications shows `신청 학생이 없습니다.` (no students have applied). You can select up to 200 students at a time.
+`전체 선택` (select all) selects eligible students and `선택 해제` (clear selection) removes them all. A student marked `메일 수신 불가` (cannot receive mail) cannot be selected: they turned `마감 임박 알림 받기` (receive deadline reminders) off in their settings, have no recipient address, or their account is inactive. A program with no applications shows `신청 학생이 없습니다.` (no students have applied). If you try to select more than 200 students, `수신자는 최대 200명까지 선택할 수 있습니다.` (maximum 200 recipients) appears and you cannot preview or send until you reduce the selection.
 
 On a narrow screen the popup fills most of the window and the buttons stack one per row. Selection works the same way.
 
@@ -69,7 +69,7 @@ Below the body sits `이 메일은 oss-hub에서 발송했습니다.` (this mail
 A failure shows a `메일을 처리하지 못했습니다` (the mail could not be processed) alert in the popup with the reason below it.
 
 - `메일 수신자를 불러오지 못했습니다` (could not load recipients): click `다시 시도` (retry).
-- `메일 미리보기가 만료되었거나 대상이 변경되었습니다. 다시 미리보세요.` (the preview expired or the recipients changed): go back with `수정` and click `미리보기` again.
+- If the preview expires or the recipients change, click `미리보기` (preview) again before sending.
 - `메일을 연속으로 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.` (you cannot send repeatedly): within 10 minutes one person can send three times and one program five times. Wait and send again.
 - `한 번에 선택할 수 있는 학생 수를 초과했습니다.` (too many students selected): split the send into groups of 200 or fewer.
 - `선택한 학생이 이 프로그램의 메일 발송 대상이 아닙니다.` (a selected student is not a recipient for this program): close the popup, open it again, and choose the recipients. A student's notification setting or account status changed while you were choosing.
@@ -98,7 +98,7 @@ Read the final line, `학생 N명 · 교직원 N명 · 발송 후 취소 불가`
 
 <Recover title="If you cannot send deadline reminders">
 - If the button is replaced by `제출 마감 알림을 켜야 합니다.` (enable submission deadline reminders), turn on `제출 마감 알림` in the editor and save. The separate `메일 보내기` action is still available.
-- A preview is valid for 10 minutes. Preview again if it expires or the recipients change. If neither group has recipients, the send button is unavailable.
+- A preview is valid for 10 minutes. If it expires or the recipients change, click `미리보기` (preview) again before sending. If neither group has recipients, the send button is unavailable.
 </Recover>
 
 ## Automatic deadline reminders
