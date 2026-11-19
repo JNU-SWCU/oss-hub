@@ -138,7 +138,7 @@ workflow_isolates_public_input() {
 }
 
 scan_surface() {
-  local surface="$1" sample="$2" output status=0 event=issues
+  local surface="$1" sample="$2" output status=0 event=issues leaks=0
   case "$surface" in
     commit-subject | commit-body | merge-subject | merge-body | file)
       init_fixture_repo "surface-$((passed + failed))" || return 2
@@ -162,6 +162,16 @@ scan_surface() {
           ;;
       esac
       output="$(BLOCKED_NAMES="$blocked_name" scan_fixture_repo 2>&1)" || status=$?
+      if [ "$surface" = file ]; then
+        # The production file surface combines custom policy with gitleaks git.
+        (cd "$FIXTURE_REPO"; gitleaks git --no-banner --redact \
+          --log-opts="$BASE_REF..HEAD" .) >/dev/null 2>&1 || leaks=$?
+        case "$leaks" in
+          0) ;;
+          1) status=1 ;;
+          *) return 2 ;;
+        esac
+      fi
       ;;
     *)
       case "$surface" in

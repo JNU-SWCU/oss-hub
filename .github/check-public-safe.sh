@@ -135,7 +135,7 @@ scan_email() {
 }
 
 scan_text() {
-  local src="$1" text entry label re hits name name_hits status=0
+  local src="$1" scan_credentials="${2:-1}" text entry label re hits name name_hits status=0
   text="$(cat)" || return 2
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
@@ -162,6 +162,8 @@ scan_text() {
       fi
     done
   fi
+  # File credentials are already covered by the caller's gitleaks git scan.
+  [ "$scan_credentials" -eq 0 ] && return 0
   printf '%s\n' "$text" | gitleaks stdin --no-banner --redact \
     --ignore-gitleaks-allow --exit-code 3 >/dev/null 2>&1 || status=$?
   case "$status" in
@@ -212,7 +214,7 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
         fi
         ;;
     esac
-    scan_text "파일 $file_id" <<<"$file_text"
+    scan_text "파일 $file_id" 0 <<<"$file_text"
   done <"$changed_file_list"
 
   if [ "${#bad_files[@]}" -gt 0 ]; then
