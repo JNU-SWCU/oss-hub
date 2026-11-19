@@ -79,6 +79,7 @@ describe('ProgramMailRecipientTree', () => {
         <ProgramMailRecipientTree
           teams={[team]}
           selectedIds={selected}
+          recipientLimit={200}
           onSelectionChange={(next) => {
             selected = next;
             render();

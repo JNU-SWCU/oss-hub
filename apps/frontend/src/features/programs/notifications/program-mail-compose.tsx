@@ -1,17 +1,20 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type {
   ProgramMailPreview,
   ProgramMailRecipients,
+  ProgramMailSendResult,
 } from './program-mail-dto';
+import {
+  PROGRAM_MAIL_BODY_LIMIT,
+  PROGRAM_MAIL_SUBJECT_LIMIT,
+} from './program-mail-dialog-state';
 import { ProgramMailRecipientTree } from './program-mail-recipient-tree';
-
-const SUBJECT_LIMIT = 200;
-const BODY_LIMIT = 4000;
 
 type ProgramMailComposeModel = {
   readonly recipients: ProgramMailRecipients;
@@ -28,11 +31,14 @@ type ProgramMailComposeChanges = {
 
 export function ProgramMailCompose({
   model,
+  selectionRejected,
   onChange,
 }: {
   readonly model: ProgramMailComposeModel;
+  readonly selectionRejected: boolean;
   readonly onChange: ProgramMailComposeChanges;
 }) {
+  const { recipientLimit } = model.recipients;
   const availableIds = model.recipients.teams.flatMap((team) =>
     team.applicants.flatMap((applicant) =>
       applicant.mailAvailable ? [applicant.id] : [],
@@ -82,6 +88,11 @@ export function ProgramMailCompose({
             선택 해제
           </Button>
         </div>
+        {selectionRejected || model.selectedIds.size > recipientLimit ? (
+          <p role="alert" className="text-small text-destructive">
+            수신자는 최대 {recipientLimit}명까지 선택할 수 있습니다.
+          </p>
+        ) : null}
         {model.recipients.teams.length === 0 ? (
           <p className="text-small text-muted-foreground">
             신청 학생이 없습니다.
@@ -90,6 +101,7 @@ export function ProgramMailCompose({
           <ProgramMailRecipientTree
             teams={model.recipients.teams}
             selectedIds={model.selectedIds}
+            recipientLimit={recipientLimit}
             onSelectionChange={onChange.selection}
           />
         )}
@@ -103,11 +115,11 @@ export function ProgramMailCompose({
           <Input
             id="program-mail-subject"
             value={model.subject}
-            maxLength={SUBJECT_LIMIT}
+            maxLength={PROGRAM_MAIL_SUBJECT_LIMIT}
             onChange={(event) => onChange.subject(event.target.value)}
           />
           <p className="text-small tabular-nums text-muted-foreground">
-            {model.subject.length} / {SUBJECT_LIMIT}자
+            {model.subject.length} / {PROGRAM_MAIL_SUBJECT_LIMIT}자
           </p>
         </Field>
         <Field>
@@ -115,12 +127,12 @@ export function ProgramMailCompose({
           <Textarea
             id="program-mail-body"
             value={model.body}
-            maxLength={BODY_LIMIT}
+            maxLength={PROGRAM_MAIL_BODY_LIMIT}
             rows={8}
             onChange={(event) => onChange.body(event.target.value)}
           />
           <p className="text-small tabular-nums text-muted-foreground">
-            {model.body.length} / {BODY_LIMIT}자
+            {model.body.length} / {PROGRAM_MAIL_BODY_LIMIT}자
           </p>
         </Field>
       </section>
@@ -166,9 +178,40 @@ export function ProgramMailPreviewView({
       <p className="border-t border-border pt-4 text-small text-muted-foreground">
         {preview.footer}
       </p>
-      <p className="text-small font-semibold">
+      <p id="mail-send-warning" className="text-small font-semibold">
         보낸 메일은 취소할 수 없습니다.
       </p>
     </div>
+  );
+}
+
+export function ProgramMailResult({
+  result,
+}: {
+  readonly result: ProgramMailSendResult;
+}) {
+  return (
+    <Alert>
+      <AlertTitle>
+        {result.status === 'IN_PROGRESS' ? (
+          '메일 발송을 처리 중입니다.'
+        ) : (
+          <>
+            <data value={result.sentCount}>{result.sentCount}</data>명에게
+            메일을 보냈습니다.
+          </>
+        )}
+      </AlertTitle>
+      {result.status === 'COMPLETED' ? (
+        <AlertDescription>
+          중복 생략 {result.duplicateCount}명 · 발송 실패 {result.failedCount}명
+          · 발송 결과 확인 불가{' '}
+          <data value={result.unknownCount ?? 0}>
+            {result.unknownCount ?? 0}
+          </data>
+          명
+        </AlertDescription>
+      ) : null}
+    </Alert>
   );
 }

@@ -11698,6 +11698,9 @@
       "ProgramMailRecipientsResponseDto": {
         "type": "object",
         "properties": {
+          "recipientLimit": {
+            "type": "number"
+          },
           "teams": {
             "type": "array",
             "items": {
@@ -11712,6 +11715,7 @@
           }
         },
         "required": [
+          "recipientLimit",
           "teams",
           "programId",
           "programName"
