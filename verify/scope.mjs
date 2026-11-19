@@ -45,29 +45,24 @@ const RAILS_PATTERNS = [
 ];
 const WORKFLOW = /^\.github\/workflows\//;
 
-const QUERY_GATE_PATTERNS = [
-  /^apps\/backend\/src\/.*(?<!\.spec)\.ts$/,
-  /^apps\/backend\/prisma\//,
-  /^apps\/backend\/test\//,
-  /^apps\/backend\/eslint-rules\//,
-];
-
 function matches(files, patterns) {
   return files.some((file) => patterns.some((pattern) => pattern.test(file)));
 }
 
-export function classifyFiles(files) {
+export function classifyFiles(files, pushesMain = false) {
   const workflow = files.some((file) => WORKFLOW.test(file));
   const both = matches(files, BOTH_PATTERNS);
   const frontend = files.some((file) => file.startsWith('apps/frontend/'));
   const backend = files.some((file) => file.startsWith('apps/backend/'));
   const sharedRails = matches(files, RAILS_PATTERNS);
   const shared = both || sharedRails;
+  // CI runs the protected query specs in the backend integration suite.
+  const backendIntegration = pushesMain || shared || frontend || backend;
   return {
     frontend: shared || frontend,
-    backend: shared || backend,
+    backend: backendIntegration,
     api: both || backend,
-    queryGates: both || matches(files, QUERY_GATE_PATTERNS),
+    queryGates: backendIntegration,
     nginx: workflow || matches(files, NGINX_PATTERNS),
     jenkins: workflow || matches(files, JENKINS_PATTERNS),
     shellScripts: workflow || matches(files, SHELL_PATTERNS),
@@ -147,7 +142,7 @@ async function prePushRanges(cwd, stdin, defaultBranch, remote) {
       await confirmOnRemote(cwd, remote, localSha, localRef);
       continue;
     }
-    ranges.push({ base, head: localSha, ref: localRef });
+    ranges.push({ base, head: localSha, ref: remoteRef });
   }
   return ranges;
 }
@@ -251,5 +246,6 @@ export function detectSource(argv, env) {
 export async function resolveScope(options) {
   const ranges = await resolveRanges(options);
   const files = await changedFiles(options.cwd, ranges);
-  return { ranges, files, ...classifyFiles(files) };
+  const pushesMain = ranges.some(({ ref }) => ref === 'refs/heads/main');
+  return { ranges, files, ...classifyFiles(files, pushesMain) };
 }

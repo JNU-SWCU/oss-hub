@@ -8,29 +8,69 @@ import {
   checkQueryGates,
   resolvePsql,
 } from './query-gates.mjs';
-import { classifyFiles } from './scope.mjs';
 import { join } from 'node:path';
-import { tempRepo } from './test-support.mjs';
+import { eventFile, tempRepo } from './test-support.mjs';
 import { REPO_ROOT } from './tools.mjs';
 
-test('query gates run only for backend repository, service, prisma and test changes', () => {
-  for (const file of [
-    'apps/backend/src/programs/programs.repository.ts',
-    'apps/backend/src/programs/programs.service.ts',
-    'apps/backend/src/programs/programs.controller.ts',
-    'apps/backend/src/platform/runtime-config.config.ts',
-    'apps/backend/prisma/schema.prisma',
-    'apps/backend/test/query-growth.ts',
-    'package.json',
+test('hook query specs match the blocking CI integration lane and its base coverage', async (t) => {
+  const frontend = 'apps/frontend/src/app/page.tsx';
+  const backend = 'apps/backend/src/programs/programs.repository.ts';
+  for (const [paths, destination, expectedQuery, expectedApi] of [
+    [[frontend], 'feature', true, false],
+    [[backend], 'feature', true, true],
+    [[frontend, backend], 'feature', true, true],
+    [
+      ['apps/backend/src/programs/programs.service.spec.ts'],
+      'feature',
+      true,
+      true,
+    ],
+    [['knip.json'], 'feature', true, false],
+    [['pnpm-lock.yaml'], 'feature', true, true],
+    [['docs/readme.md'], 'feature', false, false],
+    [['docs/readme.md'], 'main', true, false],
+    [['.github/workflows/ci.yml'], 'feature', true, true],
   ]) {
-    assert.equal(classifyFiles([file]).queryGates, true, file);
-  }
-  for (const file of [
-    'apps/backend/src/programs/programs.service.spec.ts',
-    'apps/frontend/src/app/page.tsx',
-    'docs/readme.md',
-  ]) {
-    assert.equal(classifyFiles([file]).queryGates, false, file);
+    await t.test(`${paths.join(' + ')} -> ${destination}`, async (t) => {
+      const repo = tempRepo(t);
+      const base = repo.commit('base');
+      const head = repo.commit(
+        'change',
+        Object.fromEntries(paths.map((path) => [path, 'x\n'])),
+      );
+      const push = destination === 'main';
+      const ci = {
+        cwd: repo.dir,
+        env: {
+          GITHUB_ACTIONS: 'true',
+          GITHUB_EVENT_NAME: push ? 'push' : 'pull_request',
+          GITHUB_REF: push ? 'refs/heads/main' : 'refs/pull/7/merge',
+          GITHUB_SHA: head,
+          GITHUB_EVENT_PATH: eventFile(
+            t,
+            push ? { before: base } : { pull_request: { base: { sha: base } } },
+          ),
+        },
+      };
+      const scope = await recordChecks(['scope'], ci);
+      assert.equal(scope.exit, 0);
+      const ciIntegration = JSON.parse(scope.logs[0]).backend;
+      assert.equal(ciIntegration, expectedQuery);
+      const hook = await recordChecks(
+        ['scoped', '--pre-push', 'origin', 'unused'],
+        {
+          cwd: repo.dir,
+          stdin: `HEAD ${head} refs/heads/${destination} ${base}\n`,
+        },
+      );
+      const ciVerify = await recordChecks(['scoped'], ci);
+      assert.equal(hook.exit, 0);
+      assert.equal(ciVerify.exit, 0);
+      assert.deepEqual(ciVerify.ran, hook.ran);
+      assert.equal(hook.ran.includes('query-gates'), ciIntegration);
+      assert.equal(hook.ran.includes('api'), expectedApi);
+      assert.ok(hook.ran.includes('secrets'));
+    });
   }
 });
 

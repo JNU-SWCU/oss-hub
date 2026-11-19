@@ -12,7 +12,7 @@ import { VerifyError, run } from './tools.mjs';
 test('classifyFiles is the shared CI and pre-push scope policy', () => {
   const frontend = classifyFiles(['apps/frontend/src/app/page.tsx']);
   assert.equal(frontend.frontend, true);
-  assert.equal(frontend.backend, false);
+  assert.equal(frontend.backend, true);
   assert.equal(frontend.rails, true);
 
   const backend = classifyFiles(['apps/backend/src/main.ts']);
@@ -40,7 +40,8 @@ test('classifyFiles is the shared CI and pre-push scope policy', () => {
   ]) {
     const scope = classifyFiles([file]);
     assert.equal(scope.frontend && scope.backend, true, file);
-    assert.equal(scope.api || scope.queryGates, false, file);
+    assert.equal(scope.api, false, file);
+    assert.equal(scope.queryGates, true, file);
   }
   const docs = classifyFiles(['docs/readme.md', 'apps/frontend-old/x.ts']);
   assert.equal(docs.frontend, false);

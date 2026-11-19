@@ -29,7 +29,7 @@ const USAGE =
   'usage: node verify/index.mjs <frontend|backend|full|scoped|scope> [--pre-push]';
 
 function scopedChecks(scope) {
-  return ['secrets', ...(scope.api ? ['api', 'query-gates'] : [])];
+  return ['secrets', ...(scope.api ? ['api'] : []), 'query-gates'];
 }
 
 const SCOPE_GATED = { 'query-gates': 'queryGates' };
@@ -83,7 +83,7 @@ export async function main(
   );
   for (const name of requested.filter((item) => !checks.includes(item))) {
     console.log(
-      `SKIP ${name}: no backend repository, service, prisma or test change in range`,
+      `SKIP ${name}: backend integration is not selected for this range`,
     );
   }
   console.log(
