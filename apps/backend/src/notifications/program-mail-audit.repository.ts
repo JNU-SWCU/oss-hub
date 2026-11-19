@@ -58,7 +58,7 @@ export class ProgramMailAuditRepository {
         occurredAt: command.occurredAt,
         record: {
           id: `user:program-mail-result:${command.batchKey}`,
-          action: 'PROGRAM_MAIL_SENT',
+          action: this.resultAction(command.result),
           sourcePart: 'result',
           metadata: {
             ...this.metadata(command.input, command.batchKey),
@@ -70,6 +70,14 @@ export class ProgramMailAuditRepository {
     );
   }
 
+  private resultAction(result: ProgramMailDeliveryResult): string {
+    if (result.unknownCount > 0) return 'PROGRAM_MAIL_DELIVERY_UNKNOWN';
+    if (result.failedCount === 0) return 'PROGRAM_MAIL_SENT';
+    if (result.sentCount + result.duplicateCount > 0)
+      return 'PROGRAM_MAIL_PARTIALLY_FAILED';
+    return 'PROGRAM_MAIL_FAILED';
+  }
+
   private record(
     command: {
       readonly input: ProgramMailBatchContent;
@@ -79,25 +87,45 @@ export class ProgramMailAuditRepository {
     },
     transaction: ProgramMailAuditTransaction,
   ): Promise<unknown> {
+    return this.recordEvent(transaction, {
+      ...command.record,
+      sourceTable: 'ProgramMail',
+      actorId: command.input.actorId,
+      programId: command.input.programId,
+      requestId: command.batchKey,
+      occurredAt: command.occurredAt,
+    });
+  }
+
+  recordEvent(
+    transaction: ProgramMailAuditTransaction,
+    entry: ProgramMailAuditRecord & {
+      readonly actorId: string;
+      readonly programId: string;
+      readonly requestId: string;
+      readonly occurredAt: Date;
+      readonly sourceTable: 'ProgramMail' | 'DeadlineDigest';
+    },
+  ): Promise<unknown> {
     return transaction.userHistory.create({
       data: {
-        id: command.record.id,
-        userId: command.input.actorId,
-        actorId: command.input.actorId,
+        id: entry.id,
+        userId: entry.actorId,
+        actorId: entry.actorId,
         event: 'PROFILE_UPDATED',
         source: 'APPLICATION',
-        sourceTable: 'ProgramMail',
-        sourceId: command.batchKey,
-        sourcePart: command.record.sourcePart,
-        occurredAt: command.occurredAt,
+        sourceTable: entry.sourceTable,
+        sourceId: entry.requestId,
+        sourcePart: entry.sourcePart,
+        occurredAt: entry.occurredAt,
         data: {
           schemaVersion: 1,
           recordKind: 'DOMAIN_EVENT',
-          action: command.record.action,
+          action: entry.action,
           targetType: 'PROGRAM',
-          targetId: command.input.programId,
-          requestId: command.batchKey,
-          metadata: command.record.metadata,
+          targetId: entry.programId,
+          requestId: entry.requestId,
+          metadata: entry.metadata,
           request: null,
         },
       },

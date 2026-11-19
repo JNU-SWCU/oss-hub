@@ -10,6 +10,7 @@ import {
   AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
   AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
 } from './fixtures';
+import { AUDIT_LOG_ACTION_LABELS, AUDIT_LOG_ACTIONS } from './types';
 
 const [roleChange] = parseAuditLogPage({
   ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
@@ -46,6 +47,23 @@ describe('audit log formatting', () => {
       }),
     ).toBe('회원 유형 선택');
     expect(actionLabel(roleChange)).toBe('회원 유형 변경');
+  });
+
+  it('registers every mail audit action for formatting and filtering', () => {
+    const mailAuditActions = [
+      'PROGRAM_MAIL_SEND_ATTEMPTED',
+      'PROGRAM_MAIL_SENT',
+      'PROGRAM_MAIL_PARTIALLY_FAILED',
+      'PROGRAM_MAIL_FAILED',
+      'PROGRAM_MAIL_DELIVERY_UNKNOWN',
+      'DEADLINE_DIGEST_SEND_ATTEMPTED',
+      'DEADLINE_DIGEST_SEND_COMPLETED',
+    ];
+
+    expect(Object.keys(AUDIT_LOG_ACTION_LABELS)).toEqual(
+      expect.arrayContaining(mailAuditActions),
+    );
+    expect(AUDIT_LOG_ACTIONS).toEqual(expect.arrayContaining(mailAuditActions));
   });
 
   it('keeps an unknown action code and target id visible', () => {

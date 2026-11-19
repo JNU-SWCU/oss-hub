@@ -23,7 +23,7 @@ import {
 } from './notifications-error-code.error';
 import { type MailSender, MAIL_SENDER } from './gmail-mail.client';
 import { AccountStatus } from '@prisma/client';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
@@ -164,6 +164,15 @@ export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
 type DeadlineDeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED';
 const logger = new Logger('DeadlineDigestService');
 
+function deliveryCounts(outcomes: readonly DeadlineDeliveryOutcome[]) {
+  return {
+    sentCount: outcomes.filter((outcome) => outcome === 'SENT').length,
+    duplicateCount: outcomes.filter((outcome) => outcome === 'DUPLICATE')
+      .length,
+    failedCount: outcomes.filter((outcome) => outcome === 'FAILED').length,
+  };
+}
+
 async function dispatchDeadlineDigest(
   batch: {
     readonly programId: string;
@@ -288,6 +297,7 @@ export class DeadlineDigestService {
   async sendProgramFromPreview(
     programId: string,
     preview: DeadlineDigestSendRequest,
+    actorId: string,
     now: Date = new Date(),
   ): Promise<DeadlineDigestSendResult> {
     const previewedAt = new Date(preview.previewedAt);
@@ -313,6 +323,21 @@ export class DeadlineDigestService {
     });
     if (prepared.previewVersion !== preview.previewVersion)
       this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
+    const audit = {
+      requestId: randomUUID(),
+      actorId,
+      programId,
+      previewVersion: prepared.previewVersion,
+      occurredAt: now,
+    };
+    await this.repository.recordManualSend({
+      ...audit,
+      phase: 'attempt',
+      counts: {
+        recipientCount: eligibility.summary.recipientCount,
+        staffRecipientCount: staffRecipients.length,
+      },
+    });
     const dependencies = {
       repository: this.repository,
       mailSender: this.mailSender,
@@ -328,7 +353,7 @@ export class DeadlineDigestService {
       dependencies,
     );
 
-    await dispatchDeadlineDigest(
+    const staffOutcomes = await dispatchDeadlineDigest(
       {
         programId,
         now,
@@ -338,14 +363,16 @@ export class DeadlineDigestService {
       },
       dependencies,
     );
+    await this.repository.recordManualSend({
+      ...audit,
+      phase: 'result',
+      counts: deliveryCounts([...outcomes, ...staffOutcomes]),
+    });
     return {
       ...eligibility.summary,
       staffRecipientCount: staffRecipients.length,
       previewVersion: prepared.previewVersion,
-      sentCount: outcomes.filter((outcome) => outcome === 'SENT').length,
-      duplicateCount: outcomes.filter((outcome) => outcome === 'DUPLICATE')
-        .length,
-      failedCount: outcomes.filter((outcome) => outcome === 'FAILED').length,
+      ...deliveryCounts(outcomes),
     };
   }
 
