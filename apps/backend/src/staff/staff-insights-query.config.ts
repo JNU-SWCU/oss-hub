@@ -5,7 +5,7 @@ export const INSIGHTS_YEAR_ERROR = `year must be omitted, "all", or a calendar y
 
 export const UNREGISTERED_DEPARTMENT = '미등록';
 
-export const STAFF_INSIGHTS_PERIOD_LEADER_LIMIT = 12;
+export const STAFF_INSIGHTS_PERIOD_LEADER_LIMIT = 10;
 export const STAFF_INSIGHTS_RECENT_LEADER_LIMIT = 10;
 export const STAFF_INSIGHTS_ATTENTION_STUDENT_LIMIT = 4;
 

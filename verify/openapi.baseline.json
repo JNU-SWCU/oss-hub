@@ -13486,18 +13486,21 @@
         "type": "object",
         "properties": {
           "all": {
+            "maxItems": 10,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
             }
           },
           "swMajor": {
+            "maxItems": 10,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
             }
           },
           "nonSw": {
+            "maxItems": 10,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { ProgramCategory } from '@prisma/client';
+import { STAFF_INSIGHTS_PERIOD_LEADER_LIMIT } from '../staff-insights-query.config';
 import type {
   StaffInsightsFinderPage,
   StaffInsightsFinderRow,
@@ -149,8 +150,22 @@ class StaffInsightsPeriodLeaderResponseDto extends StaffInsightsLeaderResponseDt
 }
 
 class StaffInsightsPeriodCohortLeadersResponseDto {
+  @ApiProperty({
+    type: [StaffInsightsPeriodLeaderResponseDto],
+    maxItems: STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  })
   declare readonly all: StaffInsightsPeriodLeaderResponseDto[];
+
+  @ApiProperty({
+    type: [StaffInsightsPeriodLeaderResponseDto],
+    maxItems: STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  })
   declare readonly swMajor: StaffInsightsPeriodLeaderResponseDto[];
+
+  @ApiProperty({
+    type: [StaffInsightsPeriodLeaderResponseDto],
+    maxItems: STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  })
   declare readonly nonSw: StaffInsightsPeriodLeaderResponseDto[];
 
   static from(

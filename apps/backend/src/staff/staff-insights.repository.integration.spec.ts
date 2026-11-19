@@ -776,7 +776,7 @@ describe('StaffInsightsRepository leader candidates bound', () => {
     await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
   });
 
-  it('caps period and recent leaders separately but compares the full prior standings', async () => {
+  it('caps period and recent leaders at 10 but compares the full prior standings', async () => {
     const [period, recent] = await Promise.all([
       repository.listPeriodLeaderCandidates(
         { currentYear: TIE_YEAR },
@@ -787,7 +787,7 @@ describe('StaffInsightsRepository leader candidates bound', () => {
     ]);
 
     expect(period.map((row) => row.githubLogin)).toEqual(
-      tied.slice(0, 12).map((student) => student.login),
+      tied.slice(0, 10).map((student) => student.login),
     );
     expect(recent.map((row) => row.githubLogin)).toEqual(
       tied.slice(0, 10).map((student) => student.login),

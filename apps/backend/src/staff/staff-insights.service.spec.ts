@@ -459,10 +459,16 @@ describe('StaffInsightsService', () => {
       });
     });
 
-    it('caps each period list at 12 rows and keeps the recent limit at 10', async () => {
-      const rows = Array.from({ length: 13 }, (_, index) => {
-        const id = 13 - index;
-        return candidate(BigInt(id), SW, [id, 0, 0, 0, 0]);
+    it('caps every period and recent cohort list at 10 rows', async () => {
+      const rows = Array.from({ length: 26 }, (_, index) => {
+        const id = 26 - index;
+        return candidate(BigInt(id), index % 2 === 0 ? SW : NON_SW, [
+          id,
+          0,
+          0,
+          0,
+          0,
+        ]);
       });
       const store = withLeaders(rows, rows);
 
@@ -472,12 +478,14 @@ describe('StaffInsightsService', () => {
       );
 
       expect(summary.leaders.period.all.map((row) => row.rank)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
       ]);
-      expect(summary.leaders.period.swMajor).toHaveLength(12);
-      expect(summary.leaders.period.all[11]?.total).toBe(2);
+      expect(summary.leaders.period.swMajor).toHaveLength(10);
+      expect(summary.leaders.period.nonSw).toHaveLength(10);
+      expect(summary.leaders.period.all[9]?.total).toBe(17);
       expect(summary.leaders.recent.all).toHaveLength(10);
       expect(summary.leaders.recent.swMajor).toHaveLength(10);
+      expect(summary.leaders.recent.nonSw).toHaveLength(10);
     });
 
     it('uses the full prior rank for each view and distinguishes zero recent activity from unknown', async () => {

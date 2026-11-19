@@ -131,26 +131,33 @@ describe('parseStaffInsightsSummary', () => {
   });
 
   it.each([
-    ['period', 12],
-    ['recent', 10],
-  ] as const)('enforces the %s leader limit of %d rows', (window, limit) => {
-    const payload = wirePayload();
-    const groups = leaderGroups(payload, window);
-    const row = firstRecord(groups.all);
-    const rows = Array.from({ length: limit + 1 }, (_, index) => ({
-      ...row,
-      rank: index + 1,
-      githubLogin: `synthetic-leader-${index}`,
-    }));
-    groups.all = rows.slice(0, limit);
+    ['period', 'all'],
+    ['period', 'swMajor'],
+    ['period', 'nonSw'],
+    ['recent', 'all'],
+    ['recent', 'swMajor'],
+    ['recent', 'nonSw'],
+  ] as const)(
+    'accepts 10 but rejects 11 leaders in %s.%s',
+    (window, cohort) => {
+      const payload = wirePayload();
+      const groups = leaderGroups(payload, window);
+      const row = firstRecord(groups.all);
+      const rows = Array.from({ length: 11 }, (_, index) => ({
+        ...row,
+        rank: index + 1,
+        githubLogin: `synthetic-leader-${index}`,
+      }));
+      groups[cohort] = rows.slice(0, 10);
 
-    expect(parseStaffInsightsSummary(payload).leaders[window].all).toHaveLength(
-      limit,
-    );
+      expect(
+        parseStaffInsightsSummary(payload).leaders[window][cohort],
+      ).toHaveLength(10);
 
-    groups.all = rows;
-    expect(() => parseStaffInsightsSummary(payload)).toThrow();
-  });
+      groups[cohort] = rows;
+      expect(() => parseStaffInsightsSummary(payload)).toThrow();
+    },
+  );
 
   it.each([
     ['studentId', 1001],

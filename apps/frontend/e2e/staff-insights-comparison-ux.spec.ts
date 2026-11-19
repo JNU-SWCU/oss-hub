@@ -104,7 +104,7 @@ const longPrograms: StaffInsightsSummary = {
 };
 
 const [firstLeader, inactiveLeader] = base.leaders.period.all;
-const extraLeaders = Array.from({ length: 10 }, (_, index) => ({
+const extraLeaders = Array.from({ length: 8 }, (_, index) => ({
   ...firstLeader,
   rank: index + 3,
   name: `합성 학생 ${index + 3}`,
@@ -570,7 +570,7 @@ test.describe('staff insights comparison UX', () => {
         await expect(period).toHaveValue('2026');
         const rank = tableRegion(page, '학생 순위 표');
         const attention = tableRegion(page, '관심 필요 학생 표');
-        await expect(rank.locator('tbody tr')).toHaveCount(12);
+        await expect(rank.locator('tbody tr')).toHaveCount(10);
         await expect(attention.locator('tbody tr')).toHaveCount(4);
         await expect(rank.getByRole('columnheader')).toHaveText([
           '순위',

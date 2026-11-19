@@ -17,8 +17,7 @@ import type {
 } from './types';
 import { DEPARTMENT_COHORTS, PROGRAM_CATEGORIES } from './types';
 
-const MAX_PERIOD_LEADERS = 12;
-const MAX_RECENT_LEADERS = 10;
+const MAX_LEADERS_PER_COHORT = 10;
 const MAX_ATTENTION_STUDENTS = 4;
 
 class StaffInsightsResponseError extends Error {
@@ -199,15 +198,18 @@ function parseLimitedList<Row>(
 
 function parseCohortLeaders<Row>(
   value: unknown,
-  limit: number,
   parseRow: (row: unknown) => Row | null,
 ): StaffInsightsCohortLeaders<Row> | null {
   if (!isRecord(value)) {
     return null;
   }
-  const all = parseLimitedList(value.all, limit, parseRow);
-  const swMajor = parseLimitedList(value.swMajor, limit, parseRow);
-  const nonSw = parseLimitedList(value.nonSw, limit, parseRow);
+  const all = parseLimitedList(value.all, MAX_LEADERS_PER_COHORT, parseRow);
+  const swMajor = parseLimitedList(
+    value.swMajor,
+    MAX_LEADERS_PER_COHORT,
+    parseRow,
+  );
+  const nonSw = parseLimitedList(value.nonSw, MAX_LEADERS_PER_COHORT, parseRow);
   return all === null || swMajor === null || nonSw === null
     ? null
     : { all, swMajor, nonSw };
@@ -217,16 +219,8 @@ function parseLeaders(value: unknown): StaffInsightsLeaders | null {
   if (!isRecord(value)) {
     return null;
   }
-  const period = parseCohortLeaders(
-    value.period,
-    MAX_PERIOD_LEADERS,
-    parsePeriodLeader,
-  );
-  const recent = parseCohortLeaders(
-    value.recent,
-    MAX_RECENT_LEADERS,
-    parseLeader,
-  );
+  const period = parseCohortLeaders(value.period, parsePeriodLeader);
+  const recent = parseCohortLeaders(value.recent, parseLeader);
   return period === null || recent === null ? null : { period, recent };
 }
 
