@@ -42,7 +42,6 @@ const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard/activity': 'chart',
   '/dashboard/insights': 'chart',
   '/dashboard/applicants': 'inbox',
-  '/settings': 'gear',
   '/my-repos': 'repo',
   '/programs/new': 'detail',
   '/dashboard/users': 'people',
