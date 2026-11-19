@@ -116,9 +116,9 @@ export function GroupsTab({
         aria-label="학과·전공 지표"
         className="grid grid-cols-2 gap-4 sm:grid-cols-3"
       >
-        <KpiTile label="가입 학생" value={`${students}명`} />
-        <KpiTile label="활동 학생" value={`${active}명`} />
-        <KpiTile label="학과 수" value={`${departmentCount}개`} />
+        <KpiTile compact label="가입 학생" value={`${students}명`} />
+        <KpiTile compact label="활동 학생" value={`${active}명`} />
+        <KpiTile compact label="학과 수" value={`${departmentCount}개`} />
       </section>
       <Card className="min-w-0">
         <CardHeader>

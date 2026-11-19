@@ -539,9 +539,18 @@ test.describe('staff insights comparison UX', () => {
           summary: comparison,
           finder: (params) =>
             finderPage(
-              params.get('minActivity') === '200'
-                ? finderRows.filter((row) => row.total >= 200).slice(0, 8)
-                : finderRows,
+              finderRows.filter((row, index) => {
+                const department = params.get('department');
+                const minActivity = Number(params.get('minActivity') ?? '0');
+                return (
+                  (department === null ||
+                    comparison.leaders.period.all[index].department ===
+                      department) &&
+                  row.total >= minActivity &&
+                  (params.get('recentActivity') !== 'active' ||
+                    (row.recentTotal !== null && row.recentTotal > 0))
+                );
+              }),
             ),
         });
         await gotoInsights(page, 'students', 2026);
@@ -619,13 +628,35 @@ test.describe('staff insights comparison UX', () => {
         await viewTab(page, 'finder').click();
         await expect(page).toHaveURL(`${target}?year=2026&view=finder`);
         await page
+          .getByLabel('학과', { exact: true })
+          .selectOption('소프트웨어공학과');
+        await page
           .getByLabel('최소 활동량', { exact: true })
           .selectOption('200');
+        await page
+          .getByLabel('최근 30일 활동', { exact: true })
+          .selectOption('active');
+        await expect(page.getByLabel('검색', { exact: true })).toHaveValue('');
         await expect(
-          page.getByText('검색 결과 8명', { exact: true }),
+          page.getByLabel('프로그램 참여', { exact: true }),
+        ).toHaveValue('');
+        await expect
+          .poll(() =>
+            Object.fromEntries(
+              requests.finderRequests.at(-1)?.searchParams ?? [],
+            ),
+          )
+          .toMatchObject({
+            year: '2026',
+            department: '소프트웨어공학과',
+            minActivity: '200',
+            recentActivity: 'active',
+          });
+        await expect(
+          page.getByText('검색 결과 2명', { exact: true }),
         ).toBeVisible();
         const finder = tableRegion(page, '학생 검색 결과 표');
-        await expect(finder.locator('tbody tr')).toHaveCount(8);
+        await expect(finder.locator('tbody tr')).toHaveCount(2);
         await expect(rank).toHaveCount(0);
         await expectNoHorizontalOverflow(page);
         await captureV5(page, testInfo, `finder-${width}`);

@@ -139,11 +139,13 @@ function StudentsKpis({
       className="grid grid-cols-2 gap-4 sm:grid-cols-3"
     >
       <KpiTile
+        compact
         label="활동 학생 비율"
         value={percent(students > 0 ? active / students : null)}
       />
-      <KpiTile label="활동 0건 학생" value={`${students - active}명`} />
+      <KpiTile compact label="활동 0건 학생" value={`${students - active}명`} />
       <KpiTile
+        compact
         label="이번 달 첫 기여 학생"
         value={
           summary.firstContributionCount === null
