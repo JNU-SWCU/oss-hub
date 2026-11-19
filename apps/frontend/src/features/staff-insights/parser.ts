@@ -2,6 +2,7 @@ import { isRecord } from '@/lib/is-record';
 import type {
   DepartmentCohort,
   InsightsYearScope,
+  StaffInsightsAttentionStudentRow,
   StaffInsightsCohortRow,
   StaffInsightsCohortLeaders,
   StaffInsightsDepartmentRow,
@@ -9,13 +10,16 @@ import type {
   StaffInsightsLeaders,
   StaffInsightsMetrics,
   ProgramCategory,
+  StaffInsightsPeriodLeaderRow,
   StaffInsightsProgramRow,
   StaffInsightsProgramSummary,
   StaffInsightsSummary,
 } from './types';
 import { DEPARTMENT_COHORTS, PROGRAM_CATEGORIES } from './types';
 
-const MAX_LEADERS = 10;
+const MAX_PERIOD_LEADERS = 12;
+const MAX_RECENT_LEADERS = 10;
+const MAX_ATTENTION_STUDENTS = 4;
 
 class StaffInsightsResponseError extends Error {
   constructor() {
@@ -26,6 +30,18 @@ class StaffInsightsResponseError extends Error {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return isNonNegativeInteger(value) && value > 0;
+}
+
+function isNullableCount(value: unknown): value is number | null {
+  return value === null || isNonNegativeInteger(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
 }
 
 function isNullableRatio(value: unknown): value is number | null {
@@ -97,10 +113,12 @@ function parseDepartment(value: unknown): StaffInsightsDepartmentRow | null {
   if (
     !isRecord(value) ||
     typeof value.department !== 'string' ||
+    !isNullableString(value.major) ||
     !isCohort(value.cohort) ||
     typeof value.activityPerStudent !== 'number' ||
     !Number.isFinite(value.activityPerStudent) ||
     value.activityPerStudent < 0 ||
+    !isNullableRatio(value.recentPerStudent) ||
     typeof value.sampleTooSmall !== 'boolean'
   ) {
     return null;
@@ -110,8 +128,10 @@ function parseDepartment(value: unknown): StaffInsightsDepartmentRow | null {
     ? null
     : {
         department: value.department,
+        major: value.major,
         cohort: value.cohort,
         activityPerStudent: value.activityPerStudent,
+        recentPerStudent: value.recentPerStudent,
         sampleTooSmall: value.sampleTooSmall,
         ...metrics,
       };
@@ -120,12 +140,11 @@ function parseDepartment(value: unknown): StaffInsightsDepartmentRow | null {
 function parseLeader(value: unknown): StaffInsightsLeaderRow | null {
   if (
     !isRecord(value) ||
-    !isNonNegativeInteger(value.rank) ||
-    value.rank < 1 ||
-    (value.name !== null && typeof value.name !== 'string') ||
+    !isPositiveInteger(value.rank) ||
+    !isNullableString(value.name) ||
     typeof value.githubLogin !== 'string' ||
     value.githubLogin === '' ||
-    (value.department !== null && typeof value.department !== 'string') ||
+    !isNullableString(value.department) ||
     !isNonNegativeInteger(value.total)
   ) {
     return null;
@@ -139,11 +158,39 @@ function parseLeader(value: unknown): StaffInsightsLeaderRow | null {
   };
 }
 
-function parseLeaderList<Row>(
+function parsePeriodLeader(
   value: unknown,
+): StaffInsightsPeriodLeaderRow | null {
+  if (
+    !isRecord(value) ||
+    !isNullableString(value.studentId) ||
+    !isNullableString(value.major) ||
+    !isNullableCount(value.recentTotal) ||
+    (value.previousRank !== null && !isPositiveInteger(value.previousRank)) ||
+    !isNullableRatio(value.collaborationRatio) ||
+    (value.collaborationRatio !== null && value.collaborationRatio > 1)
+  ) {
+    return null;
+  }
+  const leader = parseLeader(value);
+  return leader === null
+    ? null
+    : {
+        ...leader,
+        studentId: value.studentId,
+        major: value.major,
+        recentTotal: value.recentTotal,
+        previousRank: value.previousRank,
+        collaborationRatio: value.collaborationRatio,
+      };
+}
+
+function parseLimitedList<Row>(
+  value: unknown,
+  limit: number,
   parseRow: (row: unknown) => Row | null,
 ): readonly Row[] | null {
-  if (!Array.isArray(value) || value.length > MAX_LEADERS) {
+  if (!Array.isArray(value) || value.length > limit) {
     return null;
   }
   const rows = value.map(parseRow);
@@ -152,14 +199,15 @@ function parseLeaderList<Row>(
 
 function parseCohortLeaders<Row>(
   value: unknown,
+  limit: number,
   parseRow: (row: unknown) => Row | null,
 ): StaffInsightsCohortLeaders<Row> | null {
   if (!isRecord(value)) {
     return null;
   }
-  const all = parseLeaderList(value.all, parseRow);
-  const swMajor = parseLeaderList(value.swMajor, parseRow);
-  const nonSw = parseLeaderList(value.nonSw, parseRow);
+  const all = parseLimitedList(value.all, limit, parseRow);
+  const swMajor = parseLimitedList(value.swMajor, limit, parseRow);
+  const nonSw = parseLimitedList(value.nonSw, limit, parseRow);
   return all === null || swMajor === null || nonSw === null
     ? null
     : { all, swMajor, nonSw };
@@ -169,8 +217,16 @@ function parseLeaders(value: unknown): StaffInsightsLeaders | null {
   if (!isRecord(value)) {
     return null;
   }
-  const period = parseCohortLeaders(value.period, parseLeader);
-  const recent = parseCohortLeaders(value.recent, parseLeader);
+  const period = parseCohortLeaders(
+    value.period,
+    MAX_PERIOD_LEADERS,
+    parsePeriodLeader,
+  );
+  const recent = parseCohortLeaders(
+    value.recent,
+    MAX_RECENT_LEADERS,
+    parseLeader,
+  );
   return period === null || recent === null ? null : { period, recent };
 }
 
@@ -179,6 +235,34 @@ function parseIsoDate(value: unknown): Date | null {
     return null;
   }
   return new Date(value);
+}
+
+function parseAttentionStudent(
+  value: unknown,
+): StaffInsightsAttentionStudentRow | null {
+  if (
+    !isRecord(value) ||
+    !isNullableString(value.name) ||
+    typeof value.githubLogin !== 'string' ||
+    value.githubLogin === '' ||
+    !isNullableString(value.studentId) ||
+    !isNullableString(value.department) ||
+    !isPositiveInteger(value.total)
+  ) {
+    return null;
+  }
+  const lastActiveAt = parseIsoDate(value.lastActiveAt);
+  if (value.lastActiveAt !== null && lastActiveAt === null) {
+    return null;
+  }
+  return {
+    name: value.name,
+    githubLogin: value.githubLogin,
+    studentId: value.studentId,
+    department: value.department,
+    total: value.total,
+    lastActiveAt,
+  };
 }
 
 function parseRecentWindow(
@@ -290,11 +374,18 @@ export function parseStaffInsightsSummary(
   const programs = value.programs.map(parseProgram);
   const programSummary = parseProgramSummary(value.programSummary);
   const leaders = parseLeaders(value.leaders);
+  const attentionStudents = parseLimitedList(
+    value.attentionStudents,
+    MAX_ATTENTION_STUDENTS,
+    parseAttentionStudent,
+  );
   const recentWindow = parseRecentWindow(value.recentWindow);
   if (
     scope === null ||
     programSummary === null ||
     leaders === null ||
+    attentionStudents === null ||
+    !isNullableCount(value.firstContributionCount) ||
     recentWindow === null ||
     cohorts.some((row) => row === null) ||
     departments.some((row) => row === null) ||
@@ -318,6 +409,8 @@ export function parseStaffInsightsSummary(
     programs: programs as readonly StaffInsightsProgramRow[],
     programSummary,
     leaders,
+    attentionStudents,
+    firstContributionCount: value.firstContributionCount,
     recentWindow,
   };
 }

@@ -6,119 +6,29 @@ import {
   type Route,
   type TestInfo,
 } from '@playwright/test';
+import { STAFF_INSIGHTS_FIXTURE } from '../src/features/staff-insights/fixtures';
+import type { StaffInsightsFinderData } from '../src/features/staff-insights/leaderboard-panel';
+import {
+  PROGRAM_CATEGORIES,
+  type InsightsView,
+  type StaffInsightsSummary,
+} from '../src/features/staff-insights/types';
+import { apiPath } from '../src/lib/api-client';
 import { hideNextDevTools } from './staff-insights-chart-layout';
 import { installBrowserAudit } from './support/browser-audit';
 import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 import { authenticatedSessionBody } from './support/session-mock';
 
 const target = '/dashboard/insights';
-const staffSession = authenticatedSessionBody('staff');
-
-interface InsightsMetricsWire {
-  readonly studentCount: number;
-  readonly activeStudentCount: number;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-  readonly total: number;
-  readonly participantCount: number;
-}
-
-interface InsightsCohortWire extends InsightsMetricsWire {
-  readonly cohort: 'sw-major' | 'non-sw' | 'unregistered';
-}
-
-interface InsightsDepartmentWire extends InsightsMetricsWire {
-  readonly department: string;
-  readonly cohort: InsightsCohortWire['cohort'];
-  readonly activityPerStudent: number;
-  readonly sampleTooSmall: boolean;
-}
-
-interface InsightsRecentLeaderWire {
-  readonly rank: number;
-  readonly name: string | null;
-  readonly githubLogin: string;
-  readonly department: string | null;
-  readonly cohort: InsightsCohortWire['cohort'];
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly total: number;
-}
-
-interface InsightsPeriodLeaderWire extends InsightsRecentLeaderWire {
-  readonly starCount: number;
-}
-
-interface InsightsLeadersByCohortWire<Row> {
-  readonly all: readonly Row[];
-  readonly swMajor: readonly Row[];
-  readonly nonSw: readonly Row[];
-}
-
-interface InsightsProgramWire {
-  readonly programId: string;
-  readonly name: string;
-  readonly category: string;
-  readonly startAt: string;
-  readonly endAt: string;
-  readonly recruiting: boolean;
-  readonly swMajorCount: number;
-  readonly nonSwCount: number;
-  readonly unregisteredCount: number;
-  readonly participantCount: number;
-  readonly appliedCount: number;
-  readonly approvedCount: number;
-  readonly competitionRatio: number | null;
-  readonly dueRequirementCount: number;
-  readonly submittedRequirementCount: number;
-  readonly completionRate: number | null;
-  readonly contributionCount: number;
-  readonly activeTeamCount: number;
-  readonly repoTeamCount: number;
-  readonly contributionsPerParticipant: number | null;
-}
-
-interface InsightsProgramSummaryWire {
-  readonly programCount: number;
-  readonly recruitingCount: number;
-  readonly approvedParticipantCount: number;
-  readonly uniqueParticipantCount: number;
-  readonly competitionRatio: number | null;
-  readonly repeatParticipantCount: number;
-  readonly repeatParticipantRate: number | null;
-}
-
-interface InsightsWire {
-  readonly scope: { readonly kind: 'all' };
-  readonly dataAsOf: string | null;
-  readonly years: readonly number[];
-  readonly cohorts: readonly InsightsCohortWire[];
-  readonly departments: readonly InsightsDepartmentWire[];
-  readonly programs: readonly InsightsProgramWire[];
-  readonly programSummary: InsightsProgramSummaryWire;
-  readonly leaders: {
-    readonly period: InsightsLeadersByCohortWire<InsightsPeriodLeaderWire>;
-    readonly recent: InsightsLeadersByCohortWire<InsightsRecentLeaderWire>;
-  };
-  readonly recentWindow: { readonly from: string; readonly to: string };
-}
-
-const EMPTY_METRICS: InsightsMetricsWire = {
-  studentCount: 0,
-  activeStudentCount: 0,
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-  starCount: 0,
-  total: 0,
-  participantCount: 0,
-};
+const INSIGHTS_API = apiPath('/dashboard/staff/insights');
+const FINDER_API = `${INSIGHTS_API}/students`;
+const base = STAFF_INSIGHTS_FIXTURE;
+const TAB_NAMES = {
+  students: '순위',
+  finder: '학생 찾기',
+  groups: '학과·전공',
+  programs: '프로그램',
+} satisfies Record<InsightsView, string>;
 
 const LONG_PROGRAM_NAMES = [
   '프로그램 1 — 전공·비전공 오픈소스 협업 기초 과정',
@@ -135,387 +45,305 @@ const LONG_PROGRAM_NAMES = [
   '프로그램 12 — 다학제 팀 프로젝트 성과 공유회',
 ] as const;
 
-const PROGRAM_CATEGORIES = [
-  'BASIC',
-  'SW_VALUE_SPREAD',
-  'OSS_CONTEST',
-  'CAPSTONE',
-  'SW_CONVERGENCE',
-  'GLOBAL_MAKERTHON',
-  'CORPORATE_INTERNSHIP',
-] as const;
-
-const PROGRAM_SUMMARY: InsightsProgramSummaryWire = {
-  programCount: 12,
-  recruitingCount: 4,
-  approvedParticipantCount: 96,
-  uniqueParticipantCount: 80,
-  competitionRatio: 1.4,
-  repeatParticipantCount: 12,
-  repeatParticipantRate: 15,
-};
-
 function oneDecimal(numerator: number, denominator: number): number | null {
   return denominator === 0
     ? null
     : Math.round((numerator / denominator) * 10) / 10;
 }
 
-function programWire(
-  name: string,
-  index: number,
-  overrides: Partial<InsightsProgramWire> = {},
-): InsightsProgramWire {
-  const empty = index % 4 === 3;
-  const swMajorCount = empty ? 0 : index + 1;
-  const nonSwCount = empty ? 0 : index;
-  const unregisteredCount = empty ? 0 : index % 2;
-  const participantCount = swMajorCount + nonSwCount + unregisteredCount;
-  const approvedCount = empty ? 0 : index + 2;
-  const appliedCount = approvedCount + (index % 3) + 1;
-  const dueRequirementCount = empty || index % 5 === 2 ? 0 : 12;
-  const submittedRequirementCount = Math.min(dueRequirementCount, 5 + index);
-  const repoTeamCount = empty || index % 5 === 1 ? 0 : approvedCount;
-  const contributionCount = repoTeamCount === 0 ? 0 : 20 * (index + 1);
-  return {
-    programId: `program-long-${index + 1}`,
-    name,
-    category: PROGRAM_CATEGORIES[index % PROGRAM_CATEGORIES.length],
-    startAt: '2026-03-01T15:00:00.000Z',
-    endAt: '2026-06-29T15:00:00.000Z',
-    recruiting: index === 0 || empty,
-    swMajorCount,
-    nonSwCount,
-    unregisteredCount,
-    participantCount,
-    appliedCount,
-    approvedCount,
-    competitionRatio: oneDecimal(appliedCount, approvedCount),
-    dueRequirementCount,
-    submittedRequirementCount,
-    completionRate:
-      dueRequirementCount === 0
-        ? null
-        : Math.round((submittedRequirementCount / dueRequirementCount) * 100),
-    contributionCount,
-    activeTeamCount: Math.min(repoTeamCount, (index % 3) + 1),
-    repoTeamCount,
-    contributionsPerParticipant:
-      repoTeamCount === 0
-        ? null
-        : oneDecimal(contributionCount, participantCount),
-    ...overrides,
-  };
-}
-
-const NO_LEADERS: InsightsWire['leaders'] = {
-  period: { all: [], swMajor: [], nonSw: [] },
-  recent: { all: [], swMajor: [], nonSw: [] },
+const longPrograms: StaffInsightsSummary = {
+  ...base,
+  programs: LONG_PROGRAM_NAMES.map((name, index) => {
+    const empty = index % 4 === 3;
+    const swMajorCount = empty ? 0 : index + 1;
+    const nonSwCount = empty ? 0 : index;
+    const unregisteredCount = empty ? 0 : index % 2;
+    const participantCount = swMajorCount + nonSwCount + unregisteredCount;
+    const approvedCount = empty ? 0 : index + 2;
+    const appliedCount = approvedCount + (index % 3) + 1;
+    const dueRequirementCount = empty || index % 5 === 2 ? 0 : 12;
+    const submittedRequirementCount = Math.min(dueRequirementCount, 5 + index);
+    const repoTeamCount = empty || index % 5 === 1 ? 0 : approvedCount;
+    const contributionCount = repoTeamCount === 0 ? 0 : 20 * (index + 1);
+    return {
+      ...base.programs[0],
+      programId: `program-long-${index + 1}`,
+      name,
+      category: PROGRAM_CATEGORIES[index % PROGRAM_CATEGORIES.length],
+      recruiting: index === 0 || empty,
+      swMajorCount,
+      nonSwCount,
+      unregisteredCount,
+      participantCount,
+      appliedCount,
+      approvedCount,
+      competitionRatio: oneDecimal(appliedCount, approvedCount),
+      dueRequirementCount,
+      submittedRequirementCount,
+      completionRate:
+        dueRequirementCount === 0
+          ? null
+          : Math.round((submittedRequirementCount / dueRequirementCount) * 100),
+      activeTeamCount: Math.min(repoTeamCount, (index % 3) + 1),
+      repoTeamCount,
+      contributionsPerParticipant:
+        repoTeamCount === 0
+          ? null
+          : oneDecimal(contributionCount, participantCount),
+    };
+  }),
+  programSummary: {
+    ...base.programSummary,
+    programCount: 12,
+    recruitingCount: 4,
+    approvedParticipantCount: 96,
+    uniqueParticipantCount: 80,
+    competitionRatio: 1.4,
+    repeatParticipantCount: 12,
+  },
 };
 
-function leaderRow(rank: number): InsightsRecentLeaderWire {
-  return {
-    rank,
-    name: `합성 학생 ${rank}`,
-    githubLogin: `synthetic-${rank}`,
-    department: '소프트웨어공학과',
-    cohort: 'sw-major',
-    commitCount: 30 - rank,
-    pullRequestCount: 6,
-    issueCount: 2,
-    repositoryCount: 1,
-    total: 39 - rank,
-  };
-}
+const [firstLeader, inactiveLeader] = base.leaders.period.all;
+const extraLeaders = Array.from({ length: 10 }, (_, index) => ({
+  ...firstLeader,
+  rank: index + 3,
+  name: `합성 학생 ${index + 3}`,
+  githubLogin: `synthetic-a${index + 3}`,
+  studentId: String(130000 + index),
+  department: base.departments[index % 6].department,
+  total: 984 - index * 63,
+  recentTotal: index === 0 ? null : 70 - index * 4,
+  previousRank: index === 0 ? null : index + 5,
+  collaborationRatio: index === 0 ? null : (index + 18) / 100,
+}));
 
-function leaderRows(): InsightsRecentLeaderWire[] {
-  return [1, 2, 3].map(leaderRow);
-}
-
-function periodLeaderRows(): InsightsPeriodLeaderWire[] {
-  return leaderRows().map((row) => ({
-    ...row,
-    starCount: 5,
-    total: row.total + 5,
-  }));
-}
-
-function insightsEnvelope(
-  overrides: Pick<InsightsWire, 'cohorts' | 'departments' | 'programs'> &
-    Partial<Pick<InsightsWire, 'leaders'>>,
-): InsightsWire {
-  return {
-    scope: { kind: 'all' },
-    dataAsOf: '2026-08-01T00:00:00.000Z',
-    years: [2026],
-    programSummary: PROGRAM_SUMMARY,
-    leaders: NO_LEADERS,
-    recentWindow: {
-      from: '2026-07-02T00:00:00.000Z',
-      to: '2026-08-01T00:00:00.000Z',
+const comparison: StaffInsightsSummary = {
+  ...base,
+  departments: base.departments.map((row) =>
+    row.department === '빅데이터융합학과'
+      ? { ...row, recentPerStudent: 0 }
+      : row,
+  ),
+  leaders: {
+    recent: base.leaders.recent,
+    period: {
+      ...base.leaders.period,
+      all: [
+        { ...firstLeader, total: 1284, previousRank: 3 },
+        { ...inactiveLeader, total: 1107, previousRank: 2 },
+        ...extraLeaders,
+      ],
     },
-    ...overrides,
-  };
-}
+  },
+  attentionStudents: [
+    ...base.attentionStudents,
+    ...extraLeaders
+      .slice(0, 3)
+      .map(({ name, githubLogin, department, total }) => ({
+        name,
+        githubLogin: `${githubLogin}-inactive`,
+        studentId: null,
+        department,
+        total,
+        lastActiveAt: null,
+      })),
+  ],
+};
 
-function insightsLong(): InsightsWire {
-  return insightsEnvelope({
-    cohorts: [],
-    departments: [],
-    leaders: {
-      period: {
-        all: periodLeaderRows(),
-        swMajor: periodLeaderRows(),
-        nonSw: periodLeaderRows(),
-      },
-      recent: {
-        all: leaderRows(),
-        swMajor: leaderRows(),
-        nonSw: leaderRows(),
-      },
+type FinderRow = StaffInsightsFinderData['rows'][number];
+
+const finderRows: readonly FinderRow[] = comparison.leaders.period.all.map(
+  (
+    {
+      name,
+      githubLogin,
+      studentId,
+      major,
+      total,
+      recentTotal,
+      collaborationRatio,
     },
-    programs: LONG_PROGRAM_NAMES.map((name, index) => programWire(name, index)),
-  });
-}
-
-function insightsZero(): InsightsWire {
-  return insightsEnvelope({
-    cohorts: [
-      { cohort: 'sw-major', ...EMPTY_METRICS },
-      { cohort: 'non-sw', ...EMPTY_METRICS },
-      { cohort: 'unregistered', ...EMPTY_METRICS },
-    ],
-    departments: [],
-    programs: [],
-  });
-}
-
-function insightsEmpty(): InsightsWire {
-  return insightsEnvelope({
-    cohorts: [],
-    departments: [],
-    programs: [],
-  });
-}
-
-function insightsUnregistered(): InsightsWire {
-  return insightsEnvelope({
-    cohorts: [
-      {
-        cohort: 'unregistered',
-        studentCount: 3,
-        activeStudentCount: 0,
-        commitCount: 0,
-        pullRequestCount: 0,
-        issueCount: 0,
-        repositoryCount: 0,
-        starCount: 0,
-        total: 0,
-        participantCount: 1,
-      },
-    ],
-    departments: [
-      {
-        department: '미등록',
-        cohort: 'unregistered',
-        activityPerStudent: 0,
-        sampleTooSmall: false,
-        studentCount: 3,
-        activeStudentCount: 0,
-        commitCount: 0,
-        pullRequestCount: 0,
-        issueCount: 0,
-        repositoryCount: 0,
-        starCount: 0,
-        total: 0,
-        participantCount: 1,
-      },
-    ],
-    programs: [
-      programWire('합성 기초 오픈소스 스터디', 0, {
-        programId: 'program-unregistered-only',
-        swMajorCount: 0,
-        nonSwCount: 0,
-        unregisteredCount: 2,
-        participantCount: 2,
-      }),
-    ],
-  });
-}
-
-const LONG_DEPARTMENT_NAME =
-  '전자컴퓨터공학부(컴퓨터공학전공) 융합소프트웨어연계전공';
-
-function departmentRow(
-  department: string,
-  cohort: InsightsCohortWire['cohort'],
-  studentCount: number,
-  activityPerStudent: number,
-): InsightsDepartmentWire {
-  const total = Math.round(studentCount * activityPerStudent);
-  return {
-    ...EMPTY_METRICS,
-    department,
-    cohort,
-    studentCount,
-    activeStudentCount: Math.ceil(studentCount / 2),
-    participantCount: Math.floor(studentCount / 2),
-    commitCount: total,
+    index,
+  ) => ({
+    name,
+    githubLogin,
+    studentId,
+    major,
     total,
-    activityPerStudent,
-    sampleTooSmall: studentCount < 3,
-  };
+    recentTotal,
+    collaborationRatio,
+    programIds: index % 2 === 0 ? [base.programs[0].programId] : [],
+  }),
+);
+
+const unknownStudent: FinderRow = {
+  name: '합성 미수집 학생',
+  githubLogin: 'synthetic-unknown',
+  studentId: null,
+  major: null,
+  total: 0,
+  recentTotal: null,
+  collaborationRatio: null,
+  programIds: [],
+};
+const inactiveStudent: FinderRow = {
+  ...unknownStudent,
+  name: '합성 미활동 학생',
+  githubLogin: 'synthetic-inactive',
+  recentTotal: 0,
+};
+const pageTwoStudent: FinderRow = {
+  ...inactiveStudent,
+  name: '합성 두 번째 페이지 학생',
+  githubLogin: 'synthetic-page-two',
+  studentId: '990099',
+};
+const firstFinderPage = [
+  ...finderRows,
+  unknownStudent,
+  inactiveStudent,
+  ...Array.from({ length: 6 }, (_, index) => ({
+    ...inactiveStudent,
+    name: `합성 대기 학생 ${index + 1}`,
+    githubLogin: `synthetic-inactive-${index + 1}`,
+  })),
+];
+
+function finderPage(
+  rows: readonly FinderRow[],
+  page = 1,
+  total = rows.length,
+): StaffInsightsFinderData {
+  return { rows, page, total, pageSize: 20 };
 }
 
-function insightsDepartments(): InsightsWire {
-  return insightsEnvelope({
-    cohorts: [
-      {
-        ...EMPTY_METRICS,
-        cohort: 'sw-major',
-        studentCount: 26,
-        activeStudentCount: 13,
-        participantCount: 13,
-      },
-      {
-        ...EMPTY_METRICS,
-        cohort: 'non-sw',
-        studentCount: 12,
-        activeStudentCount: 6,
-        participantCount: 6,
-      },
-      { ...EMPTY_METRICS, cohort: 'unregistered', studentCount: 3 },
-    ],
-    departments: [
-      departmentRow('소프트웨어공학과', 'sw-major', 20, 4.5),
-      departmentRow(LONG_DEPARTMENT_NAME, 'sw-major', 6, 12.3),
-      departmentRow('문헌정보학과(문헌정보SW트랙)', 'non-sw', 10, 8.1),
-      departmentRow('빅데이터융합학과', 'non-sw', 2, 30),
-      departmentRow('미등록', 'unregistered', 3, 0),
-    ],
-    programs: [],
-  });
-}
-
-async function fulfillJson(route: Route, body: unknown): Promise<void> {
-  await route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(body),
-  });
-}
-
-function rejectUnexpectedApi(route: Route): never {
-  const request = route.request();
-  const url = new URL(request.url());
-  throw new Error(
-    `Unexpected intercepted API request: ${request.method()} ${url.pathname}${url.search}`,
-  );
-}
-
-const INSIGHTS_API = '/api/v1/dashboard/staff/insights';
-
-const VIEW_TAB_LABELS = {
-  students: '학생',
-  groups: '학과·전공',
-  programs: '프로그램',
-} as const;
-
-type InsightsTab = keyof typeof VIEW_TAB_LABELS;
-
-function viewTab(page: Page, view: InsightsTab): Locator {
-  return page
-    .getByRole('group', { name: '인사이트 보기' })
-    .getByRole('link', { name: VIEW_TAB_LABELS[view], exact: true });
+function fulfillJson(route: Route, body: unknown) {
+  return route.fulfill({ json: body });
 }
 
 async function routeInsightsApi(
   page: Page,
-  respondInsights: (route: Route) => Promise<void>,
-): Promise<void> {
-  await page.route('**/api/v1/**', async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (request.method() === 'GET' && url.pathname === '/api/v1/auth/session') {
-      if (url.search !== '') {
-        rejectUnexpectedApi(route);
+  options: {
+    readonly summary?: StaffInsightsSummary;
+    readonly actor?: 'staff' | 'student' | 'anonymous';
+    readonly finder?: (params: URLSearchParams) => StaffInsightsFinderData;
+    readonly summaryFailure?: number;
+  } = {},
+) {
+  const { actor = 'staff', summary = base } = options;
+  const summaryRequests: URL[] = [];
+  const finderRequests: URL[] = [];
+  await page.route(`**${apiPath('/**')}`, async (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() !== 'GET')
+      throw new Error(`Unexpected write to ${url.pathname}`);
+    switch (url.pathname) {
+      case apiPath('/auth/session'):
+        return fulfillJson(
+          route,
+          actor === 'anonymous'
+            ? { isAuthenticated: false }
+            : authenticatedSessionBody(actor),
+        );
+      case apiPath('/consents/current'):
+        return fulfillJson(route, CONSENTED_RESPONSE);
+      case apiPath('/team-invitations/received'):
+        return fulfillJson(route, []);
+      case INSIGHTS_API: {
+        summaryRequests.push(url);
+        if (actor !== 'staff') break;
+        if (options.summaryFailure !== undefined) {
+          const status = options.summaryFailure;
+          return route.fulfill({
+            status,
+            json: {
+              type: 'about:blank',
+              title: 'Error',
+              status,
+              detail: '합성 오류',
+              instance: INSIGHTS_API,
+              code: 'SYNTHETIC',
+            },
+          });
+        }
+        const year = url.searchParams.get('year');
+        const scope =
+          year === null
+            ? { kind: 'all' }
+            : { kind: 'calendar', year: Number(year) };
+        return fulfillJson(route, { ...summary, scope });
       }
-      await fulfillJson(route, staffSession);
-      return;
+      case FINDER_API:
+        finderRequests.push(url);
+        if (actor !== 'staff' || options.finder === undefined) break;
+        return route.fulfill({
+          headers: { 'cache-control': 'private, no-store' },
+          json: options.finder(url.searchParams),
+        });
+      case apiPath('/ranking/years'):
+        return fulfillJson(route, { years: base.years });
+      case apiPath('/ranking/timeline'):
+        return fulfillJson(route, { year: 2026, months: [8], series: [] });
+      case apiPath('/ranking'):
+        return fulfillJson(route, {
+          year: 2026,
+          page: 1,
+          pageSize: 100,
+          total: 1,
+          dataAsOf: base.dataAsOf,
+          viewerClass: actor === 'student' ? 'member' : 'public',
+          items: [
+            {
+              rank: 1,
+              githubLogin: firstLeader.githubLogin,
+              commitCount: 44,
+              pullRequestCount: 0,
+              total: 44,
+            },
+          ],
+        });
     }
-    if (
-      request.method() === 'GET' &&
-      url.pathname === '/api/v1/consents/current'
-    ) {
-      if (url.search !== '') {
-        rejectUnexpectedApi(route);
-      }
-      await fulfillJson(route, CONSENTED_RESPONSE);
-      return;
-    }
-    if (request.method() === 'GET' && url.pathname === INSIGHTS_API) {
-      if (url.search !== '') {
-        rejectUnexpectedApi(route);
-      }
-      await respondInsights(route);
-      return;
-    }
-    rejectUnexpectedApi(route);
+    throw new Error(`Unexpected intercepted GET ${url.pathname}`);
   });
+  return { summaryRequests, finderRequests };
 }
 
-async function gotoInsights(page: Page, view?: InsightsTab): Promise<void> {
-  await page.goto(view === undefined ? target : `${target}?view=${view}`, {
-    waitUntil: 'load',
-  });
+function tabs(page: Page): Locator {
+  return page.getByRole('navigation', { name: '인사이트 보기' });
+}
+
+function viewTab(page: Page, view: InsightsView): Locator {
+  return tabs(page).getByRole('link', { name: TAB_NAMES[view], exact: true });
+}
+
+function tableRegion(page: Page, name: string): Locator {
+  return page.getByRole('region', { name, exact: true });
+}
+
+function scorecardRegion(page: Page): Locator {
+  return tableRegion(page, '프로그램 성과표');
+}
+
+async function gotoInsights(
+  page: Page,
+  view: InsightsView = 'students',
+  year?: number,
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (year !== undefined) params.set('year', String(year));
+  if (view !== 'students') params.set('view', view);
+  const query = params.toString();
+  await page.goto(query ? `${target}?${query}` : target);
 }
 
 async function openInsights(
   page: Page,
-  insights: InsightsWire,
-  view?: 'groups' | 'programs',
+  summary: StaffInsightsSummary,
+  view: InsightsView,
 ): Promise<void> {
-  await routeInsightsApi(page, (route) => fulfillJson(route, insights));
+  await routeInsightsApi(page, { summary });
   await gotoInsights(page, view);
-  await expect(
-    page.getByRole('heading', { name: '인사이트', exact: true }),
-  ).toBeVisible();
-  await expect(viewTab(page, view ?? 'students')).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-}
-
-async function openFailedInsights(
-  page: Page,
-  status: number,
-  contentType: string,
-  body: unknown,
-): Promise<void> {
-  await routeInsightsApi(page, (route) =>
-    route.fulfill({ status, contentType, body: JSON.stringify(body) }),
-  );
-  await gotoInsights(page);
-  await expect(
-    page.getByText('인사이트를 불러오지 못했습니다', { exact: true }),
-  ).toBeVisible();
-}
-
-function countInsightsRequests(page: Page): { readonly count: () => number } {
-  let count = 0;
-  page.on('request', (request) => {
-    if (
-      request.method() === 'GET' &&
-      new URL(request.url()).pathname === '/api/v1/dashboard/staff/insights'
-    ) {
-      count += 1;
-    }
-  });
-  return { count: () => count };
-}
-
-function scorecardRegion(page: Page): Locator {
-  return page.getByRole('region', { name: '프로그램 성과표' });
+  await expect(viewTab(page, view)).toHaveAttribute('aria-current', 'page');
 }
 
 async function expectFirstColumnReadable(page: Page): Promise<void> {
@@ -523,15 +351,11 @@ async function expectFirstColumnReadable(page: Page): Promise<void> {
   const names = region.locator('[data-slot="program-name"]');
   await expect(names).toHaveCount(LONG_PROGRAM_NAMES.length);
   const regionBox = await region.boundingBox();
-  if (regionBox === null) {
-    throw new Error('성과표 영역의 화면 경계가 필요합니다.');
-  }
+  if (regionBox === null) throw new Error('Missing scorecard bounds');
   for (const index of [0, LONG_PROGRAM_NAMES.length - 1]) {
     const nameCell = names.nth(index);
     const box = await nameCell.boundingBox();
-    if (box === null) {
-      throw new Error('프로그램 이름의 화면 경계가 필요합니다.');
-    }
+    if (box === null) throw new Error('Missing program name bounds');
     expect(box.width).toBeGreaterThanOrEqual(120);
     expect(box.x).toBeGreaterThanOrEqual(regionBox.x - 1);
     expect(box.x + box.width).toBeLessThanOrEqual(
@@ -543,12 +367,6 @@ async function expectFirstColumnReadable(page: Page): Promise<void> {
       ),
     ).toBe(true);
   }
-}
-
-function leaderCard(page: Page, title: string): Locator {
-  return page
-    .getByText(title, { exact: true })
-    .locator('xpath=ancestor::*[@data-slot="card"][1]');
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -571,6 +389,22 @@ async function attachPng(
   await testInfo.attach(name, { path: imagePath, contentType: 'image/png' });
 }
 
+async function captureV5(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+): Promise<void> {
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await attachPng(testInfo, `v5/${name}.png`, (path) =>
+    page.screenshot({
+      path,
+      fullPage: true,
+      animations: 'disabled',
+      style: 'nextjs-portal { display: none; }',
+    }),
+  );
+}
+
 test.describe('staff insights comparison UX', () => {
   test.beforeAll(async ({ request }) => {
     test.setTimeout(180_000);
@@ -578,17 +412,13 @@ test.describe('staff insights comparison UX', () => {
     expect(response.status()).toBe(200);
   });
 
-  for (const [name, width] of [
-    ['1440', 1440],
-    ['768', 768],
-    ['390', 390],
-  ] as const) {
-    test(`reads the program scorecard at ${name}px with keyboard and 200% text`, async ({
+  for (const width of [1440, 768, 390] as const) {
+    test(`reads the program scorecard at ${width}px with keyboard and 200% text`, async ({
       page,
     }, testInfo) => {
       const audit = installBrowserAudit(page);
       await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsLong(), 'programs');
+      await openInsights(page, longPrograms, 'programs');
       await hideNextDevTools(page);
       const kpis = page.getByRole('region', { name: '프로그램 지표' });
       await expect(kpis).toContainText('운영 프로그램');
@@ -611,7 +441,7 @@ test.describe('staff insights comparison UX', () => {
       });
       await attachPng(
         testInfo,
-        `programs-scorecard/programs-${name}.png`,
+        `programs-scorecard/programs-${width}.png`,
         (path) => page.screenshot({ path, fullPage: true }),
       );
       await page.setViewportSize({ width, height: 1000 });
@@ -624,24 +454,10 @@ test.describe('staff insights comparison UX', () => {
         expect(bounds.scrollWidth).toBeGreaterThan(bounds.clientWidth);
         await region.focus();
         await expect(region).toBeFocused();
-        const keyboardScroll = region.evaluate(
-          (element) =>
-            new Promise<number>((resolve, reject) => {
-              const timeout = window.setTimeout(() => {
-                reject(new Error('키보드 가로 스크롤이 일어나지 않았습니다.'));
-              }, 2_000);
-              element.addEventListener(
-                'scrollend',
-                () => {
-                  window.clearTimeout(timeout);
-                  resolve(element.scrollLeft);
-                },
-                { once: true },
-              );
-            }),
-        );
         await region.press('ArrowRight');
-        expect(await keyboardScroll).toBeGreaterThan(0);
+        await expect
+          .poll(() => region.evaluate((element) => element.scrollLeft))
+          .toBeGreaterThan(0);
         await expectFirstColumnReadable(page);
         await expectNoHorizontalOverflow(page);
         await page.mouse.move(0, 0);
@@ -701,487 +517,340 @@ test.describe('staff insights comparison UX', () => {
         .evaluate((element) => element.scrollIntoView({ block: 'start' }));
       await attachPng(
         testInfo,
-        `programs-scorecard/programs-${name}-200-text.png`,
+        `programs-scorecard/programs-${width}-200-text.png`,
         (path) => page.screenshot({ path, fullPage: true }),
       );
       audit.assertClean();
     });
   }
 
-  test('shows keyboard-only focus indicators without mouse emphasis', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    for (const [name, width] of [
-      ['desktop', 1440],
-      ['mobile', 375],
-    ] as const) {
-      await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsLong());
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = '200%';
+  for (const width of [1440, 390] as const) {
+    test.describe(`${width}px`, () => {
+      test.use({
+        viewport: { width, height: width === 390 ? 844 : 900 },
+        hasTouch: width === 390,
       });
 
-      for (const view of ['students', 'groups', 'programs'] as const) {
-        const button = viewTab(page, view);
-        await button.click();
-        await expect(page).toHaveURL(
-          view === 'students' ? target : `${target}?view=${view}`,
-        );
-        await expect(button).toHaveAttribute('aria-current', 'page');
-        await page.evaluate(() => {
-          (document.activeElement as HTMLElement | null)?.blur();
+      test('captures approved v5 ranking, metric hint, finder, and departments', async ({
+        page,
+      }, testInfo) => {
+        const audit = installBrowserAudit(page);
+        const requests = await routeInsightsApi(page, {
+          summary: comparison,
+          finder: (params) =>
+            finderPage(
+              params.get('minActivity') === '200'
+                ? finderRows.filter((row) => row.total >= 200).slice(0, 8)
+                : finderRows,
+            ),
         });
-        const mouseFocusVisible = await button.evaluate((element) =>
-          element.matches(':focus-visible'),
+        await gotoInsights(page, 'students', 2026);
+        await expect(tabs(page).getByRole('link')).toHaveText(
+          Object.values(TAB_NAMES),
         );
-        await button.focus();
-        await expect
-          .poll(() =>
-            button.evaluate((element) => {
-              const style = getComputedStyle(element);
-              const hasVisibleOutline =
-                style.outlineWidth !== '0px' &&
-                style.outlineColor !== 'rgba(0, 0, 0, 0)';
-              const hasVisibleShadow = style.boxShadow !== 'none';
-              return {
-                visible: hasVisibleOutline || hasVisibleShadow,
-              };
-            }),
-          )
-          .toMatchObject({ visible: true });
-        expect(mouseFocusVisible).toBe(false);
-      }
-      await attachPng(
-        testInfo,
-        `focus-visible-fix/${name}-200-focus-visible.png`,
-        (path) => page.screenshot({ path, fullPage: true }),
-      );
-    }
-    audit.assertClean();
-  });
-
-  test('shows period and recent top-10 cards on the default students tab', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    const insightsRequests = countInsightsRequests(page);
-    for (const [name, width] of [
-      ['desktop', 1440],
-      ['mobile', 390],
-    ] as const) {
-      const before = insightsRequests.count();
-      await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsLong());
-      const period = leaderCard(page, '기간 전체 상위 10명');
-      const recent = leaderCard(page, '최근 30일 상위 10명');
-      for (const card of [period, recent]) {
-        await expect(card).toBeVisible();
-        await expect(card.getByRole('listitem')).toHaveText([
-          /^1합성 학생 1.*@synthetic-1/,
-          /^2합성 학생 2.*@synthetic-2/,
-          /^3합성 학생 3.*@synthetic-3/,
+        await expect(viewTab(page, 'students')).toHaveAttribute(
+          'aria-current',
+          'page',
+        );
+        const period = page.getByLabel('기간', { exact: true });
+        await expect(period.locator('option')).toHaveText([
+          '전체',
+          '2026년',
+          '2025년',
         ]);
-      }
-      await expect(period.getByRole('listitem').first()).toContainText('43');
-      await expect(recent.getByRole('listitem').first()).toContainText('38');
-      await expect(recent).toContainText('Star 제외');
-      const loaded = insightsRequests.count();
-      expect(loaded).toBeGreaterThan(before);
-
-      const periodBox = await period.boundingBox();
-      const recentBox = await recent.boundingBox();
-      if (periodBox === null || recentBox === null) {
-        throw new Error('두 순위 카드의 화면 경계가 필요합니다.');
-      }
-      if (name === 'desktop') {
-        expect(Math.abs(periodBox.y - recentBox.y)).toBeLessThanOrEqual(1);
-        expect(recentBox.x).toBeGreaterThanOrEqual(
-          periodBox.x + periodBox.width,
+        await expect(period).toHaveValue('2026');
+        const rank = tableRegion(page, '학생 순위 표');
+        const attention = tableRegion(page, '관심 필요 학생 표');
+        await expect(rank.locator('tbody tr')).toHaveCount(12);
+        await expect(attention.locator('tbody tr')).toHaveCount(4);
+        await expect(rank.getByRole('columnheader')).toHaveText([
+          '순위',
+          '이름',
+          '학번',
+          '학과',
+          '전공',
+          '활동 합계',
+          '최근 30일 활동',
+          '순위 변화',
+          '협업 비율',
+        ]);
+        await expect(
+          rank.getByRole('link', { name: /합성 학생 가/ }),
+        ).toHaveAttribute(
+          'href',
+          `https://github.com/${firstLeader.githubLogin}`,
         );
-      } else {
-        expect(recentBox.y).toBeGreaterThanOrEqual(
-          periodBox.y + periodBox.height,
+        await expect(rank.getByText('급상승', { exact: true })).toHaveCount(1);
+        await expect(
+          rank.locator('tbody tr').nth(1).getByRole('cell').nth(6),
+        ).toHaveText('0');
+        await expect(
+          rank.locator('tbody tr').nth(2).getByRole('cell').nth(6),
+        ).toHaveText('—');
+        await expect(
+          page.getByRole('region', { name: '학생 지표' }),
+        ).toContainText('이번 달 첫 기여 학생—');
+        expect(requests.finderRequests).toHaveLength(0);
+        await expectNoHorizontalOverflow(page);
+        await captureV5(page, testInfo, `ranking-${width}`);
+
+        const hint = rank.getByRole('button', { name: '협업 비율 설명' });
+        const tooltip = page.getByRole('tooltip', { name: /PR \+ 이슈/ });
+        await expect(tooltip).toHaveCount(0);
+        await hint.scrollIntoViewIfNeeded();
+        if (width === 390) {
+          await hint.tap();
+        } else {
+          await hint.hover();
+        }
+        await expect(tooltip).toHaveText(/\(PR \+ 이슈\) ÷ 전체 활동/);
+        await captureV5(page, testInfo, `metric-tooltip-${width}`);
+        await page.keyboard.press('Escape');
+        await expect(tooltip).toHaveCount(0);
+        if (width === 1440) {
+          await page.mouse.move(0, 0);
+          await rank.getByRole('button', { name: '순위 변화 설명' }).focus();
+          await page.keyboard.press('Tab');
+          await expect(hint).toBeFocused();
+          await expect(tooltip).toBeVisible();
+          await page.keyboard.press('Escape');
+        }
+
+        await viewTab(page, 'finder').click();
+        await expect(page).toHaveURL(`${target}?year=2026&view=finder`);
+        await page
+          .getByLabel('최소 활동량', { exact: true })
+          .selectOption('200');
+        await expect(
+          page.getByText('검색 결과 8명', { exact: true }),
+        ).toBeVisible();
+        const finder = tableRegion(page, '학생 검색 결과 표');
+        await expect(finder.locator('tbody tr')).toHaveCount(8);
+        await expect(rank).toHaveCount(0);
+        await expectNoHorizontalOverflow(page);
+        await captureV5(page, testInfo, `finder-${width}`);
+
+        await viewTab(page, 'groups').click();
+        const groups = tableRegion(page, '학과·전공 표');
+        await expect(groups).toBeVisible();
+        await expect(groups.locator('tbody tr')).toHaveCount(6);
+        await expect(groups.getByRole('rowheader').first()).toHaveText(
+          '소프트웨어공학과',
         );
-      }
-      await expectNoHorizontalOverflow(page);
-      await page.mouse.move(0, 0);
-      await attachPng(testInfo, `students-leaderboard/${name}.png`, (path) =>
-        page.screenshot({ path, fullPage: true }),
-      );
-
-      const swChip = page
-        .getByRole('group', { name: '학생 구분' })
-        .getByRole('button', { name: 'SW전공', exact: true });
-      await swChip.click();
-      await expect(swChip).toHaveAttribute('aria-pressed', 'true');
-      await expect(period.getByRole('listitem')).toHaveCount(3);
-      expect(insightsRequests.count()).toBe(loaded);
-    }
-    audit.assertClean();
-  });
-
-  test('keeps long Korean leader names inside the card at mobile width', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    const longName =
-      '아주긴이름을가진합성학생오픈소스기여자가나다라마바사아자차카타파하';
-    const longDepartment =
-      '전자컴퓨터공학부(컴퓨터공학전공) 융합소프트웨어연계전공';
-    const maxLogin = 'synthetic-longest-github-login-abcdefgh';
-    expect(maxLogin).toHaveLength(39);
-    const maxLoginDepartment = '인공지능학부 데이터사이언스연계전공 융합트랙';
-    const base = insightsLong();
-    const period = periodLeaderRows().map((row, index) => {
-      if (index === 0) {
-        return { ...row, name: longName, department: longDepartment };
-      }
-      if (index === 1) {
-        return {
-          ...row,
-          githubLogin: maxLogin,
-          department: maxLoginDepartment,
-        };
-      }
-      return row;
+        await expect(groups.getByText('표본 적음')).toBeVisible();
+        await expect(page.locator('main')).not.toContainText('기간 미적용');
+        await expectNoHorizontalOverflow(page);
+        await captureV5(page, testInfo, `departments-${width}`);
+        const zero = groups
+          .getByRole('row', { name: /빅데이터융합학과/ })
+          .getByRole('cell')
+          .last();
+        await zero.scrollIntoViewIfNeeded();
+        await expect(zero).toBeInViewport();
+        await expect(zero).toHaveText('0.0');
+        const unknown = groups
+          .getByRole('row', { name: /인공지능학부/ })
+          .getByRole('cell')
+          .last();
+        await unknown.scrollIntoViewIfNeeded();
+        await expect(unknown).toBeInViewport();
+        await expect(unknown).toHaveText('—');
+        expect(
+          new Set(requests.summaryRequests.map((url) => url.search)),
+        ).toEqual(new Set(['?year=2026']));
+        audit.assertClean();
+      });
     });
-    await page.setViewportSize({ width: 390, height: 1000 });
-    await openInsights(page, {
-      ...base,
-      leaders: {
-        ...base.leaders,
-        period: { all: period, swMajor: period, nonSw: period },
+  }
+
+  test('sends global finder filters and sorting before rendering each bounded page', async ({
+    page,
+  }) => {
+    const audit = installBrowserAudit(page);
+    const requests = await routeInsightsApi(page, {
+      finder: (params) => {
+        if (params.get('search') === pageTwoStudent.studentId)
+          return finderPage([pageTwoStudent]);
+        if (params.get('recentActivity') === 'inactive')
+          return finderPage([inactiveStudent]);
+        if (params.get('sort') === 'studentId')
+          return finderPage([pageTwoStudent]);
+        if (params.get('page') === '2')
+          return finderPage([pageTwoStudent], 2, 21);
+        return finderPage(firstFinderPage, 1, 21);
       },
     });
-    const card = leaderCard(page, '기간 전체 상위 10명');
-    const name = card.getByText(longName, { exact: true });
-    await expect(name).toBeVisible();
-    const nameBox = await name.boundingBox();
-    const cardBox = await card.boundingBox();
-    if (nameBox === null || cardBox === null) {
-      throw new Error('긴 이름과 카드의 화면 경계가 필요합니다.');
-    }
-    expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(
-      cardBox.x + cardBox.width,
-    );
-    const login = card.getByText('@synthetic-1', { exact: true });
-    await expect(login).toBeVisible();
-    const loginBox = await login.boundingBox();
-    if (loginBox === null) {
-      throw new Error('GitHub 아이디의 화면 경계가 필요합니다.');
-    }
-    expect(loginBox.width).toBeGreaterThan(0);
-    expect(loginBox.x).toBeGreaterThanOrEqual(cardBox.x);
-    expect(loginBox.x + loginBox.width).toBeLessThanOrEqual(
-      cardBox.x + cardBox.width,
-    );
-    expect(
-      await login.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth,
-      ),
-    ).toBe(true);
-    await expect(card.getByTitle(longDepartment, { exact: true })).toHaveText(
-      longDepartment,
-    );
-    await expect(card.getByRole('listitem').first()).toContainText('43');
-    const maxLoginRow = card.getByRole('listitem').nth(1);
-    const maxLoginText = maxLoginRow.getByText(`@${maxLogin}`, {
-      exact: true,
+    await gotoInsights(page, 'finder', 2026);
+    const url = `${target}?year=2026&view=finder`;
+    const finder = tableRegion(page, '학생 검색 결과 표');
+    const pagination = page.getByRole('navigation', {
+      name: '학생 검색 결과 페이지',
     });
-    await expect(maxLoginText).toBeVisible();
-    const maxLoginBox = await maxLoginText.boundingBox();
-    const maxLoginDepartmentText = maxLoginRow.getByTitle(maxLoginDepartment, {
-      exact: true,
+    const next = pagination.getByRole('button', { name: '다음' });
+    const previous = pagination.getByRole('button', { name: '이전' });
+    const search = page.getByRole('searchbox', { name: '검색' });
+    const params = () =>
+      Object.fromEntries(requests.finderRequests.at(-1)?.searchParams ?? []);
+
+    await expect(
+      page.getByText('검색 결과 21명', { exact: true }),
+    ).toBeVisible();
+    await expect(finder.locator('tbody tr')).toHaveCount(20);
+    const row = (name: string) =>
+      finder.getByRole('row', { name: new RegExp(name) });
+    await expect(row(unknownStudent.name!).getByRole('cell').nth(3)).toHaveText(
+      '0',
+    );
+    await expect(row(unknownStudent.name!).getByRole('cell').nth(4)).toHaveText(
+      '—',
+    );
+    await expect(
+      row(inactiveStudent.name!).getByRole('cell').nth(4),
+    ).toHaveText('0');
+    await expect(row(pageTwoStudent.name!)).toHaveCount(0);
+    await expect(finder.getByRole('checkbox')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /CSV/ })).toHaveCount(0);
+
+    await next.click();
+    await expect(row(pageTwoStudent.name!)).toBeVisible();
+    await expect(finder.locator('tbody tr')).toHaveCount(1);
+    await expect(next).toBeDisabled();
+    expect(params()).toEqual({ year: '2026', page: '2' });
+    await expect(page).toHaveURL(url);
+
+    await previous.click();
+    await expect(row(pageTwoStudent.name!)).toHaveCount(0);
+    await search.fill(pageTwoStudent.studentId!);
+    await expect(
+      page.getByText('검색 결과 1명', { exact: true }),
+    ).toBeVisible();
+    await expect(row(pageTwoStudent.name!)).toBeVisible();
+    expect(params()).toEqual({
+      year: '2026',
+      search: pageTwoStudent.studentId,
     });
-    await expect(maxLoginDepartmentText).toBeVisible();
-    const maxLoginDepartmentBox = await maxLoginDepartmentText.boundingBox();
-    if (maxLoginBox === null || maxLoginDepartmentBox === null) {
-      throw new Error('최대 길이 아이디 줄의 화면 경계가 필요합니다.');
-    }
-    expect(maxLoginDepartmentBox.width).toBeGreaterThan(0);
-    expect(maxLoginBox.x).toBeGreaterThanOrEqual(cardBox.x);
-    expect(maxLoginBox.x + maxLoginBox.width).toBeLessThanOrEqual(
-      cardBox.x + cardBox.width,
-    );
-    expect(
-      await maxLoginText.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth,
-      ),
-    ).toBe(true);
-    expect(maxLoginBox.y).toBeGreaterThan(maxLoginDepartmentBox.y);
-    await expect(maxLoginText).toHaveText(/^@/);
-    const lineStarts = await card.evaluate((element) =>
-      Array.from(element.querySelectorAll('li p:last-child')).flatMap(
-        (line) => {
-          const starts = new Map<number, { left: number; char: string }>();
-          const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
-          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            const text = node.textContent ?? '';
-            for (let index = 0; index < text.length; index += 1) {
-              const char = text[index] ?? '';
-              if (char.trim() === '') continue;
-              const range = document.createRange();
-              range.setStart(node, index);
-              range.setEnd(node, index + 1);
-              const rect = range.getBoundingClientRect();
-              const top = Math.round(rect.top);
-              const current = starts.get(top);
-              if (current === undefined || rect.left < current.left) {
-                starts.set(top, { left: rect.left, char });
-              }
-            }
-          }
-          return Array.from(starts.values(), (start) => start.char);
-        },
-      ),
-    );
-    expect(lineStarts.length).toBeGreaterThan(
-      await card.getByRole('listitem').count(),
-    );
-    expect(lineStarts).not.toContain('·');
-    await expectNoHorizontalOverflow(page);
-    await attachPng(
-      testInfo,
-      'students-leaderboard/mobile-long-name.png',
-      (path) => card.screenshot({ path }),
-    );
+    await expect(page).toHaveURL(url);
+
+    await search.clear();
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect(row(pageTwoStudent.name!)).toBeVisible();
+    await finder.getByRole('button', { name: '학번 오름차순 정렬' }).click();
+    await expect(
+      page.getByText('검색 결과 1명', { exact: true }),
+    ).toBeVisible();
+    expect(params()).toEqual({
+      year: '2026',
+      sort: 'studentId',
+      direction: 'asc',
+    });
+    await expect(
+      finder.getByRole('columnheader', { name: /학번/ }),
+    ).toHaveAttribute('aria-sort', 'ascending');
+
+    await page
+      .getByLabel('학과', { exact: true })
+      .selectOption('소프트웨어공학과');
+    await page
+      .getByLabel('프로그램 참여', { exact: true })
+      .selectOption(base.programs[0].programId);
+    await page.getByLabel('최소 활동량', { exact: true }).selectOption('50');
+    await page
+      .getByLabel('최근 30일 활동', { exact: true })
+      .selectOption('inactive');
+    await expect(row(inactiveStudent.name!)).toBeVisible();
+    await expect(row(unknownStudent.name!)).toHaveCount(0);
+    expect(params()).toEqual({
+      year: '2026',
+      department: '소프트웨어공학과',
+      programId: base.programs[0].programId,
+      minActivity: '50',
+      recentActivity: 'inactive',
+      sort: 'studentId',
+      direction: 'asc',
+    });
+    await expect(page).toHaveURL(url);
     audit.assertClean();
   });
 
-  test('deep links each tab to its card titles', async ({ page }) => {
-    const audit = installBrowserAudit(page);
-    await openInsights(page, insightsDepartments(), 'groups');
-    await expect(
-      page.getByRole('region', { name: '전공별 지표' }),
-    ).toBeVisible();
-    await expect(page.getByText('학과 순위', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText('기간 전체 상위 10명', { exact: true }),
-    ).toHaveCount(0);
+  for (const [actor, gate] of [
+    ['anonymous', '로그인이 필요합니다'],
+    ['student', '접근 권한이 없습니다'],
+  ] as const) {
+    test(`does not fetch staff insights or render private student fields for ${actor}`, async ({
+      page,
+    }) => {
+      const audit = installBrowserAudit(page);
+      const requests = await routeInsightsApi(page, { actor });
+      await gotoInsights(page, 'finder', 2026);
+      await expect(page.getByRole('heading', { name: gate })).toBeVisible();
+      await expect(tabs(page)).toHaveCount(0);
 
-    await openInsights(page, insightsLong(), 'programs');
-    await expect(
-      page.getByText('프로그램 성과표', { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByText('학과 순위', { exact: true })).toHaveCount(0);
-    audit.assertClean();
-  });
-
-  test('shows the failure state when the insights API fails', async ({
-    page,
-  }) => {
-    const audit = installBrowserAudit(page);
-    await openFailedInsights(page, 500, 'application/json', {
-      message: 'boom',
+      await page.goto('/ranking?year=2026');
+      const ranking = tableRegion(page, '활동 랭킹 표');
+      await expect(
+        ranking.getByRole('link', {
+          name: new RegExp(firstLeader.githubLogin),
+        }),
+      ).toBeVisible();
+      await expect(
+        ranking.getByRole('columnheader', {
+          name: /학번|협업 비율|최근 30일 활동/,
+        }),
+      ).toHaveCount(0);
+      await expect(ranking).not.toContainText(firstLeader.studentId!);
+      await expect(ranking).not.toContainText(firstLeader.name!);
+      expect(requests.summaryRequests).toHaveLength(0);
+      expect(requests.finderRequests).toHaveLength(0);
+      audit.assertClean();
     });
-    await expect(
-      page.getByText('인사이트를 불러오지 못했습니다.', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('group', { name: '인사이트 보기' }),
-    ).toHaveCount(0);
-    audit.assertClean([{ status: 500, path: INSIGHTS_API }]);
-  });
+  }
 
-  test('explains staff-only access when the insights API returns 403', async ({
-    page,
-  }) => {
-    const audit = installBrowserAudit(page);
-    await openFailedInsights(page, 403, 'application/problem+json', {
-      type: 'about:blank',
-      title: 'Forbidden',
-      status: 403,
-      detail: '권한이 없습니다.',
-      instance: INSIGHTS_API,
-      code: 'AUTH_403',
+  for (const [status, message] of [
+    [500, '인사이트를 불러오지 못했습니다.'],
+    [403, '승인된 교직원 또는 관리자만 조회할 수 있습니다.'],
+  ] as const) {
+    test(`shows a staff insights failure state for HTTP ${status}`, async ({
+      page,
+    }) => {
+      const audit = installBrowserAudit(page);
+      await routeInsightsApi(page, { summaryFailure: status });
+      await gotoInsights(page);
+      await expect(page.getByText(message, { exact: true })).toBeVisible();
+      await expect(tabs(page)).toHaveCount(0);
+      audit.assertClean([{ status, path: INSIGHTS_API }]);
     });
-    await expect(
-      page.getByText('승인된 교직원 또는 관리자만 조회할 수 있습니다.', {
-        exact: true,
-      }),
-    ).toBeVisible();
-    audit.assertClean([{ status: 403, path: INSIGHTS_API }]);
-  });
+  }
 
-  test('renders both leaderboard empty states', async ({ page }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    await openInsights(page, insightsEmpty());
-    await expect(
-      page.getByText('이 기간에 활동한 학생이 없습니다', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByText('최근 30일에 늘어난 활동이 없습니다', { exact: true }),
-    ).toBeVisible();
-    await attachPng(testInfo, 'students-leaderboard/empty.png', (path) =>
-      page.screenshot({ path, fullPage: true }),
-    );
-    audit.assertClean();
-  });
-
-  test('renders all-zero state without divide-by-zero output', async ({
+  test('renders empty ranking, department, and program states', async ({
     page,
   }, testInfo) => {
     const audit = installBrowserAudit(page);
-    await openInsights(page, insightsZero(), 'groups');
-    const kpis = page.getByRole('region', { name: '전공별 지표' });
-    await expect(kpis.getByText('계산 불가', { exact: true })).toHaveCount(4);
+    await routeInsightsApi(page, {
+      summary: {
+        ...base,
+        cohorts: [],
+        departments: [],
+        programs: [],
+        leaders: {
+          period: { all: [], swMajor: [], nonSw: [] },
+          recent: { all: [], swMajor: [], nonSw: [] },
+        },
+        attentionStudents: [],
+      },
+    });
+    await gotoInsights(page);
+    await expect(
+      page.getByText('이 기간에 활동한 학생이 없습니다'),
+    ).toBeVisible();
+    await expect(page.getByText('관심이 필요한 학생이 없습니다')).toBeVisible();
+    await expect(page.locator('main')).not.toContainText(/NaN|0\/0/);
+    await viewTab(page, 'groups').click();
     await expect(page.getByText('학과별 학생이 없습니다')).toBeVisible();
-    await expect(page.locator('main')).not.toContainText('NaN');
-    await expect(page.locator('main')).not.toContainText('0/0');
-    await attachPng(testInfo, 'task-2-browser/all-zero.png', (path) =>
-      page.screenshot({ path, fullPage: true }),
-    );
-    audit.assertClean();
-  });
-
-  test('renders the programs empty state', async ({ page }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    await openInsights(page, insightsEmpty(), 'programs');
+    await viewTab(page, 'programs').click();
     await expect(page.getByText('운영 중인 프로그램이 없습니다')).toBeVisible();
     await attachPng(testInfo, 'task-2-browser/empty-programs.png', (path) =>
       page.screenshot({ path, fullPage: true }),
-    );
-    audit.assertClean();
-  });
-
-  test('renders the department empty state', async ({ page }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    await openInsights(page, insightsEmpty(), 'groups');
-    await expect(page.getByText('학과별 학생이 없습니다')).toBeVisible();
-    await attachPng(testInfo, 'task-2-browser/empty-groups.png', (path) =>
-      page.screenshot({ path, fullPage: true }),
-    );
-    audit.assertClean();
-  });
-
-  test('keeps unregistered students out of the department ranking', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    await page.setViewportSize({ width: 1440, height: 1000 });
-    await openInsights(page, insightsUnregistered(), 'groups');
-    const kpis = page.getByRole('region', { name: '전공별 지표' });
-    await expect(kpis).toContainText('학과 미등록');
-    await expect(kpis).toContainText('3명');
-    await expect(kpis.getByText('계산 불가', { exact: true })).toHaveCount(4);
-    await expect(page.getByText('학과별 학생이 없습니다')).toBeVisible();
-    await expect(page.getByRole('table')).toHaveCount(0);
-    await expect(page.locator('main')).not.toContainText('NaN');
-    await attachPng(testInfo, 'task-2-browser/unregistered-only.png', (path) =>
-      page.screenshot({ path, fullPage: true }),
-    );
-    audit.assertClean();
-  });
-
-  test('reorders the department ranking by activity per student', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    for (const [name, width] of [
-      ['desktop', 1440],
-      ['mobile', 390],
-    ] as const) {
-      await page.setViewportSize({ width, height: 1000 });
-      await openInsights(page, insightsDepartments(), 'groups');
-      await hideNextDevTools(page);
-      const kpis = page.getByRole('region', { name: '전공별 지표' });
-      await expect(kpis).toContainText('13/26');
-      await expect(kpis).toContainText('50%');
-      const card = page
-        .getByText('학과 순위', { exact: true })
-        .locator('xpath=ancestor::*[@data-slot="card"][1]');
-      const table = card.getByRole('table');
-      const departmentCells = table.locator('tbody tr td:nth-child(2)');
-      const smallSamples = card.locator(
-        '[data-slot="department-small-samples"]',
-      );
-      const bars = card.locator(
-        '[data-slot="department-chart-viewport"] .recharts-bar-rectangle',
-      );
-      await expect(departmentCells).toHaveText([
-        '소프트웨어공학과',
-        '문헌정보학과(문헌정보SW트랙)',
-        LONG_DEPARTMENT_NAME,
-        '빅데이터융합학과',
-      ]);
-      await expect(smallSamples).toHaveCount(0);
-      await expect(bars.first()).toBeVisible();
-      await expect(card).not.toContainText('미등록,');
-      await expectNoHorizontalOverflow(page);
-      await page.mouse.move(0, 0);
-      await attachPng(testInfo, `groups-ranking/${name}-students.png`, (path) =>
-        page.screenshot({ path, fullPage: true }),
-      );
-      await attachPng(
-        testInfo,
-        `groups-ranking/${name}-students-card.png`,
-        (path) => card.screenshot({ path }),
-      );
-
-      const perStudent = card
-        .getByRole('group', { name: '학과 순위 기준' })
-        .getByRole('button', { name: '1인당 활동량', exact: true });
-      await perStudent.click();
-      await expect(perStudent).toHaveAttribute('aria-pressed', 'true');
-      await expect(departmentCells).toHaveText([
-        LONG_DEPARTMENT_NAME,
-        '문헌정보학과(문헌정보SW트랙)',
-        '소프트웨어공학과',
-      ]);
-      await expect(smallSamples).toHaveText(
-        '표본 적음 (가입 3명 미만): 빅데이터융합학과',
-      );
-      await expect(bars.first()).toBeVisible();
-      await expectNoHorizontalOverflow(page);
-      await page.mouse.move(0, 0);
-      await attachPng(
-        testInfo,
-        `groups-ranking/${name}-per-student.png`,
-        (path) => page.screenshot({ path, fullPage: true }),
-      );
-      await attachPng(
-        testInfo,
-        `groups-ranking/${name}-per-student-card.png`,
-        (path) => card.screenshot({ path }),
-      );
-    }
-    audit.assertClean();
-  });
-
-  test('shows the per-student empty state when every department is too small', async ({
-    page,
-  }, testInfo) => {
-    const audit = installBrowserAudit(page);
-    const base = insightsDepartments();
-    await page.setViewportSize({ width: 390, height: 1000 });
-    await openInsights(
-      page,
-      {
-        ...base,
-        departments: base.departments.map((row) => ({
-          ...row,
-          sampleTooSmall: true,
-        })),
-      },
-      'groups',
-    );
-    await page
-      .getByRole('group', { name: '학과 순위 기준' })
-      .getByRole('button', { name: '1인당 활동량', exact: true })
-      .click();
-    await expect(
-      page.getByText('1인당 순위를 낼 학과가 없습니다'),
-    ).toBeVisible();
-    await expect(page.getByRole('table')).toHaveCount(0);
-    await expect(
-      page.locator('[data-slot="department-small-samples"]'),
-    ).toContainText('빅데이터융합학과');
-    await expectNoHorizontalOverflow(page);
-    await attachPng(
-      testInfo,
-      'groups-ranking/mobile-all-small-samples.png',
-      (path) => page.screenshot({ path, fullPage: true }),
     );
     audit.assertClean();
   });

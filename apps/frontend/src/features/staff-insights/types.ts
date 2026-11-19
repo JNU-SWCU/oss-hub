@@ -5,7 +5,12 @@ import {
 
 export { DEPARTMENT_COHORTS, type DepartmentCohort };
 
-export const INSIGHTS_VIEWS = ['students', 'groups', 'programs'] as const;
+export const INSIGHTS_VIEWS = [
+  'students',
+  'finder',
+  'groups',
+  'programs',
+] as const;
 
 export type InsightsView = (typeof INSIGHTS_VIEWS)[number];
 
@@ -30,8 +35,10 @@ export interface StaffInsightsCohortRow extends StaffInsightsMetrics {
 
 export interface StaffInsightsDepartmentRow extends StaffInsightsMetrics {
   readonly department: string;
+  readonly major: string | null;
   readonly cohort: DepartmentCohort;
   readonly activityPerStudent: number;
+  readonly recentPerStudent: number | null;
   readonly sampleTooSmall: boolean;
 }
 
@@ -43,6 +50,23 @@ export interface StaffInsightsLeaderRow {
   readonly total: number;
 }
 
+export interface StaffInsightsPeriodLeaderRow extends StaffInsightsLeaderRow {
+  readonly studentId: string | null;
+  readonly major: string | null;
+  readonly recentTotal: number | null;
+  readonly previousRank: number | null;
+  readonly collaborationRatio: number | null;
+}
+
+export interface StaffInsightsAttentionStudentRow {
+  readonly name: string | null;
+  readonly githubLogin: string;
+  readonly studentId: string | null;
+  readonly department: string | null;
+  readonly total: number;
+  readonly lastActiveAt: Date | null;
+}
+
 export interface StaffInsightsCohortLeaders<Row> {
   readonly all: readonly Row[];
   readonly swMajor: readonly Row[];
@@ -50,7 +74,7 @@ export interface StaffInsightsCohortLeaders<Row> {
 }
 
 export interface StaffInsightsLeaders {
-  readonly period: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
+  readonly period: StaffInsightsCohortLeaders<StaffInsightsPeriodLeaderRow>;
   readonly recent: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
 }
 
@@ -119,6 +143,8 @@ export interface StaffInsightsSummary {
   readonly programs: readonly StaffInsightsProgramRow[];
   readonly programSummary: StaffInsightsProgramSummary;
   readonly leaders: StaffInsightsLeaders;
+  readonly attentionStudents: readonly StaffInsightsAttentionStudentRow[];
+  readonly firstContributionCount: number | null;
   readonly recentWindow: { readonly from: Date; readonly to: Date };
 }
 

@@ -162,7 +162,15 @@ it('preserves canonical and legacy fallback projections across all three consume
   const staffInsights = new StaffInsightsRepository(prisma);
   const board = new BoardRepository(prisma, new PlatformRepository());
 
-  const departments = await staffInsights.listDepartmentMetrics({});
+  const departments = await staffInsights.listDepartmentMetrics(
+    {},
+    {
+      cutoff: new Date('2026-07-22T00:00:00Z'),
+      now: new Date('2026-08-21T00:00:00Z'),
+      cutoffYear: 2026,
+      nowYear: 2026,
+    },
+  );
   const canonicalCandidates = await new TeamInvitationsRepository(
     new TeamHistoryRepository(),
     prisma,

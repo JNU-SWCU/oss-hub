@@ -10,7 +10,15 @@ describe('StaffInsightsRepository department aggregate', () => {
       $queryRaw: queryRaw,
     } as unknown as PrismaService);
 
-    await repository.listDepartmentMetrics({ currentYear: 2026 });
+    await repository.listDepartmentMetrics(
+      { currentYear: 2026 },
+      {
+        cutoff: new Date('2026-05-01T00:00:00Z'),
+        now: new Date('2026-05-31T00:00:00Z'),
+        cutoffYear: 2026,
+        nowYear: 2026,
+      },
+    );
 
     const call =
       (queryRaw.mock.calls as readonly (readonly unknown[])[])[0] ?? [];

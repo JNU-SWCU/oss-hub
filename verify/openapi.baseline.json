@@ -5135,6 +5135,123 @@
         ]
       }
     },
+    "/api/v1/dashboard/staff/insights/students": {
+      "get": {
+        "operationId": "StaffDashboardController_insightsStudents",
+        "parameters": [
+          {
+            "name": "recentActivity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "studentId",
+                "total",
+                "recentTotal",
+                "collaborationRatio"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "department",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "minActivity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 2147483647,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 2147483647,
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffInsightsFinderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "StaffDashboard"
+        ]
+      }
+    },
     "/api/v1/users/access/requests": {
       "get": {
         "operationId": "AccessRequestsController_listRequests",
@@ -13063,6 +13180,10 @@
           "department": {
             "type": "string"
           },
+          "major": {
+            "type": "string",
+            "nullable": true
+          },
           "cohort": {
             "type": "string",
             "enum": [
@@ -13083,17 +13204,23 @@
           "activityPerStudent": {
             "type": "number"
           },
+          "recentPerStudent": {
+            "type": "number",
+            "nullable": true
+          },
           "sampleTooSmall": {
             "type": "boolean"
           }
         },
         "required": [
           "department",
+          "major",
           "cohort",
           "studentCount",
           "activeStudentCount",
           "participantCount",
           "activityPerStudent",
+          "recentPerStudent",
           "sampleTooSmall"
         ]
       },
@@ -13229,6 +13356,92 @@
           "repeatParticipantRate"
         ]
       },
+      "StaffInsightsPeriodLeaderResponseDto": {
+        "type": "object",
+        "properties": {
+          "recentTotal": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "previousRank": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1
+          },
+          "collaborationRatio": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "major": {
+            "type": "string",
+            "nullable": true
+          },
+          "rank": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "recentTotal",
+          "previousRank",
+          "collaborationRatio",
+          "studentId",
+          "major",
+          "rank",
+          "name",
+          "githubLogin",
+          "department",
+          "total"
+        ]
+      },
+      "StaffInsightsPeriodCohortLeadersResponseDto": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
+            }
+          },
+          "swMajor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
+            }
+          },
+          "nonSw": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
+            }
+          }
+        },
+        "required": [
+          "all",
+          "swMajor",
+          "nonSw"
+        ]
+      },
       "StaffInsightsLeaderResponseDto": {
         "type": "object",
         "properties": {
@@ -13290,7 +13503,7 @@
         "type": "object",
         "properties": {
           "period": {
-            "$ref": "#/components/schemas/StaffInsightsCohortLeadersResponseDto"
+            "$ref": "#/components/schemas/StaffInsightsPeriodCohortLeadersResponseDto"
           },
           "recent": {
             "$ref": "#/components/schemas/StaffInsightsCohortLeadersResponseDto"
@@ -13301,9 +13514,50 @@
           "recent"
         ]
       },
+      "StaffInsightsAttentionStudentResponseDto": {
+        "type": "object",
+        "properties": {
+          "lastActiveAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "lastActiveAt",
+          "name",
+          "githubLogin",
+          "studentId",
+          "department",
+          "total"
+        ]
+      },
       "StaffInsightsResponseDto": {
         "type": "object",
         "properties": {
+          "firstContributionCount": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
           "scope": {
             "$ref": "#/components/schemas/StaffInsightsScopeResponseDto"
           },
@@ -13341,6 +13595,12 @@
           "leaders": {
             "$ref": "#/components/schemas/StaffInsightsLeadersResponseDto"
           },
+          "attentionStudents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsAttentionStudentResponseDto"
+            }
+          },
           "recentWindow": {
             "type": "object",
             "properties": {
@@ -13358,6 +13618,7 @@
           }
         },
         "required": [
+          "firstContributionCount",
           "scope",
           "dataAsOf",
           "years",
@@ -13366,7 +13627,88 @@
           "programs",
           "programSummary",
           "leaders",
+          "attentionStudents",
           "recentWindow"
+        ]
+      },
+      "StaffInsightsFinderRowResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recentTotal": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "collaborationRatio": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "major": {
+            "type": "string",
+            "nullable": true
+          },
+          "programIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "recentTotal",
+          "collaborationRatio",
+          "name",
+          "githubLogin",
+          "studentId",
+          "major",
+          "programIds"
+        ]
+      },
+      "StaffInsightsFinderResponseDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsFinderRowResponseDto"
+            }
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "rows"
         ]
       },
       "AccessRequestsUserResponseDto": {

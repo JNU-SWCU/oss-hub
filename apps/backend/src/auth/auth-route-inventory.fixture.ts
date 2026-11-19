@@ -99,6 +99,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'OPTIONAL_SESSION GET /api/v1/auth/session',
   'PROTECTED GET /api/v1/consents/current',
   'PROTECTED GET /api/v1/dashboard/staff/insights',
+  'PROTECTED GET /api/v1/dashboard/staff/insights/students',
   'PROTECTED GET /api/v1/dashboard/staff/summary',
   'PROTECTED GET /api/v1/dashboard/student',
   'PROTECTED GET /api/v1/dashboard/student/activity-timeline',
