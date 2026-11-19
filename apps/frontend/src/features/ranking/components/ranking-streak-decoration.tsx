@@ -44,6 +44,7 @@ export function RankingStreakDecoration({
   const [entered, setEntered] = useState(false);
   const [interaction, setInteraction] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const streakMeaning = `${tenureLabel} 유지 ${days}일째`;
 
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -87,25 +88,23 @@ export function RankingStreakDecoration({
           {headwear}
         </span>
       </a>
-      <span className="sr-only">
-        {accessibleTierName} · {tenureLabel} {days}일째 유지
+      <span className="sr-only" data-streak-accessible-name>
+        {accessibleTierName} · {streakMeaning}
       </span>
       <Button
         type="button"
         variant="bare"
         size="content"
         className={cn(styles.tag, styles[tier])}
-        aria-label={`${accessibleTierName} ${tenureLabel} 장식 효과 재생`}
+        aria-label={streakMeaning}
+        title={streakMeaning}
         onClick={() => {
           if (!reducedMotion) setInteraction((value) => value + 1);
         }}
         data-ranking-streak-tier={tier}
       >
-        <span className={styles.days} aria-hidden="true">
-          <span className={styles.tenure} data-tenure-label>
-            {tenureLabel}
-          </span>
-          <span data-day-count>{days}일째</span>
+        <span className={styles.days} data-day-count aria-hidden="true">
+          {days}일째
         </span>
         {interactionSlot}
         {tier === 'celebration' && interaction > 0 ? (

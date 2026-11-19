@@ -126,13 +126,12 @@ test('2위부터는 현재 순위가 아니라 TOP 10 유지 기간을 표시한
   });
 
   const button = container.querySelector('button');
-  expect(button?.querySelector('[data-tenure-label]')?.textContent).toBe(
-    'TOP 10',
-  );
   expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
     '100일째',
   );
-  expect(container.textContent).toContain('남빛 삼봉관 · TOP 10 100일째 유지');
+  expect(button?.getAttribute('aria-label')).toBe('TOP 10 유지 100일째');
+  expect(button?.getAttribute('title')).toBe('TOP 10 유지 100일째');
+  expect(container.textContent).toContain('남빛 삼봉관 · TOP 10 유지 100일째');
   expect(container.textContent).not.toContain('2위 100일째 유지');
 });
 
@@ -142,14 +141,12 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
   const button = container.querySelector('button');
 
   expect(link?.contains(button)).toBe(false);
-  expect(button?.getAttribute('aria-label')).toBe(
-    '금빛 날개관 1위 장식 효과 재생',
-  );
-  expect(button?.querySelector('[data-tenure-label]')?.textContent).toBe('1위');
+  expect(button?.getAttribute('aria-label')).toBe('1위 유지 120일째');
+  expect(button?.getAttribute('title')).toBe('1위 유지 120일째');
   expect(button?.querySelector('[data-day-count]')?.textContent).toBe(
     '120일째',
   );
-  expect(container.textContent).toContain('금빛 날개관 · 1위 120일째 유지');
+  expect(container.textContent).toContain('금빛 날개관 · 1위 유지 120일째');
   expect(button?.textContent).not.toContain('임금');
 
   await act(async () => button?.click());

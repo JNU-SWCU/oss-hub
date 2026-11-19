@@ -43,9 +43,9 @@ function headwearShape(rank: number): {
           <>
             <path
               className={styles.hatBase}
-              d="M10 23 14 8l6 7 4-12 4 12 6-7 4 15H10Z"
+              d="M4 23 7 5l10 10 7-14 7 14L41 5l3 18H4Z"
             />
-            <path className={styles.hatBand} d="M8 22h32v5H8z" />
+            <path className={styles.hatBand} d="M3 22h42v5H3z" />
           </>
         ),
       };
@@ -58,8 +58,8 @@ function headwearShape(rank: number): {
               className={styles.hatBase}
               d="M14 23c0-10 4-15 11-15s10 5 10 15H14Z"
             />
-            <path className={styles.hatAccent} d="M15 15 3 6l6 14 7-1Z" />
-            <path className={styles.hatBand} d="M11 22h28v5H11z" />
+            <path className={styles.hatAccent} d="M18 15 2 2l5 17 11 1Z" />
+            <path className={styles.hatBand} d="M5 22h39v5H5z" />
           </>
         ),
       };
@@ -68,9 +68,9 @@ function headwearShape(rank: number): {
         kind: 'square-seal',
         paths: (
           <>
-            <path className={styles.hatBase} d="M14 7h20l3 16H11L14 7Z" />
+            <path className={styles.hatBase} d="M8 5h32l2 18H6L8 5Z" />
             <path className={styles.hatAccent} d="m24 11 5 5-5 5-5-5 5-5Z" />
-            <path className={styles.hatBand} d="M8 22h32v5H8z" />
+            <path className={styles.hatBand} d="M3 22h42v5H3z" />
           </>
         ),
       };
@@ -97,8 +97,8 @@ function headwearShape(rank: number): {
         paths: (
           <>
             <path className={styles.hatBase} d="M11 13h26l-2 10H13l-2-10Z" />
-            <path className={styles.hatAccent} d="M7 9h34v6H7z" />
-            <path className={styles.hatBand} d="M9 22h30v5H9z" />
+            <path className={styles.hatAccent} d="M3 8h42v7H3z" />
+            <path className={styles.hatBand} d="M4 22h40v5H4z" />
           </>
         ),
       };
@@ -109,7 +109,7 @@ function headwearShape(rank: number): {
           <>
             <path
               className={styles.hatAccent}
-              d="M14 12 4 7l6 13 6-2m18-6 10-5-6 13-6-2"
+              d="M14 12 2 4l6 16 8-2m18-6 12-8-6 16-8-2"
             />
             <path className={styles.hatBase} d="m15 23 3-17h12l3 17H15Z" />
             <path className={styles.hatBand} d="M11 22h26v5H11z" />
@@ -126,7 +126,7 @@ function headwearShape(rank: number): {
               className={styles.hatBase}
               d="M12 23c2-9 6-14 12-14s10 5 12 14H12Z"
             />
-            <path className={styles.hatBand} d="M9 22h30v5H9z" />
+            <path className={styles.hatBand} d="M3 22h42v5H3z" />
           </>
         ),
       };
@@ -135,9 +135,9 @@ function headwearShape(rank: number): {
         kind: 'split-crown',
         paths: (
           <>
-            <path className={styles.hatBase} d="M11 23 15 6l9 9 9-9 4 17H11Z" />
+            <path className={styles.hatBase} d="M4 23 6 4l18 12L42 4l2 19H4Z" />
             <path className={styles.hatAccent} d="M22 8h4v14h-4z" />
-            <path className={styles.hatBand} d="M8 22h32v5H8z" />
+            <path className={styles.hatBand} d="M3 22h42v5H3z" />
           </>
         ),
       };
@@ -151,7 +151,7 @@ function headwearShape(rank: number): {
               className={styles.hatBase}
               d="M13 23c2-7 5-11 11-11s9 4 11 11H13Z"
             />
-            <path className={styles.hatBand} d="M8 22h32v5H8z" />
+            <path className={styles.hatBand} d="M3 22h42v5H3z" />
           </>
         ),
       };

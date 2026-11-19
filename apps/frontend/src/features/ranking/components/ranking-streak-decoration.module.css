@@ -35,10 +35,10 @@
   pointer-events: none;
   position: absolute;
   z-index: 2;
-  left: 0.75em;
-  bottom: 115%;
-  width: 1.25rem;
-  height: 0.8rem;
+  left: 13px;
+  bottom: calc(100% + 5px);
+  width: 27px;
+  height: 17px;
   translate: -50% 0;
   rotate: -15deg;
   transform-origin: 50% 100%;
@@ -61,7 +61,7 @@
   height: 100%;
   overflow: visible;
   stroke: var(--background);
-  stroke-width: 1.1;
+  stroke-width: 1.6;
   stroke-linejoin: round;
 }
 
@@ -73,14 +73,12 @@
 .rankHeadwear .hatAccent {
   fill: var(--headwear-accent, var(--background));
   stroke: var(--foreground);
-  stroke-width: 1.2;
+  stroke-width: 1.6;
 }
 
 .rankHeadwear[data-headwear-rank='1'] {
   --headwear-base: var(--palette-amber-500);
   --headwear-accent: var(--palette-amber-100);
-  scale: 1.18;
-  transform-origin: bottom center;
 }
 
 .rankHeadwear[data-headwear-rank='2'] {
@@ -99,27 +97,27 @@
 }
 
 .rankHeadwear[data-headwear-rank='5'] {
-  --headwear-base: var(--palette-green-600);
+  --headwear-base: #008590;
   --headwear-accent: var(--palette-navy-300);
 }
 
 .rankHeadwear[data-headwear-rank='6'] {
-  --headwear-base: var(--palette-amber-700);
+  --headwear-base: #bd5825;
   --headwear-accent: var(--palette-red-100);
 }
 
 .rankHeadwear[data-headwear-rank='7'] {
-  --headwear-base: var(--palette-navy-600);
+  --headwear-base: #7b50b1;
   --headwear-accent: var(--palette-green-300);
 }
 
 .rankHeadwear[data-headwear-rank='8'] {
-  --headwear-base: var(--palette-red-600);
+  --headwear-base: #bc467c;
   --headwear-accent: var(--palette-amber-100);
 }
 
 .rankHeadwear[data-headwear-rank='9'] {
-  --headwear-base: var(--palette-green-700);
+  --headwear-base: #738126;
   --headwear-accent: var(--palette-red-100);
 }
 
@@ -132,7 +130,7 @@
 .rankHeadwear .rightWing {
   fill: none;
   stroke: var(--foreground);
-  stroke-width: 3.2;
+  stroke-width: 4;
   stroke-linecap: round;
 }
 
@@ -158,24 +156,27 @@
   min-height: 1rem;
   max-width: 4.25rem;
   margin-top: 0.08rem;
-  translate: 0 0.48rem;
-  rotate: -3deg;
-  border: 1px solid color-mix(in srgb, var(--foreground) 32%, transparent);
-  border-radius: 0.2rem 0.32rem 0.24rem 0.18rem;
-  background: color-mix(in srgb, var(--background) 91%, #f4d58d);
-  box-shadow:
-    1px 2px 0 color-mix(in srgb, var(--foreground) 14%, transparent),
-    0 2px 6px color-mix(in srgb, var(--foreground) 12%, transparent);
-  color: var(--foreground);
-  padding: 0 0.24rem;
+  translate: 0 0.28rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted-foreground);
+  padding: 0;
   font: inherit;
-  font-size: 0.5rem;
-  font-weight: 750;
-  line-height: 0.85rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 0.9rem;
   white-space: nowrap;
   isolation: isolate;
   overflow: visible;
   cursor: pointer;
+}
+
+.tag:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 .tag:focus-visible {
@@ -200,14 +201,9 @@
 }
 
 .days {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.16rem;
-  font-weight: 850;
-}
-
-.tenure {
-  color: color-mix(in srgb, var(--foreground) 76%, var(--primary));
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
 }
 
 .anchor[data-streak-entered] .shimmer::after,
@@ -217,7 +213,7 @@
   pointer-events: none;
   position: absolute;
   inset: -50% auto -50% -45%;
-  z-index: -1;
+  z-index: 0;
   width: 35%;
   rotate: 12deg;
   background: linear-gradient(
@@ -387,22 +383,14 @@
   }
 
   .headwear {
-    bottom: 112%;
-    width: 1rem;
-    height: 0.65rem;
+    width: 24px;
+    height: 15px;
   }
 
   .tag {
-    max-width: 2.25rem;
-    padding-inline: 0.2rem;
-    font-size: 0.43rem;
-    line-height: 0.65rem;
-  }
-
-  .days {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0;
+    max-width: 2.5rem;
+    font-size: 0.55rem;
+    line-height: 0.8rem;
   }
 }
 
