@@ -22,7 +22,8 @@
         "eslint.shared.mjs",
         "scripts/eslint.config.mjs",
         "eslint-rules/no-comments.mjs",
-        "verify/*.test.mjs"
+        "verify/*.test.mjs",
+        "verify/route-snapshot.mjs"
       ],
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
       "paths": {
@@ -52,7 +53,6 @@
       },
       "entry": [
         "src/middleware.ts",
-        "scripts/route-manifest.mjs",
         "next.config.ts",
         "{src,test-support,e2e/support}/**/*.test.{ts,tsx}",
         "e2e/**/*.spec.ts"

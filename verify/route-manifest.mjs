@@ -19,7 +19,7 @@ async function atRevision(cwd, rev) {
     );
     const report = await run(
       process.execPath,
-      [join(REPO_ROOT, frontend, 'scripts/route-manifest.mjs')],
+      [join(REPO_ROOT, 'verify/route-snapshot.mjs')],
       { cwd: join(temp, frontend) },
     );
     if (report.code !== 0) throw new Error(report.stderr);
@@ -41,8 +41,8 @@ export async function checkRouteManifest({ cwd, ranges }) {
             'route-manifest',
             violation,
             head.slice(0, 9),
-            violation.startsWith('unreachable ')
-              ? 'Link it from navigation, or declare its entry in route-entry.json next to the page. Name a source containing a route literal or statically resolvable helper call. Runtime-only URL computations cannot be verified.'
+            violation.startsWith('unreferenced ')
+              ? 'No code references this route. Link it from navigation, or reference the path where it is sent (email, API, redirect).'
               : `absent at ${ancestor.slice(0, 9)}`,
             'https://github.com/JNU-SWCU/oss-hub/issues/1963',
           ),
