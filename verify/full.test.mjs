@@ -30,13 +30,15 @@ const report = ({ lcp, cls, score }) => ({
   },
 });
 
-test('the 3-run median decides a goal, and a miss names value, threshold and source', () => {
+test('the 5-run median decides a goal, and a miss names value, threshold and source', () => {
   const passing = evaluateLighthouse(
     'https://site/',
     [
       report({ lcp: 9000, cls: 0.01, score: 0.95 }),
       report({ lcp: 2100, cls: 0.02, score: 0.72 }),
       report({ lcp: 2400, cls: 0.5, score: 0.94 }),
+      report({ lcp: 2300, cls: 0.03, score: 0.96 }),
+      report({ lcp: 8900, cls: 0.6, score: 0.7 }),
     ],
     lighthouse,
   );
@@ -49,6 +51,8 @@ test('the 3-run median decides a goal, and a miss names value, threshold and sou
       report({ lcp: 2600, cls: 0.2, score: 0.8 }),
       report({ lcp: 2700, cls: 0.2, score: 0.85 }),
       report({ lcp: 2400, cls: 0.05, score: 0.95 }),
+      report({ lcp: 2450, cls: 0.05, score: 0.97 }),
+      report({ lcp: 2900, cls: 0.3, score: 0.75 }),
     ],
     lighthouse,
   );
@@ -70,16 +74,26 @@ test('a failed or incomplete Lighthouse run never yields a passing median', () =
       report({ lcp: 1000, cls: 0, score: 1 }),
       { error: 'timed out after 180000ms' },
       report({ lcp: 1000, cls: 0, score: 1 }),
+      report({ lcp: 1000, cls: 0, score: 1 }),
+      report({ lcp: 1000, cls: 0, score: 1 }),
     ],
     lighthouse,
   );
+  assert.deepEqual(failed.measurements, {});
+  const incomplete = evaluateLighthouse(
+    'https://site/',
+    Array.from({ length: 4 }, () => report({ lcp: 1000, cls: 0, score: 1 })),
+    lighthouse,
+  );
+  assert.equal(incomplete.findings[0].rule, 'cwv-run-failed');
+  assert.deepEqual(incomplete.measurements, {});
   assert.deepEqual(
     failed.findings.map((item) => item.rule),
     ['cwv-run-failed'],
   );
   const empty = evaluateLighthouse(
     'https://site/',
-    [{ json: {} }, { json: {} }, { json: {} }],
+    Array.from({ length: 5 }, () => ({ json: {} })),
     lighthouse,
   );
   assert.equal(empty.findings.length, lighthouse.goals.length);
@@ -133,6 +147,7 @@ test('verify:full writes a report and fails on missed goals without real network
   const reportDir = mkdtempSync(join(tmpdir(), 'verify-full-'));
   t.after(() => rmSync(reportDir, { recursive: true, force: true }));
   const requested = [];
+  let clock = 0;
   const fetchImpl = async (url, init) => {
     requested.push([url, init.redirect, init.headers.cookie]);
     const login = url.endsWith('/api/v1/auth/github');
@@ -147,9 +162,11 @@ test('verify:full writes a report and fails on missed goals without real network
     thresholds,
     reportDir,
     runLighthouse: async (url, outFile) => {
+      clock += 1;
       writeFileSync(outFile, '{}');
       return report({ lcp: 3000, cls: 0, score: 0.95 });
     },
+    sampleLoad: async () => ({ sampledAt: ++clock }),
     fetchImpl,
     log: () => {},
   });
@@ -170,6 +187,15 @@ test('verify:full writes a report and fails on missed goals without real network
   );
   const saved = JSON.parse(readFileSync(join(reportDir, written), 'utf8'));
   assert.equal(saved.findings.length, findings.length);
+  assert.equal(clock, 45);
+  for (const [page, runs] of Object.entries(saved.lighthouseRuns)) {
+    assert.equal(runs.length, 5, page);
+    for (const [index, run] of runs.entries()) {
+      assert.equal(run.run, index + 1);
+      assert.equal(run.after.sampledAt - run.before.sampledAt, 2);
+    }
+  }
+  assert.equal(Object.keys(saved.lighthouseRuns).length, 3);
 });
 
 test('an http origin is rejected', (t) => {

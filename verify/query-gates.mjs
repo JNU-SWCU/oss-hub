@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
+import { runWithDockerLock } from './docker-lock.mjs';
 import { finding, run } from './tools.mjs';
 
 const QUERY_GATE_SPECS = [
@@ -34,12 +35,12 @@ function tail(result) {
 export async function checkQueryGates({
   cwd,
   source,
-  runCommand = run,
+  runCommand,
   log = console.log,
   findPsql = resolvePsql,
 }) {
   const findings = [];
-  const lint = await runCommand(
+  const lint = await (runCommand ?? run)(
     'pnpm',
     ['--filter', 'backend', 'run', 'query-lint:check'],
     { cwd, timeoutMs: 600_000 },
@@ -67,7 +68,7 @@ export async function checkQueryGates({
     );
     return findings;
   }
-  const growth = await runCommand(
+  const growth = await (runCommand ?? runWithDockerLock)(
     'bash',
     ['apps/backend/test/run-integration.sh'],
     {
@@ -83,6 +84,8 @@ export async function checkQueryGates({
     },
   );
   if (growth.code !== 0) {
+    // Jest writes suite titles and assertions to stderr before the final counts.
+    const diagnostics = growth.stderr.trim() || tail(growth);
     const violations = [
       ...new Set(
         `${growth.stdout}\n${growth.stderr}`
@@ -95,13 +98,13 @@ export async function checkQueryGates({
       violations.length > 0
         ? finding(
             'query-lint',
-            `a query on a measured route violated the query lint\n${violations.join('\n')}\n${tail(growth)}`,
+            `a query on a measured route violated the query lint\n${violations.join('\n')}\n${diagnostics}`,
             `${violations.length} violation(s)`,
             '0 violations',
           )
         : finding(
             'query-growth',
-            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${tail(growth)}`,
+            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${diagnostics}`,
             `exit ${growth.code}`,
             'exit 0',
           ),
