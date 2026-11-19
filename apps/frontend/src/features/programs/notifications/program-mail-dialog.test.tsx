@@ -110,92 +110,106 @@ describe('ProgramMailDialog', () => {
     trigger = undefined;
   });
 
-  it('ignores an invalidated preview response and sends only the latest draft', async () => {
-    const oldRequest = deferred<typeof preview>();
-    previewProgramMailMock.mockReturnValueOnce(oldRequest.promise);
-    trigger = document.createElement('button');
-    document.body.append(trigger);
-    mounted = await renderWithQuery(
-      <ProgramMailDialog
-        programId="program-1"
-        open
-        returnFocusRef={{ current: trigger }}
-        onClose={() => undefined}
-      />,
-    );
-    await flush();
+  it.each(['before-latest-request', 'old-first', 'latest-first'])(
+    'sends only the latest draft when previews resolve %s',
+    async (order) => {
+      const oldRequest = deferred<typeof preview>();
+      previewProgramMailMock.mockReturnValueOnce(oldRequest.promise);
+      trigger = document.createElement('button');
+      document.body.append(trigger);
+      mounted = await renderWithQuery(
+        <ProgramMailDialog
+          programId="program-1"
+          open
+          returnFocusRef={{ current: trigger }}
+          onClose={() => undefined}
+        />,
+      );
+      await flush();
 
-    await act(async () => button('전체 선택').click());
-    const subject = document.body.querySelector<HTMLInputElement>(
-      '#program-mail-subject',
-    );
-    const body =
-      document.body.querySelector<HTMLTextAreaElement>('#program-mail-body');
-    if (subject === null || body === null) {
-      throw new TypeError('Missing mail fields');
-    }
-    await act(async () => {
-      setFieldValue(subject, '이전 제목');
-      setFieldValue(body, preview.body);
-    });
+      await act(async () => button('전체 선택').click());
+      const subject = document.body.querySelector<HTMLInputElement>(
+        '#program-mail-subject',
+      );
+      const body =
+        document.body.querySelector<HTMLTextAreaElement>('#program-mail-body');
+      if (subject === null || body === null) {
+        throw new TypeError('Missing mail fields');
+      }
+      await act(async () => {
+        setFieldValue(subject, '이전 제목');
+        setFieldValue(body, preview.body);
+      });
 
-    const previewButton = button('미리보기');
-    await act(async () => {
-      previewButton.click();
-      previewButton.click();
-      setFieldValue(subject, '최신 제목');
-    });
+      const previewButton = button('미리보기');
+      await act(async () => {
+        previewButton.click();
+        previewButton.click();
+        setFieldValue(subject, '최신 제목');
+      });
 
-    expect(previewProgramMailMock).toHaveBeenCalledTimes(1);
-    expect(previewProgramMailMock).toHaveBeenLastCalledWith('program-1', {
-      subject: '이전 제목',
-      body: preview.body,
-      applicantIds: ['student-1'],
-    });
-    expect(
-      document.body.querySelector<HTMLInputElement>('#program-mail-subject')
-        ?.value,
-    ).toBe('최신 제목');
-    expect(sendProgramMailMock).not.toHaveBeenCalled();
+      expect(previewProgramMailMock).toHaveBeenCalledTimes(1);
+      expect(previewProgramMailMock).toHaveBeenLastCalledWith('program-1', {
+        subject: '이전 제목',
+        body: preview.body,
+        applicantIds: ['student-1'],
+      });
+      expect(
+        document.body.querySelector<HTMLInputElement>('#program-mail-subject')
+          ?.value,
+      ).toBe('최신 제목');
+      expect(sendProgramMailMock).not.toHaveBeenCalled();
 
-    const latestPreview = {
-      ...preview,
-      subject: '최신 제목',
-      renderedSubject: '[oss-hub] 최신 제목',
-      previewVersion: 'b'.repeat(64),
-    };
-    const latestRequest = deferred<typeof preview>();
-    previewProgramMailMock.mockReturnValueOnce(latestRequest.promise);
-    await act(async () => button('미리보기').click());
-    await act(async () => oldRequest.resolve(preview));
-    expect(button('미리보는 중…').disabled).toBe(true);
-    await act(async () => latestRequest.resolve(latestPreview));
-    await act(async () => button('보내기').click());
-    await flush();
+      const latestPreview = {
+        ...preview,
+        subject: '최신 제목',
+        renderedSubject: '[oss-hub] 최신 제목',
+        previewVersion: 'b'.repeat(64),
+      };
+      const latestRequest = deferred<typeof preview>();
+      previewProgramMailMock.mockReturnValueOnce(latestRequest.promise);
+      if (order === 'before-latest-request') {
+        await act(async () => oldRequest.resolve(preview));
+        expect(
+          document.body.querySelector<HTMLInputElement>('#program-mail-subject')
+            ?.value,
+        ).toBe('최신 제목');
+      }
+      await act(async () => button('미리보기').click());
+      if (order === 'old-first') {
+        await act(async () => oldRequest.resolve(preview));
+        expect(button('미리보는 중…').disabled).toBe(true);
+      }
+      await act(async () => latestRequest.resolve(latestPreview));
+      if (order === 'latest-first') {
+        await act(async () => oldRequest.resolve(preview));
+      }
+      await act(async () => button('보내기').click());
+      await flush();
 
-    expect(previewProgramMailMock).toHaveBeenCalledTimes(2);
-    expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
-    expect(sendProgramMailMock).toHaveBeenCalledWith(
-      'program-1',
-      latestPreview,
-    );
-  });
+      expect(previewProgramMailMock).toHaveBeenCalledTimes(2);
+      expect(sendProgramMailMock).toHaveBeenCalledTimes(1);
+      expect(sendProgramMailMock).toHaveBeenCalledWith(
+        'program-1',
+        latestPreview,
+      );
+    },
+  );
 
   it('blocks an over-limit bulk selection but previews exactly the server limit', async () => {
+    const limit = 2;
     getProgramMailRecipientsMock.mockResolvedValueOnce({
       ...recipients,
+      recipientLimit: limit,
       teams: [
         {
           ...recipients.teams[0],
-          applicants: Array.from(
-            { length: recipients.recipientLimit },
-            (_, index) => ({
-              id: `student-${index}`,
-              displayName: `학생 ${index}`,
-              nickname: `student-${index}`,
-              mailAvailable: true,
-            }),
-          ),
+          applicants: Array.from({ length: limit }, (_, index) => ({
+            id: `student-${index}`,
+            displayName: `학생 ${index}`,
+            nickname: `student-${index}`,
+            mailAvailable: true,
+          })),
         },
         {
           ...recipients.teams[0],
@@ -250,7 +264,6 @@ describe('ProgramMailDialog', () => {
     const checkboxes = document.body.querySelectorAll<HTMLInputElement>(
       '[aria-label="메일 수신자"] [role="group"] input[type="checkbox"]',
     );
-    const limit = recipients.recipientLimit;
     const teamCheckbox = document.body.querySelector<HTMLInputElement>(
       'section[aria-labelledby="mail-team-team-1"] > div input[type="checkbox"]',
     );

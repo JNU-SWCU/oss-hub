@@ -252,6 +252,68 @@ describe('DeadlineDigestDialog', () => {
     expect(button('보내기').disabled).toBe(false);
   });
 
+  it.each(['before-latest-request', 'old-first', 'latest-first'])(
+    'sends only current guidance when previews resolve %s',
+    async (order) => {
+      let resolveOld: (value: typeof preview) => void = () => undefined;
+      let resolveLatest: (value: typeof preview) => void = () => undefined;
+      previewProgramDeadlineMock
+        .mockReturnValueOnce(
+          new Promise<typeof preview>((resolve) => {
+            resolveOld = resolve;
+          }),
+        )
+        .mockReturnValueOnce(
+          new Promise<typeof preview>((resolve) => {
+            resolveLatest = resolve;
+          }),
+        );
+      mounted = await renderWithQuery(
+        <DeadlineDigestDialog
+          programId="program-1"
+          returnFocusRef={{ current: trigger }}
+          onClose={() => undefined}
+        />,
+      );
+      const field = document.body.querySelector<HTMLTextAreaElement>(
+        '#deadline-studentGuidance',
+      );
+      if (field === null) throw new TypeError('Missing student guidance');
+      await act(async () => {
+        button('미리보기').click();
+        setValue(field, 'current guidance');
+      });
+      if (order === 'before-latest-request') {
+        await act(async () => resolveOld(preview));
+        expect(
+          document.body.querySelector<HTMLTextAreaElement>(
+            '#deadline-studentGuidance',
+          )?.value,
+        ).toBe('current guidance');
+      }
+      await act(async () => button('미리보기').click());
+      if (order === 'old-first') {
+        await act(async () => resolveOld(preview));
+        expect(button('미리보는 중…').disabled).toBe(true);
+      }
+      const latest = { ...preview, previewVersion: 'b'.repeat(64) };
+      await act(async () => resolveLatest(latest));
+      if (order === 'latest-first') {
+        await act(async () => resolveOld(preview));
+      }
+      await act(async () => button('보내기').click());
+      expect(sendProgramDeadlineMock).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        {
+          previewedAt: latest.previewedAt,
+          previewVersion: latest.previewVersion,
+          studentGuidance: 'current guidance',
+          staffGuidance: '',
+        },
+      );
+    },
+  );
+
   it('ignores repeated send clicks in the same turn and while the request is in flight', async () => {
     let resolveSend: (value: unknown) => void = () => undefined;
     sendProgramDeadlineMock.mockReturnValueOnce(
