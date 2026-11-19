@@ -84,6 +84,7 @@ async function fetchRankingPages(
 }
 
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
+let timelineLeaderPersonas: Awaited<ReturnType<typeof harness.createUser>>[];
 
 let canonicalOnlyStudentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
@@ -212,6 +213,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       undefined,
       MemberKind.STUDENT,
     );
+    studentPersona = await harness.prisma.user.update({
+      where: { id: studentPersona.id },
+      data: { nickname: 'persona-timeline-self' },
+      select: { id: true, githubId: true, nickname: true },
+    });
     canonicalOnlyStudentPersona = await harness.createUser(
       'canonical-only-student',
       'STUDENT',
@@ -230,6 +236,17 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       undefined,
       MemberKind.STAFF,
     );
+    timelineLeaderPersonas = [];
+    for (let index = 0; index < 10; index += 1) {
+      timelineLeaderPersonas.push(
+        await harness.createUser(
+          `timeline-leader-${index}`,
+          'STUDENT',
+          undefined,
+          MemberKind.STUDENT,
+        ),
+      );
+    }
 
     const published = await createRepositoryFixture({
       key: 'published',
@@ -289,6 +306,13 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           starCount: 1_000,
           observedAt: new Date('2025-12-31T00:00:00.000Z'),
         },
+        ...timelineLeaderPersonas.map((persona, index) => ({
+          githubId: persona.githubId,
+          visibility: 'PUBLIC' as const,
+          year: RANKING_FIXTURE_YEAR,
+          commitCount: 10_000 + index,
+          observedAt: new Date('2026-08-18T00:00:00.000Z'),
+        })),
       ],
     });
 
@@ -310,7 +334,14 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
   afterAll(async () => {
     try {
       await harness.prisma.githubUserActivityObservation.deleteMany({
-        where: { githubId: studentPersona.githubId },
+        where: {
+          githubId: {
+            in: [
+              studentPersona.githubId,
+              ...timelineLeaderPersonas.map(({ githubId }) => githubId),
+            ],
+          },
+        },
       });
       await harness.prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
@@ -708,6 +739,35 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(order(student.items)).toEqual(order(anonymous.items));
     expect(order(staff.items)).toEqual(order(anonymous.items));
     expect(order(admin.items)).toEqual(order(anonymous.items));
+  });
+
+  it('타임라인 viewer는 익명·다른 사용자를 무시하고 로그인한 본인만 추가한다', async () => {
+    const path = `/ranking/timeline?year=all&viewer=${studentPersona.nickname}`;
+    const [anonymous, self, other] = await Promise.all([
+      harness.request('GET', path),
+      harness.request('GET', path, studentPersona.githubId),
+      harness.request('GET', path, canonicalOnlyStudentPersona.githubId),
+    ]);
+
+    expect([anonymous.status, self.status, other.status]).toEqual([
+      200, 200, 200,
+    ]);
+    const bodies = (await Promise.all([
+      anonymous.json(),
+      self.json(),
+      other.json(),
+    ])) as {
+      readonly series: readonly { readonly githubLogin: string }[];
+    }[];
+    const logins = bodies.map((body) =>
+      body.series.map(({ githubLogin }) => githubLogin),
+    );
+
+    expect(logins[0]).not.toContain(studentPersona.nickname);
+    expect(logins[1]).toContain(studentPersona.nickname);
+    expect(logins[2]).not.toContain(studentPersona.nickname);
+    expect(logins[0]).toHaveLength(10);
+    expect(logins[2]).toEqual(logins[0]);
   });
 
   it('연도 질의는 그 해 관측만 합산한다 — 지난 연도 행이 있어도 섞이지 않는다', async () => {

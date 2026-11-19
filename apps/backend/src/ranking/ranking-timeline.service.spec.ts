@@ -1,3 +1,5 @@
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import type {
   RankingRepository,
   RankingTimelineRows,
@@ -6,6 +8,16 @@ import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
 
 const NOW = new Date('2026-03-15T00:00:00.000Z');
+const anonymousAuth = {
+  kind: HTTP_AUTH_KINDS.ANONYMOUS,
+  hasSessionCookie: false,
+} as OptionalSessionRequest['auth'];
+const authenticatedAs = (nickname: string) =>
+  ({
+    kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+    hasSessionCookie: true,
+    principal: { nickname },
+  }) as OptionalSessionRequest['auth'];
 
 function serviceWith(rows: RankingTimelineRows) {
   const findTimelineSeries = jest.fn().mockResolvedValue(rows);
@@ -58,18 +70,64 @@ describe('RankingTimelineService', () => {
     expect(timeline.series).toEqual([]);
   });
 
-  it('shares one read between concurrent requests for the same year and viewer', async () => {
+  it('ignores an anonymous viewer target', async () => {
+    const { service, findTimelineSeries } = serviceWith({
+      selected: [],
+      points: [],
+    });
+
+    await service.findTimelineFromRequest(
+      { year: '2026', viewer: 'Mina' },
+      anonymousAuth,
+    );
+
+    expect(findTimelineSeries).toHaveBeenCalledWith(
+      2026,
+      expect.any(Number),
+      null,
+    );
+  });
+
+  it('resolves the authenticated viewer only to their canonical own login', async () => {
     const { service, findTimelineSeries } = serviceWith({
       selected: [],
       points: [],
     });
 
     await Promise.all([
-      service.findTimelineFromRequest({ year: '2026', viewer: 'Mina' }),
-      service.findTimelineFromRequest({ year: '2026', viewer: 'mina' }),
-      service.findTimelineFromRequest({ year: '2026' }),
+      service.findTimelineFromRequest(
+        { year: '2026', viewer: 'Mina' },
+        authenticatedAs('mina'),
+      ),
+      service.findTimelineFromRequest(
+        { year: '2026', viewer: 'mina' },
+        authenticatedAs('mina'),
+      ),
     ]);
 
-    expect(findTimelineSeries).toHaveBeenCalledTimes(2);
+    expect(findTimelineSeries).toHaveBeenCalledTimes(1);
+    expect(findTimelineSeries).toHaveBeenCalledWith(
+      2026,
+      expect.any(Number),
+      'mina',
+    );
+  });
+
+  it('ignores another user login requested by an authenticated viewer', async () => {
+    const { service, findTimelineSeries } = serviceWith({
+      selected: [],
+      points: [],
+    });
+
+    await service.findTimelineFromRequest(
+      { year: '2026', viewer: 'other-user' },
+      authenticatedAs('mina'),
+    );
+
+    expect(findTimelineSeries).toHaveBeenCalledWith(
+      2026,
+      expect.any(Number),
+      null,
+    );
   });
 });

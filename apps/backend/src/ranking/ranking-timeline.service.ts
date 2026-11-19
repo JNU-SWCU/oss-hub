@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { RankingRepository } from './ranking.repository';
 import { RANKING_YEAR_ALL, RankingYearService } from './ranking-year.service';
 
@@ -36,15 +38,22 @@ export class RankingTimelineService {
     private readonly rankingYear: RankingYearService,
   ) {}
 
-  async findTimelineFromRequest(request: {
-    readonly year: string;
-    readonly viewer?: string;
-  }): Promise<RankingTimeline> {
+  async findTimelineFromRequest(
+    request: {
+      readonly year: string;
+      readonly viewer?: string;
+    },
+    auth: OptionalSessionRequest['auth'],
+  ): Promise<RankingTimeline> {
     const year =
       request.year === RANKING_YEAR_ALL
         ? RANKING_YEAR_ALL
         : Number(request.year);
-    const viewer = request.viewer ?? null;
+    const viewer =
+      auth.kind === HTTP_AUTH_KINDS.AUTHENTICATED &&
+      request.viewer?.toLowerCase() === auth.principal.nickname.toLowerCase()
+        ? auth.principal.nickname
+        : null;
     const key = `${year}:${viewer?.toLowerCase() ?? ''}`;
     const existingBuild = this.inFlightBuilds.get(key);
     if (existingBuild) return existingBuild;
