@@ -1,7 +1,7 @@
 'use client';
 
 import { Field, FieldLabel } from '@/components/ui/field';
-import { ProgramMailAction } from '../notifications';
+import { DeadlineDigestAction, ProgramMailAction } from '../notifications';
 
 export function ProgramDeadlineControl({
   id,
@@ -31,13 +31,11 @@ export function ProgramDeadlineControl({
           </p>
         </div>
       </Field>
-      {!enabled ? (
-        <p className="text-small text-muted-foreground">
-          자동 알림을 사용하지 않습니다.
-        </p>
-      ) : null}
       {programId === undefined ? null : (
-        <ProgramMailAction programId={programId} />
+        <div className="flex flex-wrap items-center gap-3">
+          <ProgramMailAction programId={programId} />
+          <DeadlineDigestAction programId={programId} enabled={enabled} />
+        </div>
       )}
     </div>
   );

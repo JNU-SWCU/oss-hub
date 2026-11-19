@@ -173,7 +173,7 @@ describe('ProgramDetailPage states', () => {
   );
 
   it.each(['STAFF'] as const)(
-    '%s에게 제목 줄의 버튼 묶음 하나에 편집·메일 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
+    '%s에게 제목 줄의 버튼 묶음 하나에 편집·일반 메일·마감 알림 입구만 노출한다',
     (role) => {
       const html = renderToStaticMarkup(
         <QueryClientProvider client={queryClient}>
@@ -199,6 +199,8 @@ describe('ProgramDetailPage states', () => {
       expect(group).toContain('lucide-pencil');
       expect(group).toContain('메일 보내기');
       expect(group).toContain('lucide-mail');
+      expect(group).toContain('마감 알림 보내기');
+      expect(group).toContain('lucide-bell-ring');
       expect(group).not.toContain('/notifications');
       expect(html).not.toContain('신청자 목록');
       expect(html).not.toContain('/programs/program-1/applicants');
