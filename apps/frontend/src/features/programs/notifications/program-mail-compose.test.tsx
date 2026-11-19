@@ -37,10 +37,12 @@ async function render(
   const selection = vi.fn<(ids: ReadonlySet<string>) => void>();
   mounted = await renderWithQuery(
     <ProgramMailCompose
+      selectionRejected={false}
       model={{
         recipients: {
           programId: 'program',
           programName: 'Program',
+          recipientLimit: 200,
           teams: audience,
         },
         selectedIds: new Set(selectedIds),
