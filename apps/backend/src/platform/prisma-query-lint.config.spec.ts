@@ -57,18 +57,26 @@ describe('loadPrismaQueryLintConfig', () => {
     expect(extend).not.toHaveBeenCalled();
   });
 
-  it('leaves read limits to the static query lint', async () => {
-    const prisma = lintedClient();
+  it('rejects a top-level take that evaluates to undefined', async () => {
+    const take = new Map<string, number>().get('pageSize');
+    await expect(
+      lintedClient().user.findMany({ take, select: { id: true } }),
+    ).rejects.toMatchObject({
+      code: 'LINT.NO_LIMIT',
+      key: 'User.findMany',
+    });
+  });
 
-    expect(await lintCode(prisma.user.findMany())).toBeUndefined();
-    expect(
-      await lintCode(
-        prisma.team.findUnique({
-          where: { id: 'team' },
-          include: { members: true },
-        }),
-      ),
-    ).toBeUndefined();
+  it('rejects a nested relation take that evaluates to undefined', async () => {
+    const take = new Map<string, number>().get('pageSize');
+    await expect(
+      lintedClient().program.findFirst({
+        select: { teams: { take, select: { id: true } } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'LINT.NESTED_NO_LIMIT',
+      key: 'Program.findFirst.teams',
+    });
   });
 
   it('rejects deleteMany and updateMany without a where filter', async () => {
