@@ -204,6 +204,7 @@ export class RequirementDeliveryCollectionRowResponseDto {
   declare readonly memberNicknames: string[];
   declare readonly cells: RequirementCollectionCellResponseDto[];
   declare readonly deliveryStatus: DocumentDeliveryStatus;
+  declare readonly sortDocumentId?: string;
   static from(
     row: RequirementDeliveryCollectionResult['rows'][number],
     documents: readonly RequirementRecord[],
@@ -221,6 +222,7 @@ export class RequirementDeliveryCollectionRowResponseDto {
         ),
       ),
       deliveryStatus: row.deliveryStatus,
+      sortDocumentId: row.sortDocumentId,
     };
   }
 }

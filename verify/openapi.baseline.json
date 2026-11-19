@@ -11179,6 +11179,9 @@
               "COMPLETE",
               "NO_REQUIRED_ITEMS"
             ]
+          },
+          "sortDocumentId": {
+            "type": "string"
           }
         },
         "required": [

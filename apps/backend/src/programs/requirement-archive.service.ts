@@ -97,6 +97,7 @@ export interface RequirementDeliveryCollectionResult extends Omit<
   readonly rows: readonly {
     readonly application: RequirementStageApplication;
     readonly deliveryStatus: DocumentDeliveryStatus;
+    readonly sortDocumentId?: string;
     readonly cells: readonly (RequirementCollectionCell | null)[];
   }[];
   readonly statusCounts: MatrixStatusCounts;
@@ -449,9 +450,12 @@ export class RequirementCollectionService {
           this.toRequirementCollectionCell(submission),
         ]),
       );
-      const rows = visible.map(({ row }) => ({
+      const rows = visible.map(({ row, first }) => ({
         application: row.application,
         deliveryStatus: row.deliveryStatus,
+        ...(sort !== 'team' && first !== undefined
+          ? { sortDocumentId: first.document.id }
+          : {}),
         cells: row.cells.map((submission) => {
           if (submission === null) return null;
           const detail = detailByCell.get(

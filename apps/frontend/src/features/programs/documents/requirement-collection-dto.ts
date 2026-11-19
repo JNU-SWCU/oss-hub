@@ -53,6 +53,7 @@ export interface RequirementCollectionCell {
 }
 export interface RequirementCollectionRow {
   readonly deliveryStatus: DocumentDeliveryStatus;
+  readonly sortDocumentId?: string;
   readonly teamId: string;
   readonly teamName: string;
   readonly applicantName: string | null;

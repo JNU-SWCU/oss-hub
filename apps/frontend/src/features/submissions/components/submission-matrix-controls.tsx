@@ -144,12 +144,14 @@ export function SubmissionSortHeader({
   children,
   active,
   direction,
+  grouped = false,
   onSort,
   className,
 }: {
   readonly children: ReactNode;
   readonly active: boolean;
   readonly direction: 'asc' | 'desc';
+  readonly grouped?: boolean;
   readonly onSort: () => void;
   readonly className?: string;
 }): ReactElement {
@@ -161,7 +163,13 @@ export function SubmissionSortHeader({
   return (
     <TableHead
       aria-sort={
-        active ? (direction === 'asc' ? 'ascending' : 'descending') : undefined
+        active
+          ? grouped
+            ? 'other'
+            : direction === 'asc'
+              ? 'ascending'
+              : 'descending'
+          : undefined
       }
       className={className}
     >
@@ -173,6 +181,11 @@ export function SubmissionSortHeader({
         className="h-auto min-h-control px-1.5 py-1 text-inherit hover:text-foreground"
       >
         {children}
+        {active && grouped ? (
+          <span className="sr-only">
+            {`팀 단위 ${direction === 'asc' ? '오름차순' : '내림차순'}`}
+          </span>
+        ) : null}
         <Icon
           aria-hidden="true"
           className={cn(

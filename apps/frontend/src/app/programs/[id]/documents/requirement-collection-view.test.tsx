@@ -84,7 +84,7 @@ function collection(
     rows,
     page: 1,
     pageSize: 20,
-    total: rows.reduce((count, row) => count + row.cells.length, 0),
+    total: rows.length,
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: {
       all: rows.length,
@@ -157,6 +157,20 @@ describe('RequirementCollectionView 머리말', () => {
 });
 
 describe('RequirementCollectionView 빈 상태', () => {
+  it('만료된 페이지에 팀 수와 마지막 페이지 이동을 표시한다', () => {
+    const html = render({
+      data: collection([document('d1'), document('d2')], [], {
+        page: 3,
+        pageSize: 20,
+        total: 21,
+        filterCounts: { all: 21, zeroSubmission: 0 },
+      }),
+    });
+
+    expect(html).toContain('조건에 맞는 팀은 21팀입니다.');
+    expect(html).toContain('2페이지로 이동');
+  });
+
   it('서류 항목이 없으면 프로그램 편집으로 보낸다', () => {
     const html = render({ data: collection([], []) });
 
@@ -234,6 +248,61 @@ describe('RequirementCollectionView 빈 상태', () => {
 });
 
 describe('RequirementCollectionView 표', () => {
+  it.each([
+    ['asc', '오름차순', '10', 'd2'],
+    ['desc', '내림차순', '30', 'd1'],
+  ] as const)(
+    '팀 단위 %s 정렬의 기준 서류와 검토 가능한 형제 서류를 유지한다',
+    (direction, label, minute, sortDocumentId) => {
+      const time = (value: string) => `2026-07-14T00:${value}:00.000Z`;
+      const alpha = row(
+        'a',
+        [
+          cell('d1', { submittedAt: time('30') }),
+          cell('d2', { submittedAt: time('10') }),
+          cell('d3', { status: 'APPROVED', submittedAt: time('05') }),
+        ],
+        { sortDocumentId },
+      );
+      const beta = row(
+        'b',
+        [
+          cell('d1', { submittedAt: time('20') }),
+          cell('d2', { submittedAt: time('25') }),
+          missingCell('d3'),
+        ],
+        { sortDocumentId: direction === 'asc' ? 'd1' : 'd2' },
+      );
+      const items = [document('d1'), document('d2'), document('d3')];
+      const first = render({
+        sort: 'submittedAt',
+        direction,
+        status: 'SUBMITTED',
+        data: collection(items, [alpha], { pageSize: 1, total: 2 }),
+      });
+      const second = render({
+        sort: 'submittedAt',
+        direction,
+        status: 'SUBMITTED',
+        data: collection(items, [beta], { page: 2, pageSize: 1, total: 2 }),
+      });
+
+      expect(first).toContain('aria-sort="other"');
+      expect(first).toContain(`팀 단위 ${label}`);
+      const representative = new RegExp(
+        `서류 ${sortDocumentId}<span[^>]*>팀 정렬 기준</span>`,
+      );
+      expect(first).toMatch(representative);
+      expect(first.match(/팀 정렬 기준/g)).toHaveLength(2);
+      expect(first).toContain(`dateTime="${time(minute)}"`);
+      expect(first).toContain('a팀 서류 d3 검토');
+      expect(first).not.toContain('b팀');
+      expect(second).toContain('2 / 2');
+      expect(second).toContain('b팀 서류 d2 검토');
+      expect(second).not.toContain('a팀');
+    },
+  );
+
   const documents = [
     document('d1', { name: '기획서', isRequired: true }),
     document('d2', {
@@ -670,7 +739,7 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
       status: 'NOT_SUBMITTED',
     });
 
-    expect(html).toContain('이 페이지에는 더 이상 제출 항목이 없습니다');
+    expect(html).toContain('이 페이지에 표시할 팀이 없습니다');
     expect(html).toContain('전체 내려받기(ZIP)');
   });
 });
@@ -918,7 +987,7 @@ describe('RequirementCollectionView 페이지 이동', () => {
       status: 'NOT_SUBMITTED',
     });
 
-    expect(html).toContain('이 페이지에는 더 이상 제출 항목이 없습니다');
+    expect(html).toContain('이 페이지에 표시할 팀이 없습니다');
     expect(html).toContain('1페이지로 이동');
 
     expect(html).toMatch(/미제출[^<]*<span[^>]*>12<\/span>/);

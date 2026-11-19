@@ -75,6 +75,8 @@ const late = new Date(fixture.dueSoon.getTime() + 1);
 const first = new Date(fixture.dueSoon.getTime() - 1);
 const extraSubmissionId = 'test:qa153:collection:new-submission';
 const otherSubmissionId = 'test:qa153:collection:other-submission';
+const otherSiblingSubmissionId =
+  'test:qa153:collection:other-sibling-submission';
 const extraDocumentId = 'test:qa153:collection:extra-document';
 const missingDocumentId = 'test:qa153:collection:missing-document';
 const authSessionService = new AuthSessionService();
@@ -87,7 +89,11 @@ async function cleanExtraRows() {
     where: { submissionId: fixture.documentSubmission },
   });
   await harness.prisma.submission.deleteMany({
-    where: { id: { in: [extraSubmissionId, otherSubmissionId] } },
+    where: {
+      id: {
+        in: [extraSubmissionId, otherSubmissionId, otherSiblingSubmissionId],
+      },
+    },
   });
   await harness.prisma.requirement.deleteMany({
     where: { id: { in: [extraDocumentId, missingDocumentId] } },
@@ -247,6 +253,11 @@ it('keeps an on-time first submission complete after a late resubmission and rej
 });
 
 it('searches, filters and sorts whole teams before paging the staff request', async () => {
+  const between = (offset: number) => new Date(first.getTime() + offset);
+  await harness.prisma.submission.update({
+    where: { id: fixture.documentSubmission },
+    data: { createdAt: between(30), submittedAt: between(30) },
+  });
   await harness.prisma.requirement.createMany({
     data: [extraDocumentId, missingDocumentId].map((id, index) => ({
       id,
@@ -262,8 +273,8 @@ it('searches, filters and sorts whole teams before paging the staff request', as
       requirementId: extraDocumentId,
       teamId: fixture.submittedApplication,
       submittedById: fixture.studentSubmitted,
-      createdAt: late,
-      submittedAt: late,
+      createdAt: between(10),
+      submittedAt: between(10),
       revision: 3,
     },
   });
@@ -281,8 +292,18 @@ it('searches, filters and sorts whole teams before paging the staff request', as
       requirementId: extraDocumentId,
       teamId: fixture.missingApplication,
       submittedById: fixture.studentMissing,
-      createdAt: new Date(first.getTime() - 1),
-      submittedAt: new Date(first.getTime() - 1),
+      createdAt: between(25),
+      submittedAt: between(25),
+    },
+  });
+  await harness.prisma.submission.create({
+    data: {
+      id: otherSiblingSubmissionId,
+      requirementId: fixture.notifyDocument,
+      teamId: fixture.missingApplication,
+      submittedById: fixture.studentMissing,
+      createdAt: between(20),
+      submittedAt: between(20),
     },
   });
 
@@ -299,10 +320,11 @@ it('searches, filters and sorts whole teams before paging the staff request', as
     page: 1,
     pageSize: 1,
     total: 2,
-    statusCounts: { SUBMITTED: 3, NOT_SUBMITTED: 3 },
+    statusCounts: { SUBMITTED: 4, NOT_SUBMITTED: 2 },
     rows: [
       {
         teamId: fixture.submittedApplication,
+        sortDocumentId: fixture.notifyDocument,
         cells: [
           {
             documentId: fixture.notifyDocument,
@@ -319,7 +341,9 @@ it('searches, filters and sorts whole teams before paging the staff request', as
     page: 2,
     pageSize: 1,
     total: 2,
-    rows: [{ teamId: fixture.missingApplication }],
+    rows: [
+      { teamId: fixture.missingApplication, sortDocumentId: extraDocumentId },
+    ],
   });
   expect(older.rows[0]?.cells).toHaveLength(3);
   const scoped = await requestCollection({
@@ -327,10 +351,22 @@ it('searches, filters and sorts whole teams before paging the staff request', as
     documentId: extraDocumentId,
     submissionState: 'SUBMITTED',
   });
-  expect(scoped.rows).toEqual(newer.rows);
+  expect(scoped.rows).toEqual(older.rows);
   expect(scoped.statusCounts).toEqual(newer.statusCounts);
   const ascending = await requestCollection({ ...search, direction: 'asc' });
-  expect(ascending.rows[0]?.teamId).toBe(fixture.missingApplication);
+  const ascendingSecond = await requestCollection({
+    ...search,
+    direction: 'asc',
+    page: '2',
+  });
+  expect(ascending.total).toBe(2);
+  expect(ascendingSecond.total).toBe(2);
+  expect(ascending.rows).toEqual([
+    { ...newer.rows[0], sortDocumentId: extraDocumentId },
+  ]);
+  expect(ascendingSecond.rows).toEqual([
+    { ...older.rows[0], sortDocumentId: fixture.notifyDocument },
+  ]);
 });
 
 it.each([

@@ -437,6 +437,7 @@ interface StageSubmissionRow<TCell extends StageSubmissionCell> {
   readonly teamId: string;
   readonly teamName: string;
   readonly applicantName: string | null;
+  readonly sortDocumentId?: string;
   readonly cells: readonly TCell[];
 }
 
@@ -576,6 +577,7 @@ export function StageSubmissionTable<TCell extends StageSubmissionCell>(
 ): ReactElement {
   const { milestone, documents, rows } = props.data;
   const showDocument = documents.length > 1;
+  const groupedSort = showDocument && props.sort !== 'team';
   const columns = STAGE_COLUMNS.filter(
     ([column]) => column !== 'document' || showDocument,
   );
@@ -611,6 +613,19 @@ export function StageSubmissionTable<TCell extends StageSubmissionCell>(
       now={props.now}
     />
   );
+  const documentLabel = (
+    row: StageSubmissionRow<TCell>,
+    document: StageSubmissionDocument,
+  ) => (
+    <>
+      {document.name}
+      {groupedSort && row.sortDocumentId === document.id ? (
+        <span className="ml-2 text-small text-muted-foreground">
+          팀 정렬 기준
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <TooltipProvider>
@@ -623,6 +638,7 @@ export function StageSubmissionTable<TCell extends StageSubmissionCell>(
                   key={column}
                   active={props.sort === column}
                   direction={props.direction}
+                  grouped={groupedSort}
                   onSort={() => props.onSort(column)}
                   className={column === 'team' ? TEAM_COLUMN : undefined}
                 >
@@ -663,7 +679,7 @@ export function StageSubmissionTable<TCell extends StageSubmissionCell>(
                       ) : null}
                       {showDocument ? (
                         <TableCell className="min-w-32 whitespace-normal">
-                          {document.name}
+                          {documentLabel(row, document)}
                         </TableCell>
                       ) : null}
                       <TableCell>{status(cell)}</TableCell>
@@ -731,7 +747,9 @@ export function StageSubmissionTable<TCell extends StageSubmissionCell>(
                   className="grid gap-2 border-border [&+&]:border-t [&+&]:pt-3"
                 >
                   {showDocument ? (
-                    <span className="font-medium">{document.name}</span>
+                    <span className="font-medium">
+                      {documentLabel(row, document)}
+                    </span>
                   ) : null}
                   <dl className="grid gap-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-x-2">
@@ -744,6 +762,16 @@ export function StageSubmissionTable<TCell extends StageSubmissionCell>(
                         <StageTimestamp value={cell.submittedAt} />
                       </dd>
                     </div>
+                    {props.sort === 'reviewedAt' ? (
+                      <div className="flex flex-wrap items-center justify-between gap-x-2">
+                        <dt className="text-muted-foreground">검토 시각</dt>
+                        <dd>
+                          <StageTimestamp
+                            value={cell.review?.reviewedAt ?? null}
+                          />
+                        </dd>
+                      </div>
+                    ) : null}
                   </dl>
                   {cell.isSubmitted || cell.file !== null
                     ? stageActions(props, row, entry)

@@ -327,8 +327,8 @@ function CollectionBody(props: RequirementCollectionViewProps) {
         />
       ) : outOfRange ? (
         <EmptyState
-          title="이 페이지에는 더 이상 제출 항목이 없습니다"
-          description={`조건에 맞는 제출 항목이 ${total}개로 줄어 이 페이지가 사라졌습니다.`}
+          title="이 페이지에 표시할 팀이 없습니다"
+          description={`조건에 맞는 팀은 ${total}팀입니다.`}
           action={
             <Button
               type="button"
