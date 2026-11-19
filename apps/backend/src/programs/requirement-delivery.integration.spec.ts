@@ -74,6 +74,7 @@ const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;
 const late = new Date(fixture.dueSoon.getTime() + 1);
 const first = new Date(fixture.dueSoon.getTime() - 1);
 const extraSubmissionId = 'test:qa153:collection:new-submission';
+const otherSubmissionId = 'test:qa153:collection:other-submission';
 const extraDocumentId = 'test:qa153:collection:extra-document';
 const missingDocumentId = 'test:qa153:collection:missing-document';
 const authSessionService = new AuthSessionService();
@@ -86,7 +87,7 @@ async function cleanExtraRows() {
     where: { submissionId: fixture.documentSubmission },
   });
   await harness.prisma.submission.deleteMany({
-    where: { id: extraSubmissionId },
+    where: { id: { in: [extraSubmissionId, otherSubmissionId] } },
   });
   await harness.prisma.requirement.deleteMany({
     where: { id: { in: [extraDocumentId, missingDocumentId] } },
@@ -156,13 +157,7 @@ it('preserves the existing collection response, approved population and paging c
     data: { status: 'REJECTED' },
   });
 
-  const result = await service
-    .collectForStaff(
-      fixture.notifyMilestone,
-      { ...query, pageSize: 2 },
-      fixture.now,
-    )
-    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
+  const result = await requestCollection({ filter: 'ALL', pageSize: '2' });
   const old = await legacyService
     .collectForStaff(
       fixture.notifyMilestone,
@@ -215,6 +210,12 @@ it('keeps an on-time first submission complete after a late resubmission and rej
             actorId: fixture.studentSubmitted,
             createdAt: late,
           },
+          {
+            event: 'REJECTED',
+            revision: 2,
+            actorId: fixture.staffOn,
+            createdAt: new Date(late.getTime() + 1),
+          },
         ],
       },
     },
@@ -229,7 +230,12 @@ it('keeps an on-time first submission complete after a late resubmission and rej
   expect(result.rows[0]).toMatchObject({
     deliveryStatus: 'COMPLETE',
     cells: [
-      { submittedAt: late.toISOString(), revision: 2, status: 'REJECTED' },
+      {
+        submittedAt: late.toISOString(),
+        revision: 2,
+        status: 'REJECTED',
+        review: { decision: 'REJECTED' },
+      },
     ],
   });
   expect(result.deliveryCounts).toEqual({
@@ -240,7 +246,7 @@ it('keeps an on-time first submission complete after a late resubmission and rej
   });
 });
 
-it('searches, filters and sorts document slots before paging the staff request', async () => {
+it('searches, filters and sorts whole teams before paging the staff request', async () => {
   await harness.prisma.requirement.createMany({
     data: [extraDocumentId, missingDocumentId].map((id, index) => ({
       id,
@@ -261,9 +267,27 @@ it('searches, filters and sorts document slots before paging the staff request',
       revision: 3,
     },
   });
+  await harness.prisma.team.update({
+    where: { id: fixture.submittedApplication },
+    data: { name: 'Boundary Alpha' },
+  });
+  await harness.prisma.team.update({
+    where: { id: fixture.missingApplication },
+    data: { name: 'Boundary Beta' },
+  });
+  await harness.prisma.submission.create({
+    data: {
+      id: otherSubmissionId,
+      requirementId: extraDocumentId,
+      teamId: fixture.missingApplication,
+      submittedById: fixture.studentMissing,
+      createdAt: new Date(first.getTime() - 1),
+      submittedAt: new Date(first.getTime() - 1),
+    },
+  });
 
   const search = {
-    q: ` ${fixture.submittedApplication.toUpperCase()} `,
+    q: ' BOUNDARY ',
     status: 'SUBMITTED',
     sort: 'submittedAt',
     direction: 'desc',
@@ -275,20 +299,7 @@ it('searches, filters and sorts document slots before paging the staff request',
     page: 1,
     pageSize: 1,
     total: 2,
-    statusCounts: { SUBMITTED: 2, NOT_SUBMITTED: 1 },
-    rows: [
-      {
-        teamId: fixture.submittedApplication,
-        cells: [
-          { documentId: extraDocumentId, revision: 3, status: 'SUBMITTED' },
-        ],
-      },
-    ],
-  });
-  expect(older).toMatchObject({
-    page: 2,
-    pageSize: 1,
-    total: 2,
+    statusCounts: { SUBMITTED: 3, NOT_SUBMITTED: 3 },
     rows: [
       {
         teamId: fixture.submittedApplication,
@@ -298,11 +309,28 @@ it('searches, filters and sorts document slots before paging the staff request',
             revision: 1,
             status: 'SUBMITTED',
           },
+          { documentId: extraDocumentId, revision: 3, status: 'SUBMITTED' },
+          { documentId: missingDocumentId, isSubmitted: false },
         ],
       },
     ],
   });
-  expect(older).not.toHaveProperty('totalDocuments');
+  expect(older).toMatchObject({
+    page: 2,
+    pageSize: 1,
+    total: 2,
+    rows: [{ teamId: fixture.missingApplication }],
+  });
+  expect(older.rows[0]?.cells).toHaveLength(3);
+  const scoped = await requestCollection({
+    ...search,
+    documentId: extraDocumentId,
+    submissionState: 'SUBMITTED',
+  });
+  expect(scoped.rows).toEqual(newer.rows);
+  expect(scoped.statusCounts).toEqual(newer.statusCounts);
+  const ascending = await requestCollection({ ...search, direction: 'asc' });
+  expect(ascending.rows[0]?.teamId).toBe(fixture.missingApplication);
 });
 
 it.each([
@@ -366,7 +394,17 @@ it('does not call optional-only milestones complete or missing', async () => {
     )
     .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
 
-  expect(result.total).toBe(1);
+  expect(result.total).toBe(4);
+  expect(result.rows).toHaveLength(4);
+  expect(result.statusCounts).toMatchObject({ NOT_SUBMITTED: 3, SUBMITTED: 1 });
+  const missingTeam = result.rows.find(
+    (row) => row.teamId === fixture.missingApplication,
+  );
+  expect(missingTeam?.cells).toMatchObject([
+    { documentId: fixture.notifyDocument, isSubmitted: false },
+  ]);
+  const legacy = await requestCollection({ filter: 'HAS_MISSING' });
+  expect(legacy.total).toBe(0);
   expect(result.deliveryCounts).toEqual({
     missing: 0,
     late: 0,

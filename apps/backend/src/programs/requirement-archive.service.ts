@@ -85,13 +85,6 @@ export type RequirementDeliveryPage<
   };
 };
 
-type StageCollectionCell =
-  | RequirementCollectionCell
-  | {
-      readonly requirementId: string;
-      readonly submittedAt: null;
-    };
-
 export interface RequirementDeliveryCollectionResult extends Omit<
   RequirementDeliveryPage<
     RequirementCollectionApplication,
@@ -104,7 +97,7 @@ export interface RequirementDeliveryCollectionResult extends Omit<
   readonly rows: readonly {
     readonly application: RequirementStageApplication;
     readonly deliveryStatus: DocumentDeliveryStatus;
-    readonly cells: readonly StageCollectionCell[];
+    readonly cells: readonly (RequirementCollectionCell | null)[];
   }[];
   readonly statusCounts: MatrixStatusCounts;
 }
@@ -387,43 +380,22 @@ export class RequirementCollectionService {
         REJECTED: 0,
         APPROVED: 0,
       };
-      const slots: StageCollectionSlot[] = [];
-      for (const row of teamRows) {
-        const matchesDelivery = matchesDeliveryFilters(
-          row,
-          documents,
-          documentIndex,
-          query,
-        );
-        documents.forEach((document, index) => {
-          if (documentIndex >= 0 && index !== documentIndex) return;
-          const submission = row.cells[index] ?? null;
-          if (submission === null && !document.required) return;
-          const status = submission?.status ?? 'NOT_SUBMITTED';
-          statusCounts[status] += 1;
-          if (
-            !matchesDelivery ||
-            (query.status !== undefined && status !== query.status)
-          )
-            return;
-          slots.push({
-            application: row.application,
-            deliveryStatus: row.deliveryStatus,
-            document,
-            status,
-            submission,
-          });
-        });
-      }
+      for (const row of teamRows)
+        for (const submission of row.cells)
+          statusCounts[submission?.status ?? 'NOT_SUBMITTED'] += 1;
+
+      const candidates = teamRows.filter((row) =>
+        matchesDeliveryFilters(row, documents, documentIndex, query),
+      );
       const sort = query.sort ?? 'team';
       const direction = query.direction === 'desc' ? -1 : 1;
       const reviewTimes = new Map<string, Date>();
-      if (sort === 'reviewedAt' && slots.length > 1) {
+      if (sort === 'reviewedAt' && candidates.length > 1) {
         const reviewDocumentIds =
           query.document === undefined ? documentIds : [query.document.id];
         for (const review of await store.findLatestReviewTimes(
           reviewDocumentIds,
-          teamIds,
+          candidates.map((row) => row.application.teamId),
         )) {
           reviewTimes.set(
             cellKey(review.teamId, review.requirementId),
@@ -431,45 +403,65 @@ export class RequirementCollectionService {
           );
         }
       }
-      slots.sort((a, b) =>
-        compareStageSlots(a, b, sort, direction, reviewTimes),
-      );
+      const compareSlots = (a: StageCollectionSlot, b: StageCollectionSlot) =>
+        compareStageSlots(a, b, sort, direction, reviewTimes);
+      const filtered = candidates.flatMap((row) => {
+        let first: StageCollectionSlot | undefined;
+        documents.forEach((document, index) => {
+          if (documentIndex >= 0 && index !== documentIndex) return;
+          const submission = row.cells[index] ?? null;
+          const status = submission?.status ?? 'NOT_SUBMITTED';
+          if (query.status !== undefined && status !== query.status) return;
+          const slot: StageCollectionSlot = {
+            application: row.application,
+            document,
+            status,
+            submission,
+          };
+          if (first === undefined || compareSlots(slot, first) < 0)
+            first = slot;
+        });
+        if (first === undefined && query.status !== undefined) return [];
+        return [{ row, first }];
+      });
+
+      if (query.sort !== undefined || query.direction !== undefined) {
+        filtered.sort((a, b) =>
+          a.first !== undefined && b.first !== undefined
+            ? compareSlots(a.first, b.first)
+            : compareStageTeams(
+                a.row.application,
+                b.row.application,
+                sort === 'team' ? direction : 1,
+              ),
+        );
+      }
       const offset = (query.page - 1) * query.pageSize;
-      const visible = slots.slice(offset, offset + query.pageSize);
-      const details = await store.findSlotDetails(
-        visible.flatMap(({ submission }) =>
-          submission === null ? [] : [submission],
-        ),
+      const visible = filtered.slice(offset, offset + query.pageSize);
+      const details = await store.findDetails(
+        documentIds,
+        visible.map(({ row }) => row.application.teamId),
         now,
       );
       const detailByCell = new Map(
         details.map((submission) => [
-          `${submission.teamId}::${submission.requirementId}`,
+          cellKey(submission.teamId, submission.requirementId),
           this.toRequirementCollectionCell(submission),
         ]),
       );
-      const rows: {
-        application: RequirementStageApplication;
-        deliveryStatus: DocumentDeliveryStatus;
-        cells: StageCollectionCell[];
-      }[] = [];
-      for (const slot of visible) {
-        const { application, document, deliveryStatus, submission } = slot;
-        const detail =
-          submission === null
-            ? null
-            : detailByCell.get(cellKey(application.teamId, document.id));
-        if (detail === undefined)
-          throw new Error('Collection slot lost its submission');
-        const cell = detail ?? {
-          requirementId: document.id,
-          submittedAt: null,
-        };
-        const previous = rows.at(-1);
-        if (previous?.application.teamId === application.teamId)
-          previous.cells.push(cell);
-        else rows.push({ application, deliveryStatus, cells: [cell] });
-      }
+      const rows = visible.map(({ row }) => ({
+        application: row.application,
+        deliveryStatus: row.deliveryStatus,
+        cells: row.cells.map((submission) => {
+          if (submission === null) return null;
+          const detail = detailByCell.get(
+            cellKey(submission.teamId, submission.requirementId),
+          );
+          if (detail === undefined)
+            throw new Error('Collection cell lost its submission');
+          return detail;
+        }),
+      }));
       return {
         ...delivery,
         milestone,
@@ -478,7 +470,7 @@ export class RequirementCollectionService {
         statusCounts,
         page: query.page,
         pageSize: query.pageSize,
-        total: slots.length,
+        total: filtered.length,
       };
     });
   }
@@ -546,7 +538,6 @@ export class RequirementCollectionService {
 
 interface StageCollectionSlot {
   readonly application: RequirementStageApplication;
-  readonly deliveryStatus: DocumentDeliveryStatus;
   readonly document: RequirementRecord;
   readonly status: MatrixCellStatus;
   readonly submission: DocumentDeliveryCoordinate | null;
@@ -555,6 +546,17 @@ interface StageCollectionSlot {
 const stageCollectionNameOrder = new Intl.Collator('ko', {
   sensitivity: 'base',
 });
+
+function compareStageTeams(
+  a: RequirementStageApplication,
+  b: RequirementStageApplication,
+  direction: 1 | -1,
+): number {
+  return (
+    direction * stageCollectionNameOrder.compare(a.teamName, b.teamName) ||
+    a.teamId.localeCompare(b.teamId)
+  );
+}
 
 function compareStageSlots(
   a: StageCollectionSlot,

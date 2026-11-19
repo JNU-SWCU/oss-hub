@@ -475,42 +475,12 @@ export class RequirementCollectionReadStoreRepository {
     now: Date,
   ): Promise<readonly RequirementCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
-    return this.findDetailsWhere(
-      {
+    const submissions = await this.transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
+      where: {
         requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
       },
-      documentIds.length * teamIds.length,
-      now,
-    );
-  }
-  async findSlotDetails(
-    slots: readonly Pick<
-      DocumentDeliveryCoordinate,
-      'requirementId' | 'teamId'
-    >[],
-    now: Date,
-  ): Promise<readonly RequirementCollectionSubmission[]> {
-    if (slots.length === 0) return [];
-    return this.findDetailsWhere(
-      {
-        OR: slots.map(({ requirementId, teamId }) => ({
-          requirementId,
-          teamId,
-        })),
-      },
-      slots.length,
-      now,
-    );
-  }
-  private async findDetailsWhere(
-    where: Prisma.SubmissionWhereInput,
-    take: number,
-    now: Date,
-  ): Promise<readonly RequirementCollectionSubmission[]> {
-    const submissions = await this.transaction.submission.findMany({
-      take,
-      where,
       select: {
         requirementId: true,
         teamId: true,

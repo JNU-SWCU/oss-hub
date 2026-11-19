@@ -206,6 +206,7 @@ export class RequirementDeliveryCollectionRowResponseDto {
   declare readonly deliveryStatus: DocumentDeliveryStatus;
   static from(
     row: RequirementDeliveryCollectionResult['rows'][number],
+    documents: readonly RequirementRecord[],
   ): RequirementDeliveryCollectionRowResponseDto {
     return {
       teamId: row.application.teamId,
@@ -213,10 +214,10 @@ export class RequirementDeliveryCollectionRowResponseDto {
       applicantName: row.application.applicantName,
       leaderName: row.application.leaderName,
       memberNicknames: [...row.application.memberNicknames],
-      cells: row.cells.map((cell) =>
+      cells: documents.map((document, index) =>
         RequirementCollectionCellResponseDto.from(
-          cell.requirementId,
-          cell.submittedAt === null ? null : cell,
+          document.id,
+          row.cells[index] ?? null,
         ),
       ),
       deliveryStatus: row.deliveryStatus,
@@ -250,7 +251,7 @@ export class RequirementDeliveryCollectionResponseDto {
         RequirementCollectionDocumentResponseDto.from(document),
       ),
       rows: result.rows.map((row) =>
-        RequirementDeliveryCollectionRowResponseDto.from(row),
+        RequirementDeliveryCollectionRowResponseDto.from(row, result.documents),
       ),
       page: result.page,
       pageSize: result.pageSize,
