@@ -1,16 +1,14 @@
 'use client';
 
-import { useId, type ReactElement } from 'react';
-import { FilterChip, FilterChipGroup } from '@/components';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import type { ReactElement, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { submissionStatusLabel } from '@/lib/status-vocabulary';
-import {
-  matrixPageStats,
-  matrixRowAction,
-  type MatrixQuickFilter,
-} from '../matrix';
-import type { MatrixMilestone, MatrixRow } from '../types';
+import { TableHead } from '@/components/ui/table';
+import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
+import { cn } from '@/lib/utils';
+import type { MatrixCell } from '../types';
+import { SubmissionStatusMark } from './submission-matrix-cell';
 
 export function MatrixPagination({
   page,
@@ -28,6 +26,7 @@ export function MatrixPagination({
       className="flex items-center justify-center gap-3"
     >
       <Button
+        type="button"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
         variant="outline"
@@ -38,6 +37,7 @@ export function MatrixPagination({
         {page} / {totalPages}
       </span>
       <Button
+        type="button"
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
         variant="outline"
@@ -62,95 +62,125 @@ export function MatrixSkeleton(): ReactElement {
   );
 }
 
-const STATS_STRIP_STATUSES = [
-  'OVERDUE',
-  'SUBMITTED',
-  'CHANGES_REQUESTED',
-  'APPROVED',
-] as const;
-
-const QUICK_FILTER_STATUSES = [
-  'OVERDUE',
+const STATUSES = [
   'NOT_SUBMITTED',
   'SUBMITTED',
   'CHANGES_REQUESTED',
-  'APPROVED',
   'REJECTED',
-] as const;
+  'APPROVED',
+] as const satisfies readonly MatrixCell['status'][];
 
-export function MatrixStatsStrip({
-  rows,
-  milestones,
-  now,
+export type SubmissionStatusCounts = Readonly<
+  Record<MatrixCell['status'], number>
+>;
+
+export function SubmissionStatusFilters({
+  status,
+  counts,
+  onStatusChange,
 }: {
-  readonly rows: readonly MatrixRow[];
-  readonly milestones: readonly MatrixMilestone[];
-  readonly now: Date;
+  readonly status?: MatrixCell['status'];
+  readonly counts?: SubmissionStatusCounts;
+  readonly onStatusChange: (status: MatrixCell['status'] | undefined) => void;
 }): ReactElement {
-  const stats = matrixPageStats(rows, milestones, now);
-  const facts = STATS_STRIP_STATUSES.map((status) => ({
-    label: submissionStatusLabel(status, 'staff'),
-    value: `${stats[status]}`,
-  }));
+  const total =
+    counts === undefined
+      ? undefined
+      : STATUSES.reduce((sum, state) => sum + counts[state], 0);
   return (
-    <div className="grid gap-3 rounded-card border border-border p-card">
-      <p className="text-small text-muted-foreground">단계별 상태</p>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        {facts.map((fact) => (
-          <div key={fact.label} className="flex flex-col gap-1">
-            <dt className="text-small text-muted-foreground">{fact.label}</dt>
-            <dd className="text-lg font-semibold">{fact.value}</dd>
-          </div>
-        ))}
-      </dl>
+    <div
+      role="group"
+      aria-label="제출 상태 필터"
+      className={cn(
+        'grid w-full grid-cols-3 gap-px overflow-hidden rounded-control border border-border bg-border',
+        'md:w-fit md:grid-flow-col md:grid-cols-none',
+      )}
+    >
+      {[undefined, ...STATUSES].map((option) => {
+        const count = option === undefined ? total : counts?.[option];
+        return (
+          <Button
+            key={option ?? 'all'}
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-pressed={status === option}
+            onClick={() => onStatusChange(option)}
+            className={cn(
+              'h-auto min-h-control rounded-none bg-background px-2 py-2 md:px-4',
+              'focus-visible:z-10 focus-visible:ring-inset aria-pressed:bg-muted',
+            )}
+          >
+            {option === undefined ? '전체' : SUBMISSION_STATUS_LABELS[option]}
+            {count === undefined ? null : (
+              <>
+                {' '}
+                <span className="tabular-nums">{count}</span>
+              </>
+            )}
+          </Button>
+        );
+      })}
     </div>
   );
 }
 
-export function MatrixQuickFilterButtons({
-  rows,
-  visibleMilestones,
-  now,
-  quickFilter,
-  onQuickFilterChange,
-}: {
-  readonly rows: readonly MatrixRow[];
-  readonly visibleMilestones: readonly MatrixMilestone[];
-  readonly now: Date;
-  readonly quickFilter: MatrixQuickFilter;
-  readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
-}): ReactElement {
-  const titleId = useId();
-  const rowActions = rows.map((row) =>
-    matrixRowAction(row, visibleMilestones, now),
-  );
-  const options = [
-    { value: 'ALL' as const, label: `전체 ${rows.length}` },
-    ...QUICK_FILTER_STATUSES.map((value) => ({
-      value,
-      count: rowActions.filter((action) => action === value).length,
-    }))
-      .filter(({ value, count }) => count > 0 || quickFilter === value)
-      .map(({ value, count }) => ({
-        value,
-        label: `${submissionStatusLabel(value, 'staff')} ${count}`,
-      })),
-  ];
-
+export function SubmissionStatusLegend(): ReactElement {
   return (
-    <FilterChipGroup aria-labelledby={titleId} className="max-w-full">
-      <p id={titleId} className="w-full text-small font-semibold">
-        상태
-      </p>
-      {options.map((option) => (
-        <FilterChip
-          key={option.value}
-          pressed={quickFilter === option.value}
-          onClick={() => onQuickFilterChange(option.value)}
-        >
-          {option.label}
-        </FilterChip>
+    <ul
+      aria-label="제출 상태 범례"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-small"
+    >
+      {STATUSES.map((status) => (
+        <li key={status}>
+          <SubmissionStatusMark status={status} />
+        </li>
       ))}
-    </FilterChipGroup>
+    </ul>
+  );
+}
+
+export function SubmissionSortHeader({
+  children,
+  active,
+  direction,
+  onSort,
+  className,
+}: {
+  readonly children: ReactNode;
+  readonly active: boolean;
+  readonly direction: 'asc' | 'desc';
+  readonly onSort: () => void;
+  readonly className?: string;
+}): ReactElement {
+  const Icon = active
+    ? direction === 'asc'
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown;
+  return (
+    <TableHead
+      aria-sort={
+        active ? (direction === 'asc' ? 'ascending' : 'descending') : undefined
+      }
+      className={className}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        onClick={onSort}
+        className="h-auto min-h-control px-1.5 py-1 text-inherit hover:text-foreground"
+      >
+        {children}
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            'size-3.5 shrink-0',
+            active ? 'text-foreground' : 'opacity-60',
+          )}
+        />
+      </Button>
+    </TableHead>
   );
 }

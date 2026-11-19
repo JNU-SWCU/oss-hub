@@ -1,11 +1,5 @@
 const SEOUL_TIME_ZONE = 'Asia/Seoul';
 
-const DUE_DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: SEOUL_TIME_ZONE,
-  month: 'long',
-  day: 'numeric',
-});
-
 const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   timeZone: SEOUL_TIME_ZONE,
   month: '2-digit',
@@ -14,10 +8,6 @@ const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   minute: '2-digit',
   hour12: false,
 });
-
-export function formatMatrixDueDate(dueAt: string): string {
-  return DUE_DATE_FORMAT.format(new Date(dueAt));
-}
 
 export function seoulCalendarDayNumber(value: Date): number {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -30,26 +20,6 @@ export function seoulCalendarDayNumber(value: Date): number {
   const month = Number(parts.find((part) => part.type === 'month')?.value);
   const day = Number(parts.find((part) => part.type === 'day')?.value);
   return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
-}
-
-export interface NotSubmittedDeadline {
-  readonly overdue: boolean;
-  readonly label: string;
-}
-
-export function notSubmittedDeadline(
-  dueAt: string,
-  now: Date,
-): NotSubmittedDeadline {
-  const due = new Date(dueAt);
-  const dDay = seoulCalendarDayNumber(due) - seoulCalendarDayNumber(now);
-  if (now.getTime() > due.getTime()) {
-    return {
-      overdue: true,
-      label: dDay < 0 ? `${-dDay}일 지남` : '마감 초과',
-    };
-  }
-  return { overdue: false, label: dDay === 0 ? '오늘 마감' : `D-${dDay}` };
 }
 
 export function formatSubmittedAt(submittedAt: string): string {

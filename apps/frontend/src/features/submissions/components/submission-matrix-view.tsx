@@ -2,25 +2,29 @@ import type { ReactNode } from 'react';
 import { PageBody, PageHeader, TeamSearchForm } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import type { MatrixQuickFilter } from '../matrix';
-import type { SubmissionMatrixPage } from '../types';
+import type { MatrixSort } from '../matrix';
+import type { MatrixCell, SubmissionMatrixPage } from '../types';
 import { MatrixBody } from './submission-matrix-body';
+import { SubmissionStatusFilters } from './submission-matrix-controls';
 
-const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
+const SECTION_BODY = 'flex min-w-0 flex-col gap-5';
 
 export interface SubmissionMatrixViewProps {
   readonly programId: string;
   readonly data: SubmissionMatrixPage | null;
   readonly search: string;
   readonly filterActive: boolean;
-  readonly quickFilter: MatrixQuickFilter;
+  readonly status?: MatrixCell['status'];
+  readonly sort: MatrixSort;
+  readonly direction: 'asc' | 'desc';
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
   readonly headerActions?: ReactNode;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
-  readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
+  readonly onStatusChange: (status: MatrixCell['status'] | undefined) => void;
+  readonly onSort: (sort: MatrixSort) => void;
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
@@ -34,7 +38,11 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
         <TeamSearchForm
           inputId="matrix-search"
           search={props.search}
-          resettable={props.search.trim() !== '' || props.quickFilter !== 'ALL'}
+          resettable={
+            props.search.trim() !== '' ||
+            props.filterActive ||
+            props.status !== undefined
+          }
           onSearchChange={props.onSearchChange}
           onSearch={props.onSearch}
           onReset={props.onResetFilters}
@@ -53,6 +61,13 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
               </Button>
             </AlertDescription>
           </Alert>
+        ) : null}
+        {props.data?.milestones.length !== 0 ? (
+          <SubmissionStatusFilters
+            status={props.status}
+            counts={props.data?.statusCounts}
+            onStatusChange={props.onStatusChange}
+          />
         ) : null}
         <MatrixBody {...props} />
       </div>

@@ -56,6 +56,7 @@ export interface RequirementCollectionRow {
   readonly teamId: string;
   readonly teamName: string;
   readonly applicantName: string | null;
+  readonly leaderName: string | null;
   readonly memberNicknames: readonly string[];
   readonly cells: readonly RequirementCollectionCell[];
 }
@@ -76,7 +77,17 @@ export interface RequirementCollectionQueryInput {
   readonly page: number;
   readonly pageSize: number;
   readonly filter: RequirementCollectionFilter;
+  readonly status?: RequirementCollectionStatus;
+  readonly sort?: RequirementCollectionSort;
+  readonly direction?: 'asc' | 'desc';
 }
+export type RequirementCollectionStatus =
+  'NOT_SUBMITTED' | RequirementSubmissionStatus;
+export type RequirementCollectionStatusCounts = Readonly<
+  Record<RequirementCollectionStatus, number>
+>;
+export type RequirementCollectionSort =
+  'team' | 'document' | 'status' | 'submittedAt' | 'reviewedAt';
 export interface RequirementCollectionFilterCounts {
   readonly all: number;
   readonly zeroSubmission: number;
@@ -96,6 +107,7 @@ export interface RequirementCollection {
   readonly total: number;
   readonly filterCounts: RequirementCollectionFilterCounts;
   readonly documentTotals: readonly RequirementCollectionDocumentTotal[];
+  readonly statusCounts: RequirementCollectionStatusCounts;
 }
 export interface RequirementDeliveryCounts {
   readonly missing: number;

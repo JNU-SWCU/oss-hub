@@ -1,489 +1,292 @@
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { SubmissionMatrixView } from './components/submission-matrix-view';
 import type { SubmissionMatrixViewProps } from './components/submission-matrix-view';
 import type { MatrixCell, SubmissionMatrixPage } from './types';
 
+vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+
 const NOW = new Date('2026-09-15T12:00:00+09:00');
 
-function cell(input: {
-  readonly milestoneId: string;
-  readonly submissionId?: string;
-  readonly revision?: number;
-  readonly status: MatrixCell['status'];
-}): MatrixCell {
-  if (input.status === 'NOT_SUBMITTED') {
-    return {
-      milestoneId: input.milestoneId,
-      submissionId: null,
-      revision: null,
-      status: 'NOT_SUBMITTED',
-      deliveryStatus: 'MISSING',
-      submittedAt: null,
-      changesRequestedCount: 0,
-    };
-  }
-  const submissionId = input.submissionId ?? 'submission-existing';
+function cell(
+  milestoneId: string,
+  status: MatrixCell['status'],
+  submissionId: string | null = null,
+): MatrixCell {
   return {
-    milestoneId: input.milestoneId,
+    milestoneId,
     submissionId,
-    revision: input.revision ?? 1,
-    status: input.status,
-    deliveryStatus: 'COMPLETE',
-    submittedAt: '2026-08-19T10:00:00+09:00',
+    revision: submissionId === null ? null : 2,
+    status,
+    deliveryStatus: submissionId === null ? 'MISSING' : 'COMPLETE',
+    submittedAt: submissionId === null ? null : '2026-08-19T10:00:00+09:00',
     changesRequestedCount: 0,
   };
 }
 
 const matrixData: SubmissionMatrixPage = {
   milestones: [
-    {
-      id: 'milestones-overdue',
-      name: '기획서',
-      dueAt: '2026-09-10T23:59:59+09:00',
-    },
-    {
-      id: 'milestone-mid',
-      name: '중간 보고',
-      dueAt: '2026-09-12T23:59:59+09:00',
-    },
-    {
-      id: 'milestones-upcoming',
-      name: '최종 제출',
-      dueAt: '2026-10-30T23:59:59+09:00',
-    },
+    { id: 'proposal', name: '기획서', dueAt: '2026-09-10T23:59:59+09:00' },
+    { id: 'interim', name: '중간 보고', dueAt: '2026-09-12T23:59:59+09:00' },
+    { id: 'final', name: '최종 제출', dueAt: '2026-10-30T23:59:59+09:00' },
   ],
   rows: [
-    {
-      teamId: 'application-personal',
-      applicationMode: 'PERSONAL',
-      displayName: '홍길동',
-      githubLogins: ['hong'],
-      cells: [
-        cell({
-          milestoneId: 'milestones-overdue',
-          submissionId: 'submission-approved',
-          status: 'APPROVED',
-        }),
-        cell({
-          milestoneId: 'milestone-mid',
-          submissionId: 'submission-changes-requested',
-          revision: 2,
-          status: 'CHANGES_REQUESTED',
-        }),
-        cell({ milestoneId: 'milestones-upcoming', status: 'NOT_SUBMITTED' }),
-      ],
-    },
     {
       teamId: 'application-team',
       applicationMode: 'TEAM',
       displayName: '오픈소스팀',
-      githubLogins: ['login-a', 'login-b', 'login-c'],
+      leaderName: '김팀장',
+      githubLogins: ['login-a', 'login-b'],
       cells: [
-        cell({
-          milestoneId: 'milestones-overdue',
-          submissionId: 'submission-existing',
-          status: 'SUBMITTED',
-        }),
-        cell({ milestoneId: 'milestone-mid', status: 'NOT_SUBMITTED' }),
-        cell({
-          milestoneId: 'milestones-upcoming',
-          submissionId: 'submission-rejected',
-          status: 'REJECTED',
-        }),
+        cell('proposal', 'SUBMITTED', 'submission-existing'),
+        cell('interim', 'NOT_SUBMITTED'),
+        cell('final', 'REJECTED', 'submission-rejected'),
+      ],
+    },
+    {
+      teamId: 'application-personal',
+      applicationMode: 'PERSONAL',
+      displayName: '홍길동',
+      leaderName: '홍길동',
+      githubLogins: ['hong'],
+      cells: [
+        cell('proposal', 'APPROVED', 'submission-approved'),
+        cell('interim', 'CHANGES_REQUESTED', 'submission-changes-requested'),
+        {
+          ...cell('final', 'NOT_SUBMITTED'),
+          deliveryStatus: 'NO_REQUIRED_ITEMS',
+        },
       ],
     },
   ],
+  statusCounts: {
+    NOT_SUBMITTED: 12,
+    SUBMITTED: 5,
+    CHANGES_REQUESTED: 4,
+    REJECTED: 2,
+    APPROVED: 9,
+  },
   page: 1,
   pageSize: 20,
   total: 2,
 };
 
-const handlers = {
-  onSearchChange: vi.fn(),
-  onSearch: vi.fn(),
-  onQuickFilterChange: vi.fn(),
-  onResetFilters: vi.fn(),
-  onPageChange: vi.fn(),
-  onRetry: vi.fn(),
-};
-
-function render(overrides: Partial<SubmissionMatrixViewProps> = {}): string {
-  return renderToStaticMarkup(
+function view(overrides: Partial<SubmissionMatrixViewProps> = {}) {
+  return (
     <SubmissionMatrixView
       programId="program-1"
       data={matrixData}
       search=""
       filterActive={false}
-      quickFilter="ALL"
+      sort="progress"
+      direction="desc"
       isLoading={false}
       errorMessage={null}
       now={NOW}
-      {...handlers}
+      onSearchChange={vi.fn()}
+      onSearch={vi.fn()}
+      onStatusChange={vi.fn()}
+      onSort={vi.fn()}
+      onResetFilters={vi.fn()}
+      onPageChange={vi.fn()}
+      onRetry={vi.fn()}
       {...overrides}
-    />,
+    />
   );
 }
 
-describe('SubmissionMatrixView', () => {
-  it('개인·팀 행을 같은 매트릭스에 표시하고 셀에 최신 판정 상태를 보여준다(QA49)', () => {
-    const html = render();
+function render(overrides: Partial<SubmissionMatrixViewProps> = {}) {
+  const container = document.createElement('div');
+  container.innerHTML = renderToStaticMarkup(view(overrides));
+  return container;
+}
 
-    expect(html).toContain('홍길동 · 개인');
-    expect(html).toContain('오픈소스팀(3)');
-    expect(html).not.toContain('오픈소스팀(3) · 팀');
-    expect(html).toContain('@hong');
-    expect(html).toContain('@login-a @login-b @login-c');
-
-    expect(html).toContain('기획서');
-    expect(html).toContain('9월 10일 마감');
-
-    expect(html).toContain('미제출');
-    expect(html).toContain('승인');
-    expect(html).toContain('보완 요청');
-    expect(html).toContain('반려');
-    expect(html).toContain('검토 대기');
-    expect(html).toContain('기한 지남');
-
-    expect(html).not.toContain('제출 전');
-    expect(html).not.toContain('보완 필요');
-    expect(html).not.toContain('최종 반려');
-  });
-
-  it('단계는 사이드바가 고르므로 표는 모든 단계 열을 보이고 화면 안 단계 칩은 두지 않는다', () => {
-    const html = render();
-    const table = html.match(/<table[\s\S]*?<\/table>/)?.[0] ?? '';
-
-    expect(table).toContain('기획서');
-    expect(table).toContain('중간 보고');
-    expect(table).toContain('최종 제출');
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다.');
-    expect(html).not.toContain('data-slot="matrix-stage-navigation"');
-    expect(html).not.toContain('aria-label="볼 제출 단계"');
-    expect(html).not.toContain('>모든 단계<');
-    expect(html).not.toContain('data-slot="matrix-focus-summary"');
-  });
-
-  it('미제출 칸은 기한 지남이면 N일 지남을, 아니면 D-n을 붙인다', () => {
-    const html = render();
-
-    expect(html).toContain('3일 지남');
-    expect(html).toContain('D-45');
-  });
-
-  it('필수 서류도 제출본도 없는 칸은 배지 없이 —를 보인다', () => {
-    const html = render({
-      data: {
-        ...matrixData,
-        rows: matrixData.rows.map((row) => ({
-          ...row,
-          cells: row.cells.map((item) =>
-            item.milestoneId === 'milestone-mid'
-              ? {
-                  ...cell({
-                    milestoneId: 'milestone-mid',
-                    status: 'NOT_SUBMITTED',
-                  }),
-                  deliveryStatus: 'NO_REQUIRED_ITEMS' as const,
-                }
-              : item,
-          ),
-        })),
-      },
-    });
-
-    expect(html.match(/aria-label="필수 서류 없음"/g)).toHaveLength(2);
-    expect(html).toContain('>—<');
-  });
-
-  it.each([
-    [NOW, '기한 지남', '5일 지남'],
-    [new Date('2026-09-09T12:00:00+09:00'), '미제출', 'D-1'],
-  ] as const)(
-    '일부 제출한 셀도 행동 상태의 마감을 표시한다 (%s)',
-    (now, status, deadline) => {
-      const html = render({
-        now,
-        data: {
-          ...matrixData,
-          rows: matrixData.rows.map((row) => ({
-            ...row,
-            cells: row.cells.map((item) =>
-              item.status === 'APPROVED'
-                ? {
-                    ...item,
-                    deliveryStatus: 'MISSING' as const,
-                    changesRequestedCount: 2,
-                  }
-                : item,
-            ),
-          })),
-        },
-      });
-      const link = html.match(
-        /<a\b[^>]*href="\/programs\/program-1\/submissions\/submission-approved\/review"[^>]*>[\s\S]*?<\/a>/,
-      )?.[0];
-      expect(link?.match(/data-slot="status-badge"/g)).toHaveLength(1);
-      expect(link).toContain(status);
-      expect(link).toContain('열어 보기');
-      expect(link).toContain('보완 요청 2건');
-      expect(link).toContain(deadline);
-    },
-  );
-
-  it('보완 요청한 서류가 있는 칸에만 그 건수를 함께 보인다', () => {
-    const [personal, team] = matrixData.rows;
-    const html = render({
-      data: {
-        ...matrixData,
-        rows: [
-          {
-            ...personal,
-            cells: personal.cells.map((item, index) =>
-              index === 2 ? { ...item, changesRequestedCount: 2 } : item,
-            ),
-          },
-          team,
-        ],
-      },
-    });
-
-    expect(html.match(/보완 요청 2건/g)).toHaveLength(1);
-    expect(html).not.toContain('보완 요청 0건');
-  });
-
-  it('제출이 있는 셀만 검토 경로로 링크하고 미제출 셀은 링크가 없다', () => {
-    const html = render();
-
-    const reviewLinks =
-      html.match(/href="\/programs\/program-1\/submissions\//g) ?? [];
-    expect(reviewLinks).toHaveLength(4);
-    expect(html).toContain(
-      '/programs/program-1/submissions/submission-approved/review',
-    );
-    expect(html).toContain(
-      '/programs/program-1/submissions/submission-changes-requested/review',
-    );
-    expect(html.match(/>열어 보기</g)).toHaveLength(4);
-
-    expect(html).toContain('v2');
-  });
-
-  it('제출된 셀에는 제출 시각을 표시한다', () => {
-    const html = render();
-
-    expect(html).toContain('08.19 10:00');
-  });
-
-  it('제출 시각과 revision을 가운뎃점 하나로 묶어 한 줄에 보여준다(#865)', () => {
-    const html = render();
-
-    expect(html).toContain('08.19 10:00 · v2');
-  });
-
-  it.each([
-    ['APPROVED', '승인'],
-    ['SUBMITTED', '검토 대기'],
-  ] as const)('지각은 %s 배지 뒤의 태그로 붙는다', (status, label) => {
-    const lateData: SubmissionMatrixPage = {
-      ...matrixData,
-      rows: matrixData.rows.map((row) => ({
-        ...row,
-        cells: row.cells.map((cell) =>
-          cell.status === status ? { ...cell, deliveryStatus: 'LATE' } : cell,
-        ),
-      })),
-    };
-    const html = render({ data: lateData });
-    expect(html).toMatch(
-      new RegExp(`>${label}</span><span[^>]*>· 지각</span>`),
-    );
-    expect(html).not.toContain('지각 제출');
-  });
-
-  it('현재 페이지 칸을 상태별로 센 통계를 보여준다', () => {
-    const html = render();
-
-    expect(html).toContain('단계별 상태');
-    expect(html).toMatch(/기한 지남<\/dt><dd[^>]*>1<\/dd>/);
-    expect(html).toMatch(/검토 대기<\/dt><dd[^>]*>1<\/dd>/);
-    expect(html).toMatch(/보완 요청<\/dt><dd[^>]*>1<\/dd>/);
-    expect(html).toMatch(/승인<\/dt><dd[^>]*>1<\/dd>/);
-    expect(html).not.toContain('필수 서류 없음');
-    expect(html).not.toContain('빠른 필터는');
-    expect(html).not.toContain('이 페이지 2건(전체 2건) 중 2건 표시');
-
-    expect(html).not.toContain('서류 칸');
-    expect(html).not.toContain('빈 칸');
-    expect(html).not.toContain('채움');
-    expect(html).not.toContain('한 장도 안 낸 팀');
-  });
-
-  it('필수 서류 상태 빠른 필터를 팀 수와 함께 보여주고, 선택된 세그먼트만 aria-pressed된다(#619 스펙, #865)', () => {
-    const chipFor = (html: string, label: string): string | null =>
-      html
-        .match(
-          /<button[^>]*aria-pressed="(?:true|false)"[^>]*>[\s\S]*?<\/button>/g,
-        )
-        ?.find((candidate) => candidate.includes(label)) ?? null;
-    const ariaPressedFor = (html: string, label: string): string | null =>
-      chipFor(html, label)?.match(/aria-pressed="(true|false)"/)?.[1] ?? null;
-
-    const html = render();
-
-    expect(html).toContain('전체 2');
-    expect(html).toContain('기한 지남 1');
-    expect(html).toContain('보완 요청 1');
-    expect(chipFor(html, '반려')).toBeNull();
-    expect(chipFor(html, '승인')).toBeNull();
-    expect(html).not.toContain('선택됨');
-
-    for (const label of ['전체 2', '기한 지남 1', '보완 요청 1']) {
-      expect(chipFor(html, label)).toContain('data-variant="toggle"');
-    }
-
-    expect(ariaPressedFor(html, '전체 2')).toBe('true');
-    expect(ariaPressedFor(html, '기한 지남 1')).toBe('false');
-
-    const hasEmptyHtml = render({ quickFilter: 'OVERDUE' });
-
-    expect(ariaPressedFor(hasEmptyHtml, '전체 2')).toBe('false');
-    expect(ariaPressedFor(hasEmptyHtml, '기한 지남 1')).toBe('true');
-  });
-
-  it('기한 지남 필터를 고르면 해당 행만 표를 채운다', () => {
-    const html = render({ quickFilter: 'OVERDUE' });
-
-    expect(html).not.toContain('홍길동 · 개인');
-    expect(html).toContain('오픈소스팀(3)');
-    expect(html).not.toContain('오픈소스팀(3) · 팀');
-    expect(html).not.toContain('중 2건 표시');
-  });
-
-  it('여러 페이지에서는 전체 팀 수와 현재 페이지 범위를 구분한다', () => {
-    const html = render({ data: { ...matrixData, total: 47 } });
-    expect(html).toContain(
-      '전체 47개 팀 중 2개를 표시합니다. 빠른 필터는 이 페이지에만 적용됩니다.',
-    );
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다.');
-    expect(html).not.toContain('중 2건 표시');
-  });
-
-  it('현재 페이지가 전체 결과와 같으면 페이지 안내 문구를 숨긴다', () => {
-    const html = render({
-      data: { ...matrixData, total: matrixData.rows.length },
-    });
-    expect(html).not.toContain('전체 2개 팀 중 2개를 표시합니다.');
-    expect(html).not.toContain('빠른 필터는');
-    expect(html).toContain('표를 좌우로 스크롤할 수 있습니다.');
-  });
-
-  it('고른 상태에 해당하는 팀이 없으면 빈 상태를 보여준다', () => {
-    const html = render({ quickFilter: 'REJECTED' });
-
-    expect(html).toContain('조건에 맞는 팀이 없습니다');
-    expect(html).toContain('전체 보기');
-    expect(html).not.toContain('홍길동 · 개인');
-  });
-
-  it('승인된 신청이 없으면 빈 상태를, 검색 결과가 없으면 필터 초기화를 안내한다', () => {
-    const emptyData: SubmissionMatrixPage = {
-      ...matrixData,
-      rows: [],
-      total: 0,
-    };
-
-    const noApplications = render({ data: emptyData, filterActive: false });
-    const noResults = render({
-      data: emptyData,
-      filterActive: true,
-      search: '없는팀',
-    });
-
-    expect(noApplications).toContain('참여 중인 신청이 없습니다');
-    expect(noApplications).not.toContain('필터 초기화');
-    expect(noResults).toContain('검색 결과가 없습니다');
-    expect(noResults).toContain('필터 초기화');
-  });
-
-  it('마일스톤이 없으면 #101 프로그램 편집으로 추가를 안내한다', () => {
-    const html = render({
-      data: { milestones: [], rows: [], page: 1, pageSize: 20, total: 0 },
-    });
-
-    expect(html).toContain('마일스톤이 없습니다');
-    expect(html).toContain('href="/programs/program-1/edit"');
-
-    expect(html).toContain('>마일스톤 추가<');
-    expect(html).not.toContain('프로그램 편집에서 마일스톤 추가');
-  });
-
-  it('전체 페이지가 2 이상일 때만 페이지네이션을 표시한다', () => {
-    const paged = render({
-      data: { ...matrixData, page: 2, total: 41 },
-    });
-    const single = render();
-
-    expect(paged).toContain('제출 현황 페이지');
-    expect(paged).toContain('2 / 3');
-    expect(paged).toContain('이전');
-    expect(paged).toContain('다음');
-    expect(single).not.toContain('제출 현황 페이지');
-  });
-
-  it('로딩 중에는 매트릭스 대신 Skeleton을 표시한다', () => {
-    const html = render({ isLoading: true, data: null });
-
-    expect(html).toContain('aria-busy="true"');
-    expect(html).not.toContain('<table');
-  });
-
-  it('실패 시 Alert와 다시 시도를 표시한다', () => {
-    const html = render({
-      data: null,
-      errorMessage: '제출 현황을 불러오지 못했습니다.',
-    });
-
-    expect(html).toContain('role="alert"');
-    expect(html).toContain('제출 현황을 불러오지 못했습니다.');
-    expect(html).toContain('다시 시도');
-  });
-
-  it('검색 입력을 제공하고 형태(개인|팀) 필터 컨트롤은 두지 않는다', () => {
-    const html = render();
-
-    expect(html).toContain('신청자·팀명·GitHub ID');
-    expect(html).not.toContain('id="matrix-mode"');
-    expect(html).not.toContain('>개인</option>');
-    expect(html).not.toContain('형태');
-  });
-
-  it('초기화 버튼은 필터가 걸려 있을 때만 나타난다(#865)', () => {
-    const inactive = render();
-
-    expect(inactive).not.toContain('>초기화<');
-
-    const withSearch = render({ search: '홍길동' });
-
-    expect(withSearch).toContain('>초기화<');
-
-    const withQuickFilter = render({ quickFilter: 'OVERDUE' });
-
-    expect(withQuickFilter).toContain('>초기화<');
-  });
+it('서버 행 순서대로 팀과 개인을 표시하고 팀장·제출 상태·진행도를 보여준다', () => {
+  const container = render();
+  const rows = [...container.querySelectorAll('tbody tr')];
+  expect(
+    rows.map((row) =>
+      row.querySelector('th button')?.getAttribute('aria-label'),
+    ),
+  ).toEqual(['오픈소스팀 단계별 상세', '홍길동 단계별 상세']);
+  expect(rows[0].textContent).toContain('팀장 김팀장');
+  expect(rows[1].textContent).not.toContain('팀장');
+  expect(container.textContent).not.toContain('@login-a');
+  expect(
+    [...container.querySelectorAll('thead th')].map(
+      (header) => header.textContent,
+    ),
+  ).toEqual([
+    '팀',
+    '기획서9.10 (목) 마감',
+    '중간 보고9.12 (토) 마감',
+    '최종 제출10.30 (금) 마감',
+    '진행',
+  ]);
+  expect(rows[0].textContent).toContain('검토 대기');
+  expect(rows[0].textContent).toContain('미제출');
+  expect(rows[0].textContent).toContain('반려');
+  expect(rows[1].textContent).toContain('보완 요청');
+  expect(
+    rows[1].querySelector('[aria-label="필수 서류 없음"]')?.textContent?.trim(),
+  ).toBe('—');
+  expect(
+    rows[1]
+      .querySelector('[role="progressbar"]')
+      ?.getAttribute('aria-valuetext'),
+  ).toBe('2단계 중 1단계 승인');
 });
 
-it('칸마다 다음 행동 상태 배지를 하나만 보여 준다', () => {
-  const html = render();
-  expect(html).toContain('>상태</p>');
-  expect(html).not.toContain('제출 완료');
-  const body = html.match(/<tbody[\s\S]*?<\/tbody>/)?.[0] ?? '';
-  const rows = body.match(/<tr\b[\s\S]*?<\/tr>/g) ?? [];
-  const cells = rows.flatMap((row) =>
-    (row.match(/<td\b[\s\S]*?<\/td>/g) ?? []).slice(1),
-  );
-  expect(cells).toHaveLength(6);
-  for (const cell of cells) {
-    expect(cell.match(/data-slot="status-badge"/g)).toHaveLength(1);
+it('서버 상태 건수를 표시하고 선택 상태로 서버 응답 행을 다시 필터링하지 않는다', () => {
+  const container = render({ status: 'SUBMITTED' });
+  expect(
+    container.querySelector(
+      '[aria-label="제출 상태 필터"] [aria-pressed="true"]',
+    )?.textContent,
+  ).toBe('검토 대기 5');
+  expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+  expect(
+    container.querySelector('button[aria-label="홍길동 단계별 상세"]'),
+  ).not.toBeNull();
+});
+
+it('마일스톤 열의 정렬 요청을 보내고 선택된 열만 정렬 방향을 나타낸다', () => {
+  const container = document.createElement('div');
+  const root = createRoot(container);
+  const onSort = vi.fn();
+  try {
+    act(() => root.render(view({ onSort })));
+    const proposal = [
+      ...container.querySelectorAll<HTMLButtonElement>('thead button'),
+    ].find((button) => button.textContent?.startsWith('기획서'));
+    expect(proposal).toBeDefined();
+    expect(
+      container.querySelector('th[aria-sort="descending"]')?.textContent,
+    ).toBe('진행');
+    act(() => proposal?.click());
+    expect(onSort).toHaveBeenCalledWith('milestone:proposal');
+    act(() =>
+      root.render(
+        view({ sort: 'milestone:proposal', direction: 'asc', onSort }),
+      ),
+    );
+    expect(container.querySelectorAll('th[aria-sort]')).toHaveLength(1);
+    expect(proposal?.closest('th')?.getAttribute('aria-sort')).toBe(
+      'ascending',
+    );
+  } finally {
+    act(() => root.unmount());
   }
+});
+
+it('팀 상세를 펼치면 제출 시각과 검토 링크가 나타나고 다시 누르면 닫힌다', () => {
+  const container = document.createElement('div');
+  const root = createRoot(container);
+  try {
+    act(() => root.render(view()));
+    const toggle = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="오픈소스팀 단계별 상세"]',
+    );
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(container.querySelector('tbody a')).toBeNull();
+    act(() => toggle?.click());
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+    const details = container.querySelector(
+      `tbody tr[id="${toggle?.getAttribute('aria-controls')}"]`,
+    );
+    expect(details?.textContent).toContain('08.19 10:00 제출 · v2');
+    expect(
+      [...(details?.querySelectorAll('a') ?? [])].map((link) =>
+        link.getAttribute('href'),
+      ),
+    ).toEqual([
+      '/programs/program-1/submissions/submission-existing/review',
+      '/programs/program-1/submissions/submission-rejected/review',
+    ]);
+    act(() => toggle?.click());
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(container.querySelector('tbody a')).toBeNull();
+  } finally {
+    act(() => root.unmount());
+  }
+});
+
+it('모바일 카드에서 제출된 단계만 검토 경로로 연결한다', () => {
+  const cards = render().querySelector('[aria-label="팀별 제출 현황"]');
+  expect(
+    [...(cards?.querySelectorAll('dd a') ?? [])].map((link) =>
+      link.getAttribute('href'),
+    ),
+  ).toEqual([
+    '/programs/program-1/submissions/submission-existing/review',
+    '/programs/program-1/submissions/submission-rejected/review',
+    '/programs/program-1/submissions/submission-approved/review',
+    '/programs/program-1/submissions/submission-changes-requested/review',
+  ]);
+});
+
+it('빈 서버 결과에서 상태, 검색, 미참여를 구분한다', () => {
+  const data = { ...matrixData, rows: [], total: 0 };
+  expect(render({ data }).textContent).toContain('참여 중인 신청이 없습니다');
+  const searched = render({ data, filterActive: true, search: '없는팀' });
+  expect(searched.textContent).toContain('검색 결과가 없습니다');
+  expect(searched.textContent).toContain('필터 초기화');
+  const filtered = render({ data, status: 'REJECTED' });
+  expect(filtered.textContent).toContain('조건에 맞는 팀이 없습니다');
+  expect(filtered.textContent).toContain('필터 초기화');
+  expect(filtered.querySelector('table')).toBeNull();
+});
+
+it('마일스톤이 없으면 프로그램 편집으로 추가를 안내한다', () => {
+  const container = render({
+    data: { ...matrixData, milestones: [], rows: [], total: 0 },
+  });
+  expect(container.textContent).toContain('마일스톤이 없습니다');
+  expect(
+    container.querySelector('a[href="/programs/program-1/edit"]')?.textContent,
+  ).toBe('마일스톤 추가');
+  expect(container.querySelector('[aria-label="제출 상태 필터"]')).toBeNull();
+});
+
+it('서버 전체 팀 수에 따라 페이지 탐색을 제공한다', () => {
+  const paged = render({ data: { ...matrixData, page: 2, total: 41 } });
+  expect(
+    paged.querySelector('nav[aria-label="제출 현황 페이지"]')?.textContent,
+  ).toBe('이전2 / 3다음');
+  expect(
+    render().querySelector('nav[aria-label="제출 현황 페이지"]'),
+  ).toBeNull();
+});
+
+it('로딩 중에는 표 대신 Skeleton을 표시하고 실패 시 다시 시도를 안내한다', () => {
+  const loading = render({ isLoading: true, data: null });
+  expect(loading.querySelector('[aria-busy="true"]')).not.toBeNull();
+  expect(loading.querySelector('table')).toBeNull();
+  const failed = render({
+    data: null,
+    errorMessage: '제출 현황을 불러오지 못했습니다.',
+  });
+  expect(failed.querySelector('[role="alert"]')?.textContent).toContain(
+    '제출 현황을 불러오지 못했습니다.',
+  );
+  expect(
+    [...failed.querySelectorAll('button')].some(
+      (button) => button.textContent === '다시 시도',
+    ),
+  ).toBe(true);
+});
+
+it('검색어 또는 상태 필터가 있을 때만 검색 폼 초기화를 제공한다', () => {
+  const searchForm = (overrides?: Partial<SubmissionMatrixViewProps>) =>
+    render(overrides).querySelector('form');
+  expect(searchForm()?.querySelector('input')?.placeholder).toContain(
+    '신청자·팀명·GitHub ID',
+  );
+  expect(searchForm()?.textContent).not.toContain('초기화');
+  expect(searchForm({ search: '홍길동' })?.textContent).toContain('초기화');
+  expect(searchForm({ status: 'NOT_SUBMITTED' })?.textContent).toContain(
+    '초기화',
+  );
 });

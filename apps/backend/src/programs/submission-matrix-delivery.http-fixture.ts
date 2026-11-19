@@ -1,8 +1,8 @@
-import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import { configureHttpApp } from '../configure-http-app';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { ProgramSubmissionsController } from './submissions.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -38,11 +38,7 @@ export async function createMatrixDeliveryHttp(
     .useMocker((token) => (token === Function ? undefined : {}))
     .compile();
   const application = module.createNestApplication();
-  application.setGlobalPrefix('api/v1');
-  application.useGlobalPipes(
-    new ValidationPipe({ transform: true, whitelist: true }),
-  );
-  application.useGlobalFilters(new ProblemDetailFilter());
+  configureHttpApp(application);
   await application.listen(0, '127.0.0.1');
   return application;
 }

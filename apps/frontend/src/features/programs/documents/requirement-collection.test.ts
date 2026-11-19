@@ -64,6 +64,7 @@ function row(
     deliveryStatus: 'MISSING',
     teamName: `${teamId}팀`,
     applicantName: '김철수',
+    leaderName: '김철수',
     memberNicknames: ['chulsoo'],
     cells: submitted.map((isSubmitted, index) => ({
       documentId: `d${index + 1}`,
@@ -89,7 +90,7 @@ describe('REQUIREMENT_COLLECTION_FILTER_LABELS', () => {
 });
 
 describe('collectionFilterCountFor', () => {
-  const counts = { all: 47, hasMissing: 12, zeroSubmission: 5 };
+  const counts = { all: 47, zeroSubmission: 5 };
 
   it('필터마다 서버가 준 수를 그대로 고른다', () => {
     expect(
@@ -231,9 +232,16 @@ describe('requirementCollectionDataFor', () => {
     page: 1,
     pageSize: 20,
     total: 0,
-    deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
+    deliveryCounts: { missing: 0, late: 0, complete: 0, noRequiredItems: 0 },
     filterCounts: { all: 0, zeroSubmission: 0 },
     documentTotals: [],
+    statusCounts: {
+      NOT_SUBMITTED: 0,
+      SUBMITTED: 0,
+      APPROVED: 0,
+      CHANGES_REQUESTED: 0,
+      REJECTED: 0,
+    },
   } satisfies RequirementCollection;
 
   it('조건이 같으면 그대로 그린다', () => {
@@ -350,6 +358,7 @@ describe('collectionRowMemberSummary', () => {
       collectionRowMemberSummary(
         row('a', [true], {
           applicantName: null,
+          leaderName: null,
           memberNicknames: ['chulsoo', 'younghee'],
         }),
       ),
@@ -359,7 +368,11 @@ describe('collectionRowMemberSummary', () => {
   it('이름도 계정도 없으면 아무 표기도 만들지 않는다 — 팀 이름만 남는다', () => {
     expect(
       collectionRowMemberSummary(
-        row('a', [true], { applicantName: null, memberNicknames: [] }),
+        row('a', [true], {
+          applicantName: null,
+          leaderName: null,
+          memberNicknames: [],
+        }),
       ),
     ).toBeNull();
   });

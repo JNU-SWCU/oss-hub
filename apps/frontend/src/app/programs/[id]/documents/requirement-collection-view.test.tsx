@@ -1,13 +1,17 @@
+import { StageSubmissionTable } from '@/features/submissions/components/submission-matrix-body';
+import { SubmissionStatusFilters } from '@/features/submissions/components/submission-matrix-controls';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { RequirementCollectionView } from './requirement-collection-view';
-import type { RequirementCollectionViewProps } from './requirement-collection-view';
+import {
+  RequirementCollectionView,
+  type RequirementCollectionViewProps,
+} from '@/features/programs/documents/requirement-collection-view';
 import type {
   RequirementCollection,
   RequirementCollectionCell,
   RequirementCollectionDocument,
   RequirementCollectionRow,
-} from './requirement-collection-dto';
+} from '@/features/programs/documents/requirement-collection-dto';
 
 function document(
   id: string,
@@ -38,12 +42,6 @@ function cell(
   };
 }
 
-function badgeTexts(html: string): readonly string[] {
-  return [...html.matchAll(/data-slot="status-badge"[^>]*>([^<]*)</g)].map(
-    (match) => match[1] ?? '',
-  );
-}
-
 function missingCell(documentId: string): RequirementCollectionCell {
   return cell(documentId, {
     isSubmitted: false,
@@ -62,6 +60,7 @@ function row(
     deliveryStatus: 'MISSING',
     teamName: `${teamId}팀`,
     applicantName: '김철수',
+    leaderName: '김철수',
     memberNicknames: ['chulsoo', 'younghee'],
     cells,
     ...overrides,
@@ -85,11 +84,18 @@ function collection(
     rows,
     page: 1,
     pageSize: 20,
-    total: rows.length,
+    total: rows.reduce((count, row) => count + row.cells.length, 0),
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: {
       all: rows.length,
       zeroSubmission: rows.length,
+    },
+    statusCounts: {
+      NOT_SUBMITTED: 12,
+      SUBMITTED: 7,
+      CHANGES_REQUESTED: 2,
+      REJECTED: 1,
+      APPROVED: 3,
     },
     documentTotals: documents.map((item) => ({
       documentId: item.id,
@@ -111,9 +117,12 @@ function render(
       searchQuery=""
       onSearchChange={() => {}}
       onSearch={() => {}}
-      filter="ALL"
-      documentSelection={null}
-      onDocumentSelectionChange={() => {}}
+      Table={StageSubmissionTable<RequirementCollectionCell>}
+      StatusFilters={SubmissionStatusFilters}
+      sort="team"
+      direction="asc"
+      onSort={() => {}}
+      onStatusChange={() => {}}
       loadPhase="idle"
       errorMessage={null}
       review={null}
@@ -121,7 +130,6 @@ function render(
       archiveGrouping="TEAM"
       onArchiveGroupingChange={() => {}}
       onResetFilters={() => {}}
-      onFilterChange={() => {}}
       onPageChange={() => {}}
       onRetry={() => {}}
       onReviewOpen={() => {}}
@@ -268,7 +276,7 @@ describe('RequirementCollectionView 표', () => {
     });
 
     expect(html).toContain('가팀');
-    expect(html).toContain('합계');
+    expect(html).toContain('제출 상태');
     expect(html).not.toContain('서류 수합 표를 불러오는 중');
 
     expect(html).toContain('aria-busy="true"');
@@ -291,13 +299,6 @@ describe('RequirementCollectionView 표', () => {
     expect(html).not.toContain('합계');
   });
 
-  it('필수 서류에만 별표를 붙인다', () => {
-    const html = render({ data: collection(documents, rows) });
-
-    expect(html).toContain('기획서<span aria-label="필수"');
-    expect(html).not.toContain('중간 보고<span aria-label="필수"');
-  });
-
   it('파일 제출은 파일명을 다운로드 링크로 걸고 전체 이름을 title로 남긴다', () => {
     const html = render({ data: collection(documents, rows) });
 
@@ -313,7 +314,6 @@ describe('RequirementCollectionView 표', () => {
     expect(html).toContain(
       'title="아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf"',
     );
-    expect(html).toContain('truncate');
   });
 
   it('첨부가 없는 제출은 링크 없이 상태 배지만 적는다', () => {
@@ -329,9 +329,8 @@ describe('RequirementCollectionView 표', () => {
 
     expect(html).toContain('미제출');
     expect(html).toContain('가팀');
-    expect(html).toContain('김철수 외 1명');
-
-    expect(html).toContain('nameless');
+    expect(html).toContain('팀장 김철수');
+    expect(html).toContain('/programs/program-capstone/teams/a');
   });
 
   it('첫 열은 가로 스크롤에도 남는다', () => {
@@ -400,7 +399,8 @@ describe('RequirementCollectionView 표', () => {
       ]),
     });
 
-    expect(badgeTexts(html)).toEqual(['미제출', '검토 대기', '미제출']);
+    expect(html.match(/<tbody[\s\S]*?<\/tbody>/)?.[0]).toContain('검토 대기');
+    expect(html.match(/<thead[\s\S]*?<\/thead>/)?.[0]).toContain('최근 검토');
   });
 
   it('판정이 붙어도 필터 칩과 합계는 서버가 준 값 그대로다', () => {
@@ -440,11 +440,10 @@ describe('RequirementCollectionView 표', () => {
 
     const html = render({ data: reviewed });
 
-    expect(html).toContain('전체 47');
-    expect(html).toContain('미제출 12');
-    expect(html).toContain('전부 미제출 5');
-    expect(html).toContain('제출 30 / 전체 47');
-    expect(html).toContain('제출 12 / 전체 47');
+    expect(html).toMatch(/전체[^<]*<span[^>]*>25<\/span>/);
+    expect(html).toMatch(/미제출[^<]*<span[^>]*>12<\/span>/);
+    expect(html).toContain('서류 2종');
+    expect(html).not.toContain('서류별 요약');
   });
 
   it('제출된 칸에만 판정을 여는 버튼을 단다', () => {
@@ -459,6 +458,7 @@ describe('RequirementCollectionView 표', () => {
       data: collection(documents, rows),
       review: {
         target: { teamId: 'a', documentId: 'd1' },
+        cell: cell('d1'),
         version: { expectedRevision: 1, expectedLatestReviewId: null },
         decision: null,
         comment: '',
@@ -479,79 +479,6 @@ describe('RequirementCollectionView 표', () => {
     expect(html).toContain('whitespace-normal');
   });
 
-  it('표 아래 합계 행은 서버가 준 전체 기준 합계를 적는다', () => {
-    const html = render({
-      data: collection(documents, rows, {
-        documentTotals: [
-          { documentId: 'd1', submitted: 30, total: 47 },
-          { documentId: 'd2', submitted: 12, total: 47 },
-        ],
-      }),
-    });
-
-    const footer = html.slice(html.indexOf('<tfoot'));
-
-    expect(footer).toContain('합계');
-    expect(footer).toMatch(
-      /합계[\s\S]*제출 30 \/ 전체 47[\s\S]*제출 12 \/ 전체 47/,
-    );
-  });
-
-  it('합계가 빠진 서류도 열을 밀지 않고 0 / 0으로 남는다', () => {
-    const html = render({
-      data: collection(documents, rows, {
-        documentTotals: [{ documentId: 'd2', submitted: 12, total: 47 }],
-      }),
-    });
-    const footer = html.slice(html.indexOf('<tfoot'));
-
-    expect(footer).toMatch(
-      /합계[\s\S]*제출 0 \/ 전체 0[\s\S]*제출 12 \/ 전체 47/,
-    );
-  });
-
-  it('빠른 필터 버튼마다 서버가 준 전체 기준 팀 수를 적는다', () => {
-    const html = render({
-      data: collection(documents, rows, {
-        deliveryCounts: {
-          missing: 12,
-          late: 10,
-          complete: 20,
-          noRequiredItems: 5,
-        },
-        filterCounts: { all: 47, zeroSubmission: 5 },
-      }),
-    });
-
-    expect(html).toContain('전체 47');
-    expect(html).toContain('미제출 12');
-    expect(html).toContain('전부 미제출 5');
-    expect(html).toContain('필수 서류 없음 5');
-  });
-
-  it.each(['ALL', 'NO_REQUIRED_ITEMS'] as const)(
-    '필수 서류 없는 팀이 0이면 %s 필터에서도 그 칩을 숨긴다',
-    (filter) => {
-      const data = collection(documents, rows, {
-        deliveryCounts: {
-          missing: 2,
-          late: 0,
-          complete: 1,
-          noRequiredItems: 0,
-        },
-        filterCounts: { all: 3, zeroSubmission: 1 },
-      });
-
-      expect(render({ data, filter })).not.toContain('필수 서류 없음 0');
-    },
-  );
-
-  it('필수 기준임이 드러나지 않는 옛 문구를 쓰지 않는다', () => {
-    const html = render({ data: collection(documents, rows) });
-
-    expect(html).not.toContain('미제출 있는 팀');
-  });
-
   it('받은 행을 화면에서 다시 거르지 않는다', () => {
     const html = render({
       data: collection(documents, rows, {
@@ -564,7 +491,7 @@ describe('RequirementCollectionView 표', () => {
         },
         filterCounts: { all: 3, zeroSubmission: 3 },
       }),
-      filter: 'ZERO_SUBMISSION',
+      status: 'NOT_SUBMITTED',
     });
 
     expect(html).toContain('가팀');
@@ -584,15 +511,15 @@ describe('RequirementCollectionView 표', () => {
         },
         filterCounts: { all: 47, zeroSubmission: 0 },
       }),
-      filter: 'ZERO_SUBMISSION',
+      status: 'NOT_SUBMITTED',
     });
 
-    expect(html).toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('조건에 맞는 제출 항목이 없습니다');
     expect(html).toContain('전체 보기');
 
     expect(html).not.toContain('아직 승인된 신청이 없습니다');
 
-    expect(html).toContain('전체 47');
+    expect(html).toMatch(/전체[^<]*<span[^>]*>25<\/span>/);
   });
 });
 
@@ -649,14 +576,12 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
     const html = render({ data: collection(documents, rows) });
 
     expect(html).toContain(
-      '빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
+      '검색·필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
     );
 
     expect(html).toContain(
       'aria-describedby="milestone-document-collection-archive-hint milestone-document-download-behavior-hint"',
     );
-
-    expect(html).toContain('id="milestone-document-collection-scroll-hint"');
   });
 
   it('진행·완료와 오류가 브라우저에서 어떻게 보이는지 밝힌다', () => {
@@ -668,7 +593,7 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
     expect(html).toContain('id="milestone-document-download-behavior-hint"');
   });
 
-  it('표를 그리지 않는 빈 상태에서는 ZIP 조작도 그리지 않는다', () => {
+  it('서류가 없는 단계와 다른 프로그램에서는 ZIP 조작을 그리지 않는다', () => {
     const noDocuments = render({ data: collection([], []) });
     const noApplications = render({ data: collection(documents, []) });
     const wrongProgram = render({
@@ -692,7 +617,7 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
     });
 
     expect(noDocuments).not.toContain('전체 내려받기');
-    expect(noApplications).not.toContain('전체 내려받기');
+    expect(noApplications).toContain('전체 내려받기');
     expect(wrongProgram).not.toContain('전체 내려받기');
 
     expect(wrongProgram).not.toContain('milestone-9');
@@ -714,10 +639,10 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
         },
         filterCounts: { all: 47, zeroSubmission: 0 },
       }),
-      filter: 'ZERO_SUBMISSION',
+      status: 'NOT_SUBMITTED',
     });
 
-    expect(html).toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('조건에 맞는 제출 항목이 없습니다');
     expect(html).toContain('전체 내려받기(ZIP)');
     expect(html).toContain(TEAM_HREF);
   });
@@ -736,20 +661,11 @@ describe('RequirementCollectionView 전체 내려받기(ZIP)', () => {
         },
         filterCounts: { all: 47, zeroSubmission: 0 },
       }),
-      filter: 'HAS_MISSING',
+      status: 'NOT_SUBMITTED',
     });
 
-    expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
+    expect(html).toContain('이 페이지에는 더 이상 제출 항목이 없습니다');
     expect(html).toContain('전체 내려받기(ZIP)');
-  });
-
-  it('좁은 화면에서는 필터 칩 줄과 ZIP 조작이 세로로 쌓인다', () => {
-    const html = render({ data: collection(documents, rows) });
-
-    expect(html).toContain('flex min-w-0 flex-col gap-4 sm:flex-row');
-    expect(html).toContain(
-      '<span class="whitespace-nowrap">스크롤해 확인하세요.</span>',
-    );
   });
 });
 
@@ -831,11 +747,11 @@ describe('RequirementCollectionView 서류별 내려받기(ZIP)', () => {
       'aria-describedby="milestone-document-collection-archive-hint milestone-document-download-behavior-hint"',
     );
     expect(html).toContain(
-      '빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
+      '검색·필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.',
     );
   });
 
-  it('표를 그리지 않는 빈 상태에서는 나오지 않는다', () => {
+  it('등록된 서류의 ZIP은 팀이나 필터 결과가 없어도 유지한다', () => {
     const noDocuments = render({ data: collection([], []) });
     const noApplications = render({ data: collection(documents, []) });
     const noFilterResults = render({
@@ -849,16 +765,16 @@ describe('RequirementCollectionView 서류별 내려받기(ZIP)', () => {
         },
         filterCounts: { all: 47, zeroSubmission: 0 },
       }),
-      filter: 'ZERO_SUBMISSION',
+      status: 'NOT_SUBMITTED',
     });
 
     expect(noDocuments).not.toContain('documentId=');
-    expect(noApplications).not.toContain('documentId=');
-    expect(noFilterResults).not.toContain('documentId=');
+    expect(noApplications).toContain('documentId=');
+    expect(noFilterResults).toContain('documentId=');
 
     expect(noDocuments).toContain('등록된 제출 항목이 없습니다');
     expect(noApplications).toContain('아직 승인된 신청이 없습니다');
-    expect(noFilterResults).toContain('조건에 맞는 팀이 없습니다');
+    expect(noFilterResults).toContain('조건에 맞는 제출 항목이 없습니다');
   });
 
   it('다른 프로그램의 마일스톤이면 서류별 링크도 남기지 않는다', () => {
@@ -886,13 +802,6 @@ describe('RequirementCollectionView 서류별 내려받기(ZIP)', () => {
     expect(html).not.toContain('milestone-9');
     expect(html).toContain('찾을 수 없는 마일스톤입니다');
   });
-
-  it('필수 표시와 서류명을 그대로 두고 옆에 붙는다', () => {
-    const html = render({ data: collection(documents, rows) });
-
-    expect(html).toContain('기획서');
-    expect(html).toContain('aria-label="필수"');
-  });
 });
 
 describe('RequirementCollectionView 팀 검색', () => {
@@ -901,6 +810,7 @@ describe('RequirementCollectionView 팀 검색', () => {
     row('a', [missingCell('d1')], {
       teamName: '오픈소스팀',
       applicantName: '김철수',
+      leaderName: '김철수',
       memberNicknames: ['chulsoo'],
     }),
     row('b', [missingCell('d1')], {
@@ -918,85 +828,24 @@ describe('RequirementCollectionView 팀 검색', () => {
     expect(html).toContain('value="hong"');
   });
 
-  it('검색어가 있으면 맞는 팀만 남기고 결과 수를 알린다', () => {
-    const html = render({
-      data: collection(documents, rows),
-      search: 'hong',
-      searchQuery: 'hong',
-    });
-
-    expect(html).toContain('두번째팀');
-    expect(html).not.toContain('오픈소스팀');
-    expect(html).toContain('검색 결과 1개 팀');
-  });
-
-  it.each(['오픈소스', 'CHULSOO', '김철수'])(
-    '팀명·GitHub ID·신청자로 찾는다: %s',
-    (query) => {
-      const html = render({
-        data: collection(documents, rows),
-        search: query,
-        searchQuery: query,
-      });
-
-      expect(html).toContain('오픈소스팀');
-      expect(html).not.toContain('두번째팀');
-    },
-  );
-
   it('검색 결과가 없으면 전체 보기를 권하는 빈 상태를 보인다', () => {
     const html = render({
-      data: collection(documents, rows),
+      data: collection(documents, []),
       search: '없는팀',
       searchQuery: '없는팀',
     });
 
-    expect(html).toContain('조건에 맞는 팀이 없습니다');
+    expect(html).toContain('조건에 맞는 제출 항목이 없습니다');
     expect(html).toContain('전체 보기');
   });
 
-  it('불러온 범위에 맞는 팀이 하나도 없어도 범위 알림을 붙인다', () => {
+  it('paginates server search results without a client-side search bound', () => {
     const html = render({
-      data: collection(documents, rows, {
-        total: 120,
-        filterCounts: { all: 120, zeroSubmission: 0 },
-      }),
-      search: '없는팀',
-      searchQuery: '없는팀',
+      data: collection(documents, rows, { total: 47 }),
+      searchQuery: 'leader',
     });
-
-    expect(html).toContain('milestone-document-search-bound');
-    expect(html).toContain('먼저 불러온 2개 팀 안에서만 찾습니다');
-    expect(html).not.toContain('조건에 맞는 팀이 없습니다');
-    expect(html).toContain('전체 보기');
-  });
-
-  it('검색 중에는 페이지 이동을 두지 않고, 불러온 범위 밖이 남았으면 알린다', () => {
-    const html = render({
-      data: collection(documents, rows, {
-        total: 120,
-        filterCounts: { all: 120, zeroSubmission: 0 },
-      }),
-      search: 'hong',
-      searchQuery: 'hong',
-    });
-
-    expect(html).not.toContain('aria-label="서류 수합 페이지"');
-    expect(html).toContain('milestone-document-search-bound');
-    expect(html).toContain('먼저 불러온 2개 팀 안에서만 찾습니다');
-  });
-
-  it('검색어가 없으면 페이지 안내와 이동을 그대로 둔다', () => {
-    const html = render({
-      data: collection(documents, rows, {
-        total: 47,
-        filterCounts: { all: 47, zeroSubmission: 0 },
-      }),
-    });
-
-    expect(html).toContain('이 페이지 2개 팀(조건에 맞는 전체 47개)');
-    expect(html).toContain('aria-label="서류 수합 페이지"');
-    expect(html).not.toContain('milestone-document-search-bound');
+    expect(html).toContain('서류 수합 페이지');
+    expect(html).not.toContain('먼저 불러온');
   });
 });
 
@@ -1046,12 +895,6 @@ describe('RequirementCollectionView 페이지 이동', () => {
     ).toContain('disabled');
   });
 
-  it('이 페이지 행 수와 조건에 맞는 전체 행 수를 함께 적는다', () => {
-    const html = render({ data: paged(2, 47) });
-
-    expect(html).toContain('이 페이지 1개 팀(조건에 맞는 전체 47개)');
-  });
-
   it('결과가 줄어 지금 페이지가 사라지면 되돌아갈 버튼을 준다', () => {
     const html = render({
       data: collection(documents, [], {
@@ -1066,13 +909,13 @@ describe('RequirementCollectionView 페이지 이동', () => {
         },
         filterCounts: { all: 47, zeroSubmission: 0 },
       }),
-      filter: 'HAS_MISSING',
+      status: 'NOT_SUBMITTED',
     });
 
-    expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
+    expect(html).toContain('이 페이지에는 더 이상 제출 항목이 없습니다');
     expect(html).toContain('1페이지로 이동');
 
-    expect(html).toContain('미제출 5');
+    expect(html).toMatch(/미제출[^<]*<span[^>]*>12<\/span>/);
 
     expect(html).not.toContain('이 페이지 0개');
   });
@@ -1109,6 +952,6 @@ it('필수 서류를 모두 낸 팀의 반려 결과를 제출 완료와 구분�
       ],
     ),
   });
-  expect(html).toContain('>팀별 필수 서류 제출 상태</p>');
-  expect(badgeTexts(html)).toEqual(['제출 완료', '반려']);
+  expect(html.match(/<tbody[\s\S]*?<\/tbody>/)?.[0]).toContain('반려');
+  expect(html).not.toContain('제출 완료');
 });
