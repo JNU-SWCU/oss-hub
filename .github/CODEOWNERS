@@ -1,6 +1,5 @@
 
 /.github/        @GoBeromsu
-/.design-sync/contract.test.mjs @GoBeromsu
 /.githooks/pre-commit.test.sh    @GoBeromsu
 /dev.sh                        @GoBeromsu
 /verify/                       @GoBeromsu
