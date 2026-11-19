@@ -84,6 +84,9 @@ async function fetchRankingPages(
 }
 
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
+let timelineLeaderPersonas: Awaited<ReturnType<typeof harness.createUser>>[];
+let timelineOwner: Awaited<ReturnType<typeof harness.createUser>>;
+const SHARED_LOGIN = 'persona-shared-login';
 
 let canonicalOnlyStudentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
@@ -212,6 +215,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       undefined,
       MemberKind.STUDENT,
     );
+    studentPersona = await harness.prisma.user.update({
+      where: { id: studentPersona.id },
+      data: { nickname: 'persona-timeline-self' },
+      select: { id: true, githubId: true, nickname: true },
+    });
     canonicalOnlyStudentPersona = await harness.createUser(
       'canonical-only-student',
       'STUDENT',
@@ -230,6 +238,31 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       undefined,
       MemberKind.STAFF,
     );
+    timelineLeaderPersonas = [];
+    for (let index = 0; index < 10; index += 1) {
+      timelineLeaderPersonas.push(
+        await harness.createUser(
+          `timeline-leader-${index}`,
+          'STUDENT',
+          undefined,
+          MemberKind.STUDENT,
+        ),
+      );
+    }
+    timelineOwner = await harness.createUser(
+      'timeline-owner',
+      'STUDENT',
+      undefined,
+      MemberKind.STUDENT,
+    );
+    const sharedLeader = timelineLeaderPersonas[0];
+    if (!sharedLeader) throw new Error('Expected a timeline leader');
+    await harness.prisma.user.updateMany({
+      where: {
+        githubId: { in: [sharedLeader.githubId, timelineOwner.githubId] },
+      },
+      data: { nickname: SHARED_LOGIN },
+    });
 
     const published = await createRepositoryFixture({
       key: 'published',
@@ -289,6 +322,30 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           starCount: 1_000,
           observedAt: new Date('2025-12-31T00:00:00.000Z'),
         },
+        ...timelineLeaderPersonas.map((persona, index) => ({
+          githubId: persona.githubId,
+          visibility: 'PUBLIC' as const,
+          year: RANKING_FIXTURE_YEAR,
+          commitCount: 10_000 + index,
+          observedAt: new Date('2026-08-18T00:00:00.000Z'),
+        })),
+        ...[
+          { githubId: sharedLeader.githubId, commitCount: 50 },
+          { githubId: timelineOwner.githubId, commitCount: 5 },
+        ].map(({ githubId, commitCount }) => ({
+          githubId,
+          commitCount,
+          year: RANKING_FIXTURE_YEAR - 1,
+          observedAt: new Date('2025-12-20T00:00:00.000Z'),
+          visibility: 'PUBLIC' as const,
+        })),
+        {
+          githubId: timelineOwner.githubId,
+          commitCount: 7,
+          year: RANKING_FIXTURE_YEAR,
+          observedAt: new Date('2026-08-18T00:00:00.000Z'),
+          visibility: 'PUBLIC',
+        },
       ],
     });
 
@@ -310,7 +367,15 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
   afterAll(async () => {
     try {
       await harness.prisma.githubUserActivityObservation.deleteMany({
-        where: { githubId: studentPersona.githubId },
+        where: {
+          githubId: {
+            in: [
+              studentPersona.githubId,
+              timelineOwner.githubId,
+              ...timelineLeaderPersonas.map(({ githubId }) => githubId),
+            ],
+          },
+        },
       });
       await harness.prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
@@ -709,6 +774,52 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(order(staff.items)).toEqual(order(anonymous.items));
     expect(order(admin.items)).toEqual(order(anonymous.items));
   });
+
+  it.each(['all', String(RANKING_FIXTURE_YEAR)])(
+    'keeps the public leader and same-login owner separate for %s',
+    async (year) => {
+      const path = `/ranking/timeline?year=${year}&viewer=${SHARED_LOGIN.toUpperCase()}`;
+      const [anonymous, self, other] = await Promise.all([
+        harness.request('GET', path),
+        harness.request('GET', path, timelineOwner.githubId),
+        harness.request('GET', path, canonicalOnlyStudentPersona.githubId),
+      ]);
+
+      expect([anonymous.status, self.status, other.status]).toEqual([
+        200, 200, 200,
+      ]);
+      type TimelineBody = {
+        series: {
+          githubLogin: string;
+          ranks: (number | null)[];
+          totals: (number | null)[];
+        }[];
+      };
+      const { series: leaders } = (await anonymous.json()) as TimelineBody;
+      const { series: own } = (await self.json()) as TimelineBody;
+      expect(((await other.json()) as TimelineBody).series).toEqual(leaders);
+      expect(leaders).toHaveLength(10);
+      expect(own.slice(0, -1)).toEqual(leaders);
+      const pair = own.filter((row) => row.githubLogin === SHARED_LOGIN);
+      expect(pair.map((row) => [row.ranks.at(-1), row.totals.at(-1)])).toEqual(
+        year === 'all'
+          ? [
+              [1, 10050],
+              [12, 12],
+            ]
+          : [
+              [10, 10000],
+              [12, 7],
+            ],
+      );
+      if (year === 'all') {
+        expect(pair.map((row) => [row.ranks[0], row.totals[0]])).toEqual([
+          [2, 50],
+          [3, 5],
+        ]);
+      }
+    },
+  );
 
   it('연도 질의는 그 해 관측만 합산한다 — 지난 연도 행이 있어도 섞이지 않는다', async () => {
     const path = `/ranking?year=${RANKING_FIXTURE_YEAR}`;

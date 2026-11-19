@@ -26,107 +26,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 변경 감지
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            frontend:
-              - 'apps/frontend/**'
-              - 'verify/**'
-              - '.githooks/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - 'pnpm-lock.yaml'
-              - 'compose*.yml'
-              - '.github/workflows/**'
-            backend:
-              - 'apps/backend/**'
-              - 'verify/**'
-              - '.githooks/**'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - 'pnpm-lock.yaml'
-              - 'compose*.yml'
-              - '.github/workflows/**'
-            nginx:
-              - 'deploy/nginx/**'
-              - 'deploy/host-nginx/**'
-              - 'deploy/checks/**'
-              - '.github/workflows/**'
-            jenkins:
-              - 'Jenkinsfile'
-              - 'compose.yml'
-              - 'apps/*/Dockerfile'
-              - '.dockerignore'
-              - '.env.example'
-              - 'deploy/jenkins/**'
-              - 'deploy/nginx/**'
-              - 'deploy/host-nginx/**'
-              - '.github/workflows/**'
-            shell_scripts:
-              - 'dev.sh'
-              - 'deploy/**/*.sh'
-              - 'apps/backend/prisma/**/*.sh'
-              - 'apps/backend/test/**/*.sh'
-              - '.github/**/*.sh'
-              - '.githooks/**'
-              - '.github/workflows/**'
-            node_scripts:
-              - 'deploy/**/*.mjs'
-              - 'verify/**/*.mjs'
-              - '.github/workflows/**'
-            rails:
-              - 'apps/backend/**'
-              - 'apps/frontend/**'
-              - 'eslint.shared.mjs'
-              - 'eslint-rules/**'
-              - 'knip.json'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-              - 'pnpm-lock.yaml'
-              - '.github/workflows/**'
-
-      - name: 실행 스코프 결정
-        id: scope
+      - name: push 기준 커밋 확보
+        if: github.event_name == 'push'
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          FRONTEND: ${{ steps.changes.outputs.frontend }}
-          BACKEND: ${{ steps.changes.outputs.backend }}
-          NGINX: ${{ steps.changes.outputs.nginx }}
-          JENKINS: ${{ steps.changes.outputs.jenkins }}
-          SHELL_SCRIPTS: ${{ steps.changes.outputs.shell_scripts }}
-          NODE_SCRIPTS: ${{ steps.changes.outputs.node_scripts }}
-          RAILS: ${{ steps.changes.outputs.rails }}
+          BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          if [ "$EVENT_NAME" = push ]; then
-            FRONTEND=true
-            BACKEND=true
-            NGINX=true
-            JENKINS=true
-            SHELL_SCRIPTS=true
-            NODE_SCRIPTS=true
-            RAILS=true
+          if [ -n "${BEFORE//0/}" ] && ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$BEFORE"
           fi
-          if [ "$RAILS" = true ]; then
-            FRONTEND=true
-            BACKEND=true
-          fi
-          {
-            echo "frontend=$FRONTEND"
-            echo "backend=$BACKEND"
-            echo "nginx=$NGINX"
-            echo "jenkins=$JENKINS"
-            echo "shell_scripts=$SHELL_SCRIPTS"
-            echo "node_scripts=$NODE_SCRIPTS"
-            echo "rails=$RAILS"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Node 설정
         uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: 실행 스코프 결정
+        id: scope
+        run: |
+          set -euo pipefail
+          node verify/index.mjs scope > "$RUNNER_TEMP/verify-scope.json"
+          jq -r '
+            "frontend=\(.frontend)",
+            "backend=\(.backend)",
+            "nginx=\(.nginx)",
+            "jenkins=\(.jenkins)",
+            "shell_scripts=\(.shellScripts)",
+            "node_scripts=\(.nodeScripts)",
+            "rails=\(.rails)"
+          ' "$RUNNER_TEMP/verify-scope.json" >> "$GITHUB_OUTPUT"
 
       - name: 릴리스 배포 스코프 판정 단위테스트
         run: node --test deploy/frontend/select-release-deploy-scope.test.mjs
@@ -321,7 +249,7 @@ jobs:
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
         run: pnpm test:verify
 
-      - name: 스코프별 verify (secrets, URL IA 보고, API 계약, 쿼리 게이트)
+      - name: 스코프별 verify (secrets, API 계약, 쿼리 게이트)
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node verify/index.mjs scoped

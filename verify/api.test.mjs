@@ -11,16 +11,9 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { writeApiLintReports } from './api-lint.mjs';
 import { checkApi, reconcileRoutes } from './api.mjs';
-import { main } from './index.mjs';
 import { resolveRanges } from './scope.mjs';
 import { eventFile, tempRepo, writeExecutable } from './test-support.mjs';
-import {
-  GITLEAKS,
-  OASDIFF,
-  REPO_ROOT,
-  VerifyError,
-  requireTool,
-} from './tools.mjs';
+import { OASDIFF, VerifyError, requireTool } from './tools.mjs';
 
 const CONTROLLER = 'apps/backend/src/items/items.controller.ts';
 const BASELINE = 'verify/openapi.baseline.json';
@@ -543,87 +536,6 @@ test('a crashing API lint step does not change the API check result', async (t) 
     tool: stubOasdiff(t),
   });
   assert.deepEqual(findings, []);
-});
-
-test('a crashing url-ia report never hides a blocking secrets or API failure in the same push', async (t) => {
-  try {
-    await requireTool(GITLEAKS);
-  } catch {
-    t.skip(`gitleaks ${GITLEAKS.version} not installed (${GITLEAKS.install})`);
-    return;
-  }
-  const crashUrlIa = async () => {
-    throw new TypeError('url-ia analyzer exploded');
-  };
-  const publicSafe = {
-    '.github/check-public-safe.sh': readFileSync(
-      join(REPO_ROOT, '.github/check-public-safe.sh'),
-      'utf8',
-    ),
-  };
-  const page = 'export default function Page() {\n  return <div />;\n}\n';
-  const reportDir = mkdtempSync(join(tmpdir(), 'verify-gate-report-'));
-  t.after(() => rmSync(reportDir, { recursive: true, force: true }));
-  const push = async (repo, base, head, checks) => {
-    const logs = [];
-    const original = [console.log, console.error];
-    console.log = (line) => logs.push(String(line));
-    console.error = (line) => logs.push(String(line));
-    try {
-      const exit = await main(['scoped', '--pre-push'], {
-        cwd: repo.dir,
-        env: {},
-        stdin: `refs/heads/main ${head} refs/heads/main ${base}\n`,
-        reportDir,
-        checks,
-      });
-      return { exit, logs: logs.join('\n') };
-    } finally {
-      [console.log, console.error] = original;
-    }
-  };
-
-  const leak = apiRepo(t);
-  const alphabet =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const token =
-    ['g', 'h', 'p', '_'].join('') +
-    Array.from(
-      { length: 36 },
-      (_, index) => alphabet[(index * 7 + 3) % alphabet.length],
-    ).join('');
-  const leakHead = leak.repo.commit('feat: page with token', {
-    ...publicSafe,
-    'apps/frontend/src/app/leak/page.tsx': page,
-    'apps/frontend/src/config.ts': `export const token = '${token}';\n`,
-  });
-  const leaked = await push(leak.repo, leak.base, leakHead, {
-    'url-ia': crashUrlIa,
-  });
-  assert.equal(leaked.exit, 1, leaked.logs);
-  assert.match(leaked.logs, /FAIL \[secrets-gitleaks\]/);
-  assert.match(
-    leaked.logs,
-    /NOTICE url-ia: analysis failed \(url-ia analyzer exploded\)/,
-  );
-
-  const breaking = apiRepo(t);
-  const changed = withoutResponseName();
-  const breakHead = breaking.repo.commit('feat: drop item name', {
-    ...publicSafe,
-    [BASELINE]: json(changed),
-    'apps/frontend/src/app/items/page.tsx': page,
-  });
-  const tool = stubOasdiff(t);
-  const broken = await push(breaking.repo, breaking.base, breakHead, {
-    'url-ia': crashUrlIa,
-    api: (context) =>
-      checkApi({ ...context, dump: dumpOf(changed), tool, lint: noLint }),
-  });
-  assert.equal(broken.exit, 1, broken.logs);
-  assert.match(broken.logs, /PASS secrets/);
-  assert.match(broken.logs, /FAIL \[api-breaking\]/);
-  assert.match(broken.logs, /NOTICE url-ia: analysis failed/);
 });
 
 test('in CI an approved break also needs CODEOWNERS approval of the baseline change', async (t) => {

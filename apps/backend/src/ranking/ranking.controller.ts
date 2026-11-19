@@ -40,7 +40,7 @@ export class RankingController {
   }
 
   @Get('timeline')
-  @Public()
+  @OptionalSession()
   @Header('Cache-Control', 'no-store')
   @ApiExtraModels(RankingTimelineResponseDto, RankingAllTimelineResponseDto)
   @ApiOkResponse({
@@ -53,8 +53,12 @@ export class RankingController {
   })
   async findTimeline(
     @Query() query: RankingTimelineRequestDto,
+    @Req() request: OptionalSessionRequest,
   ): Promise<RankingTimelineResponseDto | RankingAllTimelineResponseDto> {
-    const timeline = await this.rankingTimeline.findTimelineFromRequest(query);
+    const timeline = await this.rankingTimeline.findTimelineFromRequest(
+      query,
+      request.auth,
+    );
     return timeline.year === 'all'
       ? RankingAllTimelineResponseDto.from(timeline)
       : RankingTimelineResponseDto.from(timeline);
