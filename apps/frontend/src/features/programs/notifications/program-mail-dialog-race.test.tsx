@@ -87,6 +87,8 @@ describe('ProgramMailDialog request sequencing', () => {
   let trigger: HTMLButtonElement;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(preview.previewedAt));
     getProgramMailRecipientsMock.mockReset().mockResolvedValue(recipients);
     previewProgramMailMock.mockReset().mockResolvedValue(preview);
     sendProgramMailMock.mockReset().mockResolvedValue({
@@ -104,6 +106,7 @@ describe('ProgramMailDialog request sequencing', () => {
     await mounted?.unmount();
     mounted = undefined;
     trigger.remove();
+    vi.useRealTimers();
   });
 
   it.each(['before-latest-request', 'old-first', 'latest-first'])(

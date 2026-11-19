@@ -1,8 +1,18 @@
 'use client';
 
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  MailDialogErrorNotice,
+  PREVIEW_EXPIRED,
+  type MailDialogError,
+} from './mail-dialog-error';
 import { Button } from '@/components/ui/button';
 import { DialogShell, FailureState } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
@@ -18,6 +28,7 @@ import type {
 import {
   ProgramMailCompose,
   ProgramMailPreviewView,
+  ProgramMailResult,
 } from './program-mail-compose';
 import {
   canSendProgramMail,
@@ -27,6 +38,7 @@ import {
   type ProgramMailDialogBusy,
   type ProgramMailDialogDraft,
 } from './program-mail-dialog-state';
+import { usePreviewExpiry } from './use-preview-expiry';
 
 export function ProgramMailDialog({
   programId,
@@ -51,7 +63,7 @@ export function ProgramMailDialog({
   } | null>(null);
   const [result, setResult] = useState<ProgramMailSendResult | null>(null);
   const [busy, setBusy] = useState<ProgramMailDialogBusy>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MailDialogError>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const draftRef = useRef(EMPTY_PROGRAM_MAIL_DRAFT);
   const previewRequestVersion = useRef(0);
@@ -60,6 +72,14 @@ export function ProgramMailDialog({
   const preview = loaded?.preview ?? null;
   const recipientLimit = recipientsQuery.data?.recipientLimit;
   const canSend = canSendProgramMail(preview, recipientLimit, busy);
+  const expirePreview = useCallback(() => {
+    setLoaded(null);
+    setError(PREVIEW_EXPIRED);
+  }, []);
+  const expireIfDue = usePreviewExpiry(
+    busy === null && result === null ? preview?.expiresAt : undefined,
+    expirePreview,
+  );
 
   useEffect(() => {
     if (open) return;
@@ -137,7 +157,8 @@ export function ProgramMailDialog({
     if (
       !canSend ||
       loaded?.version !== previewRequestVersion.current ||
-      sendInFlight.current
+      sendInFlight.current ||
+      expireIfDue()
     )
       return;
     sendInFlight.current = true;
@@ -169,7 +190,12 @@ export function ProgramMailDialog({
       >
         수정
       </Button>
-      <Button type="button" disabled={!canSend} onClick={() => void send()}>
+      <Button
+        type="button"
+        aria-describedby="mail-send-warning"
+        disabled={!canSend}
+        onClick={() => void send()}
+      >
         {busy === 'send' ? '보내는 중…' : '보내기'}
       </Button>
     </>
@@ -216,20 +242,7 @@ export function ProgramMailDialog({
           onRetry={() => void recipientsQuery.refetch()}
         />
       ) : result ? (
-        <Alert>
-          <AlertTitle>
-            {result.status === 'IN_PROGRESS'
-              ? '메일 발송을 처리 중입니다.'
-              : `${result.sentCount}명에게 메일을 보냈습니다.`}
-          </AlertTitle>
-          {result.status === 'COMPLETED' ? (
-            <AlertDescription>
-              중복 생략 {result.duplicateCount}명 · 발송 실패{' '}
-              {result.failedCount}명 · 발송 결과 확인 불가{' '}
-              {result.unknownCount ?? 0}명
-            </AlertDescription>
-          ) : null}
-        </Alert>
+        <ProgramMailResult result={result} />
       ) : preview ? (
         <ProgramMailPreviewView preview={preview} />
       ) : (
@@ -249,12 +262,7 @@ export function ProgramMailDialog({
           }}
         />
       )}
-      {error ? (
-        <Alert variant="destructive">
-          <AlertTitle>메일을 처리하지 못했습니다</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
+      <MailDialogErrorNotice error={error} title="메일을 처리하지 못했습니다" />
     </DialogShell>
   );
 }

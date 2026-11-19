@@ -7,7 +7,11 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  MailDialogErrorNotice,
+  PREVIEW_EXPIRED,
+  type MailDialogError,
+} from './mail-dialog-error';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { DialogShell } from '@/components';
 import {
@@ -29,6 +33,7 @@ import {
   isDeadlineGuidanceInvalid,
   type DeadlineDigestBusy,
 } from './deadline-digest-content';
+import { usePreviewExpiry } from './use-preview-expiry';
 
 export function DeadlineDigestDialog({
   programId,
@@ -50,7 +55,7 @@ export function DeadlineDigestDialog({
   } | null>(null);
   const [result, setResult] = useState<ProgramDeadlineSendResult | null>(null);
   const [busy, setBusy] = useState<DeadlineDigestBusy>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MailDialogError>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const studentGuidanceRef = useRef<HTMLTextAreaElement>(null);
   const guidanceRef = useRef(guidance);
@@ -115,19 +120,15 @@ export function DeadlineDigestDialog({
     queueMicrotask(() => studentGuidanceRef.current?.focus());
   }, [preview]);
 
-  useEffect(() => {
-    if (preview === null || busy === 'send') return;
-    const remaining = new Date(preview.expiresAt).getTime() - Date.now();
-    const timer = setTimeout(
-      () => {
-        focusGuidanceOnRender.current = true;
-        setLoaded(null);
-        setError('미리보기가 만료되었습니다. 다시 미리보세요.');
-      },
-      Math.max(0, remaining),
-    );
-    return () => clearTimeout(timer);
-  }, [busy, preview]);
+  const expirePreview = useCallback(() => {
+    focusGuidanceOnRender.current = true;
+    setLoaded(null);
+    setError(PREVIEW_EXPIRED);
+  }, []);
+  const expireIfDue = usePreviewExpiry(
+    busy === null ? preview?.expiresAt : undefined,
+    expirePreview,
+  );
 
   const changeGuidance = (
     field: keyof ProgramDeadlineGuidance,
@@ -155,15 +156,10 @@ export function DeadlineDigestDialog({
       preview === null ||
       loaded?.version !== previewRequestVersion.current ||
       busy !== null ||
-      sendInFlight.current
+      sendInFlight.current ||
+      expireIfDue()
     )
       return;
-    if (new Date(preview.expiresAt).getTime() <= Date.now()) {
-      focusGuidanceOnRender.current = true;
-      setLoaded(null);
-      setError('미리보기가 만료되었습니다. 다시 미리보세요.');
-      return;
-    }
     sendInFlight.current = true;
     setBusy('send');
     setError(null);
@@ -225,12 +221,10 @@ export function DeadlineDigestDialog({
           onChange={changeGuidance}
         />
       )}
-      {error ? (
-        <Alert variant="destructive">
-          <AlertTitle>마감 알림을 처리하지 못했습니다</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
+      <MailDialogErrorNotice
+        error={error}
+        title="마감 알림을 처리하지 못했습니다"
+      />
     </DialogShell>
   );
 }
