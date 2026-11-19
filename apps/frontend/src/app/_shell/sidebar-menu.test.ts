@@ -138,17 +138,16 @@ describe('sidebarGroupsFor (context)', () => {
     );
   });
 
-  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청·설정을 보여 준다', () => {
+  it('교직원 대시보드 메뉴는 운영·인사이트·가입 신청을 보여 준다', () => {
     expect(STAFF_MENU).toEqual([
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
-      { label: '설정', href: '/settings' },
     ]);
     const groups = sidebarGroupsFor('dashboard', STAFF);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.label).toBe('교직원');
-    expect(groups[0]?.items).toHaveLength(4);
+    expect(groups[0]?.items).toHaveLength(3);
     expect(
       groups[0]?.items.map(({ label, href }) => ({ label, href })),
     ).not.toContainEqual({ label: '사용자 목록', href: '/dashboard/users' });
@@ -164,7 +163,6 @@ describe('sidebarGroupsFor (context)', () => {
       { label: '운영 대시보드', href: '/dashboard' },
       { label: '인사이트', href: '/dashboard/insights' },
       { label: '가입 신청', href: '/dashboard/applicants' },
-      { label: '설정', href: '/settings' },
     ]);
     expect(groups[1]?.label).toBe('관리자');
     expect(
@@ -195,7 +193,6 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/my-repos',
         '/dashboard/activity',
-        '/settings',
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
@@ -209,7 +206,6 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard',
         '/dashboard/insights',
         '/dashboard/applicants',
-        '/settings',
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
@@ -223,7 +219,6 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/audit-logs',
         '/dashboard/system-status',
         '/dashboard/applicants',
-        '/settings',
       ],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
@@ -249,14 +244,13 @@ describe('sidebarGroupsFor (context)', () => {
       { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
     ],
   ] satisfies readonly [string, MemberAccess][])(
-    '%s 대시보드 메뉴에 설정이 한 번 있다',
+    '%s 대시보드 메뉴에는 계정 메뉴 전용 설정 경로가 없다',
     (_, access) => {
-      const items = sidebarGroupsFor('dashboard', access)
-        .flatMap((group) => group.items)
-        .filter((item) => item.href === '/settings');
+      const hrefs = sidebarGroupsFor('dashboard', access).flatMap((group) =>
+        group.items.map((item) => item.href),
+      );
 
-      expect(items).toHaveLength(1);
-      expect(items[0]).toMatchObject({ label: '설정', icon: 'gear' });
+      expect(hrefs).not.toContain('/settings');
     },
   );
 
