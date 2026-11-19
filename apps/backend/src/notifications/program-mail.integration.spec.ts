@@ -104,39 +104,57 @@ it('lists all application statuses, sends mail, and records an attributable audi
       idempotencyKey,
     },
   });
-  const unrelatedBatch = 'program-mail-send:foreign-audit';
-  await world.prisma.userHistory.create({
-    data: {
-      id: `user:program-mail-result:${unrelatedBatch}`,
-      userId: PROGRAM_MAIL_STAFF_FIXTURE.id,
-      actorId: PROGRAM_MAIL_STAFF_FIXTURE.id,
-      event: 'PROFILE_UPDATED',
-      source: 'APPLICATION',
-      sourceTable: 'ProgramMail',
-      sourceId: unrelatedBatch,
-      sourcePart: 'RESULT',
-      occurredAt: new Date(),
-      data: {
-        schemaVersion: 1,
-        recordKind: 'DOMAIN_EVENT',
-        action: 'PROGRAM_MAIL_SENT',
-        targetType: 'PROGRAM',
-        targetId: DIGEST_FIXTURE.silentProgram,
-        requestId: unrelatedBatch,
-        metadata: {},
-        request: null,
-      },
-    },
+  const pageSize = 20;
+  const unrelatedCount = 24;
+  const newerThanOwned = new Date((audit?.occurredAt.getTime() ?? 0) + 1_000);
+  await world.prisma.userHistory.createMany({
+    data: Array.from({ length: unrelatedCount }, (_, index) => {
+      const batch = `program-mail-send:foreign-audit:${index}`;
+      return {
+        id: `user:program-mail-result:${batch}`,
+        userId: PROGRAM_MAIL_STAFF_FIXTURE.id,
+        actorId: PROGRAM_MAIL_STAFF_FIXTURE.id,
+        event: 'PROFILE_UPDATED',
+        source: 'APPLICATION',
+        sourceTable: 'ProgramMail',
+        sourceId: batch,
+        sourcePart: 'RESULT',
+        occurredAt: newerThanOwned,
+        data: {
+          schemaVersion: 1,
+          recordKind: 'DOMAIN_EVENT',
+          action: 'PROGRAM_MAIL_SENT',
+          targetType: 'PROGRAM',
+          targetId: DIGEST_FIXTURE.silentProgram,
+          requestId: batch,
+          metadata: {},
+          request: null,
+        },
+      };
+    }),
   });
-  const feed = await createAuditLogReadService(
+  const readAudit = createAuditLogReadService(
     new AuditLogReadRepository(world.prisma),
-  ).list({ action: 'PROGRAM_MAIL_SENT', page: 1, limit: 20 });
-  expect(feed.items).toContainEqual(
-    expect.objectContaining({ requestId: unrelatedBatch }),
   );
-  const ownItems = feed.items.filter(
+  const query = { action: 'PROGRAM_MAIL_SENT', limit: pageSize } as const;
+  const firstPage = await readAudit.list({ ...query, page: 1 });
+  expect(firstPage.total).toBeGreaterThan(pageSize);
+  expect(
+    firstPage.items.every(
+      (item) => item.target.id === DIGEST_FIXTURE.silentProgram,
+    ),
+  ).toBe(true);
+
+  const ownItems = firstPage.items.filter(
     (item) => item.requestId === idempotencyKey,
   );
+  const pageLimit = Math.min(10, Math.ceil(firstPage.total / pageSize));
+  for (let page = 2; page <= pageLimit && ownItems.length === 0; page += 1) {
+    const next = await readAudit.list({ ...query, page });
+    ownItems.push(
+      ...next.items.filter((item) => item.requestId === idempotencyKey),
+    );
+  }
   expect(ownItems).toHaveLength(1);
   const [own] = ownItems;
   expect(own?.action).toBe('PROGRAM_MAIL_SENT');
