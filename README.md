@@ -299,7 +299,7 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 
 </details>
 
-CI and pre-push run the route-manifest gate on the shared frontend scope. `node verify/route-manifest.mjs origin/main` lists all findings at that revision; the gate blocks only findings absent at the merge base. It follows statically identifiable internal links and redirects from `/`, across roles and inherited layouts. An unreachable finding means no such path was found, not that the URL returns a 404. URLs supplied solely by an API or an external entry point are outside this graph.
+CI and pre-push run the route-manifest gate on the shared frontend scope. `node verify/route-manifest.mjs origin/main` lists all findings; only findings absent at the merge base block. For an unreachable page, link it from navigation or add `route-entry.ts` next to `page.tsx`. Default-export `{ entry, source } satisfies RouteEntry` (type from `@/lib/route-entry`): `entry` is `api-link`, `email-link` or `external-link`; `source` is the repository-relative module under `apps/` that supplies or consumes the entry. The gate validates the source and follows links from the declared page, just as it does from `/`. It follows config redirects and probes matching middleware with an anonymous request, not every possible session.
 
 The Core Web Vitals verifier pins Lighthouse 13.6.0 after local same-frame text, later-text, raster-image and delayed-font validation. The thresholds and three-run median rule are unchanged. A measurement-model update is not a website speed improvement and does not retroactively pass older reports.
 

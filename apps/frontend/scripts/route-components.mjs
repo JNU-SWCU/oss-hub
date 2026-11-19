@@ -1,9 +1,5 @@
-import { createRequire } from 'node:module';
 import { join, sep } from 'node:path';
-
-const ts = createRequire(
-  new URL('../apps/frontend/package.json', import.meta.url),
-)('typescript');
+import ts from 'typescript';
 
 function walk(node, visit) {
   if (visit(node) !== false)
@@ -46,23 +42,25 @@ export function analyzeComponents(dir, roots) {
     d.getSourceFile().fileName.startsWith(dir + sep) &&
     !d.getSourceFile().fileName.includes('/node_modules/');
   function entry(file) {
-    const module = checker.getSymbolAtLocation(program.getSourceFile(file));
+    const symbol = checker.getSymbolAtLocation(program.getSourceFile(file));
     const sym = checker
-      .getExportsOfModule(module)
+      .getExportsOfModule(symbol)
       .find((s) => s.name === 'default');
     if (!sym) throw new Error(`missing default export: ${file}`);
     return (
       sym.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(sym) : sym
     ).valueDeclaration;
   }
-  // Evaluate strings only at navigation sinks; an unknown interpolation stands
-  // for one example dynamic segment, never for an arbitrary path prefix.
   function values(n, inputs, env = new Map(), seen = new Set()) {
     if (!n || seen.has(n)) return [];
     seen = new Set([...seen, n]);
     const val = (x) => values(x, inputs, env, seen);
     if (ts.isStringLiteralLike(n)) return [n.text];
-    if (ts.isElementAccessExpression(n) || ts.isPropertyAccessExpression(n)) {
+    if (
+      ts.isIdentifier(n) ||
+      ts.isElementAccessExpression(n) ||
+      ts.isPropertyAccessExpression(n)
+    ) {
       const type = checker.getTypeAtLocation(n);
       const literals = (type.isUnion() ? type.types : [type]).filter((t) =>
         t.isStringLiteral(),
@@ -100,6 +98,19 @@ export function analyzeComponents(dir, roots) {
       return returned(fn).flatMap((x) => values(x, inputs, bindings, seen));
     }
     const d = decl(n);
+    if (d && ts.isBindingElement(d) && ts.isObjectBindingPattern(d.parent)) {
+      const property = (d.propertyName ?? d.name).getText();
+      const member = checker
+        .getTypeAtLocation(d.parent)
+        .getProperty(property)?.valueDeclaration;
+      const sources = [
+        ...(inputs.get(d) ?? []),
+        ...(inputs.get(member) ?? []),
+        member?.initializer,
+        d.initializer,
+      ];
+      return sources.flatMap(val);
+    }
     return (
       env.get(d) ??
       (inputs.has(d)
@@ -196,47 +207,67 @@ export function analyzeComponents(dir, roots) {
     return new Set(sinks.flatMap((sink) => values(sink, inputs)));
   }
 
-  // Only follow whole return branches, not widgets inside a composed screen.
-  // A single child inside a layout-like wrapper is its page content.
   function screens(file) {
-    const result = new Set();
-    const seen = new Set();
-    function render(n) {
-      if (ts.isParenthesizedExpression(n)) return render(n.expression);
-      if (ts.isConditionalExpression(n)) {
-        render(n.whenTrue);
-        render(n.whenFalse);
-        return;
-      }
-      if (ts.isJsxElement(n) || ts.isJsxFragment(n)) {
-        const children = n.children.filter(
+    const id = (d) => `${d.getSourceFile().fileName}:${d.pos}`;
+    const root = entry(file);
+    const direct = [id(root)];
+    const branch = [];
+    const outputs = returned(root.initializer ?? root).map(ts.skipParentheses);
+    if (outputs.length === 1) {
+      let [node] = outputs;
+      let wrapper = '';
+      let allowed;
+      if (ts.isJsxElement(node)) {
+        const outer = decl(node.openingElement.tagName);
+        const content = node.children.filter(
           (c) => !ts.isJsxText(c) || c.text.trim(),
         );
+        const attrs = node.openingElement.attributes.properties;
         if (
-          children.length === 1 &&
-          (ts.isJsxElement(children[0]) ||
-            ts.isJsxSelfClosingElement(children[0]))
+          !local(outer) ||
+          content.length !== 1 ||
+          attrs.length !== 1 ||
+          attrs[0].name?.getText() !== 'allow'
         )
-          return render(children[0]);
-        if (children.length || ts.isJsxFragment(n)) return;
-        n = n.openingElement;
+          return { direct, branch };
+        allowed = attrs[0].initializer?.expression;
+        wrapper = id(outer) + '/';
+        [node] = content;
       }
-      if (!ts.isJsxOpeningElement(n) && !ts.isJsxSelfClosingElement(n)) return;
-      const d = decl(n.tagName);
-      if (!local(d)) return;
-      const props = n.attributes.properties.map((p) => p.getText()).sort();
-      result.add(`${d.getSourceFile().fileName}:${d.pos}:${props.join(' ')}`);
-      if (!props.length) expand(d);
+      const component = (n) =>
+        ts.isJsxSelfClosingElement(n) &&
+        !n.attributes.properties.length &&
+        decl(n.tagName);
+      const primary = component(node);
+      if (local(primary)) {
+        if (!wrapper) direct.push(id(primary));
+        if (allowed && ts.isArrayLiteralExpression(allowed)) {
+          for (const role of allowed.elements.filter(ts.isStringLiteral))
+            direct.push(`${wrapper}${id(primary)}:${role.text.toLowerCase()}`);
+        }
+        const choices = returned(primary.initializer ?? primary).map(
+          ts.skipParentheses,
+        );
+        for (const choice of choices) {
+          const condition = choice.parent.parent;
+          if (
+            wrapper &&
+            local(component(choice)) &&
+            ts.isIfStatement(condition) &&
+            condition.thenStatement === choice.parent &&
+            ts.isBinaryExpression(condition.expression) &&
+            condition.expression.operatorToken.kind ===
+              ts.SyntaxKind.EqualsEqualsEqualsToken &&
+            ts.isStringLiteral(condition.expression.right)
+          ) {
+            branch.push(
+              `${wrapper}${id(component(choice))}:${condition.expression.right.text.toLowerCase()}`,
+            );
+          }
+        }
+      }
     }
-    function expand(d) {
-      if (seen.has(d)) return;
-      seen.add(d);
-      for (const expr of returned(d.initializer ?? d)) render(expr);
-    }
-    const root = entry(file);
-    result.add(`${root.getSourceFile().fileName}:${root.pos}:`);
-    expand(root);
-    return result;
+    return { direct, branch };
   }
   return { links, screens };
 }

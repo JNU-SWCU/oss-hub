@@ -52,6 +52,8 @@
       },
       "entry": [
         "src/middleware.ts",
+        "src/app/**/route-entry.ts",
+        "scripts/route-manifest.mjs",
         "next.config.ts",
         "{src,test-support,e2e/support}/**/*.test.{ts,tsx}",
         "e2e/**/*.spec.ts"
