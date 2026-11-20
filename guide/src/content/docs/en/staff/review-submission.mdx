@@ -9,22 +9,29 @@ import { Steps } from '@astrojs/starlight/components';
 import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
-import Verified from '~/components/Verified.astro';
 
-`서류 수합` (document collection) lets you review each document submitted by teams for one milestone. In the milestone timeline under `프로그램 개요` (program overview), click `서류 수합` on the right of the stage. The screen title is `서류 수합 — {마일스톤 이름}`. This link appears only for milestones with registered submission items.
+Use the milestone's `서류 현황` (document status) to check submitted text and files and review documents individually. Select a milestone under `서류 현황` in the left menu, or click `서류 수합` (document collection) in the milestone timeline under `프로그램 개요` (program overview). Check the milestone name and deadline above the table.
 
-Clicking a milestone beneath `서류 현황` (document status) in the left menu opens the same document collection screen. Click `서류 현황` itself to return to the table comparing all milestones. For team submission status, see [Track and download team documents](/oss-hub/en/staff/documents/).
+To compare all milestones, click `서류 현황` itself in the left menu. See [Track and download team documents](/oss-hub/en/staff/documents/).
+
+## Find documents to review
+
+<Steps>
+1. Select a status such as `검토 대기` (awaiting review). On mobile, use ① the status dropdown. Counts include documents from every team matching your search, regardless of the page or selected status.
+2. A team appears if at least one of its documents matches. Its other documents stay visible too. On mobile, read them in each team's card.
+3. On desktop, sort using the `팀` (team), `서류` (document), `제출 상태` (submission status), `제출 시각` (submission time), or `최근 검토` (most recent review) heading. If there is only one document type, the `서류` column is hidden. Click the same heading again to reverse the order. Sorting keeps each team's documents together. With multiple documents, `팀 정렬 기준` (team sort key) marks the document used to position that team.
+</Steps>
+<Shot src="staff/documents-mobile-status.webp" alt="Mobile milestone document status screen. Marker ① points to the submission status dropdown with all statuses selected." caption="① On mobile, select a submission status from the dropdown." />
 
 ## Review a document
 
 <Steps>
-1. In the table cell for the team and document, click ① the status button (`검토 대기`, awaiting review). A review panel opens beneath the row.
-2. Check the submitted text and files. Use `내려받기` (download) for files. Earlier submissions and reviews are available in `제출·검토 이력` (submission and review history).
+1. Click `검토` (review) next to a submitted document. The review panel opens below the team's rows on desktop or below that document on mobile.
+2. Read the submitted text and check `제출·검토 이력` (submission and review history) for earlier submissions and reviews. For attachments, use the download icon next to the document or `내려받기` (download) in the review panel.
 3. Choose ③ `승인` (approve), `보완 요청` (request revisions), or `반려` (reject).
 4. Optionally enter a `사유 (선택)` (reason), up to 2,000 characters. Students see it exactly as written.
 5. Click ⑤ `저장` (save) at the bottom right.
 </Steps>
-<Shot src="staff/collect-full.webp" alt="Document collection screen with per-document summaries and a team-by-document table. Marker ① points to the first awaiting-review cell." caption="① `검토 대기` (awaiting review) cell" />
 <Shot src="staff/requirement-review.webp" alt="Review panel below the table, with submitted text and review history. Marker ③ points to request revisions and ⑤ to save. There is no separate deadline field." caption="③ Select result ⑤ Save. The reason is optional." />
 
 You can save `승인`, `보완 요청`, or `반려` without a reason. Such records show `사유 없이 저장되었습니다.` (saved without a reason).
@@ -48,14 +55,16 @@ The cell's status changes. Students see the result and reason on their own scree
 
 ## Download milestone materials
 
-- `마일스톤 전체 내려받기(ZIP)` (download entire milestone): downloads materials for all teams in this milestone. Enable `서류 종류별로 묶기` (group by document type) for document-specific folders.
-- `{서류} 서류별 내려받기(ZIP)` (download this document): downloads just one document type.
+Open `ZIP 내려받기` (download ZIP) at the top right and choose what to download.
 
-Both ZIP options include all teams in the milestone, regardless of quick filters or pagination.
+- `마일스톤 전체 내려받기(ZIP)` downloads the entire milestone. To organize files in folders by document type, first enable `서류 종류별로 묶기` (group by document type).
+- Use the button with the document name followed by `ZIP` to get only that document type.
+
+Both ZIP options cover all teams in the milestone, regardless of search, status filters, or page. Check your browser's downloads list once the download starts. If it fails, an error page opens.
 
 ## Final submission review screen
 
-`최종 제출 검토` (final submission review) opens one submission separately and also shows the conditions for making the team's repository public. For a milestone with one required submission item, use `열어 보기` (open) in the `서류 현황` table. For multiple items, review each in `서류 수합`.
+`최종 제출 검토` (final submission review) opens one submission separately and shows the conditions for making the team's repository public. In the all-milestone `서류 현황` view, expand the team and click a status linked to a submission. On mobile, click the status directly in the team card. To review individual documents instead, select the milestone name and click `검토` next to the document.
 
 Result names differ slightly here: `반려` in document collection is called `최종 반려` (final rejection) on this screen.
 
@@ -70,7 +79,7 @@ Older reviews whose submission version cannot be identified are labeled `제출 
 2. Optionally fill in `코멘트 (선택)` (comment). It can be blank for any result.
 3. Click ③ `저장`.
 </Steps>
-<Shot src="staff/requirement-legacy-review-page.webp" alt="Top of final submission review, showing the team and milestone, latest submission content, and an unreviewed result." caption="Final submission review opened with `열어 보기` (open)" />
+<Shot src="staff/requirement-legacy-review-page.webp" alt="Top of final submission review, showing the team and milestone, latest submission content, and an unreviewed result." caption="Final submission review opened from a linked status" />
 <Shot src="staff/requirement-legacy-review.webp" alt="Result selector and optional comment field. Marker ① points to request revisions and ③ to save." caption="① Select result ③ Save. You may leave the comment blank." />
 
 You can save a new decision for an already reviewed submission. A revision request is not required before rejection. Earlier decisions remain in the history.
@@ -84,6 +93,7 @@ If a submission or another staff member's decision changes while you are reviewi
 <Recover title="If review cannot be completed">
 - The reason is optional, and there is no separate deadline field. Check that you selected a result and that your reason is no more than 2,000 characters.
 - `아직 승인된 신청이 없습니다` means there are no approved teams. Click `신청 확인하기` (check applications) to [approve or reject team applications](/oss-hub/en/staff/decide-application/).
+- `조건에 맞는 제출 항목이 없습니다` means no documents match. Click `전체 보기` (show all) to clear search and status filters.
 - `이 마일스톤에는 등록된 제출 항목이 없습니다` means the milestone has no submission items. Click `제출 항목 추가` (add submission item) and follow [Edit program dates and submission items](/oss-hub/en/staff/edit-program/).
 - `제출 검토 정보를 불러오지 못했습니다` means review information could not be loaded. Refresh the screen. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
 </Recover>

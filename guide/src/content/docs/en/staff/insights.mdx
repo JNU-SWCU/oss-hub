@@ -1,6 +1,6 @@
 ---
 title: View insights
-description: See GitHub activity and program participation in three tabs for students, departments, and programs.
+description: Check student rankings and search results, department activity, and program outcomes.
 sidebar:
   order: 11
 ---
@@ -9,38 +9,52 @@ import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 
-`인사이트` (Insights) shows top student activity, department and major figures, and the program scorecard. Open ① `인사이트` under `교직원` (staff) in the left menu. Only staff and administrators can see it.
-
-<Shot src="staff/insights-full.webp" alt="Insights screen. Marker ① points to Insights in the left menu. The Students, Departments and majors, and Programs view tabs and the period selector are at the top, with the selected tab's cards and charts below." caption="① `인사이트` (Insights)" />
-
-## Change the period and tab
+Use `인사이트` (Insights) to find students' public GitHub activity and compare department activity and program outcomes. Approved Staff can view this data but cannot change it here.
 
 <Steps>
-1. In the underlined tabs below the title, choose ① `학생` (Students), `학과·전공` (Departments and majors), or `프로그램` (Programs).
-2. Select `전체` (All) or a year in ② `기간` (period). It applies to the `학생` (Students) tab rankings and to activity numbers (`활동률`, activity rate, and `1인당 활동량`, activity per student). Registered student counts and participation numbers (`프로그램 참여율` on the `학과·전공` tab, and the `프로그램` tab) show the current state regardless of the period.
-3. The cards and charts below update, and a line at the top shows the period and the time the data was captured.
+1. Open ① `인사이트` (Insights) under `교직원` (Staff) in the left menu.
+2. In ② the view tabs, choose `순위` (Rankings), `학생 찾기` (Find students), `학과·전공` (Departments and majors), or `프로그램` (Programs).
+3. Under ③ `기간` (Period), choose `전체` (All) or a year. This sets the period for rankings, public activity totals, the department activity rate, and total activity per student. `최근 30일 활동` (Last 30 days of activity) uses a separate rolling window. Registration counts, program participation, and program outcomes reflect the current state.
 </Steps>
-<Shot src="staff/insights-filters.webp" alt="View tabs and period. Marker ① points to the Students, Departments and majors, and Programs view tabs and ② to the period selector." caption="① view tabs ② `기간` (period)" />
+<Shot src="staff/insights-full.webp" alt="Insights screen. Marker ① points to Insights in the left menu, ② to the four view tabs, and ③ to the period selector." caption="① `인사이트` (Insights) ② View tabs ③ `기간` (Period)" />
 
-## What each tab shows
+## Find students
 
-- `학생` (Students) tab: choose the `전체` (All) / `SW전공` (SW majors) / `비SW전공` (non-SW majors) filter. On wide screens two cards appear side by side.
-  - `<period> 상위 10명` (Top 10 for the period): ranks students by total public activity (Commit, PR, Issue, Repo, Star) in the selected period.
-  - `최근 30일 상위 10명` (Top 10, last 30 days): ranks students by the increase in Commit, PR, Issue, and Repo over the rolling last 30 days. Star is excluded, and the from~to dates are shown.
-  - Each row shows rank, name (GitHub login if there is no name), department (or `학과 미등록`, department not registered), `@login`, total, and a proportional bar. Student numbers are never shown.
-  - Only public activity is counted, so figures can differ from the public ranking page.
-- `학과·전공` (Departments and majors) tab: the `SW전공` and `비SW전공` tiles show `가입 학생` (registered students), `활동률` (activity rate: active students / registered students), and `프로그램 참여율` (program participation rate: participating students / registered students). The `가입 학생` and `학과 미등록` tiles carry the note `현재 가입 기준 · 기간 미적용` (current registrations, period not applied), and the `프로그램 참여율` tiles carry `현재 승인 기준 · 기간 미적용` (current approved state, period not applied), because these numbers ignore the period. The count of students with `학과 미등록` is shown separately. The department ranking chart below has a toggle between `가입 학생 수` (registered students) and `1인당 활동량` (activity per student). In `1인당 활동량` mode, departments with fewer than 3 students are listed separately as `표본 적음 (가입 3명 미만)` (small sample, fewer than 3 registered).
-- `프로그램` (Programs) tab: tiles at the top show `운영 프로그램` (programs), `승인 참여 학생` (approved students, with the de-duplicated count), `평균 경쟁률` (average competition ratio, applications ÷ approvals), and `재참여 학생` (share of students in two or more programs). Below, `프로그램 성과표` (program scorecard) compares each published program on one row: `모집` (recruitment: applications → approvals and the ratio), `구성` (composition: SW majors / non-SW majors / department not registered among approved applicants and team members), `완주` (completion: share of required items past their deadline that were submitted, rejected ones excluded), and `성과` (outcome: Commit, PR, and Issue in approved teams’ repositories from the program start until the earlier of its end or now, only while the repository was linked to that team, divided by the program’s de-duplicated approved participant count; Release is excluded, and this is not a comparison with the preceding 30 days because events exist only for tracked team repositories and earlier student activity is a yearly cumulative snapshot). When a value cannot be computed, `—` appears with the reason (`마감된 마일스톤 없음`, no milestone past its deadline; `연결된 저장소 없음`, no linked repository). Sort with the `승인 참여`, `경쟁률`, `비SW 비율`, `완주율`, and `성과` buttons under the column titles; programs without a value always sort last. The period filter does not apply to this tab.
+<Steps>
+1. Open `학생 찾기` (Find students) and enter a name, student number, or GitHub username in ① `검색` (Search).
+2. Narrow results by `학과` (Department), `프로그램 참여` (Program participation), `최소 활동량` (Minimum activity), or `최근 30일 활동` (Last 30 days of activity). `미활동` (Inactive) matches only students with a measured zero; choose `전체` (All) to include students with no recent measurement.
+3. Check the result count and table. Select `이름` (Name), `학번` (Student number), `활동 합계` (Total activity), `최근 30일 활동` (Last 30 days of activity), or `협업 비율` (Collaboration ratio) to sort. Use `이전` (Previous) and `다음` (Next) if there are multiple pages. Select a name to open the GitHub profile in a new tab.
+</Steps>
+<Shot src="staff/insights-finder.webp" alt="Find students tab. Marker ① points to the search and filter controls above the results table." caption="① Search and filters" />
 
-You can also open a tab by URL: `?view=students`, `?view=groups`, `?view=programs`.
+## Read student rankings
+
+- On `순위` (Rankings), ① `학생 순위` (Student rankings) shows the top 10 students by public activity in the selected period. `활동 합계` (Total activity) includes commits, PRs, issues, repositories, and stars. `최근 30일 활동` (Last 30 days of activity) measures the increase in public activity over that window, excluding stars. Students who also rank among the recent leaders are marked `급상승` (Trending).
+- `순위 변화` (Rank change) compares with the previous year. `신규` (New) means the comparison year exists but the student had no rank then. `—` means no year is available for comparison. `협업 비율` (Collaboration ratio) is (PRs + issues) ÷ total activity. When total activity is zero, the ratio is `—`.
+- `관심 필요` (Needs attention) lists up to four students who had activity in the selected period but a measured zero in the last 30 days. `이번 달 첫 기여 학생` (Students who first contributed this month) and `마지막 활동` (Last activity) currently show `—` because those values are not calculated.
+
+<Shot src="staff/insights-ranking.webp" alt="Rankings tab. Marker ① points to the student ranking table." caption="① `학생 순위` (Student rankings)" />
+
+## Compare department activity
+
+At the top of `학과·전공` (Departments and majors), check `가입 학생` (Registered students), `활동 학생` (Active students), and `학과 수` (Departments). The ① comparison table is ordered by `1인당 활동 합계` (Total activity per student), highest first. It also shows `활동 학생 비율` (Active student rate) and `1인당 최근 30일` (Last 30 days per student). Students without a registered department count toward the student totals above but do not appear in the table. Rows with fewer than three registered students stay in the table and are marked `표본 적음` (Small sample).
+
+<Shot src="staff/insights-departments.webp" alt="Departments and majors tab with registered student, active student, and department counts above the comparison table marked ①." caption="① `학과·전공` (Departments and majors) comparison table" />
+
+## Compare program outcomes
+
+The `프로그램` (Programs) tab shows program count (`운영 프로그램`), approved participants (`승인 참여 학생`, including a distinct count), average competition ratio (`평균 경쟁률`, applications ÷ approvals), and the share of students in two or more programs (`재참여 학생`). `프로그램 성과표` (Program scorecard) shows one row per published program. The period does not apply to this tab.
+
+- `모집` (Recruitment) shows applications, approvals, and the competition ratio. `구성` (Composition) shows the shares of SW majors, non-SW majors, and students with no registered department among approved applicants and team members.
+- `완주` (Completion) is the share of required items past their deadline that were submitted, excluding rejected submissions. If no such items exist, the cell shows `—` and `마감된 마일스톤 없음` (No milestones past their deadline).
+- `성과` (Outcome) divides commits, PRs, and issues in repositories while linked to approved teams during the program by the program's distinct approved participant count. In-progress programs count activity through now. Releases are excluded. If the value cannot be calculated, the cell shows `—` and `연결된 저장소 없음` (No linked repository).
+- Sort by `승인 참여` (Approved participation), `경쟁률` (Competition ratio), `비SW 비율` (Non-SW share), `완주율` (Completion rate), or `성과` (Outcome). Programs without a value sort last.
 
 <Success>
-The cards and charts reflect your selected period and tab.
+You can see the table and metrics for the selected tab. `0`, `0.0`, and `0%` are measured zeros. `—` means the value is missing or cannot be calculated, not zero.
 </Success>
 
-<Recover title="If the charts are empty or cannot load">
-- If nothing matches the selected period the charts can be empty. This is normal. Expand `기간` (period) to `전체` (All).
-- If a message says the data could not be loaded, refresh the screen. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+<Recover title="If there are no results or the data cannot load">
+- If you see `조건에 맞는 학생이 없습니다` (No students match), try a shorter search term or reset filters to `전체` (All). If rankings are empty, try changing `기간` (Period) to `전체`.
+- If the data could not load, select `다시 시도` (Retry). If it still fails, ask an Administrator to check [System status](/oss-hub/en/admin/system-status/).
 </Recover>
-
-For the administrator-side description, see [View insights](/oss-hub/en/admin/insights/).
