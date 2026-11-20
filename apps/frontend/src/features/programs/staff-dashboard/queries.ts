@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
 import {
   getStaffDashboardSummary,
@@ -12,8 +12,17 @@ export function useStaffDashboardQuery(params: StaffDashboardSummaryParams) {
       params.search,
       params.status,
       params.page,
+      params.sort,
+      params.direction,
     ),
     queryFn: () => getStaffDashboardSummary(params),
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) => {
+      const [, , , , previousSort, previousDirection] =
+        previousQuery?.queryKey ?? [];
+      return previousSort === params.sort &&
+        previousDirection === params.direction
+        ? previousData
+        : undefined;
+    },
   });
 }
