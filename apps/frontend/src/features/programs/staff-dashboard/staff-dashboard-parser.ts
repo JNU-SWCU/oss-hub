@@ -6,6 +6,7 @@ import {
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardApplicationCounts,
+  StaffDashboardMilestoneSummary,
   StaffDashboardProgramSummary,
   StaffDashboardSubmissionSummary,
   StaffDashboardSummary,
@@ -98,6 +99,21 @@ function isSubmissions(
   );
 }
 
+function isMilestone(value: unknown): value is StaffDashboardMilestoneSummary {
+  if (!isRecord(value)) return false;
+  const { submittedTeams, totalTeams } = value;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    isIsoDate(value.startAt) &&
+    isIsoDate(value.dueAt) &&
+    ((submittedTeams === null && totalTeams === null) ||
+      (isCount(submittedTeams) &&
+        isCount(totalTeams) &&
+        submittedTeams <= totalTeams))
+  );
+}
+
 function isProgram(value: unknown): value is StaffDashboardProgramSummary {
   if (!isRecord(value) || !isSafeProgramId(value.id)) return false;
   if (!isRecord(value.applicationPeriod)) return false;
@@ -111,7 +127,9 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
     isIsoDate(value.endAt) &&
     isApplications(value.applications) &&
     isActivity(value.activity) &&
-    isSubmissions(value.submissions)
+    isSubmissions(value.submissions) &&
+    Array.isArray(value.milestones) &&
+    value.milestones.every(isMilestone)
   );
 }
 

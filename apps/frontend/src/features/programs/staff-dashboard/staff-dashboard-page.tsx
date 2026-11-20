@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, type ReactElement } from 'react';
-import { useDebouncedUrlSearch } from '@/lib/list-url-state';
+import type { ReactElement } from 'react';
 import { useStaffDashboardUrlState } from './staff-dashboard-url-state';
 import { useStaffDashboardQuery } from './queries';
 import { ApiError } from '@/lib/api-client';
@@ -9,6 +8,7 @@ import {
   buildStaffDashboardPageModel,
   type StaffDashboardPageModel,
 } from './staff-dashboard-page-model';
+import { DEFAULT_STAFF_DASHBOARD_ORDER } from './staff-dashboard-overview';
 import {
   StaffDashboardPageView,
   type StaffDashboardPageViewState,
@@ -18,7 +18,6 @@ import type { StaffDashboardSummary } from './dto';
 export { StaffDashboardPageView } from './staff-dashboard-page-view';
 export { buildStaffDashboardPageModel } from './staff-dashboard-page-model';
 export { StaffDashboardOverview } from './staff-dashboard-overview';
-export { StaffDashboardStatusSummary } from './staff-dashboard-status-summary';
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -33,23 +32,17 @@ function getStaffDashboardErrorMessage(error: unknown): string {
 
 export function StaffDashboardPage(): ReactElement {
   const { state: urlState, navigate } = useStaffDashboardUrlState();
-  const { search, status, page } = urlState;
-  const replaceSearch = useCallback(
-    (value: string) => navigate({ search: value, page: 1 }, 'replace'),
-    [navigate],
-  );
-  const [searchInput, setSearchInput] = useDebouncedUrlSearch(
-    search,
-    replaceSearch,
-  );
-  const query = useStaffDashboardQuery({ search, status, page });
+  const { page, search, status, sort, direction } = urlState;
+  const order =
+    sort === undefined || direction === undefined
+      ? DEFAULT_STAFF_DASHBOARD_ORDER
+      : { sort, direction };
+  const query = useStaffDashboardQuery({ page, search, status, ...order });
   const loadState: LoadState = query.isPending
     ? { kind: 'loading' }
     : query.isError
       ? { kind: 'error', message: getStaffDashboardErrorMessage(query.error) }
       : { kind: 'ready', summary: query.data };
-  const now = useMemo(() => new Date(), []);
-
   if (loadState.kind === 'loading') {
     return <StaffDashboardPageView state={{ kind: 'loading' }} />;
   }
@@ -71,19 +64,12 @@ export function StaffDashboardPage(): ReactElement {
   const state: StaffDashboardPageViewState = {
     kind: 'ready',
     model,
-    search: searchInput,
-    status,
-    now,
+    order,
+    now: new Date(),
     actions: {
-      onSearchChange: setSearchInput,
-      onStatusChange: (value) => navigate({ status: value, page: 1 }),
-      onSubmit: () =>
-        navigate({ search: searchInput.trim(), page: 1 }, 'replace'),
-      onResetFilters: () => {
-        setSearchInput('');
-        navigate({ search: '', status: 'all', page: 1 });
-      },
+      onResetFilters: () => navigate({ search: '', status: 'all', page: 1 }),
       onPageChange: (nextPage) => navigate({ page: nextPage }),
+      onSortChange: (nextOrder) => navigate({ ...nextOrder, page: 1 }),
     },
   };
   return <StaffDashboardPageView state={state} />;

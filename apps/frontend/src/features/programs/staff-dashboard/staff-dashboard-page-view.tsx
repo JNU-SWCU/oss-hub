@@ -5,18 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { programNewHref } from '@/lib/program-route';
 import { ProgramListPagination } from '../catalog/program-list-pagination';
-import { StaffDashboardControls } from './staff-dashboard-controls';
-import { StaffDashboardOverview } from './staff-dashboard-overview';
+import {
+  StaffDashboardOverview,
+  type StaffDashboardOrder,
+} from './staff-dashboard-overview';
 import type { StaffDashboardPageModel } from './staff-dashboard-page-model';
-import { StaffDashboardStatusSummary } from './staff-dashboard-status-summary';
-import type { ProgramListStatus } from '../catalog/program-list-options';
 
 interface ReadyActions {
-  readonly onSearchChange: (value: string) => void;
-  readonly onStatusChange: (value: ProgramListStatus) => void;
-  readonly onSubmit: () => void;
   readonly onResetFilters: () => void;
   readonly onPageChange: (page: number) => void;
+  readonly onSortChange: (order: StaffDashboardOrder) => void;
 }
 
 export type StaffDashboardPageViewState =
@@ -29,8 +27,7 @@ export type StaffDashboardPageViewState =
   | {
       readonly kind: 'ready';
       readonly model: StaffDashboardPageModel;
-      readonly search: string;
-      readonly status: ProgramListStatus;
+      readonly order?: StaffDashboardOrder;
       readonly now: Date;
       readonly actions: ReadyActions;
     };
@@ -96,22 +93,6 @@ function StaffDashboardReadyState({
       <PageHeader
         className="break-keep [overflow-wrap:anywhere]"
         title="운영 대시보드"
-        description="프로그램 행에서 바로 편집하거나 운영 현황을 확인합니다."
-        actions={
-          <Button asChild>
-            <Link href={programNewHref()}>프로그램 만들기</Link>
-          </Button>
-        }
-      />
-      {model.isEmptyCatalog ? null : (
-        <StaffDashboardStatusSummary summary={model.statusSummary} />
-      )}
-      <StaffDashboardControls
-        search={state.search}
-        status={state.status}
-        onSearchChange={actions.onSearchChange}
-        onStatusChange={actions.onStatusChange}
-        onSubmit={actions.onSubmit}
       />
       {model.isEmptyCatalog ? (
         <EmptyState
@@ -127,7 +108,6 @@ function StaffDashboardReadyState({
       ) : model.isNoResults ? (
         <EmptyState
           title="검색 결과가 없습니다"
-          description="검색어와 모집 상태 필터를 바꿔 보세요."
           action={
             <Button
               type="button"
@@ -144,6 +124,8 @@ function StaffDashboardReadyState({
             programs={model.pageItems}
             totalPrograms={model.total}
             now={state.now}
+            order={state.order}
+            onSortChange={actions.onSortChange}
           />
           <ProgramListPagination
             page={model.safePage}

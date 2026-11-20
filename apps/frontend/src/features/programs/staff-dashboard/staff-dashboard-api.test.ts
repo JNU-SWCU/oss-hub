@@ -16,6 +16,15 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: (...args: unknown[]) => apiClient(...args),
 }));
 
+const milestone = {
+  id: 'stage-1',
+  name: '중간 보고',
+  startAt: '2026-08-01T00:00:00.000Z',
+  dueAt: '2026-08-31T00:00:00.000Z',
+  submittedTeams: null,
+  totalTeams: null,
+};
+
 const validResponse = {
   page: 1,
   pageSize: 20,
@@ -32,6 +41,10 @@ const validResponse = {
         endsAt: '2026-07-31T23:59:59.000Z',
       },
       endAt: '9999-12-31T23:59:59.999Z',
+      milestones: [
+        milestone,
+        { ...milestone, id: 'stage-2', submittedTeams: 0, totalTeams: 0 },
+      ],
       applications: {
         total: 1,
         pendingApproval: 1,
@@ -47,7 +60,7 @@ const validResponse = {
         dataAsOf: null,
       },
       submissions: {
-        milestones: 0,
+        milestones: 1,
         total: 0,
         notSubmitted: 0,
         submitted: 0,
@@ -84,6 +97,23 @@ describe('getStaffDashboardSummary', () => {
     );
   });
 
+  it('마감일 정렬 방향을 서버에 전달한다', async () => {
+    apiClient.mockResolvedValue(validResponse);
+    await getStaffDashboardSummary({
+      search: '',
+      status: 'all',
+      page: 1,
+      sort: 'deadline',
+      direction: 'asc',
+    });
+    const url = new URL(
+      apiClient.mock.calls[0][0] as string,
+      'https://example.org',
+    );
+    expect(url.searchParams.get('sort')).toBe('deadline');
+    expect(url.searchParams.get('direction')).toBe('asc');
+  });
+
   it('이전 서버가 게시 상태 PUBLISHED를 실어 보내도 응답을 그대로 읽는다', async () => {
     const response = {
       ...validResponse,
@@ -97,6 +127,10 @@ describe('getStaffDashboardSummary', () => {
   });
 
   it.each([
+    { milestones: undefined },
+    { milestones: [{ ...milestone, totalTeams: 2 }] },
+    { milestones: [{ ...milestone, dueAt: 'invalid-date' }] },
+    { milestones: [{ ...milestone, submittedTeams: 3, totalTeams: 2 }] },
     { endAt: null },
     { endAt: 'invalid-date' },
     { name: '' },
