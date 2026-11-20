@@ -185,7 +185,7 @@ export function ProgramStaffTeamDetailPage({
 
   if (loadState.kind === 'loading') {
     return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">
         <Skeleton label="팀 상세 불러오는 중" className="grid gap-6">
           <SkeletonBlock className="h-20 rounded-xl" />
           <SkeletonBlock className="h-40 rounded-xl" />
@@ -197,7 +197,7 @@ export function ProgramStaffTeamDetailPage({
 
   if (loadState.kind === 'not-found') {
     return (
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
         <PageHeader title="팀 상세" />
         <EmptyState
           title="팀을 찾을 수 없습니다"
@@ -214,7 +214,7 @@ export function ProgramStaffTeamDetailPage({
 
   if (loadState.kind === 'error') {
     return (
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
         <PageHeader title="팀 상세" />
         <FailureState
           title="팀 상세를 열 수 없습니다"
@@ -252,7 +252,7 @@ export function ProgramStaffTeamDetailPage({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
         <Button asChild variant="ghost" size="sm">
           <Link href={teamsHref}>← 참여 팀으로</Link>
         </Button>
