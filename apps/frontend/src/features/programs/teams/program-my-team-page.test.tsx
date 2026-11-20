@@ -262,6 +262,23 @@ function iconButton(label: string): HTMLButtonElement {
   return found;
 }
 
+function repositoryCard(): HTMLElement {
+  const found = host.querySelector<HTMLElement>(
+    'section[aria-label="프로젝트 저장소"]',
+  );
+  if (!found) throw new Error('프로젝트 저장소 영역 없음');
+  return found;
+}
+
+function repositoryButton(name: string): HTMLButtonElement {
+  const found = Array.from(repositoryCard().querySelectorAll('button')).find(
+    (item) =>
+      (item.getAttribute('aria-label') ?? item.textContent?.trim()) === name,
+  );
+  if (!found) throw new Error(`프로젝트 저장소 버튼 없음: ${name}`);
+  return found;
+}
+
 function inviteDialog(): Element | null {
   return document.body.querySelector('[role="dialog"]');
 }
@@ -585,20 +602,23 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(host.querySelector('table')).toBeNull();
   });
 
-  it('상태·팀원·저장소·활동·이력 순서로 선다', async () => {
+  it('상태·팀원·저장소·활동 순서로 서고 이력은 저장소 안에 있다', async () => {
     vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
     vi.mocked(getMyApplication).mockResolvedValue({
       ...application,
       status: 'APPROVED',
     });
     await renderPage();
+    expect(repositoryButton('변경 이력').getAttribute('aria-expanded')).toBe(
+      'false',
+    );
     const text = host.textContent ?? '';
     const order = [
       '신청 상태',
       '팀 구성원',
       '프로젝트 저장소',
+      '변경 이력',
       '우리 팀 활동',
-      '저장소 URL 변경 이력',
       SLOT_TEXT,
     ].map((label) => text.indexOf(label));
     expect(order.every((index) => index >= 0)).toBe(true);
@@ -780,13 +800,11 @@ it.each([true, false])(
       nickname: canEditRepositoryUrl ? 'synthetic-leader' : 'synthetic-member',
     });
     expect(
-      host.querySelector('a[href="https://github.com/synthetic/team"]'),
+      repositoryCard().querySelector(
+        'a[href="https://github.com/synthetic/team"]',
+      ),
     ).not.toBeNull();
-    const edit = Array.from(host.querySelectorAll('button')).find(
-      (button) => button.getAttribute('aria-label') === '저장소 URL 수정',
-    );
-    expect(edit).toBeDefined();
-    expect(edit?.disabled).toBe(!canEditRepositoryUrl);
+    expect(repositoryButton('변경').disabled).toBe(!canEditRepositoryUrl);
   },
 );
 
@@ -810,11 +828,7 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
     canEditRepositoryUrl: true,
   });
   await renderPage();
-  const edit = () =>
-    host.querySelector<HTMLButtonElement>(
-      'button[aria-label="저장소 URL 수정"]',
-    );
-  expect(edit()?.disabled).toBe(false);
+  expect(repositoryButton('변경').disabled).toBe(false);
 
   vi.mocked(getMyTeam).mockResolvedValue({
     ...team,
@@ -832,7 +846,7 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
   });
 
   expect(getTeamActivity).toHaveBeenCalledTimes(2);
-  expect(edit()?.disabled).toBe(true);
+  expect(repositoryButton('변경').disabled).toBe(true);
   expect(host.textContent).toContain(
     '승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다.',
   );
@@ -905,12 +919,9 @@ it('saves the student change through my application route', async () => {
     canEditRepositoryUrl: true,
   });
   await renderPage();
-  await act(async () =>
-    host
-      .querySelector<HTMLButtonElement>('button[aria-label="저장소 URL 수정"]')
-      ?.click(),
-  );
-  const input = host.querySelector<HTMLInputElement>('#repository-url');
+  await act(async () => repositoryButton('변경').click());
+  const card = repositoryCard();
+  const input = card.querySelector<HTMLInputElement>('#repository-url');
   await act(async () => {
     Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -919,7 +930,7 @@ it('saves the student change through my application route', async () => {
     input?.dispatchEvent(new Event('input', { bubbles: true }));
   });
   await act(async () =>
-    host
+    card
       .querySelector('form')
       ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
   );

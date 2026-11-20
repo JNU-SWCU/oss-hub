@@ -538,7 +538,11 @@ const staffTeamDetail: StaffTeamDetailView = {
 };
 const teamActivity: TeamActivityView = {
   teamId: 'application-1',
-  repository: { id: 'repository-1', url: 'https://github.com/org/team-a' },
+  repository: {
+    id: 'repository-1',
+    url: 'https://github.com/org/team-a',
+    defaultBranch: null,
+  },
   status: 'COLLECTED',
   lastSuccessAt: '2026-05-01T00:00:00.000Z',
   window: {

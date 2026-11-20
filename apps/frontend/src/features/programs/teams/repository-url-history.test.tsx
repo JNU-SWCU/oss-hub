@@ -16,7 +16,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const change = {
   id: 'audit-1',
-  occurredAt: '2026-09-01T00:00:00.000Z',
+  occurredAt: '2026-08-31T20:15:00.000Z',
   actorGithubLogin: 'synthetic-author',
   previousRepositoryUrl: 'https://github.com/synthetic/old',
   newRepositoryUrl: 'https://github.com/synthetic/current',
@@ -56,14 +56,16 @@ describe('RepositoryUrlHistory', () => {
       'program-1',
       'team-1',
     );
-    expect(container.textContent).toContain('@synthetic-author');
-    expect(container.textContent).toContain('2026년 9월 1일 09:00');
-    expect(container.textContent).toContain(change.previousRepositoryUrl);
-    expect(container.textContent).toContain(change.newRepositoryUrl);
+    const row = container.querySelector('ol li');
+    expect(row?.textContent).toBe(
+      '2026년 9월 1일 · @synthetic-author · synthetic/old → synthetic/current',
+    );
     expect(container.textContent).not.toContain('변경 사유');
     expect(container.firstElementChild?.className).toContain('break-keep');
-    const time = container.querySelector('ol time');
+    const time = row?.querySelector('time');
+    expect(time?.textContent).toBe('2026년 9월 1일');
     expect(time?.getAttribute('datetime')).toBe(change.occurredAt);
+    expect(time?.title).toBe('2026년 9월 1일 05:15');
     expect(time?.className).toContain('whitespace-nowrap');
     expect(button()).toBeNull();
   });

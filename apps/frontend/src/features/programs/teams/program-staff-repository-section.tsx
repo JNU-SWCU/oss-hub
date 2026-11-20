@@ -45,10 +45,9 @@ export function ProgramStaffRepositorySection({
 
   if (application === null) {
     return (
-      <div className="grid gap-1 break-keep text-small text-muted-foreground">
-        <p>아직 신청하지 않은 팀입니다.</p>
-        <p>신청 후 저장소를 발급합니다.</p>
-      </div>
+      <p className="text-small text-muted-foreground">
+        아직 신청하지 않은 팀입니다.
+      </p>
     );
   }
 

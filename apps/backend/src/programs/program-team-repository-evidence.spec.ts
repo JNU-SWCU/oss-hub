@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { StudentRepositoryUrlService } from './team-application.service';
 import {
   teamFindFirst,
@@ -89,8 +90,8 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
     rows: [],
     hasMore: false,
   });
-  const [sql, ...bindings] = historyQuery.mock.calls[0]!;
-  expect(bindings).toEqual([
+  const query = Prisma.sql(...historyQuery.mock.calls[0]!);
+  expect(query.values).toEqual([
     'team',
     'program',
     cursor.occurredAt,
@@ -98,7 +99,7 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
     cursor.occurredAt,
     cursor.id,
   ]);
-  expect(sql.join('?')).toContain(
+  expect(query.sql).toContain(
     'ORDER BY h."occurredAt" DESC, h.id DESC LIMIT 21',
   );
 });
@@ -156,7 +157,7 @@ it('returns only application-scoped URL history with the actor snapshot', async 
     ],
     nextCursor: null,
   });
-  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual([
+  expect(Prisma.sql(...historyQuery.mock.calls[0]!).values).toEqual([
     'team',
     'program',
     null,
@@ -201,7 +202,7 @@ it('bounds the initial history page and provides a cursor for all remaining hist
     'items',
     expect.arrayContaining([expect.objectContaining({ id: 'change-11' })]),
   );
-  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual([
+  expect(Prisma.sql(...historyQuery.mock.calls[0]!).values).toEqual([
     'team',
     'program',
     null,
