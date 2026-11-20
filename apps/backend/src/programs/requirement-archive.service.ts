@@ -13,8 +13,10 @@ import {
   RequirementCurrentFileRepository,
   type RequirementCurrentFileReader,
   RequirementCollectionReadRepository,
+  type DocumentDeliveryCoordinate,
   type DocumentDeliveryStatus,
   RequirementCollectionApplication,
+  type RequirementStageApplication,
   MilestoneContext,
   RequirementRecord,
   RequirementCollectionSubmission,
@@ -36,9 +38,30 @@ import {
   SubmissionFileAdmissionService,
   RequirementFileNameService,
 } from './files.service';
+import type {
+  MatrixCellStatus,
+  MatrixSortDirection,
+  MatrixStatusCounts,
+} from './submissions.repository';
+import { MATRIX_CELL_STATUSES } from './submission-matrix.config';
 import { ZipFile } from 'yazl';
+
+export const REQUIREMENT_COLLECTION_SORTS = [
+  'team',
+  'document',
+  'status',
+  'submittedAt',
+  'reviewedAt',
+] as const;
+export type RequirementCollectionSort =
+  (typeof REQUIREMENT_COLLECTION_SORTS)[number];
+
 export interface RequirementDeliveryQuery extends RequirementCollectionQuery {
   readonly scope?: 'all';
+  readonly q?: string;
+  readonly status?: MatrixCellStatus;
+  readonly sort?: RequirementCollectionSort;
+  readonly direction?: MatrixSortDirection;
   readonly deliveryStatus?: DocumentDeliveryStatus;
   readonly document?: {
     readonly id: string;
@@ -62,12 +85,22 @@ export type RequirementDeliveryPage<
   };
 };
 
-export interface RequirementDeliveryCollectionResult extends RequirementDeliveryPage<
-  RequirementCollectionApplication,
-  RequirementCollectionCell
+export interface RequirementDeliveryCollectionResult extends Omit<
+  RequirementDeliveryPage<
+    RequirementCollectionApplication,
+    RequirementCollectionCell
+  >,
+  'rows'
 > {
   readonly milestone: MilestoneContext;
   readonly documents: readonly RequirementRecord[];
+  readonly rows: readonly {
+    readonly application: RequirementStageApplication;
+    readonly deliveryStatus: DocumentDeliveryStatus;
+    readonly sortDocumentId?: string;
+    readonly cells: readonly (RequirementCollectionCell | null)[];
+  }[];
+  readonly statusCounts: MatrixStatusCounts;
 }
 
 export interface DownloadedRequirementCurrentFile {
@@ -143,6 +176,10 @@ const REQUIREMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
 
 export interface RequirementCollectionRequest {
   readonly scope?: 'all';
+  readonly q?: string;
+  readonly status?: MatrixCellStatus;
+  readonly sort?: RequirementCollectionSort;
+  readonly direction?: MatrixSortDirection;
   readonly page?: number;
   readonly pageSize?: number;
   readonly filter?: RequirementCollectionFilter;
@@ -262,6 +299,12 @@ export class RequirementCollectionService {
       page: request.page ?? 1,
       pageSize: request.pageSize ?? REQUIREMENT_COLLECTION_DEFAULT_PAGE_SIZE,
       filter: request.filter ?? 'ALL',
+      ...(request.q === undefined ? {} : { q: request.q }),
+      ...(request.status === undefined ? {} : { status: request.status }),
+      ...(request.sort === undefined ? {} : { sort: request.sort }),
+      ...(request.direction === undefined
+        ? {}
+        : { direction: request.direction }),
       ...(request.scope === undefined ? {} : { scope: request.scope }),
       ...(request.documentId === undefined
         ? {}
@@ -298,55 +341,140 @@ export class RequirementCollectionService {
         throw new DomainException(
           REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.MILESTONE_NOT_FOUND],
         );
-      const [documents, applications] = await Promise.all([
+      const [documents, approvedApplications] = await Promise.all([
         store.findDocuments(milestoneId),
         store.findApplications(milestone.programId),
       ]);
-      if (
-        query.document !== undefined &&
-        !documents.some((document) => document.id === query.document?.id)
-      )
+      const documentIndex = documents.findIndex(
+        (document) => document.id === query.document?.id,
+      );
+      if (query.document !== undefined && documentIndex < 0)
         throw new DomainException(
           REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.DOCUMENT_NOT_FOUND],
         );
+      const needle = query.q?.trim().toLowerCase() ?? '';
+      const applications =
+        needle === ''
+          ? approvedApplications
+          : approvedApplications.filter(
+              ({ teamName, leaderName, applicantName, memberNicknames }) =>
+                [teamName, leaderName, applicantName, ...memberNicknames].some(
+                  (name) => name?.toLowerCase().includes(needle),
+                ),
+            );
       const documentIds = documents.map((document) => document.id);
-      const coordinates = await store.findCoordinates(
-        documentIds,
-        applications.map((application) => application.teamId),
-      );
-      const page = this.buildRequirementDeliveryPage(
+      const teamIds = applications.map((application) => application.teamId);
+      const coordinates = await store.findCoordinates(documentIds, teamIds);
+      const { rows: teamRows, ...delivery } = this.buildRequirementDeliveryPage(
         {
           documents,
           applications,
           submissions: coordinates,
           dueAt: milestone.dueAt,
         },
-        query,
+        { filter: 'ALL', page: 1, pageSize: Math.max(1, applications.length) },
       );
+      const statusCounts: Record<MatrixCellStatus, number> = {
+        NOT_SUBMITTED: 0,
+        SUBMITTED: 0,
+        CHANGES_REQUESTED: 0,
+        REJECTED: 0,
+        APPROVED: 0,
+      };
+      for (const row of teamRows)
+        for (const submission of row.cells)
+          statusCounts[submission?.status ?? 'NOT_SUBMITTED'] += 1;
+
+      const candidates = teamRows.filter((row) =>
+        matchesDeliveryFilters(row, documents, documentIndex, query),
+      );
+      const sort = query.sort ?? 'team';
+      const direction = query.direction === 'desc' ? -1 : 1;
+      const reviewTimes = new Map<string, Date>();
+      if (sort === 'reviewedAt' && candidates.length > 1) {
+        const reviewDocumentIds =
+          query.document === undefined ? documentIds : [query.document.id];
+        for (const review of await store.findLatestReviewTimes(
+          reviewDocumentIds,
+          candidates.map((row) => row.application.teamId),
+        )) {
+          reviewTimes.set(
+            cellKey(review.teamId, review.requirementId),
+            review.reviewedAt,
+          );
+        }
+      }
+      const compareSlots = (a: StageCollectionSlot, b: StageCollectionSlot) =>
+        compareStageSlots(a, b, sort, direction, reviewTimes);
+      const filtered = candidates.flatMap((row) => {
+        let first: StageCollectionSlot | undefined;
+        documents.forEach((document, index) => {
+          if (documentIndex >= 0 && index !== documentIndex) return;
+          const submission = row.cells[index] ?? null;
+          const status = submission?.status ?? 'NOT_SUBMITTED';
+          if (query.status !== undefined && status !== query.status) return;
+          const slot: StageCollectionSlot = {
+            application: row.application,
+            document,
+            status,
+            submission,
+          };
+          if (first === undefined || compareSlots(slot, first) < 0)
+            first = slot;
+        });
+        if (first === undefined && query.status !== undefined) return [];
+        return [{ row, first }];
+      });
+
+      if (query.sort !== undefined || query.direction !== undefined) {
+        filtered.sort((a, b) =>
+          a.first !== undefined && b.first !== undefined
+            ? compareSlots(a.first, b.first)
+            : compareStageTeams(
+                a.row.application,
+                b.row.application,
+                sort === 'team' ? direction : 1,
+              ),
+        );
+      }
+      const offset = (query.page - 1) * query.pageSize;
+      const visible = filtered.slice(offset, offset + query.pageSize);
       const details = await store.findDetails(
         documentIds,
-        page.rows.map((row) => row.application.teamId),
+        visible.map(({ row }) => row.application.teamId),
         now,
       );
       const detailByCell = new Map(
         details.map((submission) => [
-          `${submission.teamId}::${submission.requirementId}`,
+          cellKey(submission.teamId, submission.requirementId),
           this.toRequirementCollectionCell(submission),
         ]),
       );
+      const rows = visible.map(({ row, first }) => ({
+        application: row.application,
+        deliveryStatus: row.deliveryStatus,
+        ...(sort !== 'team' && first !== undefined
+          ? { sortDocumentId: first.document.id }
+          : {}),
+        cells: row.cells.map((submission) => {
+          if (submission === null) return null;
+          const detail = detailByCell.get(
+            cellKey(submission.teamId, submission.requirementId),
+          );
+          if (detail === undefined)
+            throw new Error('Collection cell lost its submission');
+          return detail;
+        }),
+      }));
       return {
+        ...delivery,
         milestone,
         documents,
-        ...page,
-        rows: page.rows.map((row) => ({
-          application: row.application,
-          deliveryStatus: row.deliveryStatus,
-          cells: documents.map(
-            (document) =>
-              detailByCell.get(`${row.application.teamId}::${document.id}`) ??
-              null,
-          ),
-        })),
+        rows,
+        statusCounts,
+        page: query.page,
+        pageSize: query.pageSize,
+        total: filtered.length,
       };
     });
   }
@@ -397,36 +525,9 @@ export class RequirementCollectionService {
     const documentIndex = source.documents.findIndex(
       (document) => document.id === query.document?.id,
     );
-    const filtered = allRows.filter((row) => {
-      if (query.document !== undefined) {
-        if (documentIndex < 0) return false;
-        const submitted = row.cells[documentIndex] !== null;
-        if (query.document.submissionState === 'SUBMITTED' && !submitted)
-          return false;
-        if (query.document.submissionState === 'MISSING' && submitted)
-          return false;
-      }
-      if (
-        query.deliveryStatus !== undefined &&
-        row.deliveryStatus !== query.deliveryStatus
-      )
-        return false;
-      switch (query.filter) {
-        case 'ALL':
-          return true;
-        case 'HAS_MISSING':
-          return row.deliveryStatus === 'MISSING';
-        case 'ZERO_SUBMISSION':
-          return (
-            source.documents.length > 0 &&
-            row.cells.every((cell) => cell === null)
-          );
-        default: {
-          const exhaustive: never = query.filter;
-          return exhaustive;
-        }
-      }
-    });
+    const filtered = allRows.filter((row) =>
+      matchesDeliveryFilters(row, source.documents, documentIndex, query),
+    );
     const offset = (query.page - 1) * query.pageSize;
     return {
       ...base,
@@ -436,6 +537,122 @@ export class RequirementCollectionService {
       total: filtered.length,
       deliveryCounts,
     };
+  }
+}
+
+interface StageCollectionSlot {
+  readonly application: RequirementStageApplication;
+  readonly document: RequirementRecord;
+  readonly status: MatrixCellStatus;
+  readonly submission: DocumentDeliveryCoordinate | null;
+}
+
+const stageCollectionNameOrder = new Intl.Collator('ko', {
+  sensitivity: 'base',
+});
+
+function compareStageTeams(
+  a: RequirementStageApplication,
+  b: RequirementStageApplication,
+  direction: 1 | -1,
+): number {
+  return (
+    direction * stageCollectionNameOrder.compare(a.teamName, b.teamName) ||
+    a.teamId.localeCompare(b.teamId)
+  );
+}
+
+function compareStageSlots(
+  a: StageCollectionSlot,
+  b: StageCollectionSlot,
+  sort: RequirementCollectionSort,
+  direction: 1 | -1,
+  reviewTimes: ReadonlyMap<string, Date>,
+): number {
+  const teamOrder = stageCollectionNameOrder.compare(
+    a.application.teamName,
+    b.application.teamName,
+  );
+  let primary: number;
+  switch (sort) {
+    case 'team':
+      primary = direction * teamOrder;
+      break;
+    case 'document':
+      primary =
+        direction *
+        stageCollectionNameOrder.compare(a.document.name, b.document.name);
+      break;
+    case 'status':
+      primary =
+        direction *
+        (MATRIX_CELL_STATUSES.indexOf(a.status) -
+          MATRIX_CELL_STATUSES.indexOf(b.status));
+      break;
+    case 'submittedAt':
+      primary = compareStageDates(
+        a.submission?.submittedAt,
+        b.submission?.submittedAt,
+        direction,
+      );
+      break;
+    case 'reviewedAt':
+      primary = compareStageDates(
+        reviewTimes.get(cellKey(a.application.teamId, a.document.id)),
+        reviewTimes.get(cellKey(b.application.teamId, b.document.id)),
+        direction,
+      );
+      break;
+  }
+  return (
+    primary ||
+    teamOrder ||
+    a.application.teamId.localeCompare(b.application.teamId) ||
+    a.document.sortOrder - b.document.sortOrder ||
+    a.document.id.localeCompare(b.document.id)
+  );
+}
+
+function compareStageDates(
+  a: Date | undefined,
+  b: Date | undefined,
+  direction: 1 | -1,
+): number {
+  if (a === undefined) return b === undefined ? 0 : 1;
+  if (b === undefined) return -1;
+  return direction * (a.getTime() - b.getTime());
+}
+
+function matchesDeliveryFilters(
+  row: RequirementCollectionPageRow<
+    RequirementCollectionApplicationRule,
+    RequirementCollectionSubmissionRule
+  > & {
+    readonly deliveryStatus: DocumentDeliveryStatus;
+  },
+  documents: readonly RequirementCollectionDocumentRule[],
+  documentIndex: number,
+  query: RequirementDeliveryQuery,
+): boolean {
+  if (query.document !== undefined) {
+    if (documentIndex < 0) return false;
+    const submitted = isSubmittedAt(row, documentIndex);
+    if (query.document.submissionState === 'SUBMITTED' && !submitted)
+      return false;
+    if (query.document.submissionState === 'MISSING' && submitted) return false;
+  }
+  if (
+    query.deliveryStatus !== undefined &&
+    row.deliveryStatus !== query.deliveryStatus
+  )
+    return false;
+  switch (query.filter) {
+    case 'ALL':
+      return true;
+    case 'HAS_MISSING':
+      return row.deliveryStatus === 'MISSING';
+    case 'ZERO_SUBMISSION':
+      return hasZeroSubmission(row, documents);
   }
 }
 
