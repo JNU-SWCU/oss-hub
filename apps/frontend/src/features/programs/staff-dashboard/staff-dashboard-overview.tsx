@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { programEditHref } from '@/lib/program-route';
+import { programOverviewHref } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import { milestoneCountdown } from '../catalog/program-detail-format';
 import type {
@@ -249,9 +249,8 @@ function ProgramLink({
 }): ReactElement {
   return (
     <Link
-      href={programEditHref(program.id)}
-      aria-label={`${program.name} 편집`}
-      className="block min-w-0 truncate rounded-sm font-semibold text-primary underline-offset-4 hover:underline"
+      href={programOverviewHref(program.id)}
+      className="block min-w-0 truncate rounded-sm font-semibold text-foreground hover:underline focus-visible:underline"
     >
       {program.name}
     </Link>
