@@ -97,7 +97,9 @@ describe('matrix delivery data under a server status filter', () => {
         cells?.[1]?.querySelector('svg.lucide-circle-check'),
       ).not.toBeNull();
 
-      const filters = document.querySelector('[aria-label="제출 상태 필터"]');
+      const filters = document.querySelector(
+        '[role="group"][aria-label="제출 상태 필터"]',
+      );
       expect(
         filters?.querySelector('button[aria-pressed="true"]')?.textContent,
       ).toBe('반려 1');
