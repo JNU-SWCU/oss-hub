@@ -249,6 +249,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
         teamId: 'synthetic-application',
         teamName: '가나다팀',
         applicantName: '합성 신청자',
+        leaderName: '합성 팀장',
         memberNicknames: ['synthetic-leader'],
       },
       deliveryStatus: 'COMPLETE',
@@ -267,6 +268,13 @@ const collectForStaff = jest.fn().mockResolvedValue({
     },
   ],
   deliveryCounts: { missing: 0, late: 0, complete: 1, noRequiredItems: 0 },
+  statusCounts: {
+    NOT_SUBMITTED: 0,
+    SUBMITTED: 1,
+    CHANGES_REQUESTED: 0,
+    REJECTED: 0,
+    APPROVED: 0,
+  },
   page: 1,
   pageSize: 20,
   total: 1,
@@ -621,6 +629,7 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
     rows: [
       {
         teamName: '가나다팀',
+        leaderName: '합성 팀장',
         cells: [{ documentId: 'synthetic-document', isSubmitted: true }],
       },
     ],

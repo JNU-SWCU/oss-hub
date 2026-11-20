@@ -1,6 +1,5 @@
 import { MilestoneCompletionService } from './submissions.service';
 import { RequirementCollectionService } from './requirement-archive.service';
-import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -19,10 +18,7 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const harness = createDeadlineDigestIntegrationHarness();
-const repository = new SubmissionMatrixRepository(
-  harness.prisma,
-  new PlatformRepository(),
-);
+const repository = new SubmissionMatrixRepository(harness.prisma);
 const service = new SubmissionMatrixService(
   repository,
   new RequirementCollectionService({} as never),
@@ -59,9 +55,14 @@ afterAll(async () => {
 
 async function requestMatrix(
   githubId: bigint = fixture.staffOnGithub,
-  programId: string = fixture.notifyProgram,
+  query?: Record<string, string>,
 ) {
-  return fetch(`${baseUrl}/api/v1/programs/${programId}/submissions/matrix`, {
+  const url = new URL(
+    `/api/v1/programs/${fixture.notifyProgram}/submissions/matrix`,
+    baseUrl,
+  );
+  if (query !== undefined) url.search = new URLSearchParams(query).toString();
+  return fetch(url, {
     headers: await matrixSessionHeaders(githubId),
   });
 }
@@ -104,30 +105,51 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   const body: unknown = await response.json();
-  expect(body).toMatchObject({ total: 4 });
+  const statusCounts = {
+    NOT_SUBMITTED: 3,
+    SUBMITTED: 0,
+    CHANGES_REQUESTED: 0,
+    REJECTED: 1,
+    APPROVED: 0,
+  };
+  const reviewedRow = {
+    teamId: fixture.submittedApplication,
+    leaderName: `합성 synthetic-${fixture.studentSubmitted}`,
+    cells: [
+      {
+        milestoneId: fixture.notifyMilestone,
+        deliveryStatus: 'COMPLETE',
+        status: 'REJECTED',
+        submissionId: fixture.documentSubmission,
+        revision: 2,
+        submittedAt: late.toISOString(),
+        changesRequestedCount: 0,
+      },
+    ],
+  };
+  expect(body).toMatchObject({ total: 4, statusCounts });
   expect(body).toHaveProperty(
     'rows',
     expect.arrayContaining([
-      expect.objectContaining({
-        teamId: fixture.submittedApplication,
-        cells: [
-          {
-            milestoneId: fixture.notifyMilestone,
-            deliveryStatus: 'COMPLETE',
-            status: 'REJECTED',
-            submissionId: fixture.documentSubmission,
-            revision: 2,
-            submittedAt: late.toISOString(),
-            changesRequestedCount: 0,
-          },
-        ],
-      }),
+      expect.objectContaining(reviewedRow),
       expect.objectContaining({
         teamId: fixture.missingApplication,
         cells: [expect.objectContaining({ deliveryStatus: 'MISSING' })],
       }),
     ]),
   );
+
+  const filtered = await requestMatrix(fixture.staffOnGithub, {
+    status: 'REJECTED',
+    pageSize: '1',
+  });
+  expect(filtered.status).toBe(200);
+  await expect(filtered.json()).resolves.toMatchObject({
+    total: 1,
+    pageSize: 1,
+    statusCounts,
+    rows: [reviewedRow],
+  });
 });
 
 it.each([
@@ -185,6 +207,17 @@ it.each([
     });
 
     expect(matrix.rows).toHaveLength(4);
+    expect(matrix.statusCounts).toEqual({
+      NOT_SUBMITTED: required ? 3 : 0,
+      SUBMITTED: required ? 1 : 0,
+      CHANGES_REQUESTED: 0,
+      REJECTED: 0,
+      APPROVED: 0,
+    });
+    const missing = await service.matrix(fixture.notifyProgram, {
+      status: 'NOT_SUBMITTED',
+    });
+    expect(missing.total).toBe(required ? 3 : 0);
     expect(
       matrix.rows
         .flatMap((row) => row.cells.map((cell) => cell.deliveryStatus))

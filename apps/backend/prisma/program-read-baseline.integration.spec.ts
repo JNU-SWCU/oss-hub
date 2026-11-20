@@ -352,7 +352,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
   }
   const platform = new PlatformRepository();
   const overview = new ProgramOverviewRepository(prisma, platform);
-  const matrix = new SubmissionMatrixRepository(prisma, platform);
+  const matrix = new SubmissionMatrixRepository(prisma);
   const collection = new RequirementCollectionReadRepository(
     prisma,
     new FileMetadataRepository(),
@@ -390,12 +390,18 @@ it('records four real repository read paths with twenty warm samples and SQL cou
         );
         const teamIds = page.items.map((row) => row.id);
         const documents = milestones.flatMap((row) => row.requiredDocumentIds);
-        const submissions = await matrix.findCurrentSubmissions(teamIds);
+        const submissions = await matrix.findCurrentSubmissions(
+          teamIds,
+          programId,
+        );
         const coordinates = await matrix.findDocumentFirstSubmissions(
           teamIds,
           documents,
         );
-        const changes = await matrix.findDocumentChangeRequests(teamIds);
+        const changes = await matrix.findDocumentChangeRequests(
+          teamIds,
+          programId,
+        );
         expect([
           milestones.length,
           page.total,

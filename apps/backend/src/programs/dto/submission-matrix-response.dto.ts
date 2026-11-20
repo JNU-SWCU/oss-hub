@@ -1,8 +1,9 @@
+import type { SubmissionMatrixResult } from '../submission-matrix.service';
 import type {
-  SubmissionMatrixResult,
+  MatrixApplicationMode,
   MatrixCellStatus,
-} from '../submission-matrix.service';
-import type { MatrixApplicationMode } from '../submissions.repository';
+  MatrixStatusCounts,
+} from '../submissions.repository';
 import type { DocumentDeliveryStatus } from '../requirements.repository';
 
 export class MatrixMilestoneResponseDto {
@@ -49,6 +50,7 @@ export class MatrixRowResponseDto {
   declare readonly teamId: string;
   declare readonly applicationMode: MatrixApplicationMode;
   declare readonly displayName: string;
+  declare readonly leaderName: string | null;
   declare readonly githubLogins: string[];
   declare readonly cells: MatrixCellResponseDto[];
 
@@ -59,8 +61,27 @@ export class MatrixRowResponseDto {
       teamId: row.teamId,
       applicationMode: row.applicationMode,
       displayName: row.displayName,
+      leaderName: row.leaderName,
       githubLogins: [...row.githubLogins],
       cells: row.cells.map((cell) => MatrixCellResponseDto.from(cell)),
+    };
+  }
+}
+
+export class MatrixStatusCountsResponseDto implements MatrixStatusCounts {
+  declare readonly NOT_SUBMITTED: number;
+  declare readonly SUBMITTED: number;
+  declare readonly CHANGES_REQUESTED: number;
+  declare readonly REJECTED: number;
+  declare readonly APPROVED: number;
+
+  static from(counts: MatrixStatusCounts): MatrixStatusCountsResponseDto {
+    return {
+      NOT_SUBMITTED: counts.NOT_SUBMITTED,
+      SUBMITTED: counts.SUBMITTED,
+      CHANGES_REQUESTED: counts.CHANGES_REQUESTED,
+      REJECTED: counts.REJECTED,
+      APPROVED: counts.APPROVED,
     };
   }
 }
@@ -71,6 +92,7 @@ export class SubmissionMatrixResponseDto {
   declare readonly page: number;
   declare readonly pageSize: number;
   declare readonly total: number;
+  declare readonly statusCounts: MatrixStatusCountsResponseDto;
 
   static from(result: SubmissionMatrixResult): SubmissionMatrixResponseDto {
     return {
@@ -81,6 +103,7 @@ export class SubmissionMatrixResponseDto {
       page: result.page,
       pageSize: result.pageSize,
       total: result.total,
+      statusCounts: MatrixStatusCountsResponseDto.from(result.statusCounts),
     };
   }
 }
