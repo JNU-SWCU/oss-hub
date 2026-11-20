@@ -16,15 +16,16 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProgram } from '../catalog/queries';
 import { ApiError } from '@/lib/api-client';
-import {
-  requirementCollectionLoadPhase,
-  selectCollectionDocument,
-} from './requirement-collection';
+import { requirementCollectionLoadPhase } from './requirement-collection';
 import type {
   RequirementCollectionArchiveGrouping,
-  RequirementCollectionFilter,
+  RequirementCollectionCell,
+  RequirementCollectionQueryInput,
 } from './requirement-collection-dto';
-import { RequirementCollectionView } from './requirement-collection-view';
+import {
+  RequirementCollectionView,
+  type RequirementCollectionPresentation,
+} from './requirement-collection-view';
 import {
   isRequirementReviewTargetChanged,
   requirementReviewConflictNotice,
@@ -36,10 +37,10 @@ import {
   requirementReviewCommentPayload,
   requirementReviewFormError,
   requirementReviewVersionError,
+  requirementReviewVersionOf,
   nextRequirementReviewState,
   type RequirementReviewFormState,
   type RequirementReviewTarget,
-  type RequirementReviewVersion,
 } from './requirement-review';
 import { createRequirementReview } from './requirement-review-api';
 import type { RequirementReviewDecision } from './requirement-review-dto';
@@ -48,13 +49,17 @@ export function RequirementCollectionScreen({
   programId,
   milestoneId,
   headerActions,
+  Table,
+  StatusFilters,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
   readonly headerActions?: ReactNode;
-}) {
+} & RequirementCollectionPresentation) {
   const queryClient = useQueryClient();
   const { state: query, navigate } = useRequirementCollectionUrlState();
+  const sort = query.sort ?? 'team';
+  const direction = query.direction ?? 'asc';
   const [search, setSearch] = useUrlSearchDraft(query.q);
   const result = useRequirementCollectionQuery(programId, milestoneId, query);
   const [conflictFailed, setConflictFailed] = useState(false);
@@ -64,7 +69,12 @@ export function RequirementCollectionScreen({
       ? result.error.problem.detail
       : '서류 수합 표를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
     : null;
-  const [review, setReview] = useState<RequirementReviewFormState | null>(null);
+  const [review, setReview] = useState<
+    | (RequirementReviewFormState & {
+        readonly cell: RequirementCollectionCell;
+      })
+    | null
+  >(null);
 
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
 
@@ -106,6 +116,17 @@ export function RequirementCollectionScreen({
   const discardPendingReview = useCallback(() => {
     reviewRequestIdRef.current += 1;
   }, []);
+
+  const navigateCollection = (
+    next: Partial<RequirementCollectionQueryInput>,
+    mode?: 'push' | 'replace',
+  ) => {
+    discardPendingReview();
+    setReview(null);
+    setReviewNotice(null);
+    setConflictFailed(false);
+    navigate(next, mode);
+  };
 
   const reloadCollection =
     useCallback(async (): Promise<RequirementCollectionReloadResult> => {
@@ -219,29 +240,26 @@ export function RequirementCollectionScreen({
     <RequirementCollectionView
       programId={programId}
       headerActions={headerActions}
+      Table={Table}
+      StatusFilters={StatusFilters}
       data={data}
       search={search}
       searchQuery={query.q}
+      status={query.status}
+      sort={sort}
+      direction={direction}
       onSearchChange={setSearch}
-      onSearch={() => {
-        discardPendingReview();
-        setReview(null);
-        setReviewNotice(null);
-        setConflictFailed(false);
-        navigate({ q: search.trim(), page: 1 }, 'replace');
-      }}
-      filter={query.filter}
-      documentSelection={query.document ?? null}
-      onDocumentSelectionChange={(document) => {
-        discardPendingReview();
-        setReview(null);
-        setReviewNotice(null);
-        setConflictFailed(false);
-        navigate({
-          ...selectCollectionDocument(query, document),
-          document: document ?? undefined,
-        });
-      }}
+      onSearch={() =>
+        navigateCollection({ q: search.trim(), page: 1 }, 'replace')
+      }
+      onStatusChange={(status) => navigateCollection({ status, page: 1 })}
+      onSort={(next) =>
+        navigateCollection({
+          sort: next,
+          direction: next === sort && direction === 'asc' ? 'desc' : 'asc',
+          page: 1,
+        })
+      }
       loadPhase={requirementCollectionLoadPhase({ data, isLoading })}
       errorMessage={errorMessage}
       review={visibleReview}
@@ -249,41 +267,27 @@ export function RequirementCollectionScreen({
       archiveGrouping={archiveGrouping}
 
       onResetFilters={() => {
-        discardPendingReview();
-        setReview(null);
-        setReviewNotice(null);
-        setConflictFailed(false);
         setSearch('');
-        navigate({ document: undefined, filter: 'ALL', page: 1, q: '' });
+        navigateCollection({ status: undefined, page: 1, q: '' });
       }}
       onArchiveGroupingChange={setArchiveGrouping}
-      onFilterChange={(filter: RequirementCollectionFilter) => {
-        discardPendingReview();
-        setReview(null);
-
-        setReviewNotice(null);
-
-        setConflictFailed(false);
-        navigate({ filter, page: 1 });
-      }}
-      onPageChange={(page: number) => {
-        discardPendingReview();
-        setReview(null);
-        setReviewNotice(null);
-        setConflictFailed(false);
-        navigate({ page });
-      }}
+      onPageChange={(page) => navigateCollection({ page })}
       onRetry={reload}
       onReviewOpen={(
         target: RequirementReviewTarget,
-        version: RequirementReviewVersion | null,
+        cell: RequirementCollectionCell,
       ) => {
         discardPendingReview();
 
         setReviewNotice(null);
-        setReview((previous) =>
-          nextRequirementReviewState(previous, target, version),
-        );
+        setReview((previous) => {
+          const next = nextRequirementReviewState(
+            previous,
+            target,
+            requirementReviewVersionOf(cell),
+          );
+          return next === null ? null : { ...next, cell };
+        });
       }}
       onReviewClose={() => {
         discardPendingReview();
