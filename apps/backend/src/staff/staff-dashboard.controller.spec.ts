@@ -5,25 +5,14 @@ import {
   HEADERS_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
+import { PROTECTED_ROUTE_METADATA } from '../auth/authentication.guard';
 import { RolesGuard } from '../platform/roles.guard';
 import { ProgramTrackType } from '@prisma/client';
+import type { StaffInsightsFinderRequestDto } from './dto/staff-insights-request.dto';
 import { StaffDashboardSummaryRequestDto } from './dto/staff-dashboard-summary-request.dto';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
-
-function readGuards(
-  target: object,
-  methodName: 'summary' | 'insightsSummary',
-): unknown[] {
-  const method: unknown = Object.getOwnPropertyDescriptor(
-    target,
-    methodName,
-  )?.value;
-  if (typeof method !== 'function') return [];
-  const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, method);
-  return Array.isArray(guards) ? guards : [];
-}
 
 describe('StaffDashboardController', () => {
   const validation = new ValidationPipe({
@@ -36,27 +25,35 @@ describe('StaffDashboardController', () => {
     metatype: StaffDashboardSummaryRequestDto,
   } as const;
 
-  it('applies route metadata, no-store cache, and only the role guard', () => {
-    const summary: unknown = Object.getOwnPropertyDescriptor(
-      StaffDashboardController.prototype,
-      'summary',
-    )?.value;
-    if (typeof summary !== 'function') {
-      throw new TypeError('StaffDashboardController.summary is missing');
-    }
+  it.each([
+    ['summary', 'summary'],
+    ['insightsSummary', 'insights'],
+    ['insightsStudents', 'insights/students'],
+  ])(
+    '%s requires a protected staff session and disables caching',
+    (name, path) => {
+      const handler: unknown = Object.getOwnPropertyDescriptor(
+        StaffDashboardController.prototype,
+        name,
+      )?.value;
+      if (typeof handler !== 'function') {
+        throw new TypeError(`StaffDashboardController.${name} is missing`);
+      }
 
-    expect(Reflect.getMetadata(PATH_METADATA, StaffDashboardController)).toBe(
-      'dashboard/staff',
-    );
-    expect(Reflect.getMetadata(PATH_METADATA, summary)).toBe('summary');
-    expect(Reflect.getMetadata(HEADERS_METADATA, summary)).toContainEqual({
-      name: 'Cache-Control',
-      value: 'private, no-store',
-    });
-    expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual([
-      RolesGuard,
-    ]);
-  });
+      expect(Reflect.getMetadata(PATH_METADATA, StaffDashboardController)).toBe(
+        'dashboard/staff',
+      );
+      expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
+      expect(Reflect.getMetadata(PROTECTED_ROUTE_METADATA, handler)).toBe(true);
+      expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toContainEqual({
+        name: 'Cache-Control',
+        value: 'private, no-store',
+      });
+      expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+        RolesGuard,
+      ]);
+    },
+  );
 
   it.each([null, 'https://sojoong.kr/wp-content/uploads/synthetic.jpg'])(
     'maps composed service summary with cover %s into the response DTO',
@@ -108,7 +105,10 @@ describe('StaffDashboardController', () => {
         ],
       });
       const service: Pick<StaffDashboardService, 'summary'> = { summary };
-      const insights = { summarizeFromRequest: jest.fn() };
+      const insights = {
+        summarizeFromRequest: jest.fn(),
+        findStudents: jest.fn(),
+      };
       const controller = new StaffDashboardController(service, insights);
 
       await expect(
@@ -195,7 +195,7 @@ describe('StaffDashboardController', () => {
     });
     const controller = new StaffDashboardController(
       { summary },
-      { summarizeFromRequest: jest.fn() },
+      { summarizeFromRequest: jest.fn(), findStudents: jest.fn() },
     );
 
     await controller.summary(query);
@@ -228,7 +228,7 @@ describe('StaffDashboardController', () => {
     },
   );
 
-  it('guards insights the same way and resolves a missing year to all-time', async () => {
+  it('resolves a missing insights year to all-time', async () => {
     const summarize = jest.fn().mockResolvedValue({
       scope: { kind: 'all' },
       dataAsOf: new Date('2026-08-01T00:00:00.000Z'),
@@ -249,6 +249,8 @@ describe('StaffDashboardController', () => {
         period: { all: [], swMajor: [], nonSw: [] },
         recent: { all: [], swMajor: [], nonSw: [] },
       },
+      attentionStudents: [],
+      firstContributionCount: null,
       recentWindow: {
         from: new Date('2026-07-02T00:00:00.000Z'),
         to: new Date('2026-08-01T00:00:00.000Z'),
@@ -261,26 +263,45 @@ describe('StaffDashboardController', () => {
         staffInsightsQueryService: new StaffInsightsQueryService(),
       }) as unknown as StaffInsightsService,
     );
-    const insightsSummary: unknown = Object.getOwnPropertyDescriptor(
-      StaffDashboardController.prototype,
-      'insightsSummary',
-    )?.value;
-    if (typeof insightsSummary !== 'function') {
-      throw new TypeError(
-        'StaffDashboardController.insightsSummary is missing',
-      );
-    }
-
     await expect(controller.insightsSummary({})).resolves.toMatchObject({
       scope: { kind: 'all' },
       years: [2026],
     });
     expect(summarize).toHaveBeenCalledWith({ kind: 'all' }, expect.any(Date));
-    expect(
-      readGuards(StaffDashboardController.prototype, 'insightsSummary'),
-    ).toEqual([RolesGuard]);
-    expect(Reflect.getMetadata(PATH_METADATA, insightsSummary)).toBe(
-      'insights',
+  });
+
+  it('passes finder filters through and exposes only declared response fields', async () => {
+    const row = {
+      name: '합성 학생',
+      githubLogin: 'synthetic-finder',
+      studentId: '980001',
+      major: null,
+      total: 8,
+      recentTotal: null,
+      collaborationRatio: 0.25,
+      programIds: ['synthetic-program'],
+    };
+    const page = { page: 2, pageSize: 20, total: 21, rows: [row] };
+    const findStudents = jest.fn().mockResolvedValue({
+      ...page,
+      rows: [{ ...row, email: 'synthetic@example.com', id: 'internal-id' }],
+    });
+    const controller = new StaffDashboardController(
+      { summary: jest.fn() },
+      { summarizeFromRequest: jest.fn(), findStudents },
     );
+    const query: StaffInsightsFinderRequestDto = {
+      year: '2026',
+      search: '980001',
+      programId: 'synthetic-program',
+      minActivity: 3,
+      recentActivity: 'all',
+      sort: 'collaborationRatio',
+      direction: 'desc',
+      page: 2,
+    };
+
+    await expect(controller.insightsStudents(query)).resolves.toEqual(page);
+    expect(findStudents).toHaveBeenCalledWith(query);
   });
 });

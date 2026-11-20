@@ -1,4 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  INSIGHTS_YEAR_ERROR,
+  type StaffInsightsFinderInput,
+  type StaffInsightsFinderQuery,
+} from './staff-insights-query.config';
 
 @Injectable()
 export class StaffInsightsQueryService {
@@ -19,9 +24,7 @@ export class StaffInsightsQueryService {
       return { kind: 'all' };
     }
     if (!CALENDAR_YEAR_PATTERN.test(raw)) {
-      throw new BadRequestException(
-        `year must be omitted, "all", or a calendar year between ${INSIGHTS_YEAR_MIN} and ${INSIGHTS_YEAR_MAX}`,
-      );
+      throw new BadRequestException(INSIGHTS_YEAR_ERROR);
     }
 
     return { kind: 'calendar', year: Number(raw) };
@@ -34,6 +37,20 @@ export class StaffInsightsQueryService {
       return {};
     }
     return { currentYear: scope.year };
+  }
+
+  finderQuery(request: StaffInsightsFinderInput): StaffInsightsFinderQuery {
+    return {
+      ...this.rankingYearFilter(this.parseInsightsYearQuery(request.year)),
+      search: request.search?.trim() ?? '',
+      department: request.department,
+      programId: request.programId,
+      minActivity: request.minActivity ?? 0,
+      recentActivity: request.recentActivity ?? 'all',
+      sort: request.sort ?? 'total',
+      direction: request.direction ?? 'desc',
+      page: request.page ?? 1,
+    };
   }
 }
 
@@ -56,10 +73,6 @@ export const DEPARTMENT_COHORTS = {
 
 export type DepartmentCohort =
   (typeof DEPARTMENT_COHORTS)[keyof typeof DEPARTMENT_COHORTS];
-
-export const INSIGHTS_YEAR_MIN = 2000;
-
-export const INSIGHTS_YEAR_MAX = 2100;
 
 export type InsightsYearScope =
   | { readonly kind: 'all' }

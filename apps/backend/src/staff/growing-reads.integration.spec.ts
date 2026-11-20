@@ -142,8 +142,16 @@ afterAll(async () => {
 });
 
 it('reads every department past one batch instead of failing at a cap', async () => {
-  const departments = (await insights.listDepartmentMetrics({})).flatMap(
-    (row) => (row.department?.startsWith(PREFIX) ? [row.department] : []),
+  const window = {
+    cutoff: new Date('2117-06-01T00:00:00.000Z'),
+    now: new Date('2117-07-01T00:00:00.000Z'),
+    cutoffYear: 2117,
+    nowYear: 2117,
+  };
+  const departments = (
+    await insights.listDepartmentMetrics({}, window)
+  ).flatMap((row) =>
+    row.department?.startsWith(PREFIX) ? [row.department] : [],
   );
 
   expect(departments).toHaveLength(COUNT);

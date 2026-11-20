@@ -34,6 +34,11 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/dashboard/staff/insights/students",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/dashboard/staff/summary",
     "access": "PROTECTED"
   },

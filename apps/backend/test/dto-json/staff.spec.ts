@@ -175,8 +175,10 @@ const insights: StaffInsightsSummary = {
     {
       ...metrics,
       department: 'Computer Science',
+      major: null,
       cohort: 'sw-major',
       activityPerStudent: 13.8,
+      recentPerStudent: null,
       sampleTooSmall: false,
     },
   ],
@@ -216,6 +218,8 @@ const insights: StaffInsightsSummary = {
     period: { all: [], swMajor: [], nonSw: [] },
     recent: { all: [], swMajor: [], nonSw: [] },
   },
+  attentionStudents: [],
+  firstContributionCount: null,
   recentWindow: {
     from: at('2026-04-01T00:00:00.000Z'),
     to: at('2026-05-01T00:00:00.000Z'),
