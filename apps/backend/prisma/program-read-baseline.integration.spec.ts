@@ -38,9 +38,13 @@ class UnseededProgramBaselineError extends Error {
   }
 }
 
+const BASELINE_READ_TRANSACTION_TIMEOUT_MS = 30_000;
+const SEQUENTIAL_WARM_READ_TIMEOUT_MS = 60_000;
+
 const measured = new MeasuredPrisma({
   adapter: new PrismaPg(loadPrismaPoolConfig()),
   log: [{ emit: 'event', level: 'query' }],
+  transactionOptions: { timeout: BASELINE_READ_TRANSACTION_TIMEOUT_MS },
 });
 const prisma = loadPrismaQueryLintConfig().createLintedClient(measured);
 let queryCount = 0;
@@ -307,7 +311,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('records four real repository read paths with twenty warm samples and SQL counts', async () => {
+async function recordProgramReadBaseline(): Promise<void> {
   const actualSeedSize = {
     programs: await prisma.program.count({ where: { id: programId } }),
     users: await prisma.user.count({ where: { id: { startsWith: prefix } } }),
@@ -500,4 +504,10 @@ it('records four real repository read paths with twenty warm samples and SQL cou
   await mkdir(directory, { recursive: true });
   await writeFile(artifact, `${JSON.stringify(baseline, null, 2)}\n`);
   console.info('PROGRAM_READ_BASELINE', JSON.stringify(baseline));
-}, 60_000);
+}
+
+it(
+  'records four real repository read paths with twenty warm samples and SQL counts',
+  recordProgramReadBaseline,
+  SEQUENTIAL_WARM_READ_TIMEOUT_MS,
+);
