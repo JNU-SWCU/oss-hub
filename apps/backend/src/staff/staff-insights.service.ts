@@ -3,13 +3,17 @@ import type { ProgramCategory } from '@prisma/client';
 import {
   StaffInsightsRepository,
   type StaffInsightsApplicationCountRecord,
+  type StaffInsightsAttentionStudentRecord,
   type StaffInsightsCompletionRecord,
   type StaffInsightsDepartmentMetricsRecord,
+  type StaffInsightsFinderPage,
   type StaffInsightsLeaderCandidateRecord,
   type StaffInsightsOutcomeRecord,
   type StaffInsightsParticipantCountRecord,
+  type StaffInsightsPeriodLeaderCandidateRecord,
   type StaffInsightsProgramDepartmentRecord,
   type StaffInsightsProgramRecord,
+  type StaffInsightsRecentWindow,
 } from './staff-insights.repository';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import {
@@ -19,6 +23,12 @@ import {
   DEPARTMENT_COHORTS,
   SW_MAJOR_DEPARTMENTS,
 } from './staff-insights-query.service';
+import {
+  STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  STAFF_INSIGHTS_RECENT_LEADER_LIMIT,
+  UNREGISTERED_DEPARTMENT,
+  type StaffInsightsFinderInput,
+} from './staff-insights-query.config';
 
 export interface StaffInsightsMetrics {
   readonly studentCount: number;
@@ -33,8 +43,10 @@ export interface StaffInsightsCohortRow extends StaffInsightsMetrics {
 
 export interface StaffInsightsDepartmentRow extends StaffInsightsMetrics {
   readonly department: string;
+  readonly major: string | null;
   readonly cohort: DepartmentCohort;
   readonly activityPerStudent: number;
+  readonly recentPerStudent: number | null;
   readonly sampleTooSmall: boolean;
 }
 
@@ -51,8 +63,17 @@ export interface StaffInsightsRecentLeaderRow {
   readonly total: number;
 }
 
-interface StaffInsightsLeaderRow extends StaffInsightsRecentLeaderRow {
+export interface StaffInsightsPeriodLeaderRow extends StaffInsightsRecentLeaderRow {
   readonly starCount: number;
+  readonly studentId: string | null;
+  readonly major: string | null;
+  readonly recentTotal: number | null;
+  readonly previousRank: number | null;
+  readonly collaborationRatio: number | null;
+}
+
+export interface StaffInsightsAttentionStudentRow extends StaffInsightsAttentionStudentRecord {
+  readonly lastActiveAt: Date | null;
 }
 
 export interface StaffInsightsCohortLeaders<Row> {
@@ -62,7 +83,7 @@ export interface StaffInsightsCohortLeaders<Row> {
 }
 
 export interface StaffInsightsLeaders {
-  readonly period: StaffInsightsCohortLeaders<StaffInsightsLeaderRow>;
+  readonly period: StaffInsightsCohortLeaders<StaffInsightsPeriodLeaderRow>;
   readonly recent: StaffInsightsCohortLeaders<StaffInsightsRecentLeaderRow>;
 }
 
@@ -107,6 +128,8 @@ export interface StaffInsightsSummary {
   readonly programs: readonly StaffInsightsProgramRow[];
   readonly programSummary: StaffInsightsProgramSummary;
   readonly leaders: StaffInsightsLeaders;
+  readonly attentionStudents: readonly StaffInsightsAttentionStudentRow[];
+  readonly firstContributionCount: number | null;
   readonly recentWindow: { readonly from: Date; readonly to: Date };
 }
 
@@ -120,12 +143,13 @@ interface ProgramScorecardInput {
 }
 
 const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-const LEADER_LIMIT = 10;
 const SMALL_SAMPLE_STUDENT_COUNT = 3;
-const UNREGISTERED_DEPARTMENT = '미등록';
 
-interface LeaderCandidate {
-  readonly record: StaffInsightsLeaderCandidateRecord;
+interface LeaderCandidate<
+  Candidate extends StaffInsightsLeaderCandidateRecord =
+    StaffInsightsLeaderCandidateRecord,
+> {
+  readonly record: Candidate;
   readonly cohort: DepartmentCohort;
 }
 
@@ -144,6 +168,16 @@ export class StaffInsightsService {
     private readonly staffInsightsQueryService: StaffInsightsQueryService,
   ) {}
 
+  findStudents(
+    request: StaffInsightsFinderInput,
+    now: Date = new Date(),
+  ): Promise<StaffInsightsFinderPage> {
+    return this.repository.findStudents(
+      this.staffInsightsQueryService.finderQuery(request),
+      this.recentWindow(now),
+    );
+  }
+
   summarizeFromRequest(
     request: {
       readonly year?: string;
@@ -160,12 +194,13 @@ export class StaffInsightsService {
     scope: InsightsYearScope,
     now: Date = new Date(),
   ): Promise<StaffInsightsSummary> {
-    const cutoff = new Date(now.getTime() - RECENT_WINDOW_MS);
+    const window = this.recentWindow(now);
     const yearFilter = this.staffInsightsQueryService.rankingYearFilter(scope);
     const [
       departmentMetrics,
       periodCandidates,
       recentCandidates,
+      attentionStudents,
       dataAsOf,
       years,
       programs,
@@ -175,19 +210,14 @@ export class StaffInsightsService {
       completion,
       outcomes,
     ] = await Promise.all([
-      this.repository.listDepartmentMetrics(yearFilter),
+      this.repository.listDepartmentMetrics(yearFilter, window),
       this.repository.listPeriodLeaderCandidates(
         yearFilter,
         SW_MAJOR_DEPARTMENTS,
+        window,
       ),
-      this.repository.listRecentLeaderCandidates(
-        {
-          cutoff,
-          cutoffYear: this.rankingYearService.rankingYearInAsiaSeoul(cutoff),
-          nowYear: this.rankingYearService.rankingYearInAsiaSeoul(now),
-        },
-        SW_MAJOR_DEPARTMENTS,
-      ),
+      this.repository.listRecentLeaderCandidates(window, SW_MAJOR_DEPARTMENTS),
+      this.repository.listAttentionStudents(yearFilter, window),
       this.repository.findActivityDataAsOf(),
       this.repository.listActivityYears(),
       this.repository.listPublishedPrograms(),
@@ -217,19 +247,47 @@ export class StaffInsightsService {
       programs: programRows,
       programSummary: summarizePrograms(programRows, participantCounts),
       leaders: {
-        period: this.rankLeaders(periodCandidates, (candidate, rank) => ({
-          ...leaderRow(candidate, rank),
-          starCount: candidate.record.starCount,
-        })),
-        recent: this.rankLeaders(recentCandidates, leaderRow),
+        period: this.rankLeaders(
+          periodCandidates,
+          STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+          periodLeaderRow,
+        ),
+        recent: this.rankLeaders(
+          recentCandidates,
+          STAFF_INSIGHTS_RECENT_LEADER_LIMIT,
+          leaderRow,
+        ),
       },
-      recentWindow: { from: cutoff, to: now },
+      attentionStudents: attentionStudents.map((student) => ({
+        ...student,
+        lastActiveAt: null,
+      })),
+      firstContributionCount: null,
+      recentWindow: { from: window.cutoff, to: now },
     };
   }
 
-  private rankLeaders<Row>(
-    records: readonly StaffInsightsLeaderCandidateRecord[],
-    toRow: (candidate: LeaderCandidate, rank: number) => Row,
+  private recentWindow(now: Date): StaffInsightsRecentWindow {
+    const cutoff = new Date(now.getTime() - RECENT_WINDOW_MS);
+    return {
+      cutoff,
+      now,
+      cutoffYear: this.rankingYearService.rankingYearInAsiaSeoul(cutoff),
+      nowYear: this.rankingYearService.rankingYearInAsiaSeoul(now),
+    };
+  }
+
+  private rankLeaders<
+    Candidate extends StaffInsightsLeaderCandidateRecord,
+    Row,
+  >(
+    records: readonly Candidate[],
+    limit: number,
+    toRow: (
+      candidate: LeaderCandidate<Candidate>,
+      rank: number,
+      cohort?: DepartmentCohort,
+    ) => Row,
   ): StaffInsightsCohortLeaders<Row> {
     const ranked = records.map((record) => ({
       record,
@@ -242,8 +300,8 @@ export class StaffInsightsService {
         .filter(
           (candidate) => cohort === undefined || candidate.cohort === cohort,
         )
-        .slice(0, LEADER_LIMIT)
-        .map((candidate, index) => toRow(candidate, index + 1));
+        .slice(0, limit)
+        .map((candidate, index) => toRow(candidate, index + 1, cohort));
     return {
       all: top(),
       swMajor: top(DEPARTMENT_COHORTS.SW_MAJOR),
@@ -256,7 +314,11 @@ export class StaffInsightsService {
   ): readonly StaffInsightsDepartmentRow[] {
     const byDepartment = new Map<
       string,
-      { readonly cohort: DepartmentCohort; metrics: StaffInsightsMetrics }
+      {
+        readonly cohort: DepartmentCohort;
+        readonly metrics: StaffInsightsMetrics;
+        readonly recentTotal: number | null;
+      }
     >();
     for (const record of records) {
       const cohort = this.staffInsightsQueryService.classifyDepartment(
@@ -269,22 +331,29 @@ export class StaffInsightsService {
       const current = byDepartment.get(department) ?? {
         cohort,
         metrics: EMPTY_METRICS,
+        recentTotal: 0,
       };
       byDepartment.set(department, {
         cohort,
         metrics: addMetrics(current.metrics, record),
+        recentTotal:
+          current.recentTotal === null || record.recentTotal === null
+            ? null
+            : current.recentTotal + record.recentTotal,
       });
     }
     return [...byDepartment.entries()]
       .map(([department, row]) => ({
         department,
+        major: null,
         cohort: row.cohort,
         ...row.metrics,
         activityPerStudent:
-          row.metrics.studentCount === 0
-            ? 0
-            : Math.round((row.metrics.total / row.metrics.studentCount) * 10) /
-              10,
+          ratio(row.metrics.total, row.metrics.studentCount) ?? 0,
+        recentPerStudent:
+          row.recentTotal === null
+            ? null
+            : ratio(row.recentTotal, row.metrics.studentCount),
         sampleTooSmall: row.metrics.studentCount < SMALL_SAMPLE_STUDENT_COUNT,
       }))
       .sort(
@@ -451,5 +520,28 @@ function leaderRow(
     issueCount: record.issueCount,
     repositoryCount: record.repositoryCount,
     total: record.total,
+  };
+}
+
+function periodLeaderRow(
+  candidate: LeaderCandidate<StaffInsightsPeriodLeaderCandidateRecord>,
+  rank: number,
+  cohort?: DepartmentCohort,
+): StaffInsightsPeriodLeaderRow {
+  const { record } = candidate;
+  return {
+    ...leaderRow(candidate, rank),
+    starCount: record.starCount,
+    studentId: record.studentId,
+    major: null,
+    recentTotal: record.recentTotal,
+    previousRank:
+      cohort === undefined
+        ? record.previousOverallRank
+        : record.previousCohortRank,
+    collaborationRatio:
+      record.total > 0
+        ? (record.pullRequestCount + record.issueCount) / record.total
+        : null,
   };
 }

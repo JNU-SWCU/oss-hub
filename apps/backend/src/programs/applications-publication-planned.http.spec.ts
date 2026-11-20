@@ -354,12 +354,18 @@ const zeroMetrics = {
   activeStudentCount: 0,
   participantCount: 0,
 };
+const INSIGHTS_STUDENT_NUMBER = '980001';
 const insightsLeader = {
   rank: 1,
   name: '김학생',
   githubLogin: 'insights-octocat',
   department: '소프트웨어공학과',
   total: 15,
+  studentId: INSIGHTS_STUDENT_NUMBER,
+  major: null,
+  recentTotal: null,
+  previousRank: null,
+  collaborationRatio: 0.2,
 };
 const insightsBody = {
   scope: { kind: 'all' },
@@ -378,11 +384,13 @@ const insightsBody = {
   departments: [
     {
       department: '소프트웨어공학과',
+      major: null,
       cohort: 'sw-major',
       studentCount: 1,
       activeStudentCount: 1,
       participantCount: 0,
       activityPerStudent: 15,
+      recentPerStudent: null,
       sampleTooSmall: true,
     },
   ],
@@ -400,6 +408,8 @@ const insightsBody = {
     period: { all: [insightsLeader], swMajor: [insightsLeader], nonSw: [] },
     recent: { all: [], swMajor: [], nonSw: [] },
   },
+  attentionStudents: [],
+  firstContributionCount: null,
   recentWindow: {
     from: expect.any(String) as string,
     to: expect.any(String) as string,
@@ -482,19 +492,26 @@ const listDepartmentMetrics = jest.fn().mockResolvedValue([
     studentCount: 1,
     activeStudentCount: 1,
     participantCount: 0,
+    recentTotal: null,
     ...INSIGHTS_ACTIVITY,
   },
 ]);
 const listPeriodLeaderCandidates = jest.fn().mockResolvedValue([
   {
     githubId: INSIGHTS_STUDENT_GITHUB_ID,
+    userId: INSIGHTS_STUDENT_ID,
+    studentId: INSIGHTS_STUDENT_NUMBER,
     githubLogin: 'insights-octocat',
     name: '김학생',
     department: '소프트웨어공학과',
+    recentTotal: null,
+    previousOverallRank: null,
+    previousCohortRank: null,
     ...INSIGHTS_ACTIVITY,
   },
 ]);
 const listRecentLeaderCandidates = jest.fn().mockResolvedValue([]);
+const listAttentionStudents = jest.fn().mockResolvedValue([]);
 const listProgramParticipantDepartments = jest.fn().mockResolvedValue([]);
 const countPublishedParticipants = jest
   .fn()
@@ -510,6 +527,7 @@ const staffInsightsService = new StaffInsightsService(
     listDepartmentMetrics,
     listPeriodLeaderCandidates,
     listRecentLeaderCandidates,
+    listAttentionStudents,
     findActivityDataAsOf,
     listActivityYears,
     listPublishedPrograms,
@@ -652,7 +670,7 @@ interface InvalidQueryRoute {
   readonly label: string;
   readonly path: string;
   readonly instance: string;
-  readonly detail: string;
+  readonly problem: ProblemExpectation;
   readonly notReached: jest.Mock;
 }
 
@@ -661,14 +679,19 @@ const invalidQueryRoutes: readonly InvalidQueryRoute[] = [
     label: 'program applications list',
     path: `${listPath}?page=0`,
     instance: listPath,
-    detail: INVALID_LIST_QUERY_DETAIL,
+    problem: validationProblem(INVALID_LIST_QUERY_DETAIL),
     notReached: findProgramById,
   },
   {
     label: 'staff dashboard insights',
     path: `${insightsPath}?year=invalid`,
     instance: insightsPath,
-    detail: INVALID_INSIGHTS_QUERY_DETAIL,
+    problem: {
+      status: 400,
+      title: 'BAD_REQUEST',
+      code: 'SYS_004',
+      detail: INVALID_INSIGHTS_QUERY_DETAIL,
+    },
     notReached: listDepartmentMetrics,
   },
 ];
@@ -814,7 +837,7 @@ it.each(readCases)(
   },
 );
 
-it('인사이트 응답은 학번·GitHub ID·사용자 ID를 직렬화하지 않는다', async () => {
+it('교직원 인사이트 응답은 학번을 제공하지만 GitHub ID·사용자 ID를 직렬화하지 않는다', async () => {
   const staff = actors.find((actor) => actor.label === 'STAFF');
   if (staff === undefined) {
     throw new TypeError('staff actor fixture is missing');
@@ -828,8 +851,9 @@ it('인사이트 응답은 학번·GitHub ID·사용자 ID를 직렬화하지 �
   expect(response.status).toBe(200);
   const serialized = JSON.stringify(await readJson(response));
   expect(serialized).toContain('insights-octocat');
-  expect(serialized).not.toContain('studentId');
+  expect(serialized).toContain(`"studentId":"${INSIGHTS_STUDENT_NUMBER}"`);
   expect(serialized).not.toContain('githubId');
+  expect(serialized).not.toContain('userId');
   expect(serialized).not.toContain(INSIGHTS_STUDENT_ID);
   expect(serialized).not.toContain(String(INSIGHTS_STUDENT_GITHUB_ID));
 });
@@ -903,9 +927,7 @@ it.each(invalidQueryCases)(
 
     await expectProblem(
       response,
-      actor.allowed
-        ? validationProblem(route.detail)
-        : deniedReadProblem(actor),
+      actor.allowed ? route.problem : deniedReadProblem(actor),
       route.instance,
     );
     expect(route.notReached).not.toHaveBeenCalled();

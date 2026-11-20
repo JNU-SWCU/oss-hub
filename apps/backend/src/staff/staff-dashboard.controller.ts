@@ -1,8 +1,14 @@
 import { Controller, Get, Header, Inject, Query } from '@nestjs/common';
 import { StaffDashboardSummaryRequestDto } from './dto/staff-dashboard-summary-request.dto';
 import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-response.dto';
-import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
-import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
+import {
+  StaffInsightsFinderRequestDto,
+  StaffInsightsRequestDto,
+} from './dto/staff-insights-request.dto';
+import {
+  StaffInsightsFinderResponseDto,
+  StaffInsightsResponseDto,
+} from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsService } from './staff-insights.service';
 import { Protected } from '../auth/auth-route.decorator';
@@ -27,7 +33,7 @@ export class StaffDashboardController {
     @Inject(StaffInsightsService)
     private readonly insights: Pick<
       StaffInsightsService,
-      'summarizeFromRequest'
+      'summarizeFromRequest' | 'findStudents'
     >,
   ) {}
 
@@ -52,6 +58,18 @@ export class StaffDashboardController {
   ): Promise<StaffInsightsResponseDto> {
     return StaffInsightsResponseDto.from(
       await this.insights.summarizeFromRequest(query),
+    );
+  }
+
+  @Get('insights/students')
+  @Header('Cache-Control', 'private, no-store')
+  @Protected()
+  @Roles(STAFF_AUDIENCE, staffListOnly)
+  async insightsStudents(
+    @Query() query: StaffInsightsFinderRequestDto,
+  ): Promise<StaffInsightsFinderResponseDto> {
+    return StaffInsightsFinderResponseDto.from(
+      await this.insights.findStudents(query),
     );
   }
 }
