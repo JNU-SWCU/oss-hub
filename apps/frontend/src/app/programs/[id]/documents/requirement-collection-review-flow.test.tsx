@@ -4,15 +4,23 @@ import {
   createListScreenRoot as createRoot,
   listNavigation,
   useTestSearchParams,
-} from '../../../../test-support/list-screen-root';
+} from '../../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
-import { RequirementCollectionScreen } from './requirement-collection-screen';
+import { DocumentsRoute } from './documents-route';
+
+vi.mock('@/app/_shell/session-role-context', () => ({
+  useSharedSessionRole: () => ({
+    status: 'assigned',
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+  }),
+}));
 import type {
   RequirementCollection,
   RequirementCollectionCell,
   RequirementCollectionRow,
-} from './requirement-collection-dto';
+} from '@/features/programs/documents/requirement-collection-dto';
 
 vi.mock('next/navigation', () => ({
   useSearchParams: useTestSearchParams,
@@ -45,15 +53,25 @@ const {
   createRequirementReviewMock: vi.fn(),
 }));
 
-vi.mock('./requirement-collection-api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./requirement-collection-api')>()),
-  getRequirementCollection: getRequirementCollectionMock,
-  getRequirementHistory: getRequirementHistoryMock,
-}));
-vi.mock('./requirement-review-api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./requirement-review-api')>()),
-  createRequirementReview: createRequirementReviewMock,
-}));
+vi.mock(
+  '@/features/programs/documents/requirement-collection-api',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('@/features/programs/documents/requirement-collection-api')
+    >()),
+    getRequirementCollection: getRequirementCollectionMock,
+    getRequirementHistory: getRequirementHistoryMock,
+  }),
+);
+vi.mock(
+  '@/features/programs/documents/requirement-review-api',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('@/features/programs/documents/requirement-review-api')
+    >()),
+    createRequirementReview: createRequirementReviewMock,
+  }),
+);
 
 function cell(
   documentId: string,
@@ -81,7 +99,8 @@ function row(
     teamId,
     deliveryStatus: 'MISSING',
     teamName,
-    applicantName: '김철수',
+    applicantName: '신청자',
+    leaderName: '김철수',
     memberNicknames: ['chulsoo'],
     cells,
   };
@@ -116,6 +135,13 @@ function collection(
     total: rows.length,
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: { all: 47, zeroSubmission: 5 },
+    statusCounts: {
+      NOT_SUBMITTED: 12,
+      SUBMITTED: 7,
+      CHANGES_REQUESTED: 2,
+      REJECTED: 1,
+      APPROVED: 3,
+    },
     documentTotals: [
       { documentId: 'd1', submitted: 30, total: 47 },
       { documentId: 'd2', submitted: 12, total: 47 },
@@ -132,6 +158,7 @@ describe('수합 표에서 판정하기', () => {
     container = window.document.createElement('div');
     window.document.body.append(container);
     root = createRoot(container);
+    listNavigation.search = 'milestoneId=milestone-1';
     getRequirementCollectionMock.mockReset();
     getRequirementHistoryMock.mockReset();
     getRequirementHistoryMock.mockResolvedValue({
@@ -148,12 +175,7 @@ describe('수합 표에서 판정하기', () => {
 
   async function render() {
     await act(async () => {
-      root.render(
-        <RequirementCollectionScreen
-          programId="program-capstone"
-          milestoneId="milestone-1"
-        />,
-      );
+      root.render(<DocumentsRoute programId="program-capstone" />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -232,7 +254,9 @@ describe('수합 표에서 판정하기', () => {
 
     expect(opened?.closest('table')).not.toBeNull();
 
-    expect(container.textContent).toContain('합계');
+    expect(container.querySelector('thead')?.textContent).toContain(
+      '제출 상태',
+    );
   });
 
   it('첫 이력 조회가 실패해도 패널을 닫지 않고 다시 불러온다', async () => {
@@ -468,7 +492,15 @@ describe('수합 표에서 판정하기', () => {
     );
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 1, pageSize: 20, filter: 'ALL' },
+      {
+        q: '',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: undefined,
+        sort: 'team',
+        direction: 'asc',
+      },
     );
   });
 
@@ -594,7 +626,15 @@ describe('수합 표에서 판정하기', () => {
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 1, pageSize: 20, filter: 'HAS_MISSING' },
+      {
+        q: '',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: 'NOT_SUBMITTED',
+        sort: 'team',
+        direction: 'asc',
+      },
     );
   });
 
@@ -730,7 +770,9 @@ describe('수합 표에서 판정하기', () => {
     expect(skeleton()).toBeNull();
     expect(container.querySelector('table')).not.toBeNull();
     expect(container.textContent).toContain('가팀');
-    expect(container.textContent).toContain('합계');
+    expect(container.querySelector('thead')?.textContent).toContain(
+      '제출 상태',
+    );
 
     expect(tableBusy()).toBe('true');
 
@@ -854,9 +896,9 @@ describe('수합 표에서 판정하기', () => {
     );
     await render();
 
-    const cells = Array.from(container.querySelectorAll('tbody td'));
-    expect(cells[1]?.textContent).toContain('반려');
-    expect(cells[2]?.textContent).toContain('미제출');
+    const rows = container.querySelectorAll('tbody tr');
+    expect(rows[0]?.children[2]?.textContent).toContain('반려');
+    expect(rows[1]?.children[1]?.textContent).toContain('미제출');
   });
 
   it('다시 낸 칸은 검토 대기로 돌아오고, 패널에 지난 보완 요청이 남는다', async () => {
@@ -879,9 +921,9 @@ describe('수합 표에서 판정하기', () => {
     );
     await render();
 
-    const cells = Array.from(container.querySelectorAll('tbody td'));
-    expect(cells[1]?.textContent).toContain('검토 대기');
-    expect(cells[1]?.textContent).not.toContain('보완 요청');
+    const status = container.querySelector('tbody tr')?.children[2];
+    expect(status?.textContent).toContain('검토 대기');
+    expect(status?.textContent).not.toContain('보완 요청');
 
     await click(byLabel('가팀 기획서 검토'));
 
@@ -1011,13 +1053,21 @@ describe('수합 표에서 판정하기', () => {
       collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
     );
     await act(async () => {
-      listNavigation.search = 'filter=LATE';
+      listNavigation.search = 'milestoneId=milestone-1&status=APPROVED';
     });
     expect(container.querySelector('table')).not.toBeNull();
     expect(reviewNotice()).toBeNull();
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 1, pageSize: 20, filter: 'LATE' },
+      {
+        q: '',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: 'APPROVED',
+        sort: 'team',
+        direction: 'asc',
+      },
     );
   });
 
@@ -1106,7 +1156,10 @@ describe('수합 표에서 판정하기', () => {
       await Promise.resolve();
     });
 
-    expect(panel()?.textContent).toContain('다른 교직원이 먼저 보았습니다.');
+    expect(container.querySelector('tbody tr')?.textContent).toContain('v2');
+    expect(panel()?.textContent).not.toContain(
+      '다른 교직원이 먼저 보았습니다.',
+    );
 
     createRequirementReviewMock.mockReset();
     createRequirementReviewMock.mockResolvedValue({

@@ -16,38 +16,33 @@ import Recover from '~/components/Recover.astro';
 <Steps>
 1. Open ① `감사 로그` (Audit log) in the left-hand `관리자` (Administrator) section.
 2. In ② the category row, choose `전체` (All), `권한·계정` (Access and accounts), `운영` (Operations), `서류` (Documents), `로그인` (Sign-ins), or `시스템` (System). The category applies immediately.
-3. In ③ the view selector, choose `피드` (Feed) or `표` (Table). The default is Feed.
+3. On wide screens, use ③ the view selector to switch between `피드` (Feed) and `표` (Table). Feed is the default and the only view on narrow screens.
 </Steps>
-<Shot src="admin/audit-full.webp" alt="Audit log in Feed view. ① marks the Audit log menu, ② the categories, and ③ the Feed and Table selector." caption="① Audit log ② categories ③ view. This example has no records matching the search" />
+
+<Shot src="admin/audit-full.webp" alt="Audit log feed with a collapsed group of sign-in records. ① marks the sidebar menu, ② the categories, and ③ the view selector." caption="① Audit log menu ② Categories ③ View selector" />
 
 Category counts reflect the search term, action type, and dates. Switching categories does not change the counts displayed beside the other categories.
 
 ## Narrow the search and dates
 
 <Steps>
-1. In the filter image, enter a name or GitHub ID in ① `검색` (Search). `이름 또는 GitHub 아이디` (Name or GitHub ID) is placeholder text.
-2. Choose ② `작업 종류` (Action type). Set `시작일` (Start date) and `종료일` (End date) if needed.
-3. Click ③ `조회` (Search). Editing fields or selecting an action type alone does not apply the conditions.
+1. Under `기간` (Period), choose `최근 7일` (Last 7 days), `최근 30일` (Last 30 days), or `직접 지정` (Custom). For a custom range, enter `시작일` (Start date) or `종료일` (End date) as needed.
+2. Choose a `작업 종류` (Action type). On wide screens, changes to the period, dates, and action type apply immediately.
+3. Enter a name or GitHub ID in `검색` (Search), then press Enter. On narrow screens, open `필터` (Filters) first, set the conditions, then choose `적용` (Apply).
 </Steps>
-<Shot src="admin/audit-filter-bar.webp" alt="Audit log filters. ① marks Search, ② Action type, and ③ the Search button." caption="① Search ② action type ③ Search button. Date field order depends on the browser language" />
-
-On narrow screens, click `필터` (Filters) to expand the fields. The number beside it counts the applied search term, action type, start date, and end date conditions.
-
-The next image shows results for ① `서류 승인` (Document approved) in `작업 종류` (Action type). Click ② `초기화` (Reset) to clear the conditions and category. The view mode stays unchanged.
-
-<Shot src="admin/audit-filtered.webp" alt="Feed showing three document approval records. ① marks Action type and ② Reset." caption="① Document approved ② Reset" />
 
 ## Read the feed and table
 
-`피드` (Feed) groups records by date, newest first. Each row shows the actor, role, target, action, and time. When a record includes a change, an arrow connects the old and new values. Adjacent records from the same request are indented together. Sign-in records have no separate target.
+`피드` (Feed) groups records by date, newest first. When both the category and action type are `전체` (All), the feed can fold consecutive sign-ins, failed sign-ins, and sign-outs from the same day into one row. The row shows the total and the number of failures. Select it to see the individual records. To see only session records without grouping, choose `로그인` (Sign-ins) in the category row.
 
 <Steps>
-1. Click ① `표` (Table) in the view selector.
-2. Read ② the columns: `시각` (Time), `행위자` (Actor), `역할` (Role), `동작` (Action), `대상` (Target), and `변경` (Change). Click any column title except Change to sort. Click the same title again to reverse the direction.
+1. On a wide screen, choose ① `표` (Table).
+2. In ② the table, read individual records in `시각` (Time), `행위자` (Actor), `작업` (Action), `대상` (Target), and `결과` (Result). Select a record in either view to open `기록 상세` (Record details). If the record includes a change, compare the old and new values there.
 </Steps>
-<Shot src="admin/audit-content-closeup.webp" alt="Audit log in Table view. ① marks the Table button and ② the table with Time, Actor, Role, Action, Target, and Change columns." caption="① Table view ② records and change values" />
 
-Sorting applies only to records on the current page. On narrow screens, other details appear beneath Time and Actor; use `정렬` (Sort) and the `오름차순` (Ascending) or `내림차순` (Descending) button. Use `이전` (Previous) and `다음` (Next) below to change pages. Each page contains up to 20 records.
+<Shot src="admin/audit-content-closeup.webp" alt="① marks the Table view button. ② marks the table with three individual sign-in records." caption="① Table view ② Individual sign-in records" />
+
+When results span multiple pages, use `이전` (Previous) and `다음` (Next) below. Existing bookmarks and search links retain the scope specified in the link.
 
 Distinguish these action types:
 
@@ -59,13 +54,11 @@ Distinguish these action types:
 - Account sessions use `로그인` (Sign-in), `로그인 실패` (Sign-in failed), and `로그아웃` (Sign-out). An unlisted action may display its original code.
 
 <Success>
-The records and `총 N건` (N records in total) update to match the applied conditions. Switching between Feed and Table preserves the conditions and page.
+The results match the applied conditions. Switching between Feed and Table preserves the conditions and page.
 </Success>
 
 <Recover title="If records are missing or cannot be loaded">
-`기록이 없습니다` (No records) and `조회 조건을 바꿔 보세요.` (Try changing the search conditions) mean no records match. Check the search spelling, category, and dates, or click `초기화` (Reset) to start again.
-
-<Shot src="admin/audit-empty.webp" alt="Audit log with no search results. ① marks the search term; the no-records message and total of zero appear below." caption="① A search with no matching records" />
+If you see `기록이 없습니다` (No records) and `조회 조건을 바꿔 보세요.` (Try changing the search conditions), check the search spelling and category. Clear the search term or choose a wider period and try again.
 
 If you see `감사 로그를 불러오지 못했습니다. 잠시 후 다시 시도하세요.` (The audit log could not be loaded. Try again shortly), click `다시 시도` (Retry). If it keeps happening, check [System status](/oss-hub/en/admin/system-status/).
 </Recover>

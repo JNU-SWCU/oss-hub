@@ -6,10 +6,3 @@ export const DOCUMENT_DELIVERY_LABELS = {
 } as const;
 
 export type DocumentDeliveryStatus = keyof typeof DOCUMENT_DELIVERY_LABELS;
-
-export const DOCUMENT_DELIVERY_VARIANTS = {
-  MISSING: 'closed',
-  LATE: 'pending',
-  COMPLETE: 'recruiting',
-  NO_REQUIRED_ITEMS: 'closed',
-} as const;

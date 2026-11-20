@@ -314,11 +314,6 @@ function WeeklyChart({
           </li>
         ))}
       </ul>
-      {!dimmed && activity.lastSuccessAt !== null ? (
-        <p className="text-small text-muted-foreground">
-          마지막 수집 {formatSeoulDate(activity.lastSuccessAt)}
-        </p>
-      ) : null}
 
       <div className="sr-only">
         <table>

@@ -3423,6 +3423,15 @@
             }
           },
           {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^(?:team|progress|milestone:\\S+)$",
+              "type": "string"
+            }
+          },
+          {
             "name": "q",
             "required": false,
             "in": "query",
@@ -3439,6 +3448,33 @@
               "enum": [
                 "PERSONAL",
                 "TEAM"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NOT_SUBMITTED",
+                "SUBMITTED",
+                "CHANGES_REQUESTED",
+                "REJECTED",
+                "APPROVED"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
               ]
             }
           },
@@ -3761,6 +3797,56 @@
               "type": "string",
               "enum": [
                 "all"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NOT_SUBMITTED",
+                "SUBMITTED",
+                "CHANGES_REQUESTED",
+                "REJECTED",
+                "APPROVED"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "team",
+                "document",
+                "status",
+                "submittedAt",
+                "reviewedAt"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
               ]
             }
           },
@@ -9212,6 +9298,10 @@
       "TeamActivityRepositoryResponseDto": {
         "type": "object",
         "properties": {
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
@@ -9295,6 +9385,11 @@
       "TeamActivityResponseDto": {
         "type": "object",
         "properties": {
+          "repositoryUrlHistoryCount": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
           "teamId": {
             "type": "string",
             "nullable": true
@@ -10466,6 +10561,10 @@
           "displayName": {
             "type": "string"
           },
+          "leaderName": {
+            "type": "string",
+            "nullable": true
+          },
           "githubLogins": {
             "type": "array",
             "items": {
@@ -10483,8 +10582,36 @@
           "teamId",
           "applicationMode",
           "displayName",
+          "leaderName",
           "githubLogins",
           "cells"
+        ]
+      },
+      "MatrixStatusCountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "NOT_SUBMITTED": {
+            "type": "number"
+          },
+          "SUBMITTED": {
+            "type": "number"
+          },
+          "CHANGES_REQUESTED": {
+            "type": "number"
+          },
+          "REJECTED": {
+            "type": "number"
+          },
+          "APPROVED": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "NOT_SUBMITTED",
+          "SUBMITTED",
+          "CHANGES_REQUESTED",
+          "REJECTED",
+          "APPROVED"
         ]
       },
       "SubmissionMatrixResponseDto": {
@@ -10510,6 +10637,9 @@
           },
           "total": {
             "type": "number"
+          },
+          "statusCounts": {
+            "$ref": "#/components/schemas/MatrixStatusCountsResponseDto"
           }
         },
         "required": [
@@ -10517,7 +10647,8 @@
           "rows",
           "page",
           "pageSize",
-          "total"
+          "total",
+          "statusCounts"
         ]
       },
       "SubmissionReviewFileResponseDto": {
@@ -11150,6 +11281,10 @@
             "type": "string",
             "nullable": true
           },
+          "leaderName": {
+            "type": "string",
+            "nullable": true
+          },
           "memberNicknames": {
             "type": "array",
             "items": {
@@ -11170,12 +11305,16 @@
               "COMPLETE",
               "NO_REQUIRED_ITEMS"
             ]
+          },
+          "sortDocumentId": {
+            "type": "string"
           }
         },
         "required": [
           "teamId",
           "teamName",
           "applicantName",
+          "leaderName",
           "memberNicknames",
           "cells",
           "deliveryStatus"
@@ -11251,6 +11390,9 @@
               "$ref": "#/components/schemas/RequirementCollectionDocumentTotalResponseDto"
             }
           },
+          "statusCounts": {
+            "$ref": "#/components/schemas/MatrixStatusCountsResponseDto"
+          },
           "deliveryCounts": {
             "type": "object",
             "properties": {
@@ -11284,6 +11426,7 @@
           "total",
           "filterCounts",
           "documentTotals",
+          "statusCounts",
           "deliveryCounts"
         ]
       },

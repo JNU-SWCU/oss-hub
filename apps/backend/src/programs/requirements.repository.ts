@@ -237,6 +237,9 @@ export interface RequirementCollectionApplication {
   readonly applicantName: string | null;
   readonly memberNicknames: readonly string[];
 }
+export interface RequirementStageApplication extends RequirementCollectionApplication {
+  readonly leaderName: string | null;
+}
 export interface RequirementCollectionSubmission {
   readonly requirementId: string;
   readonly teamId: string;
@@ -266,6 +269,8 @@ export interface DocumentDeliveryCoordinate {
   readonly teamId: string;
   readonly requirementId: string;
   readonly firstSubmittedAt: Date;
+  readonly submittedAt: Date;
+  readonly status: SubmissionStatus;
 }
 @Injectable()
 export class RequirementCollectionReadRepository {
@@ -332,7 +337,7 @@ export class RequirementCollectionReadStoreRepository {
           where: {
             milestoneId,
           },
-          orderBy: { sortOrder: 'asc' },
+          orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
           select: {
             id: true,
             milestoneId: true,
@@ -357,7 +362,7 @@ export class RequirementCollectionReadStoreRepository {
   }
   async findApplications(
     programId: string,
-  ): Promise<readonly RequirementCollectionApplication[]> {
+  ): Promise<readonly RequirementStageApplication[]> {
     const applications = await this.boundedReads.readCapped(
       READ_CAP.teamsPerProgram,
       'Team per program',
@@ -370,6 +375,7 @@ export class RequirementCollectionReadStoreRepository {
             select: {
               id: true,
               applicant: { select: USER_PROFILE_NAME_SELECT },
+              leader: { select: USER_PROFILE_NAME_SELECT },
               name: true,
               members: {
                 take: READ_CAP.membersPerTeam + 1,
@@ -390,6 +396,7 @@ export class RequirementCollectionReadStoreRepository {
       teamId: application.id,
       teamName: application.name,
       applicantName: application.applicant.name ?? null,
+      leaderName: application.leader.name,
       memberNicknames: application.members.map(
         (member) => member.user.nickname,
       ),
@@ -409,6 +416,8 @@ export class RequirementCollectionReadStoreRepository {
       select: {
         requirementId: true,
         teamId: true,
+        submittedAt: true,
+        status: true,
         createdAt: true,
         histories: {
           where: { event: 'SUBMITTED', revision: 1 },
@@ -421,10 +430,44 @@ export class RequirementCollectionReadStoreRepository {
     return submissions.map((submission) => ({
       requirementId: submission.requirementId,
       teamId: submission.teamId,
+      submittedAt: submission.submittedAt,
+      status: submission.status,
 
       firstSubmittedAt:
         submission.histories[0]?.createdAt ?? submission.createdAt,
     }));
+  }
+  async findLatestReviewTimes(
+    documentIds: readonly string[],
+    teamIds: readonly string[],
+  ) {
+    if (documentIds.length === 0 || teamIds.length === 0) return [];
+    const { where, orderBy } =
+      this.requirementCollectionReadRepository.reviewHistoryQuery;
+    const submissions = await this.transaction.submission.findMany({
+      take: documentIds.length * teamIds.length,
+      where: {
+        requirementId: { in: [...documentIds] },
+        teamId: { in: [...teamIds] },
+        histories: { some: where },
+      },
+      select: {
+        requirementId: true,
+        teamId: true,
+        histories: {
+          where,
+          orderBy,
+          take: 1,
+          select: { createdAt: true },
+        },
+      },
+    });
+    return submissions.flatMap(({ requirementId, teamId, histories }) => {
+      const review = histories[0];
+      return review === undefined
+        ? []
+        : [{ requirementId, teamId, reviewedAt: review.createdAt }];
+    });
   }
   async findDetails(
     documentIds: readonly string[],

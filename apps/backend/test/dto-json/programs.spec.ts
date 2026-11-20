@@ -115,6 +115,7 @@ import {
   type RequirementViewerResult,
 } from '../../src/programs/requirements.service';
 import { type RequirementRecord } from '../../src/programs/requirements.repository';
+import type { RequirementDeliveryCollectionResult } from '../../src/programs/requirement-archive.service';
 import {
   type EditableProgramView,
   type ProgramMilestoneEditView,
@@ -263,7 +264,7 @@ const optionalDocumentRecord: RequirementRecord = {
   templateFileId: null,
   templateFileName: null,
 };
-const collectionResult: RequirementCollectionResult = {
+const collectionResult = {
   milestone: {
     id: 'milestone-1',
     programId: 'program-1',
@@ -325,7 +326,42 @@ const collectionResult: RequirementCollectionResult = {
     { documentId: 'document-1', submitted: 1, total: 2 },
     { documentId: 'document-2', submitted: 1, total: 2 },
   ],
-};
+} as const satisfies RequirementCollectionResult;
+const deliveryCollectionResult = {
+  ...collectionResult,
+  rows: [
+    {
+      application: {
+        ...collectionResult.rows[0].application,
+        leaderName: 'Cat',
+      },
+      cells: collectionResult.rows[0].cells,
+      deliveryStatus: 'COMPLETE',
+    },
+    {
+      application: {
+        ...collectionResult.rows[1].application,
+        leaderName: null,
+      },
+      cells: collectionResult.rows[1].cells,
+      deliveryStatus: 'MISSING',
+    },
+  ],
+  pageSize: 2,
+  statusCounts: {
+    NOT_SUBMITTED: 2,
+    SUBMITTED: 1,
+    CHANGES_REQUESTED: 1,
+    REJECTED: 0,
+    APPROVED: 0,
+  },
+  deliveryCounts: {
+    missing: 1,
+    late: 0,
+    complete: 1,
+    noRequiredItems: 0,
+  },
+} satisfies RequirementDeliveryCollectionResult;
 const viewerResult: RequirementViewerResult = {
   ...documentRecord,
   viewerSubmission: {
@@ -538,7 +574,11 @@ const staffTeamDetail: StaffTeamDetailView = {
 };
 const teamActivity: TeamActivityView = {
   teamId: 'application-1',
-  repository: { id: 'repository-1', url: 'https://github.com/org/team-a' },
+  repository: {
+    id: 'repository-1',
+    url: 'https://github.com/org/team-a',
+    defaultBranch: null,
+  },
   status: 'COLLECTED',
   lastSuccessAt: '2026-05-01T00:00:00.000Z',
   window: {
@@ -773,19 +813,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'RequirementDeliveryCollectionResponseDto',
     () =>
-      RequirementDeliveryCollectionResponseDto.from({
-        ...collectionResult,
-        rows: [
-          { ...collectionResult.rows[0]!, deliveryStatus: 'LATE' },
-          { ...collectionResult.rows[1]!, deliveryStatus: 'MISSING' },
-        ],
-        deliveryCounts: {
-          missing: 1,
-          late: 1,
-          complete: 0,
-          noRequiredItems: 0,
-        },
-      }),
+      RequirementDeliveryCollectionResponseDto.from(deliveryCollectionResult),
   ],
   [
     'RequirementHistoryPageResponseDto',
@@ -1172,12 +1200,18 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             name: 'Kickoff',
             dueAt: at('2026-02-10T00:00:00.000Z'),
           },
+          {
+            id: 'milestone-2',
+            name: 'Final report',
+            dueAt: at('2026-03-10T00:00:00.000Z'),
+          },
         ],
         rows: [
           {
             teamId: 'application-1',
             applicationMode: 'TEAM',
             displayName: 'Team A',
+            leaderName: 'Cat',
             githubLogins: ['octo', 'cat'],
             cells: [
               {
@@ -1204,6 +1238,13 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         page: 1,
         pageSize: 20,
         total: 1,
+        statusCounts: {
+          NOT_SUBMITTED: 1,
+          SUBMITTED: 1,
+          CHANGES_REQUESTED: 0,
+          REJECTED: 0,
+          APPROVED: 0,
+        },
       }),
   ],
   [
@@ -1376,5 +1417,33 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
 describe('programs response DTO JSON', () => {
   it.each(cases)('%s', (_name, build) => {
     expect(JSON.stringify(build())).toMatchSnapshot();
+  });
+
+  it('preserves stage page cell coordinates and actual revisions', () => {
+    const response = RequirementDeliveryCollectionResponseDto.from(
+      deliveryCollectionResult,
+    );
+
+    expect(
+      response.rows.map((row) => row.cells.map((cell) => cell.documentId)),
+    ).toEqual([
+      ['document-1', 'document-2'],
+      ['document-1', 'document-2'],
+    ]);
+    expect(response.total).toBe(2);
+    expect(response.rows[0]?.cells[0]).toMatchObject({
+      isSubmitted: true,
+      revision: 2,
+      submittedAt: '2026-02-09T00:00:00.000Z',
+    });
+    expect(response.rows[1]?.cells[0]).toMatchObject({
+      isSubmitted: false,
+      revision: null,
+      submittedAt: null,
+    });
+    expect(response.rows[0]?.cells[1]).toMatchObject({
+      isSubmitted: true,
+      revision: 1,
+    });
   });
 });

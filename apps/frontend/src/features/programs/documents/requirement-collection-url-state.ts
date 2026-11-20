@@ -1,76 +1,70 @@
 import { useSearchParams } from 'next/navigation';
 import {
-  parseListPage,
   parseListEnum,
+  parseListPage,
   setListPage,
   useListUrlNavigation,
   useParsedListUrlState,
 } from '@/lib/list-url-state';
-import {
-  REQUIREMENT_COLLECTION_PAGE_SIZE,
-  REQUIREMENT_COLLECTION_SEARCH_PAGE_SIZE,
-} from './requirement-collection-api';
+import { REQUIREMENT_COLLECTION_PAGE_SIZE } from './requirement-collection-api';
 import type { RequirementCollectionQueryInput } from './requirement-collection-dto';
-export function parseRequirementCollectionSearchParams(
-  params: URLSearchParams,
-): RequirementCollectionQueryInput {
-  const documentId = params.get('documentId')?.trim();
-  const q = params.get('q')?.trim() ?? '';
-  return {
-    q,
-    page: parseListPage(params.get('page')),
-    pageSize:
-      q === ''
-        ? REQUIREMENT_COLLECTION_PAGE_SIZE
-        : REQUIREMENT_COLLECTION_SEARCH_PAGE_SIZE,
-    filter: parseListEnum(
-      params.get('filter'),
-      [
-        'ALL',
-        'HAS_MISSING',
-        'ZERO_SUBMISSION',
-        'LATE',
-        'COMPLETE',
-        'NO_REQUIRED_ITEMS',
-      ],
-      'ALL',
-    ),
-    ...(documentId
-      ? {
-          document: {
-            id: documentId,
-            submissionState: parseListEnum(
-              params.get('submissionState'),
-              ['ALL', 'SUBMITTED', 'MISSING'],
-              'ALL',
-            ),
-          },
-        }
-      : {}),
-  };
-}
-export function buildRequirementCollectionSearchParams(
-  state: RequirementCollectionQueryInput,
-) {
-  const params = new URLSearchParams();
-  if (state.q.trim()) params.set('q', state.q.trim());
-  if (state.filter !== 'ALL') params.set('filter', state.filter);
-  if (state.document) {
-    params.set('documentId', state.document.id);
-    if (state.document.submissionState !== 'ALL')
-      params.set('submissionState', state.document.submissionState);
-  }
-  setListPage(params, state.page);
-  return params;
-}
 
 const OWNED_PARAMS = [
   'q',
+  'status',
+  'sort',
+  'direction',
   'page',
   'filter',
   'documentId',
   'submissionState',
 ] as const;
+const STAGE_STATUSES = [
+  'NOT_SUBMITTED',
+  'SUBMITTED',
+  'CHANGES_REQUESTED',
+  'REJECTED',
+  'APPROVED',
+] as const;
+const STAGE_SORTS = [
+  'team',
+  'document',
+  'status',
+  'submittedAt',
+  'reviewedAt',
+] as const;
+
+export function parseRequirementCollectionSearchParams(
+  params: URLSearchParams,
+): RequirementCollectionQueryInput {
+  const status = params.get('status');
+  return {
+    q: params.get('q')?.trim() ?? '',
+    page: parseListPage(params.get('page')),
+    pageSize: REQUIREMENT_COLLECTION_PAGE_SIZE,
+    filter: 'ALL',
+    status: STAGE_STATUSES.find((option) => option === status),
+    sort: parseListEnum(params.get('sort'), STAGE_SORTS, 'team'),
+    direction: parseListEnum(
+      params.get('direction'),
+      ['asc', 'desc'] as const,
+      'asc',
+    ),
+  };
+}
+
+export function buildRequirementCollectionSearchParams(
+  state: RequirementCollectionQueryInput,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (state.q) params.set('q', state.q);
+  if (state.status !== undefined) params.set('status', state.status);
+  if (state.sort !== undefined && state.sort !== 'team')
+    params.set('sort', state.sort);
+  if (state.direction === 'desc') params.set('direction', state.direction);
+  setListPage(params, state.page);
+  return params;
+}
 
 export function useRequirementCollectionUrlState() {
   const serialized = useSearchParams().toString();
