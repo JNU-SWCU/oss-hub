@@ -1,6 +1,5 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useState } from 'react';
 import {
   AlertDialog,
@@ -36,15 +35,8 @@ export function RepositoryUrlCancelButton({
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label="취소"
-          title="취소"
-          disabled={disabled}
-        >
-          <X aria-hidden="true" />
+        <Button type="button" variant="ghost" disabled={disabled}>
+          취소
         </Button>
       </AlertDialogTrigger>
       <AlertDialogPortal>

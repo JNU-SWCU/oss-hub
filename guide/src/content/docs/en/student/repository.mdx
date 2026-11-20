@@ -29,21 +29,30 @@ Repository creation and invitation delivery are automatic. Accepting the invitat
 
 Only the team leader can register a repository, and only after application approval and before the program ends. The repository must be public on GitHub.
 
+Replacing the address removes the previous repository's OSS Hub registration and collected records. The original repository stays on GitHub.
+
 <Steps>
 1. Open `우리 팀` (Our team) from the dashboard card and find `프로젝트 저장소` (Project repository).
-2. Click ② the pencil icon, `저장소 URL 수정` (Edit repository URL).
-3. Enter the GitHub repository address in ③ `새 저장소 URL` (New repository URL).
-4. Save with ④ the checkmark icon, `저장소 변경 저장` (Save repository change). The X icon cancels the edit.
+2. Click ② `변경` (Change) to edit the address inside the card.
+3. Enter the GitHub repository address in ③ `저장소 주소` (Repository address).
+4. Click ④ `저장` (Save). To leave without saving, click `취소` (Cancel). If you edited the address, click `변경사항 버리기` (Discard changes) in the confirmation dialog.
 </Steps>
-<Shot src="student/team-repo.webp" alt="Project repository with Application approved, Repository creation, and Ready to use completed. ② points to the pencil icon." caption="② Edit repository URL" />
-<Shot src="student/team-repo-edit.webp" alt="Repository editing state. ③ points to the New repository URL field; ④ points to the checkmark save button, with the X cancel button to its left." caption="③ New repository URL  ④ Save repository change" />
+<Shot src="student/team-repo.webp" alt="Project repository card. Marker ② points to the Change button." caption="② Change" />
+<Shot src="student/team-repo-edit.webp" alt="Address editing inside the Project repository card. Marker ③ points to the Repository address field and ④ to Save." caption="③ Repository address  ④ Save" />
+
+## Check repository details and change history
+
+Members of approved teams can click the repository name in `프로젝트 저장소` to open it on GitHub. When available, `기본 브랜치` (Default branch) and `마지막 수집` (Last collected) appear below the name. If no repository is linked, the card says `연결된 저장소가 없습니다.` (No repository connected).
+
+The `변경 이력` (Change history) button may show the number of records you can view. The list loads the first time you expand it. Each entry shows the date, who made the change, and the old and new repositories. Click `변경 이력 더 보기` (Show more changes) when available. Team members can view this history even if they are not the team leader.
 
 <Success>
 `저장소 변경을 저장했습니다.` (Repository changes saved) appears, and activity collection starts automatically. View the collected activity in [Activity](/oss-hub/en/student/activity/).
 </Success>
 
 <Recover title="When you cannot register a repository">
-- `승인된 신청만 프로그램 종료 전에 저장소를 변경할 수 있습니다.` (Only approved applications can change repositories before the program ends): this appears before approval or after the program ends. Only the team leader can make changes.
+- The editing card does not appear before approval. If you are not the team leader or the program has ended, `변경` is disabled and the card says `승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다.` (Only the leader of an approved team can make changes before the program ends).
+- If OSS Hub cannot confirm the save, click `다시 불러오기` (Reload) and check the current address before saving again.
 - `연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.` (The repository was not found or is private. Only public GitHub repositories can be linked): check for a mistyped URL and confirm that the repository is public.
 - `다른 신청에 연결된 저장소입니다.` (This repository is linked to another application): another team is using it.
 - `저장소를 처리 중입니다…` (Processing the repository…): check again shortly.

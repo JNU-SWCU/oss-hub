@@ -69,7 +69,15 @@ function member(value: unknown): value is TeamActivityMember {
   );
 }
 
-function teamActivity(value: unknown): value is TeamActivity {
+type TeamActivityPayload = Omit<TeamActivity, 'repository'> & {
+  readonly repository:
+    | (Pick<NonNullable<TeamActivity['repository']>, 'id' | 'url'> & {
+        readonly defaultBranch?: unknown;
+      })
+    | null;
+};
+
+function teamActivity(value: unknown): value is TeamActivityPayload {
   return (
     record(value) &&
     record(value.window) &&
@@ -94,7 +102,19 @@ function teamActivity(value: unknown): value is TeamActivity {
 
 export function parseTeamActivity(value: unknown): TeamActivity {
   if (!teamActivity(value)) throw new TeamActivityResponseError();
-  return value;
+  if (value.repository === null) return { ...value, repository: null };
+
+  const { id, url, defaultBranch } = value.repository;
+  return {
+    ...value,
+    repository: {
+      id,
+      url,
+      ...(typeof defaultBranch === 'string' || defaultBranch === null
+        ? { defaultBranch }
+        : {}),
+    },
+  };
 }
 
 function historyItem(value: unknown): value is RepositoryHistoryItem {

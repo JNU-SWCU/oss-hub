@@ -524,7 +524,10 @@ export class TeamMembershipService {
       programId,
       teamId,
     );
-    const activity = await this.repository.readTeamActivity(team, now);
+    const activity = await this.repository.readTeamActivity(
+      { ...team, repositoryUrlHistoryScope: { programId, teamId } },
+      now,
+    );
     return {
       ...activity,
       repository: activity.repository && {
@@ -532,6 +535,7 @@ export class TeamMembershipService {
         url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
           activity.repository.nameWithOwner,
         ),
+        defaultBranch: activity.repository.defaultBranch,
       },
 
       canEditRepositoryUrl:

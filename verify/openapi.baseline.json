@@ -9181,6 +9181,10 @@
       "TeamActivityRepositoryResponseDto": {
         "type": "object",
         "properties": {
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
@@ -9264,6 +9268,11 @@
       "TeamActivityResponseDto": {
         "type": "object",
         "properties": {
+          "repositoryUrlHistoryCount": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
           "teamId": {
             "type": "string",
             "nullable": true

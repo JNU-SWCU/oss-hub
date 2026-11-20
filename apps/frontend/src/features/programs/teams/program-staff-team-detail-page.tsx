@@ -10,12 +10,7 @@ import {
   useState,
   type ReactElement,
 } from 'react';
-import {
-  EmptyState,
-  FailureState,
-  PageHeader,
-  StatusBadge,
-} from '@/components';
+import { EmptyState, FailureState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,22 +59,14 @@ type LoadState =
 
 function Section({
   title,
-  meta,
   children,
 }: {
   readonly title: string;
-
-  readonly meta?: string;
   readonly children: React.ReactNode;
 }): ReactElement {
   return (
     <section className="grid gap-4 rounded-card border border-border p-card">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-semibold">{title}</h2>
-        {meta ? (
-          <span className="text-small text-muted-foreground">{meta}</span>
-        ) : null}
-      </div>
+      <h2 className="font-semibold">{title}</h2>
       {children}
     </section>
   );
@@ -198,7 +185,7 @@ export function ProgramStaffTeamDetailPage({
 
   if (loadState.kind === 'loading') {
     return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">
         <Skeleton label="팀 상세 불러오는 중" className="grid gap-6">
           <SkeletonBlock className="h-20 rounded-xl" />
           <SkeletonBlock className="h-40 rounded-xl" />
@@ -210,7 +197,7 @@ export function ProgramStaffTeamDetailPage({
 
   if (loadState.kind === 'not-found') {
     return (
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
         <PageHeader title="팀 상세" />
         <EmptyState
           title="팀을 찾을 수 없습니다"
@@ -227,7 +214,7 @@ export function ProgramStaffTeamDetailPage({
 
   if (loadState.kind === 'error') {
     return (
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
         <PageHeader title="팀 상세" />
         <FailureState
           title="팀 상세를 열 수 없습니다"
@@ -265,7 +252,7 @@ export function ProgramStaffTeamDetailPage({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
         <Button asChild variant="ghost" size="sm">
           <Link href={teamsHref}>← 참여 팀으로</Link>
         </Button>
@@ -320,41 +307,6 @@ export function ProgramStaffTeamDetailPage({
           </Alert>
         ) : null}
 
-        <Section title="팀원" meta={`${detail.memberCount}명`}>
-          <ul className="grid gap-3">
-            {detail.members.map((member) => (
-              <li
-                key={member.userId}
-                className="flex items-center justify-between gap-2 break-keep"
-              >
-                <div className="grid gap-0.5">
-                  <span>{member.name ?? member.nickname}</span>
-                  <span className="text-xs text-muted-foreground">
-                    @{member.nickname}
-                  </span>
-                </div>
-                {member.isLeader ? (
-                  <StatusBadge variant="recruiting" size="default">
-                    팀장
-                  </StatusBadge>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </Section>
-
-        <StaffTeamMembersPanel
-          programId={programId}
-          teamId={teamId}
-          teamName={detail.name}
-          memberCount={detail.memberCount}
-          members={detail.members}
-          sessionKey={sessionKey}
-          onChanged={() => {
-            void load();
-          }}
-        />
-
         <TeamRepositoryPanel
           programId={programId}
           teamId={teamId}
@@ -363,6 +315,19 @@ export function ProgramStaffTeamDetailPage({
           saveRepositoryUrl={(repositoryUrl) =>
             updateTeamRepositoryUrl(programId, teamId, { repositoryUrl })
           }
+          renderBetween={(activity) => (
+            <StaffTeamMembersPanel
+              programId={programId}
+              teamId={teamId}
+              memberCount={detail.memberCount}
+              members={detail.members}
+              activity={activity}
+              sessionKey={sessionKey}
+              onChanged={() => {
+                void load();
+              }}
+            />
+          )}
         >
           <ProgramStaffRepositorySection
             key={application?.repository?.id ?? ''}
