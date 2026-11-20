@@ -1,4 +1,7 @@
+'use client';
+
 import { useSearchParams } from 'next/navigation';
+import { useCallback } from 'react';
 import {
   parseListEnum,
   useListUrlNavigation,
@@ -8,7 +11,12 @@ import {
   insightsSearchParams,
   parseInsightsYearSearchParam,
 } from './insights-year';
-import { INSIGHTS_VIEWS, type StaffInsightsUrlState } from './types';
+import {
+  INSIGHTS_VIEWS,
+  type InsightsYearScope,
+  type StaffInsightsUrlState,
+} from './types';
+
 export function parseStaffInsightsSearchParams(
   params: URLSearchParams,
 ): StaffInsightsUrlState {
@@ -33,5 +41,9 @@ export function useStaffInsightsUrlState() {
     OWNED_PARAMS,
     serialized,
   );
-  return { state, navigate };
+  const onScopeChange = useCallback(
+    (scope: InsightsYearScope) => navigate({ scope }),
+    [navigate],
+  );
+  return { state, onScopeChange };
 }
