@@ -154,6 +154,21 @@ describe('RequirementCollectionView 머리말', () => {
     expect(html).toContain('2026년 7월 15일');
     expect(html).toContain('마감');
   });
+
+  it('모바일 상태 필터에 서버 전체 건수와 선택된 상태 건수를 표시한다', () => {
+    const html = render({
+      data: collection([document('d1')], [row('a', [missingCell('d1')])]),
+      status: 'SUBMITTED',
+    });
+
+    const select = html.match(
+      /<select[^>]*aria-label="제출 상태 필터"[^>]*>.*?<\/select>/,
+    )?.[0];
+    expect(select).toContain('<option value="">전체 25</option>');
+    expect(select).toMatch(
+      /<option[^>]*value="SUBMITTED"[^>]*selected=""[^>]*>검토 대기 7<\/option>/,
+    );
+  });
 });
 
 describe('RequirementCollectionView 빈 상태', () => {

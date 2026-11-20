@@ -146,6 +146,11 @@ it('서버 상태 건수를 표시하고 선택 상태로 서버 응답 행을 �
       '[aria-label="제출 상태 필터"] [aria-pressed="true"]',
     )?.textContent,
   ).toBe('검토 대기 5');
+  expect(
+    container.querySelector(
+      'select[aria-label="제출 상태 필터"] option[value="SUBMITTED"][selected]',
+    )?.textContent,
+  ).toBe('검토 대기 5');
   expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
   expect(
     container.querySelector('button[aria-label="홍길동 단계별 상세"]'),

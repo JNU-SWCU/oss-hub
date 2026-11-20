@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { TableHead } from '@/components/ui/table';
 import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
@@ -87,31 +88,50 @@ export function SubmissionStatusFilters({
     counts === undefined
       ? undefined
       : STATUSES.reduce((sum, state) => sum + counts[state], 0);
+  const options = [
+    { value: undefined, label: '전체', count: total },
+    ...STATUSES.map((value) => ({
+      value,
+      label: SUBMISSION_STATUS_LABELS[value],
+      count: counts?.[value],
+    })),
+  ];
   return (
-    <div
-      role="group"
-      aria-label="제출 상태 필터"
-      className={cn(
-        'grid w-full grid-cols-3 gap-px overflow-hidden rounded-control border border-border bg-border',
-        'md:w-fit md:grid-flow-col md:grid-cols-none',
-      )}
-    >
-      {[undefined, ...STATUSES].map((option) => {
-        const count = option === undefined ? total : counts?.[option];
-        return (
+    <>
+      <Select
+        aria-label="제출 상태 필터"
+        className="md:hidden"
+        value={status ?? ''}
+        onChange={(event) => {
+          const value = event.currentTarget.value;
+          onStatusChange(STATUSES.find((state) => state === value));
+        }}
+      >
+        {options.map(({ value, label, count }) => (
+          <option key={value ?? 'all'} value={value ?? ''}>
+            {count === undefined ? label : `${label} ${count}`}
+          </option>
+        ))}
+      </Select>
+      <div
+        role="group"
+        aria-label="제출 상태 필터"
+        className="hidden w-fit grid-flow-col gap-px overflow-hidden rounded-control border border-border bg-border md:grid"
+      >
+        {options.map(({ value, label, count }) => (
           <Button
-            key={option ?? 'all'}
+            key={value ?? 'all'}
             type="button"
             variant="ghost"
             size="xs"
-            aria-pressed={status === option}
-            onClick={() => onStatusChange(option)}
+            aria-pressed={status === value}
+            onClick={() => onStatusChange(value)}
             className={cn(
               'h-auto min-h-control rounded-none bg-background px-2 py-2 md:px-4',
               'focus-visible:z-10 focus-visible:ring-inset aria-pressed:bg-muted',
             )}
           >
-            {option === undefined ? '전체' : SUBMISSION_STATUS_LABELS[option]}
+            {label}
             {count === undefined ? null : (
               <>
                 {' '}
@@ -119,9 +139,9 @@ export function SubmissionStatusFilters({
               </>
             )}
           </Button>
-        );
-      })}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 
