@@ -208,9 +208,6 @@ describe('StaffDashboardOverview', () => {
     expect(
       element(table, 'tbody tr:last-child td:last-child').textContent,
     ).toBe(' 검토 1 신청 1');
-    expect(
-      element(table, 'a[aria-label="운영 프로그램 편집"]').getAttribute('href'),
-    ).toBe('/programs/program%3Aoperating/edit');
     expect(container.textContent).not.toMatch(
       /저장소 없음|마일스톤 없음|대상 0|처리할 일 많은 순/,
     );
@@ -220,6 +217,20 @@ describe('StaffDashboardOverview', () => {
     expect(mobileRows).toHaveLength(2);
     expect(mobileRows[1]?.children).toHaveLength(2);
     expect(mobileRows[0]?.textContent).not.toContain('—');
+  });
+
+  it.each([
+    ['데스크톱', 'table tbody th a'],
+    ['모바일', 'ul[aria-label="프로그램 운영 현황"] > li a'],
+  ])('%s 프로그램 이름 링크는 프로그램 개요를 연다', async (_, selector) => {
+    await renderOverview([operating]);
+    const link = element<HTMLAnchorElement>(container, selector);
+
+    expect(link.getAttribute('href')).toBe('/programs/program%3Aoperating');
+
+    expect(link.textContent).toBe('운영 프로그램');
+    expect(link.hasAttribute('aria-label')).toBe(false);
+    expect(link.hasAttribute('aria-labelledby')).toBe(false);
   });
 
   it('활성 열에만 정렬 속성을 두고 새 열은 지정된 방향으로, 같은 열은 반대로 요청한다', async () => {
