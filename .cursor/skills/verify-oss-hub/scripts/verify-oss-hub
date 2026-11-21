@@ -1,0 +1,557 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
+RUN_DIR="$SKILL_DIR/run"
+STATE_FILE="$RUN_DIR/state.env"
+EVIDENCE_ROOT="$SKILL_DIR/evidence"
+
+SEEDED_PROGRAM_ID='seed:demo:program:summer-internship'
+SEEDED_PROGRAM_NAME='2026 하계 SW 현장실습 연계 프로그램'
+POSTGRES_DB_NAME='oss_hub_verify'
+S3_BUCKET='oss-hub-verify'
+S3_ACCESS_KEY='oss-hub-local'
+S3_SECRET_KEY='oss-hub-local-synthetic-secret'
+OAUTH_CLIENT_ID='dev-oauth-client-id-placeholder'
+OAUTH_CLIENT_SECRET='dev-oauth-client-secret-placeholder'
+
+log() {
+  printf 'verify-oss-hub: %s\n' "$1" >&2
+}
+
+fail() {
+  printf 'verify-oss-hub: %s\n' "$1" >&2
+  exit 1
+}
+
+require_node() {
+  command -v node >/dev/null 2>&1 || fail 'node is not on PATH. Install Node.js 24 or newer.'
+  node -e 'const major = Number(process.versions.node.split(".")[0]); if (!Number.isInteger(major) || major < 24) { console.error("verify-oss-hub: Node.js 24 or newer is required. Current is " + process.versions.node); process.exit(1); }'
+}
+
+require_tools() {
+  require_node
+  command -v pnpm >/dev/null 2>&1 || fail 'pnpm is not on PATH. Enable corepack and use pnpm 11.'
+  command -v docker >/dev/null 2>&1 || fail 'docker is not on PATH. Install Docker and start the daemon.'
+  docker info >/dev/null 2>&1 || fail 'docker info failed. Start the Docker daemon and give this user access to it.'
+  if [ ! -x "$REPO_ROOT/apps/backend/node_modules/.bin/prisma" ] && [ ! -x "$REPO_ROOT/node_modules/.bin/prisma" ]; then
+    fail 'dependencies are missing. From the repository root run pnpm install.'
+  fi
+}
+
+free_port() {
+  node -e 'const net = require("net"); const server = net.createServer(); server.listen(0, "127.0.0.1", () => { const address = server.address(); if (!address || typeof address !== "object" || !address.port) { console.error("verify-oss-hub: could not allocate a TCP port"); process.exit(1); } server.close(() => process.stdout.write(String(address.port))); });'
+}
+
+pid_alive() {
+  local pid="$1"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+descendant_of() {
+  local pid="$1"
+  local root="$2"
+  local guard=0
+  while [ -n "$pid" ] && [ "$pid" != "0" ] && [ "$pid" != "1" ] && [ "$guard" -lt 30 ]; do
+    if [ "$pid" = "$root" ]; then
+      return 0
+    fi
+    pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+    guard=$((guard + 1))
+  done
+  return 1
+}
+
+port_owned_by() {
+  local port="$1"
+  local root="$2"
+  local hex inode link pid
+  hex="$(printf '%04X' "$port")"
+  for inode in $(awk -v port="$hex" 'NR > 1 { split($2, local, ":"); if (toupper(local[2]) == port && $4 == "0A") print $10 }' /proc/net/tcp /proc/net/tcp6); do
+    for link in /proc/[0-9]*/fd/*; do
+      if [ "$(readlink "$link" 2>/dev/null || true)" = "socket:[$inode]" ]; then
+        pid="${link#/proc/}"
+        pid="${pid%%/*}"
+        if descendant_of "$pid" "$root"; then
+          return 0
+        fi
+      fi
+    done
+  done
+  return 1
+}
+
+load_state() {
+  [ -f "$STATE_FILE" ] || fail 'no instance state. Run verify-oss-hub launch first.'
+  set -a
+  # shellcheck disable=SC1090
+  . "$STATE_FILE"
+  set +a
+}
+
+write_state() {
+  mkdir -p "$RUN_DIR"
+  umask 077
+  cat >"$STATE_FILE" <<EOF
+RUN_ID=$(printf '%q' "$RUN_ID")
+COMPOSE_PROJECT=$(printf '%q' "$COMPOSE_PROJECT")
+POSTGRES_PORT=$(printf '%q' "$POSTGRES_PORT")
+POSTGRES_DB=$(printf '%q' "$POSTGRES_DB")
+OBJECT_STORAGE_PORT=$(printf '%q' "$OBJECT_STORAGE_PORT")
+DATABASE_URL=$(printf '%q' "$DATABASE_URL")
+BACKEND_PORT=$(printf '%q' "$BACKEND_PORT")
+FRONTEND_PORT=$(printf '%q' "$FRONTEND_PORT")
+BACKEND_URL=$(printf '%q' "$BACKEND_URL")
+FRONTEND_URL=$(printf '%q' "$FRONTEND_URL")
+BACKEND_PID=$(printf '%q' "${BACKEND_PID:-}")
+FRONTEND_PID=$(printf '%q' "${FRONTEND_PID:-}")
+SESSION_SECRET=$(printf '%q' "$SESSION_SECRET")
+TEAM_JOIN_CODE_SECRET=$(printf '%q' "$TEAM_JOIN_CODE_SECRET")
+EVIDENCE_DIR=$(printf '%q' "$EVIDENCE_DIR")
+READY=$(printf '%q' "${READY:-0}")
+EOF
+}
+
+compose() {
+  POSTGRES_BIND_HOST=127.0.0.1 \
+    POSTGRES_PORT="$POSTGRES_PORT" \
+    POSTGRES_DB="$POSTGRES_DB" \
+    OBJECT_STORAGE_BIND_HOST=127.0.0.1 \
+    OBJECT_STORAGE_PORT="$OBJECT_STORAGE_PORT" \
+    SUBMISSION_FILE_S3_BUCKET="$S3_BUCKET" \
+    docker compose -p "$COMPOSE_PROJECT" -f "$REPO_ROOT/compose.dev.yml" "$@"
+}
+
+export_app_env() {
+  export DATABASE_URL
+  export SESSION_SECRET
+  export TEAM_JOIN_CODE_SECRET
+  export FRONTEND_URL
+  export BACKEND_ORIGIN="$BACKEND_URL"
+  export NODE_ENV=development
+  export MAIL_MODE=dry-run
+  export GITHUB_OAUTH_CLIENT_ID="$OAUTH_CLIENT_ID"
+  export GITHUB_OAUTH_CLIENT_SECRET="$OAUTH_CLIENT_SECRET"
+  export SUBMISSION_FILE_STORAGE_MODE=local
+  export SUBMISSION_FILE_S3_ENDPOINT="http://127.0.0.1:${OBJECT_STORAGE_PORT}"
+  export SUBMISSION_FILE_S3_REGION=us-east-1
+  export SUBMISSION_FILE_S3_BUCKET="$S3_BUCKET"
+  export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$S3_ACCESS_KEY"
+  export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$S3_SECRET_KEY"
+  export SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true
+  export POSTGRES_PORT
+  export POSTGRES_DB
+  export AUTH_INITIAL_ROLES=
+  unset GITHUB_APP_ORG \
+    GITHUB_COLLECTION_APP_ID \
+    GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE \
+    GITHUB_PUBLIC_READ_TOKEN \
+    GITHUB_OPERATIONS_APP_ID \
+    GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE \
+    GITHUB_OAUTH_CALLBACK_URL
+}
+
+stop_pid() {
+  local pid="$1"
+  local attempt
+  if [ -z "$pid" ]; then
+    return 0
+  fi
+  if ! pid_alive "$pid"; then
+    return 0
+  fi
+  if ! kill -TERM -- "-$pid" 2>/dev/null; then
+    kill -TERM "$pid"
+  fi
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    if ! pid_alive "$pid"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  if ! kill -KILL -- "-$pid" 2>/dev/null; then
+    kill -KILL "$pid"
+  fi
+  if pid_alive "$pid"; then
+    fail "pid $pid is still alive after SIGKILL"
+  fi
+}
+
+cleanup_recorded_instance() {
+  local had_state=0
+  if [ -f "$STATE_FILE" ]; then
+    had_state=1
+    set -a
+    # shellcheck disable=SC1090
+    . "$STATE_FILE"
+    set +a
+  fi
+  stop_pid "${BACKEND_PID:-}"
+  stop_pid "${FRONTEND_PID:-}"
+  if [ -n "${COMPOSE_PROJECT:-}" ]; then
+    compose down -v --remove-orphans >/dev/null
+  fi
+  rm -rf "$RUN_DIR"
+  if [ "$had_state" -eq 1 ]; then
+    log "removed the instance. Evidence remains under $EVIDENCE_ROOT"
+  fi
+}
+
+instance_is_alive() {
+  [ -f "$STATE_FILE" ] || return 1
+  set -a
+  # shellcheck disable=SC1090
+  . "$STATE_FILE"
+  set +a
+  pid_alive "${BACKEND_PID:-}" && pid_alive "${FRONTEND_PID:-}"
+}
+
+wait_for_ready() {
+  local attempt
+  for attempt in $(seq 1 120); do
+    if curl -fsS "$BACKEND_URL/api/v1/health" 2>/dev/null | grep -q '"status":"ok"' \
+      && curl -fsS --get "$BACKEND_URL/api/v1/programs" \
+        --data-urlencode 'page=1' \
+        --data-urlencode 'pageSize=20' \
+        --data-urlencode 'status=all' \
+        --data-urlencode "search=${SEEDED_PROGRAM_NAME}" \
+        2>/dev/null | grep -F "$SEEDED_PROGRAM_ID" >/dev/null \
+      && curl -fsS -o /dev/null "$FRONTEND_URL/programs"; then
+      return 0
+    fi
+    if ! pid_alive "$BACKEND_PID" || ! pid_alive "$FRONTEND_PID"; then
+      log 'backend log tail:'
+      tail -n 40 "$RUN_DIR/backend.log" >&2 || true
+      log 'frontend log tail:'
+      tail -n 40 "$RUN_DIR/frontend.log" >&2 || true
+      fail 'a server exited during startup'
+    fi
+    sleep 2
+  done
+  log 'backend log tail:'
+  tail -n 40 "$RUN_DIR/backend.log" >&2 || true
+  log 'frontend log tail:'
+  tail -n 40 "$RUN_DIR/frontend.log" >&2 || true
+  fail 'the instance did not become ready'
+}
+
+start_detached() {
+  local pidfile="$1"
+  local logfile="$2"
+  local workdir="$3"
+  shift 3
+  setsid bash -c 'cd "$1" && echo $$ > "$2" && shift 2 && exec "$@"' _ "$workdir" "$pidfile" "$@" \
+    >"$logfile" 2>&1 </dev/null &
+  local attempt
+  for attempt in $(seq 1 50); do
+    if [ -s "$pidfile" ]; then
+      cat "$pidfile"
+      return 0
+    fi
+    sleep 0.1
+  done
+  fail "did not record a pid for $workdir"
+}
+
+cmd_launch() {
+  require_tools
+  if instance_is_alive; then
+    log 'an instance is already running. Refusing to start a second one.'
+    exit 2
+  fi
+  if [ -f "$STATE_FILE" ]; then
+    log 'removing a stale instance before launch'
+    cleanup_recorded_instance
+  fi
+
+  RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  COMPOSE_PROJECT="oss-hub-verify-${RUN_ID}"
+  COMPOSE_PROJECT="$(printf '%s' "$COMPOSE_PROJECT" | tr '[:upper:]' '[:lower:]')"
+  POSTGRES_PORT="$(free_port)"
+  OBJECT_STORAGE_PORT="$(free_port)"
+  BACKEND_PORT="$(free_port)"
+  FRONTEND_PORT="$(free_port)"
+  POSTGRES_DB="$POSTGRES_DB_NAME"
+  DATABASE_URL="postgresql://oss:oss-dev@127.0.0.1:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public"
+  BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
+  FRONTEND_URL="http://127.0.0.1:${FRONTEND_PORT}"
+  SESSION_SECRET="$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')"
+  TEAM_JOIN_CODE_SECRET="$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')"
+  EVIDENCE_DIR="$EVIDENCE_ROOT/$RUN_ID"
+  BACKEND_PID=''
+  FRONTEND_PID=''
+  READY=0
+  mkdir -p "$EVIDENCE_DIR" "$RUN_DIR"
+  write_state
+
+  trap 'status=$?; trap - EXIT; if [ "$status" -ne 0 ] && [ "${READY:-0}" != 1 ]; then if ! cleanup_recorded_instance; then status=$?; fi; fi; exit "$status"' EXIT
+
+  log "starting compose project $COMPOSE_PROJECT"
+  compose up -d --wait
+  export_app_env
+  log 'applying migrations'
+  (cd "$REPO_ROOT/apps/backend" && pnpm exec prisma migrate deploy)
+  log 'seeding demo profile'
+  (cd "$REPO_ROOT" && SEED_PROFILE=demo pnpm db:seed)
+  log 'seeding verification scaffold'
+  (
+    cd "$REPO_ROOT/apps/backend"
+    pnpm exec ts-node --transpile-only --compiler-options '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' \
+      "$SCRIPT_DIR/seed-verification.ts"
+  )
+
+  log 'starting backend'
+  BACKEND_PID="$(
+    PORT="$BACKEND_PORT" start_detached "$RUN_DIR/backend.pid" "$RUN_DIR/backend.log" "$REPO_ROOT/apps/backend" \
+      pnpm exec nest start
+  )" || fail 'backend process did not record a pid'
+  write_state
+  log 'starting frontend'
+  FRONTEND_PID="$(
+    PORT="$FRONTEND_PORT" start_detached "$RUN_DIR/frontend.pid" "$RUN_DIR/frontend.log" "$REPO_ROOT/apps/frontend" \
+      pnpm exec next dev --hostname 127.0.0.1 --port "$FRONTEND_PORT"
+  )" || fail 'frontend process did not record a pid'
+  write_state
+  wait_for_ready
+  READY=1
+  write_state
+  trap - EXIT
+  log "ready frontend=$FRONTEND_URL backend=$BACKEND_URL evidence=$EVIDENCE_DIR"
+}
+
+cmd_doctor() {
+  require_node
+  load_state
+  [ "${READY:-0}" = 1 ] || fail 'instance is not marked ready'
+  pid_alive "$BACKEND_PID" || fail "backend pid $BACKEND_PID is not running"
+  pid_alive "$FRONTEND_PID" || fail "frontend pid $FRONTEND_PID is not running"
+  port_owned_by "$BACKEND_PORT" "$BACKEND_PID" || fail "port $BACKEND_PORT is not owned by backend pid $BACKEND_PID"
+  port_owned_by "$FRONTEND_PORT" "$FRONTEND_PID" || fail "port $FRONTEND_PORT is not owned by frontend pid $FRONTEND_PID"
+  local health programs
+  health="$(curl -fsS "$BACKEND_URL/api/v1/health")"
+  node -e 'const body = process.argv[1]; const parsed = JSON.parse(body); if (parsed.status !== "ok") process.exit(1);' "$health" \
+    || fail "health returned $health"
+  programs="$(
+    curl -fsS --get "$BACKEND_URL/api/v1/programs" \
+      --data-urlencode 'page=1' \
+      --data-urlencode 'pageSize=20' \
+      --data-urlencode 'status=all' \
+      --data-urlencode 'search='
+  )"
+  printf '%s' "$programs" | grep -F "$SEEDED_PROGRAM_NAME" >/dev/null \
+    || fail 'the seeded program is missing from GET /api/v1/programs'
+  node -e '
+    const raw = process.env.DATABASE_URL;
+    const url = new URL(raw);
+    const database = decodeURIComponent(url.pathname.replace(/^\//, ""));
+    if ((url.hostname !== "127.0.0.1" && url.hostname !== "localhost") || database !== "oss_hub_verify") {
+      process.exit(1);
+    }
+  ' || fail 'DATABASE_URL is not the local oss_hub_verify database'
+  compose ps --status running --services | grep -qx postgres \
+    || fail 'the postgres container for this instance is not running'
+  log "doctor ok frontend=$FRONTEND_URL backend=$BACKEND_URL project=$COMPOSE_PROJECT"
+}
+
+psql_file() {
+  local sql_file="$1"
+  shift
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 "$@" <"$sql_file"
+}
+
+cmd_drive_browse() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/browse-programs"
+  mkdir -p "$evidence"
+  VERIFY_FRONTEND_URL="$FRONTEND_URL" \
+    VERIFY_BACKEND_URL="$BACKEND_URL" \
+    VERIFY_EVIDENCE_DIR="$evidence" \
+    node "$SCRIPT_DIR/drive-browse-programs.cjs"
+  compose exec -T postgres \
+    psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' \
+    -c "SELECT id, name FROM \"Program\" WHERE id = '${SEEDED_PROGRAM_ID}'" \
+    >"$evidence/program-row.txt"
+  grep -F "$SEEDED_PROGRAM_ID" "$evidence/program-row.txt" >/dev/null \
+    || fail 'the Program row for the seeded program is missing'
+  grep -F "$SEEDED_PROGRAM_NAME" "$evidence/program-row.txt" >/dev/null \
+    || fail 'the Program row name does not match the seeded program'
+  log "browse-programs evidence=$evidence"
+}
+
+assert_verify_report() {
+  local report="$1"
+  local rows=0
+  local check expected actual
+  while IFS=$'\t' read -r check expected actual; do
+    [ -n "${check:-}" ] || continue
+    rows=$((rows + 1))
+    if [ "$expected" != "$actual" ]; then
+      fail "ledger verify mismatch on $check (expected $expected, actual $actual)"
+    fi
+    case "$check" in
+      latest_commit_sum|latest_pull_request_sum|latest_issue_sum|latest_star_sum)
+        if [ "$actual" -le 0 ]; then
+          fail "ledger verify $check is zero, so the activity copy is not proven"
+        fi
+        ;;
+    esac
+  done <"$report"
+  [ "$rows" -ge 1 ] || fail 'github-ledger-verify.sql returned no checks'
+}
+
+cmd_drive_ledger() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/github-ledger"
+  mkdir -p "$evidence"
+  export_app_env
+  (
+    cd "$REPO_ROOT/apps/backend"
+    pnpm exec ts-node --transpile-only --compiler-options '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' \
+      "$SCRIPT_DIR/drive-ledger.ts"
+  ) | tee "$evidence/collector.json"
+  node -e '
+    const fs = require("fs");
+    const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    if (payload.commitFacts < 1 || payload.pullRequestFacts < 1) process.exit(1);
+  ' "$evidence/collector.json" || fail 'the collector did not write a commit and a pull request'
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -c \
+    "SELECT 'GithubRepository' AS \"table\", COUNT(*) FROM \"GithubRepository\" WHERE \"githubRepositoryId\" = 981200100001 UNION ALL SELECT 'CollectionCommitFact', COUNT(*) FROM \"CollectionCommitFact\" WHERE \"repositoryId\" = 'verify-ledger-repository' UNION ALL SELECT 'CollectionPullRequestFact', COUNT(*) FROM \"CollectionPullRequestFact\" WHERE \"repositoryId\" = 'verify-ledger-repository'" \
+    >"$evidence/old-tables.txt"
+  psql_file "$REPO_ROOT/apps/backend/prisma/github-ledger-copy.sql" \
+    >"$evidence/copy.log"
+  psql_file "$REPO_ROOT/apps/backend/prisma/github-ledger-verify.sql" -A -t -F $'\t' \
+    >"$evidence/verify.tsv"
+  assert_verify_report "$evidence/verify.tsv"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT 'old', \"commitCount\", \"pullRequestCount\", \"issueCount\", \"starCount\" FROM \"GithubUserActivityHistory\" WHERE \"githubId\" = 981200200001 UNION ALL SELECT 'ledger', commit_count, pull_request_count, issue_count, star_count FROM github_user_activity_history WHERE github_id = 981200200001 ORDER BY 1" \
+    >"$evidence/activity-copy.txt"
+  grep -qx $'ledger\t11\t2\t1\t3' "$evidence/activity-copy.txt" \
+    || fail 'ledger activity history row was not copied with the scaffold counts'
+  grep -qx $'old\t11\t2\t1\t3' "$evidence/activity-copy.txt" \
+    || fail 'old activity history row is missing the scaffold counts'
+  log "github-ledger evidence=$evidence"
+}
+
+run_surface() {
+  local feature="$1"
+  local evidence="$2"
+  shift 2
+  VERIFY_FEATURE="$feature" \
+    VERIFY_FRONTEND_URL="$FRONTEND_URL" \
+    VERIFY_BACKEND_URL="$BACKEND_URL" \
+    VERIFY_EVIDENCE_DIR="$evidence" \
+    "$@" \
+    node "$SCRIPT_DIR/drive-surfaces.cjs"
+}
+
+cmd_drive_ranking() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/activity-ranking"
+  mkdir -p "$evidence"
+  run_surface activity-ranking "$evidence"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT \"githubLogin\", \"commitCount\", \"pullRequestCount\", \"issueCount\", \"repositoryCount\", \"starCount\" FROM \"GithubUserActivityHistory\" WHERE \"githubId\" IN (981300000001, 981300000002) ORDER BY \"commitCount\" DESC" \
+    >"$evidence/activity-rows.txt"
+  grep -qx $'verify-rank-alpha\t11\t2\t1\t1\t3' "$evidence/activity-rows.txt" \
+    || fail 'ranking scaffold row verify-rank-alpha is missing'
+  grep -qx $'verify-rank-beta\t5\t1\t0\t1\t1' "$evidence/activity-rows.txt" \
+    || fail 'ranking scaffold row verify-rank-beta is missing'
+  log "activity-ranking evidence=$evidence"
+}
+
+cmd_drive_teams() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/team-management"
+  local student_cookie staff_cookie
+  mkdir -p "$evidence"
+  student_cookie="$("$0" session 'seed:demo:user:kim-doyoon')"
+  staff_cookie="$("$0" session 'seed:demo:user:staff-lead')"
+  VERIFY_STUDENT_COOKIE="$student_cookie" \
+    VERIFY_STAFF_COOKIE="$staff_cookie" \
+    run_surface team-management "$evidence"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT id, name FROM \"Team\" WHERE id = 'seed:demo:team:summer-internship-alpha'" \
+    >"$evidence/team-row.txt"
+  grep -qx $'seed:demo:team:summer-internship-alpha\t현장실습 A팀' "$evidence/team-row.txt" \
+    || fail 'the internship team row is missing'
+  log "team-management evidence=$evidence"
+}
+
+cmd_drive_activity() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/team-activity"
+  local student_cookie
+  mkdir -p "$evidence"
+  student_cookie="$("$0" session 'seed:demo:user:kim-doyoon')"
+  VERIFY_STUDENT_COOKIE="$student_cookie" \
+    run_surface team-activity "$evidence"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT u.login, c.\"commitCount\", c.\"pullRequestCount\", c.\"issueCount\" FROM \"Contribution\" c JOIN \"User\" u ON u.\"githubId\" = c.\"githubId\" WHERE c.\"repositoryId\" = 'verify:scaffold:repository:internship' ORDER BY u.login" \
+    >"$evidence/contribution-rows.txt"
+  grep -qx $'seed-demo-user-kim-doyoon\t4\t1\t0' "$evidence/contribution-rows.txt" \
+    || fail 'kim-doyoon contribution row does not match the scaffold'
+  grep -qx $'seed-demo-user-lee-seojun\t2\t0\t1' "$evidence/contribution-rows.txt" \
+    || fail 'lee-seojun contribution row does not match the scaffold'
+  log "team-activity evidence=$evidence"
+}
+
+cmd_session() {
+  local user_id="${1:-}"
+  [ -n "$user_id" ] || fail 'session requires a seeded user id'
+  cmd_doctor
+  export_app_env
+  (
+    cd "$REPO_ROOT/apps/backend"
+    pnpm exec ts-node --transpile-only --compiler-options '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' \
+      "$SCRIPT_DIR/issue-session.ts" "$user_id"
+  )
+}
+
+cmd_cleanup() {
+  if [ ! -f "$STATE_FILE" ]; then
+    log 'no instance state to clean'
+    exit 0
+  fi
+  cleanup_recorded_instance
+}
+
+usage() {
+  cat >&2 <<'EOF'
+usage: verify-oss-hub launch
+       verify-oss-hub doctor
+       verify-oss-hub drive browse-programs
+       verify-oss-hub drive activity-ranking
+       verify-oss-hub drive team-management
+       verify-oss-hub drive team-activity
+       verify-oss-hub drive github-ledger
+       verify-oss-hub session <user-id>
+       verify-oss-hub cleanup
+EOF
+  exit 1
+}
+
+main() {
+  local command="${1:-}"
+  case "$command" in
+    launch) cmd_launch ;;
+    doctor) cmd_doctor ;;
+    drive)
+      case "${2:-}" in
+        browse-programs) cmd_drive_browse ;;
+        activity-ranking) cmd_drive_ranking ;;
+        team-management) cmd_drive_teams ;;
+        team-activity) cmd_drive_activity ;;
+        github-ledger) cmd_drive_ledger ;;
+        *) usage ;;
+      esac
+      ;;
+    session) cmd_session "${2:-}" ;;
+    cleanup) cmd_cleanup ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"
