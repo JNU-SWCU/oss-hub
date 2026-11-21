@@ -23,6 +23,27 @@ fi
 export LC_ALL="$UTF8_LOCALE"
 
 TEXT_ONLY=0
+if [ "${1:-}" = "--event" ]; then
+  shift
+  case "${GITHUB_EVENT_NAME:-}" in
+    pull_request) event_fields='[.pull_request.title, .pull_request.body]' ;;
+    issues | issue_comment)
+      TEXT_ONLY=1
+      event_fields='[.issue.title, .issue.body, .comment.body]'
+      ;;
+    *) echo "::error::public-safe 지원하지 않는 이벤트입니다." >&2; exit 2 ;;
+  esac
+  # Read at runtime: Actions prints step env values before scanners can redact them.
+  if ! event_text="$(jq -er "$event_fields"' | map(. // "") | join("\n")' "${GITHUB_EVENT_PATH:-}" 2>/dev/null)"; then
+    echo "::error::public-safe 이벤트 파일을 읽을 수 없습니다." >&2
+    exit 2
+  fi
+  if [ "$TEXT_ONLY" -eq 0 ]; then
+    PR_TEXT="$event_text" ISSUE_TEXT=''
+  else
+    PR_TEXT='' ISSUE_TEXT="$event_text"
+  fi
+fi
 if [ "${1:-}" = "--text-only" ]; then
   TEXT_ONLY=1
   shift
@@ -42,19 +63,18 @@ fi
 PATTERNS=(
   '주민등록번호|(^|[^0-9])[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[- ]?[1-8][0-9]{6}($|[^0-9])'
   '전화번호|(^|[^0-9])01[016789][-. ]?[0-9]{3,4}[-. ]?[0-9]{4}($|[^0-9])'
-  '이메일|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
-  '개인 머신 경로|/Users/[A-Za-z0-9._-]+|/home/[a-z][a-z0-9._-]*|C:\\Users'
+  '개인 머신 경로|/Users/[A-Za-z0-9._-]+|/home/[a-z][a-z0-9._-]*|C:\\Users|(^|[[:space:]`":(=])/(private|tmp)/[^[:space:]/]'
+  '내부 호스트|[[:alnum:]-]+\.internal($|[^[:alnum:]_.-])'
+  '비공개 볼트 참조|obsidian://'
   '학번 추정(20으로 시작하는 연속 9자리)|(^|[^0-9])20[0-9]{7}($|[^0-9])'
 )
 
+EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 ALLOW_EMAIL_RE='^[0-9]+:(noreply@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+@users\.noreply\.github\.com|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(example|test|invalid|localhost)|[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)*example\.(com|org|net))$'
-
-PERMISSIVE_LOCAL_RE='[^[:space:]@"]+'
-QUOTED_LOCAL_RE='"([^"\\]|\\.)*"'
-DOMAIN_LABEL_RE='[[:alnum:]][[:alnum:]-]*'
-DOMAIN_TLD_RE='[[:alnum:]][[:alnum:]-]*[[:alnum:]]'
-DOTTED_DOMAIN_RE="$DOMAIN_LABEL_RE(\\.$DOMAIN_LABEL_RE)*\\.$DOMAIN_TLD_RE"
-CANDIDATE_EMAIL_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$DOTTED_DOMAIN_RE"
+# Dotted candidates only: keep quoted and international-address detection
+# without parsing or validating RFC addresses.
+EMAIL_CANDIDATE_RE='("([^"\\]|\\.)*"|[^[:space:]@"]+)@([[:alnum:]][[:alnum:]-]*\.)+[[:alnum:]][[:alnum:]-]*[[:alnum:]]'
+SPECIAL_EMAIL_RE='^[0-9]+:"|[^ -~]|@[^[:space:]@]*xn--'
 
 FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$|(^|/)(credentials?|secrets?|creds)([._-][^/]*)?\.(md|txt|json|ya?ml|csv)$'
 ALLOWED_FILE_RE='(^|/)\.env\.example$'
@@ -109,64 +129,61 @@ run_grep() {
   printf '%s' "$output"
 }
 
-report_unsupported_email_candidates() {
-  local src="$1" text="$2"
-  local candidates quoted_candidates non_ascii_candidates punycode_candidates unsupported
-
-  candidates="$(printf '%s\n' "$text" | run_grep -EIno "$CANDIDATE_EMAIL_RE")" || return 2
-  [ -z "$candidates" ] && return 0
-
-  quoted_candidates="$(printf '%s\n' "$candidates" | run_grep -E '^[0-9]+:"')" || return 2
-  non_ascii_candidates="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -E '[^ -~]')" || return 2
-  punycode_candidates="$(printf '%s\n' "$candidates" | run_grep -Ei '@[^[:space:]@]*xn--')" || return 2
-
-  unsupported="$(printf '%s\n%s\n%s\n' \
-    "$quoted_candidates" "$non_ascii_candidates" "$punycode_candidates" | sed '/^$/d')"
-  if [ -n "$unsupported" ]; then
-    report "quoted·비ASCII·IDN 이메일 후보 @ $src" "$(line_evidence "$unsupported")"
+scan_email() {
+  local src="$1" text="$2" addresses candidates special
+  addresses="$(printf '%s\n' "$text" | run_grep -EIno "$EMAIL_RE" |
+    run_grep -Eiv "$ALLOW_EMAIL_RE")" || return 2
+  candidates="$(printf '%s\n' "$text" | run_grep -EIno "$EMAIL_CANDIDATE_RE")" || return 2
+  special="$(printf '%s\n' "$candidates" | LC_ALL=C run_grep -Ei "$SPECIAL_EMAIL_RE")" || return 2
+  if [ -n "$addresses$special" ]; then
+    report "이메일 @ $src" "$(line_evidence "$addresses${addresses:+${special:+$'\n'}}$special")"
   fi
   return 0
 }
 
 scan_text() {
-  local src="$1" skip_email="$2" text entry label re hits name name_hits
-  text="$(cat)"
+  local src="$1" scan_credentials="${2:-1}" text entry label re hits name status=0
+  text="$(cat)" || return 2
   [ -z "$text" ] && return 0
   for entry in "${PATTERNS[@]}"; do
     label="${entry%%|*}"
     re="${entry#*|}"
-    if [ "$label" = "이메일" ]; then
-      [ "$skip_email" -eq 1 ] && continue
-      hits="$(printf '%s\n' "$text" | run_grep -EIno "$re")" || return 2
-      if [ -n "$hits" ]; then
-        hits="$(printf '%s\n' "$hits" | run_grep -Eiv "$ALLOW_EMAIL_RE")" || return 2
-      fi
-    else
-      hits="$(printf '%s\n' "$text" | run_grep -EIn "$re")" || return 2
-    fi
+    hits="$(printf '%s\n' "$text" | run_grep -EIn "$re")" || return 2
     if [ -n "$hits" ]; then
       report "$label @ $src" "$(line_evidence "$hits")"
     fi
   done
 
-  if [ "$skip_email" -eq 0 ]; then
-    report_unsupported_email_candidates "$src" "$text" || return 2
-  fi
+  scan_email "$src" "$text" || return 2
 
+  # Caller-supplied only: the public PR and issue workflows do not receive this list.
   if [ -n "${BLOCKED_NAMES:-}" ]; then
-    local OLDIFS="$IFS"
-    IFS=','
-    for name in $BLOCKED_NAMES; do
-      IFS="$OLDIFS"
+    local names name_patterns=()
+    IFS=, read -r -d '' -a names < <(printf '%s\0' "$BLOCKED_NAMES")
+    for name in "${names[@]}"; do
       name="$(printf '%s' "$name" | sed 's/^ *//;s/ *$//')"
       [ -z "$name" ] && continue
-      name_hits="$(printf '%s\n' "$text" | run_grep -Fn -- "$name")" || return 2
-      if [ -n "$name_hits" ]; then
-        report "실명 @ $src" "$(line_evidence "$name_hits")"
-      fi
+      name_patterns+=(-e "$name")
     done
-    IFS="$OLDIFS"
+    if [ "${#name_patterns[@]}" -gt 0 ]; then
+      hits="$(printf '%s\n' "$text" | run_grep -Fn "${name_patterns[@]}")" || return 2
+      if [ -n "$hits" ]; then
+        report "실명 @ $src" "$(line_evidence "$hits")"
+      fi
+    fi
   fi
+  # File credentials are already covered by the caller's gitleaks git scan.
+  [ "$scan_credentials" -eq 0 ] && return 0
+  printf '%s\n' "$text" | gitleaks stdin --no-banner --redact \
+    --ignore-gitleaks-allow --exit-code 3 >/dev/null 2>&1 || status=$?
+  case "$status" in
+    0) ;;
+    3) report "시크릿 @ $src" "  gitleaks stdin: secret detected" ;;
+    *)
+      echo "::error::public-safe gitleaks 검사를 실행할 수 없습니다." >&2
+      return 2
+      ;;
+  esac
   return 0
 }
 
@@ -181,9 +198,7 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     echo "::error::public-safe 변경 파일 목록을 읽을 수 없습니다."
     exit 2
   fi
-  changed_files=()
-  changed_file_ids=()
-  changed_file_count=0
+  bad_files=()
   while IFS= read -r -d '' f; do
     [ "$f" = "$SELF" ] && continue
     [ "$f" = "pnpm-lock.yaml" ] && continue
@@ -191,54 +206,47 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
       echo "::error::public-safe 변경 파일 식별자를 만들 수 없습니다."
       exit 2
     fi
-    changed_files+=("$f")
-    changed_file_ids+=("$file_id")
-    changed_file_count=$((changed_file_count + 1))
-    if ! file_text="$(git show "HEAD:$f" 2>/dev/null)"; then
+    if is_forbidden_file "$f"; then
+      bad_files+=("$file_id")
+    fi
+    if ! file_text="$(
+      git show "HEAD:$f" 2>/dev/null |
+        case "$f" in
+          *.webp | *.ico)
+            # A NUL marks a binary image. Drain the pipe so Git can finish.
+            if LC_ALL=C IFS= read -r -d '' image_text; then
+              cat >/dev/null
+            else
+              printf '%s' "$image_text"
+            fi
+            ;;
+          *) LC_ALL=C tr -d '\000' ;;
+        esac
+    )"; then
       echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
       exit 2
     fi
-    case "$f" in
-      *.webp | *.ico)
-        if ! nul_bytes="$(set -o pipefail; git show "HEAD:$f" 2>/dev/null | LC_ALL=C tr -dc '\0' | wc -c)"; then
-          echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
-          exit 2
-        fi
-        if [ "${nul_bytes//[[:space:]]/}" != 0 ]; then
-          continue
-        fi
-        ;;
-    esac
     scan_text "파일 $file_id" 0 <<<"$file_text"
   done <"$changed_file_list"
 
-  bad_files=()
-  bad_file_count=0
-  if [ "$changed_file_count" -gt 0 ]; then
-    for ((i = 0; i < changed_file_count; i++)); do
-      f="${changed_files[$i]}"
-      if is_forbidden_file "$f"; then
-        bad_files+=("${changed_file_ids[$i]}")
-        bad_file_count=$((bad_file_count + 1))
-      fi
-    done
-  fi
-  if [ "$bad_file_count" -gt 0 ]; then
+  if [ "${#bad_files[@]}" -gt 0 ]; then
     report "금지 파일(.env 실값·개인키·로컬 DB류)" \
       "$(printf '  %s\n' "${bad_files[@]}")"
     echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다"
   fi
 
-  if ! commit_text="$(git log --no-merges --format='%s%n%b' "$BASE_REF"..HEAD)"; then
+  # Ignore only GitHub's generated hash-only subject, never a merge's human text.
+  if ! commit_text="$(git log --format='%s%n%b' "$BASE_REF"..HEAD \
+    | sed -E '/^Merge [0-9a-f]{40} into [0-9a-f]{40}$/d')"; then
     echo "::error::public-safe 커밋 메시지를 읽을 수 없습니다."
     exit 2
   fi
-  scan_text "커밋 메시지" 1 <<<"$commit_text"
+  scan_text "커밋 메시지" <<<"$commit_text"
 
-  scan_text "PR 제목·본문" 0 <<<"${PR_TEXT:-}"
+  scan_text "PR 제목·본문" <<<"${PR_TEXT:-}"
 fi
 
-scan_text "Issue 본문·댓글" 0 <<<"${ISSUE_TEXT:-}"
+scan_text "Issue 본문·댓글" <<<"${ISSUE_TEXT:-}"
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""
