@@ -221,6 +221,39 @@ test('a lint violation inside the integration run is reported as query-lint', as
   assert.match(findings[0].message, /FAIL prisma\/program-read-baseline/);
 });
 
+test('a query failure retains Jest diagnostics above the integration output tail', async () => {
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    source: 'pre-push',
+    findPsql: () => '',
+    runCommand: async (command) =>
+      command === 'pnpm'
+        ? { code: 0, stdout: '', stderr: '' }
+        : {
+            code: 1,
+            stdout: 'Database migrations applied',
+            stderr: [
+              'FAIL test/query-growth.integration.spec.ts',
+              '  ● query growth › bounds the number of reads',
+              '    Expected: <= 4',
+              '    Received:    9',
+              ...Array.from({ length: 20 }, () => '    at test stack frame'),
+              'Test Suites: 1 failed, 2 passed, 3 total',
+            ].join('\n'),
+          },
+  });
+  assert.equal(findings.length, 1);
+  assert.match(
+    findings[0].message,
+    /FAIL test\/query-growth\.integration\.spec\.ts/,
+  );
+  assert.match(
+    findings[0].message,
+    /query growth › bounds the number of reads/,
+  );
+  assert.match(findings[0].message, /Expected: <= 4\n\s+Received:\s+9/);
+});
+
 test('query gate failures block with rule ids and https sources', async () => {
   const calls = [];
   const findings = await checkQueryGates({

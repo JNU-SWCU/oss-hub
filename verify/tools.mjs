@@ -134,6 +134,7 @@ export function run(
     killGraceMs = 10_000,
     signal,
     env,
+    onSpawn,
     raw = false,
   } = {},
 ) {
@@ -205,6 +206,13 @@ export function run(
     });
     child.stdin.on('error', () => {});
     child.stdin.end(input ?? '');
+    if (child.pid !== undefined && onSpawn) {
+      try {
+        onSpawn(child.pid);
+      } catch (error) {
+        stop(`could not record the child process: ${error.message}`);
+      }
+    }
   });
 }
 
