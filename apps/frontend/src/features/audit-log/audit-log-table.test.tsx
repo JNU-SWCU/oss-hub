@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { auditLogRecordKey } from './audit-log-fold';
+import { auditEvents, auditLogRecordKey } from './audit-log-fold';
 import { AuditLogTable } from './audit-log-table';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 import { parseAuditLogPage } from './parser';
@@ -34,7 +34,7 @@ describe('AuditLogTable', () => {
     await act(async () =>
       root.render(
         <AuditLogTable
-          records={rows}
+          events={auditEvents(rows)}
           now={NOW}
           selectedId={selectedId}
           onSelect={onSelect}

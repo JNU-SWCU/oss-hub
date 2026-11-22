@@ -152,6 +152,29 @@ describe('AuditLogScreen', () => {
     expect(props().filters).toMatchObject({ q, period: 'custom' });
   });
 
+  it('마지막 페이지를 넘은 조사 링크는 필터를 유지하고 마지막 페이지를 다시 조회한다', async () => {
+    listNavigation.search = 'category=LOGIN&page=9';
+    api.fetchAuditLogs
+      .mockResolvedValueOnce(page([], 51))
+      .mockResolvedValueOnce(page(['last'], 51));
+    await act(async () => root.render(<AuditLogScreen />));
+    expect(api.fetchAuditLogs).toHaveBeenCalledTimes(2);
+    expect(api.fetchAuditLogs).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ page: 9 }),
+    );
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith({
+      q: '',
+      action: '',
+      category: 'LOGIN',
+      from: '',
+      to: '',
+      page: 2,
+      limit: 50,
+    });
+    expect(props().records.map(({ id }) => id)).toEqual(['last']);
+  });
+
   it('기본 화면에서 검색해도 최근 30일과 새 페이지 범위를 유지한다', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-06-01T00:00:00+09:00'));
@@ -198,7 +221,7 @@ describe('AuditLogScreen', () => {
     expect(api.fetchAuditLogs).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      second.resolve(page(['latest'], 1));
+      second.resolve(page(['latest'], 51));
       await second.promise;
     });
     expect(props().records.map(({ id }) => id)).toEqual(['latest']);
@@ -209,7 +232,7 @@ describe('AuditLogScreen', () => {
     });
 
     expect(props().records.map(({ id }) => id)).toEqual(['latest']);
-    expect(props().total).toBe(1);
+    expect(props().total).toBe(51);
   });
 
   it('늦게 끝난 이전 요청의 실패가 최신 결과를 지우지 않는다', async () => {
@@ -226,7 +249,7 @@ describe('AuditLogScreen', () => {
       props().onPageChange(2);
     });
     await act(async () => {
-      second.resolve(page(['latest'], 1));
+      second.resolve(page(['latest'], 51));
       await second.promise;
     });
 
@@ -261,7 +284,7 @@ describe('AuditLogScreen', () => {
     expect(props().isLoading).toBe(true);
 
     await act(async () => {
-      second.resolve(page(['latest'], 1));
+      second.resolve(page(['latest'], 51));
       await second.promise;
     });
     expect(props().isLoading).toBe(false);
