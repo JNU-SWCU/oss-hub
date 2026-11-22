@@ -63,9 +63,11 @@ CREATE TABLE "MailRecipient" (
   state "MailRecipientState" NOT NULL,
   reason TEXT,
   envelope JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   "finishedAt" TIMESTAMP(3),
   UNIQUE ("jobId", ordinal),
+  UNIQUE ("jobId", audience, "userId"),
   CHECK (state IN ('PENDING', 'SENDING') OR envelope IS NULL)
 );
 
@@ -121,13 +123,43 @@ BEGIN
   IF total > 200 THEN RAISE EXCEPTION 'legacy batch exceeds recipient cap' USING ERRCODE = '22023'; END IF;
   stored := batch.payload->'result';
   IF batch.status = 'COMPLETED' AND (
+    jsonb_typeof(stored->'sentCount') IS DISTINCT FROM 'number' OR
+    jsonb_typeof(stored->'failedCount') IS DISTINCT FROM 'number' OR
+    jsonb_typeof(stored->'duplicateCount') IS DISTINCT FROM 'number' OR
+    (stored ? 'unknownCount' AND jsonb_typeof(stored->'unknownCount') IS DISTINCT FROM 'number')
+  ) THEN RAISE EXCEPTION 'legacy receipt counts must be numbers' USING ERRCODE = '22023'; END IF;
+  IF batch.status = 'COMPLETED' AND (
     batch."sentAt" IS NULL OR stored IS NULL OR
-    (stored->>'sentCount')::int IS DISTINCT FROM sent OR
-    (stored->>'failedCount')::int IS DISTINCT FROM failed OR
-    coalesce((stored->>'unknownCount')::int, 0) <> unknown_count OR
-    (stored->>'duplicateCount')::int IS DISTINCT FROM 0 OR
+    (stored->>'sentCount')::numeric IS DISTINCT FROM sent OR
+    (stored->>'failedCount')::numeric IS DISTINCT FROM failed OR
+    (stored ? 'unknownCount' AND (stored->>'unknownCount')::numeric <> unknown_count) OR
+    (stored->>'duplicateCount')::numeric IS DISTINCT FROM 0 OR
     total <> sent + failed + unknown_count
   ) THEN RAISE EXCEPTION 'legacy terminal receipt does not reconcile' USING ERRCODE = '22023'; END IF;
+  IF batch.status = 'COMPLETED' AND (
+    NOT EXISTS (
+      SELECT 1 FROM "UserHistory" history
+      WHERE history."sourceTable" = 'ProgramMail' AND history."sourceId" = batch."idempotencyKey" AND history."sourcePart" = 'attempt'
+        AND history."userId" = batch."userId" AND history."actorId" = batch."userId"
+        AND history.data->>'targetId' = batch.payload->>'programId'
+        AND history.data->>'action' = 'PROGRAM_MAIL_SEND_ATTEMPTED'
+        AND history.data#>'{metadata,recipientCount}' = to_jsonb(total)
+    ) OR NOT EXISTS (
+      SELECT 1 FROM "UserHistory" history
+      WHERE history."sourceTable" = 'ProgramMail' AND history."sourceId" = batch."idempotencyKey" AND history."sourcePart" = 'result'
+        AND history."userId" = batch."userId" AND history."actorId" = batch."userId"
+        AND history.data->>'targetId' = batch.payload->>'programId'
+        AND history.data#>'{metadata,sentCount}' = to_jsonb(sent)
+        AND history.data#>'{metadata,failedCount}' = to_jsonb(failed)
+        AND history.data#>'{metadata,duplicateCount}' = '0'::jsonb
+        AND coalesce(history.data#>'{metadata,unknownCount}', '0'::jsonb) = to_jsonb(unknown_count)
+        AND history.data->>'action' = CASE
+          WHEN failed > 0 AND sent + unknown_count > 0 THEN 'PROGRAM_MAIL_PARTIALLY_FAILED'
+          WHEN failed > 0 THEN 'PROGRAM_MAIL_FAILED'
+          WHEN unknown_count > 0 THEN 'PROGRAM_MAIL_DELIVERY_UNKNOWN'
+          ELSE 'PROGRAM_MAIL_SENT' END
+    )
+  ) THEN RAISE EXCEPTION 'legacy mail audit does not reconcile' USING ERRCODE = '22023'; END IF;
   INSERT INTO "MailJob" (
     id, "receiptId", "partNo", source, "programId", "actorId", "intentKey",
     "previewVersion", "seoulDay", state, "createdAt", "updatedAt",
@@ -139,9 +171,9 @@ BEGIN
     batch."createdAt", CURRENT_TIMESTAMP,
     CASE WHEN batch.status = 'COMPLETED' THEN batch."sentAt" END,
     CASE WHEN batch.status = 'COMPLETED' THEN batch."sentAt" END,
-    CASE WHEN batch.status = 'COMPLETED' THEN stored END
+    CASE WHEN batch.status = 'COMPLETED' THEN jsonb_build_object('sentCount', sent, 'failedCount', failed, 'unknownCount', unknown_count, 'duplicateCount', 0) END
   );
-  INSERT INTO "MailRecipient" (id, "jobId", ordinal, audience, "userId", "deliveryKey", state, reason, "updatedAt", "finishedAt")
+  INSERT INTO "MailRecipient" (id, "jobId", ordinal, audience, "userId", "deliveryKey", state, reason, "createdAt", "updatedAt", "finishedAt")
   SELECT id, receipt, (row_number() OVER (ORDER BY id) - 1)::int, 'STUDENT', "userId", "idempotencyKey",
     CASE
       WHEN status = 'SENT' THEN 'SENT'::"MailRecipientState"
@@ -150,7 +182,7 @@ BEGIN
       WHEN status = 'PROCESSING' THEN 'SENDING'::"MailRecipientState"
       ELSE 'PENDING'::"MailRecipientState"
     END,
-    CASE WHEN status = 'FAILED' THEN payload->>'code' END, CURRENT_TIMESTAMP, "sentAt"
+    CASE WHEN status = 'FAILED' THEN payload->>'code' END, "createdAt", CURRENT_TIMESTAMP, "sentAt"
   FROM "Notification"
   WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
   RETURN receipt;

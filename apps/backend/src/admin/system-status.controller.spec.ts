@@ -37,6 +37,7 @@ describe('SystemStatusController', () => {
       mail: {
         sent7d: 4,
         failed7d: 1,
+        unknown7d: 0,
         lastSentAt: new Date('2026-07-24T23:00:00.000Z'),
       },
       anomalies: [

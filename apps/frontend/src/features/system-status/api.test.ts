@@ -28,7 +28,12 @@ const sections = {
       },
     ],
   },
-  mail: { sent7d: 4, failed7d: 1, lastSentAt: '2026-07-25T08:00:00.000Z' },
+  mail: {
+    sent7d: 4,
+    failed7d: 1,
+    unknown7d: 2,
+    lastSentAt: '2026-07-25T08:00:00.000Z',
+  },
   anomalies: [
     { rule: 'PROVISIONING_FAILED', severity: 'HIGH', count: 1, target: null },
   ],

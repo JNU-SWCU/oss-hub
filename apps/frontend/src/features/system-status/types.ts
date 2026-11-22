@@ -46,6 +46,7 @@ interface ProvisioningStatus {
 interface MailStatus {
   readonly sent7d: number;
   readonly failed7d: number;
+  readonly unknown7d?: number;
   readonly lastSentAt: string | null;
 }
 

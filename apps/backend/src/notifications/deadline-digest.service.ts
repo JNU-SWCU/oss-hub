@@ -162,7 +162,7 @@ export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
   readonly failedCount: number;
 };
 
-type DeadlineDeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED';
+type DeadlineDeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED' | 'PAUSED';
 const logger = new Logger('DeadlineDigestService');
 
 function deliveryCounts(outcomes: readonly DeadlineDeliveryOutcome[]) {
@@ -199,14 +199,24 @@ async function dispatchDeadlineDigest(
           : 'deadline-digest-staff';
       const idempotencyKey = `${prefix}:${digestDate}:${batch.programId}:${delivery.recipientId}`;
       const payload = { milestoneCount: delivery.milestoneCount };
-      if (
-        !(await dependencies.repository.claimNotification(
-          delivery.recipientId,
-          idempotencyKey,
-          payload,
-        ))
-      )
-        return 'DUPLICATE';
+      try {
+        if (
+          !(await dependencies.repository.claimNotification(
+            delivery.recipientId,
+            idempotencyKey,
+            payload,
+          ))
+        )
+          return 'DUPLICATE';
+      } catch (error) {
+        if (
+          error instanceof DomainException &&
+          error.errorCode.code ===
+            NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.MAIL_PAUSED].code
+        )
+          return 'PAUSED';
+        throw error;
+      }
 
       try {
         await dependencies.mailSender.send({
@@ -363,11 +373,18 @@ export class DeadlineDigestService {
       },
       dependencies,
     );
+    const cancelledCount = [...outcomes, ...staffOutcomes].filter(
+      (outcome) => outcome === 'PAUSED',
+    ).length;
     await this.repository.recordManualSend({
       ...audit,
       phase: 'result',
-      counts: deliveryCounts([...outcomes, ...staffOutcomes]),
+      counts: {
+        ...deliveryCounts([...outcomes, ...staffOutcomes]),
+        ...(cancelledCount > 0 ? { cancelledCount } : {}),
+      },
     });
+    if (cancelledCount > 0) this.fail(NotificationsErrorCode.MAIL_PAUSED);
     return {
       ...eligibility.summary,
       staffRecipientCount: staffRecipients.length,

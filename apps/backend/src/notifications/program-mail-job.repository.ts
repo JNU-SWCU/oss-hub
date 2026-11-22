@@ -67,12 +67,12 @@ export class ProgramMailJobRepository {
       }[]
     >`
       SELECT "createdAt", "sentAt", status, result FROM (
-        SELECT "createdAt", "sentAt", status, payload->'result' AS result, 0 AS priority
+        SELECT "createdAt", "sentAt", status, payload->'result' AS result, 1 AS priority
         FROM "Notification"
         WHERE id = ${jobId} AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL'
           AND payload->>'programId' = ${programId}
         UNION ALL
-        SELECT "createdAt", "receiptFinishedAt", 'COMPLETED' AS status, result, 1 AS priority
+        SELECT "createdAt", "receiptFinishedAt", 'COMPLETED' AS status, result, 0 AS priority
         FROM "MailJob"
         WHERE id = ${jobId} AND "receiptId" = id AND "partNo" = 0
           AND "programId" = ${programId} AND "receiptFinishedAt" IS NOT NULL

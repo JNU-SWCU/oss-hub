@@ -97,6 +97,7 @@ const systemStatus: SystemStatusResult = {
   mail: {
     sent7d: 5,
     failed7d: 1,
+    unknown7d: 2,
     lastSentAt: at('2026-04-30T22:00:00.000Z'),
   },
   anomalies: [
