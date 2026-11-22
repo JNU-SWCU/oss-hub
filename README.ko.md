@@ -291,6 +291,8 @@ BACKEND_ORIGIN=https://backend.example.test pnpm build
 
 ### 문서 길잡이
 
+CI와 pre-push는 같은 프런트엔드 범위에서 분기점에 없던 위반만 차단합니다. `node verify/route-manifest.mjs origin/main`으로 한 커밋의 전체 결과를 볼 수 있습니다. 검사기는 테스트를 제외한 프런트엔드·백엔드 소스의 문자열, 템플릿, 경로 함수, 리다이렉트에서 App Router 페이지 주소를 찾습니다. 사용되지 않는 코드에 주소가 있어도 참조로 인정합니다. 탐색 가능성을 증명하는 검사가 아닙니다. 화면 중복은 공통 위젯이 아닌 주 페이지 컴포넌트를 비교합니다.
+
 | 알고 싶은 내용 | 문서 |
 | --- | --- |
 | 기여 순서와 시작점 | [CONTRIBUTING.md](CONTRIBUTING.md) |

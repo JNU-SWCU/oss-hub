@@ -16,20 +16,27 @@ const CHECKS = {
   secrets: (context) => checkSecrets(context),
   api: (context) => checkApi(context),
   'query-gates': (context) => checkQueryGates(context),
+  'route-manifest': async (context) =>
+    (await import('./route-manifest.mjs')).checkRouteManifest(context),
   cwv: () => checkFull({}),
 };
 
 const COMMANDS = {
-  frontend: ['secrets'],
+  frontend: ['secrets', 'route-manifest'],
   backend: ['secrets', 'api', 'query-gates'],
-  full: ['secrets', 'api', 'query-gates', 'cwv'],
+  full: ['secrets', 'api', 'query-gates', 'route-manifest', 'cwv'],
 };
 
 const USAGE =
   'usage: node verify/index.mjs <frontend|backend|full|scoped|scope> [--pre-push]';
 
 function scopedChecks(scope) {
-  return ['secrets', ...(scope.api ? ['api'] : []), 'query-gates'];
+  return [
+    'secrets',
+    ...(scope.api ? ['api'] : []),
+    'query-gates',
+    ...(scope.frontend ? ['route-manifest'] : []),
+  ];
 }
 
 const SCOPE_GATED = { 'query-gates': 'queryGates' };

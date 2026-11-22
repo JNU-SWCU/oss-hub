@@ -172,3 +172,42 @@ test('별도 태그 버튼이 이름 링크와 분리되고 100일 상호작용�
     container.querySelector('[data-streak-interaction="1"]'),
   ).not.toBeNull();
 });
+
+test('일수 버튼을 누르면 순위와 일수를 담은 툴팁이 열려 버튼에 연결된다', async () => {
+  await renderName('leader');
+  const button = container.querySelector('button');
+  expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  expect(button?.getAttribute('data-state')).toBe('closed');
+
+  await act(async () => button?.click());
+
+  const tooltip = document.querySelector('[role="tooltip"]');
+  expect(tooltip).not.toBeNull();
+  expect(button?.getAttribute('aria-describedby')).toBe(tooltip?.id);
+  expect(button?.getAttribute('data-state')).toBe('instant-open');
+  expect(tooltip?.textContent?.match(/([0-9]+)\s*위/u)?.[1]).toBe('1');
+  expect(tooltip?.textContent?.match(/([0-9]+)\s*일/u)?.[1]).toBe('120');
+});
+
+test('열린 툴팁은 일수 버튼을 다시 누르는 동안 닫히지 않고 포커스를 잃으면 닫힌다', async () => {
+  await renderName('leader');
+  const button = container.querySelector('button');
+  await act(async () => button?.focus());
+  expect(button?.getAttribute('data-state')).toBe('instant-open');
+
+  await act(async () => {
+    button?.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }),
+    );
+  });
+  expect(button?.getAttribute('data-state')).toBe('instant-open');
+
+  await act(async () => button?.click());
+  expect(button?.getAttribute('data-state')).toBe('instant-open');
+  expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(1);
+
+  await act(async () => button?.blur());
+  expect(button?.getAttribute('data-state')).toBe('closed');
+  expect(button?.hasAttribute('aria-describedby')).toBe(false);
+  expect(document.querySelector('[role="tooltip"]')).toBeNull();
+});

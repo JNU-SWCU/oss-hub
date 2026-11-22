@@ -1,4 +1,10 @@
-import { createContext, Suspense, useContext, type ReactNode } from 'react';
+import {
+  createContext,
+  Suspense,
+  useContext,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -85,6 +91,25 @@ const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
   headClassName: 'w-24',
 };
 
+const NARROW_VIEWPORT = '(max-width: 639px)';
+
+function subscribeNarrowViewport(onChange: () => void) {
+  const query = window.matchMedia(NARROW_VIEWPORT);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+function StaffRankMember({ item }: { readonly item: PublicRankingItem }) {
+  const narrow = useSyncExternalStore(
+    subscribeNarrowViewport,
+    () => window.matchMedia(NARROW_VIEWPORT).matches,
+    () => false,
+  );
+  return (
+    <RankingRankMember item={item} meaningSide={narrow ? 'bottom' : 'left'} />
+  );
+}
+
 const OPEN_METRIC_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   {
     id: 'commit',
@@ -161,7 +186,10 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
       ),
     headClassName: 'w-24',
   },
-  MEMBER_COLUMN,
+  {
+    ...MEMBER_COLUMN,
+    cell: (item) => <StaffRankMember item={item} />,
+  },
   {
     id: 'department',
     header: '학과',

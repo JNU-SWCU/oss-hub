@@ -299,6 +299,8 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 
 </details>
 
+CI and pre-push compare route findings at the merge base and head on the shared frontend scope. `node verify/route-manifest.mjs origin/main` lists all findings at one revision. The gate looks for App Router page paths in non-test frontend and backend source, including templates, route helpers and redirects. A matching path counts even in unused code: this is a reference check, not proof that a user can navigate there. The duplicate check compares primary page components, not shared widgets.
+
 The Core Web Vitals verifier pins Lighthouse 13.6.0 after local same-frame text, later-text, raster-image and delayed-font validation. The thresholds and three-run median rule are unchanged. A measurement-model update is not a website speed improvement and does not retroactively pass older reports.
 
 ### Documentation map
