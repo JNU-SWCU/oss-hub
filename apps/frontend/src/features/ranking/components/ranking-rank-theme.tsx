@@ -1,6 +1,7 @@
 import type { PublicRankingItem } from '../types';
 import {
   RankingStreakDecoration,
+  type RankingStreakMeaningSide,
   type RankingStreakTier,
 } from './ranking-streak-decoration';
 
@@ -26,8 +27,10 @@ function tierFor(days: number): RankingStreakTier {
 
 export function RankingRankMember({
   item,
+  meaningSide,
 }: {
   readonly item: PublicRankingItem;
+  readonly meaningSide?: RankingStreakMeaningSide;
 }) {
   const href = `https://github.com/${item.githubLogin}`;
   const linkAriaLabel = `${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`;
@@ -61,6 +64,7 @@ export function RankingRankMember({
       name={item.githubLogin}
       href={href}
       linkAriaLabel={linkAriaLabel}
+      meaningSide={meaningSide}
     />
   );
 }
