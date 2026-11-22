@@ -8,6 +8,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { sampleHostLoad } from './host-load.mjs';
 import {
   LIGHTHOUSE_PACKAGE,
   REPO_ROOT,
@@ -232,10 +233,19 @@ export function evaluateNotFound(results, config) {
     );
 }
 
+async function captureLoad(sampleLoad) {
+  try {
+    return await sampleLoad();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export async function checkFull({
   thresholds = readThresholds(),
   reportDir = join(REPO_ROOT, 'verify/reports'),
   runLighthouse = lighthouseRun,
+  sampleLoad = sampleHostLoad,
   fetchImpl = fetch,
   log = console.log,
 }) {
@@ -252,6 +262,7 @@ export async function checkFull({
     origin: thresholds.origin,
     at: stamp,
     pages: {},
+    lighthouseRuns: {},
     loginStart: null,
     notFound: [],
   };
@@ -260,6 +271,7 @@ export async function checkFull({
   for (const path of thresholds.lighthouse.pages) {
     const url = new URL(path, thresholds.origin).href;
     const reports = [];
+    const runs = [];
     for (let index = 1; index <= thresholds.lighthouse.runs; index += 1) {
       const slug =
         path === '/'
@@ -269,10 +281,20 @@ export async function checkFull({
       log(
         `verify:full lighthouse ${url} run ${index}/${thresholds.lighthouse.runs}`,
       );
-      reports.push(await runLighthouse(url, outFile, thresholds.lighthouse));
+      const before = await captureLoad(sampleLoad);
+      const run = await runLighthouse(url, outFile, thresholds.lighthouse);
+      const after = await captureLoad(sampleLoad);
+      reports.push(run);
+      runs.push({
+        run: index,
+        before,
+        after,
+        ...(run.error && { error: run.error }),
+      });
     }
     const result = evaluateLighthouse(url, reports, thresholds.lighthouse);
     report.pages[url] = result.measurements;
+    report.lighthouseRuns[url] = runs;
     findings.push(...result.findings);
   }
 

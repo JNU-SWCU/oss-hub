@@ -128,6 +128,10 @@ run_fixture 0 0 'storage-orphan-reconciliation\.integration\.spec\.ts$'
 grep -F -- '--testPathPattern=storage-orphan-reconciliation\.integration\.spec\.ts$' "$command_log" >/dev/null
 
 : >"$command_log"
+BACKEND_INTEGRATION_JEST_REPORT="$fixture_root/jest.json" run_fixture 0 0
+grep -F -- "--json --outputFile=$fixture_root/jest.json" "$command_log" >/dev/null
+
+: >"$command_log"
 set +e
 run_fixture 17 0
 failure_status=$?

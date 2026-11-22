@@ -1,5 +1,14 @@
-import { existsSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
+import { runWithDockerLock } from './docker-lock.mjs';
+import { queryDiagnostics } from './query-diagnostics.mjs';
 import { finding, run } from './tools.mjs';
 
 const QUERY_GATE_SPECS = [
@@ -23,23 +32,15 @@ export function resolvePsql({
   return LIBPQ_DIRS.find((dir) => exists(join(dir, 'psql'))) ?? null;
 }
 
-function tail(result) {
-  return `${result.stdout}\n${result.stderr}`
-    .trim()
-    .split('\n')
-    .slice(-15)
-    .join('\n');
-}
-
 export async function checkQueryGates({
   cwd,
   source,
-  runCommand = run,
+  runCommand,
   log = console.log,
   findPsql = resolvePsql,
 }) {
   const findings = [];
-  const lint = await runCommand(
+  const lint = await (runCommand ?? run)(
     'pnpm',
     ['--filter', 'backend', 'run', 'query-lint:check'],
     { cwd, timeoutMs: 600_000 },
@@ -48,7 +49,7 @@ export async function checkQueryGates({
     findings.push(
       finding(
         'query-lint',
-        `pnpm --filter backend run query-lint:check exited ${lint.code}\n${tail(lint)}`,
+        `pnpm --filter backend run query-lint:check exited ${lint.code}\n${queryDiagnostics(lint).text}`,
         `exit ${lint.code}`,
         'exit 0',
       ),
@@ -67,7 +68,10 @@ export async function checkQueryGates({
     );
     return findings;
   }
-  const growth = await runCommand(
+  const directory = mkdtempSync(join(tmpdir(), 'oss-hub-jest-'));
+  const reportFile = join(directory, 'jest.json');
+  writeFileSync(reportFile, '', { mode: 0o600, flag: 'wx' });
+  const growth = await (runCommand ?? runWithDockerLock)(
     'bash',
     ['apps/backend/test/run-integration.sh'],
     {
@@ -76,6 +80,7 @@ export async function checkQueryGates({
       killGraceMs: 30_000,
       env: {
         BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN,
+        BACKEND_INTEGRATION_JEST_REPORT: reportFile,
         ...(psqlDir
           ? { PATH: `${psqlDir}${delimiter}${process.env.PATH ?? ''}` }
           : {}),
@@ -83,29 +88,23 @@ export async function checkQueryGates({
     },
   );
   if (growth.code !== 0) {
-    const violations = [
-      ...new Set(
-        `${growth.stdout}\n${growth.stderr}`
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => /^\[LINT\.[A-Z_]+\]/.test(line)),
-      ),
-    ];
+    let report;
+    try {
+      report = JSON.parse(readFileSync(reportFile, 'utf8'));
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
+    const diagnostics = queryDiagnostics(growth, { report, cwd, directory });
     findings.push(
-      violations.length > 0
-        ? finding(
-            'query-lint',
-            `a query on a measured route violated the query lint\n${violations.join('\n')}\n${tail(growth)}`,
-            `${violations.length} violation(s)`,
-            '0 violations',
-          )
-        : finding(
-            'query-growth',
-            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${tail(growth)}`,
-            `exit ${growth.code}`,
-            'exit 0',
-          ),
+      finding(
+        'query-growth',
+        `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${diagnostics.text}`,
+        `exit ${growth.code}`,
+        'exit 0',
+      ),
     );
+  } else {
+    rmSync(directory, { recursive: true });
   }
   return findings;
 }

@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { main } from './index.mjs';
 import {
   PSQL_MISSING,
@@ -8,9 +17,134 @@ import {
   checkQueryGates,
   resolvePsql,
 } from './query-gates.mjs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { eventFile, tempRepo } from './test-support.mjs';
-import { REPO_ROOT } from './tools.mjs';
+import { REPO_ROOT, run } from './tools.mjs';
+import { queryDiagnostics } from './query-diagnostics.mjs';
+
+function failedReport(
+  names = ['bounds reads'],
+  suite = 'test/query-growth.integration.spec.ts',
+) {
+  return {
+    testResults: [
+      {
+        name: suite,
+        status: 'failed',
+        assertionResults: names.map((fullName) => ({
+          status: 'failed',
+          fullName,
+        })),
+      },
+    ],
+  };
+}
+
+test('real Jest JSON distinguishes a test name from bullets inside its failure message', async (t) => {
+  const directory = realpathSync(
+    mkdtempSync(join(tmpdir(), 'oss-hub-jest-report-')),
+  );
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const file = join(directory, 'fixture.integration.spec.js');
+  const reportFile = join(directory, 'jest.json');
+  const token = 'cRUWnZoTyfLHjKmQpAsVeA';
+  writeFileSync(
+    file,
+    `test('trusted\\u2028 test', () => { throw new Error('Expected: x\\n  ● ${token}\\nReceived: ${token}'); });`,
+  );
+  writeFileSync(reportFile, '', { mode: 0o600 });
+  const result = await run(
+    process.execPath,
+    [
+      join(REPO_ROOT, 'apps/backend/node_modules/jest/bin/jest.js'),
+      '--config',
+      JSON.stringify({ rootDir: directory, testRegex: '\\.spec\\.js$' }),
+      '--runInBand',
+      '--runTestsByPath',
+      file,
+      '--json',
+      `--outputFile=${reportFile}`,
+    ],
+    { cwd: directory, timeoutMs: 30_000 },
+  );
+  assert.equal(result.code, 1);
+  assert.notEqual(
+    readFileSync(reportFile, 'utf8'),
+    '',
+    result.stdout + result.stderr,
+  );
+  const report = JSON.parse(readFileSync(reportFile, 'utf8'));
+  const diagnostics = queryDiagnostics(result, {
+    report,
+    directory,
+    cwd: directory,
+  });
+  assert.deepEqual(diagnostics.text.split('\n').slice(0, 2), [
+    'FAIL fixture.integration.spec.js',
+    '  ● trusted test',
+  ]);
+  assert.doesNotMatch(diagnostics.text, new RegExp(token));
+  assert.equal(statSync(reportFile).mode & 0o777, 0o600);
+  assert.ok(
+    readFileSync(join(directory, 'integration.log'), 'utf8').includes(token),
+  );
+});
+
+test('unlabelled credential-shaped assertion values are redacted', (t) => {
+  const credentials = [
+    `AKIA${'SYNTHETIC1234567'}`,
+    `ASIA${'EXAMPLE012345678'}`,
+    `ghp_${'abcDEF0123456789'.repeat(3)}`,
+    `github_pat_${'abcDEF0123456789'.repeat(4)}`,
+    `Bearer ${'abcDEF0123456789'.repeat(3)}`,
+    'aZ8kR2sP9vN4mQ6tX1cB7hW3',
+    'aZ8kR2sP9vN4mQ6tX1cB7w',
+    'ab12CD34ef56GH78',
+    'cRUWnZoTyfLHjKmQpAsVeA',
+  ];
+  for (const credential of credentials) {
+    const result = queryDiagnostics(
+      {
+        stdout: '',
+        stderr: `FAIL test/private.integration.spec.ts\n  ● protects values\n    Received: "${credential}"`,
+      },
+      { report: failedReport() },
+    );
+    assert.ok(!result.text.includes(credential));
+    assert.doesNotMatch(result.text, /Received:|Expected:/);
+    const log = /Full local log: (.+)/.exec(result.text)[1];
+    t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
+    assert.ok(readFileSync(log, 'utf8').includes(credential));
+  }
+});
+
+test('summary strips line separators in names and excludes all assertion and matcher output', (t) => {
+  const result = queryDiagnostics(
+    {
+      stdout: '',
+      stderr:
+        'FAIL test/summary.integration.spec.ts\n  ● bounded\u2028 assertions\u2029\n    expect(received).not.toBe(expected)\n    Expected: 123456789012\n    Received: \u2028cRUWnZoTyfLHjKmQpAsVeA\u2029\n    Received: Bearer x\n  ● ' +
+        'a'.repeat(1000),
+    },
+    {
+      report: failedReport(
+        ['bounded\u2028 assertions\u2029', 'a'.repeat(1000)],
+        'test/summary.integration.spec.ts',
+      ),
+    },
+  );
+  assert.deepEqual(result.text.split('\n').slice(0, 3), [
+    'FAIL test/summary.integration.spec.ts',
+    '  ● bounded assertions',
+    '  ● ' + 'a'.repeat(200),
+  ]);
+  assert.doesNotMatch(
+    result.text,
+    /Matcher:|Expected:|Received:|Bearer|cRUWnZoTyfLHjKmQpAsVeA|\u2028|\u2029/,
+  );
+  const log = /Full local log: (.+)/.exec(result.text)[1];
+  t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
+});
 
 test('hook query specs match the blocking CI integration lane and its base coverage', async (t) => {
   const frontend = 'apps/frontend/src/app/page.tsx';
@@ -204,7 +338,7 @@ test('verify backend skips the query gates for a docs-only change', async (t) =>
   assert.ok(result.logs.some((line) => /^SKIP query-gates:/.test(line)));
 });
 
-test('a lint violation inside the integration run is reported as query-lint', async () => {
+test('a runtime lint violation remains a blocking integration failure without scraping logs', async () => {
   const findings = await checkQueryGates({
     cwd: '/repo',
     findPsql: () => '',
@@ -220,10 +354,113 @@ test('a lint violation inside the integration run is reported as query-lint', as
   });
   assert.deepEqual(
     findings.map((item) => item.rule),
-    ['query-lint'],
+    ['query-growth'],
   );
-  assert.match(findings[0].message, /\[LINT\.NO_LIMIT\] Repo\.findMany/);
-  assert.match(findings[0].message, /FAIL prisma\/program-read-baseline/);
+  assert.doesNotMatch(findings[0].message, /\[LINT\.NO_LIMIT\]/);
+  assert.doesNotMatch(
+    findings[0].message,
+    /FAIL prisma\/program-read-baseline/,
+  );
+});
+
+test('a query failure retains Jest diagnostics above the integration output tail', async () => {
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    source: 'pre-push',
+    findPsql: () => '',
+    runCommand: async (command, _args, options) => {
+      if (command === 'pnpm') return { code: 0, stdout: '', stderr: '' };
+      writeFileSync(
+        options.env.BACKEND_INTEGRATION_JEST_REPORT,
+        JSON.stringify(
+          failedReport(['query growth › bounds the number of reads']),
+        ),
+      );
+      return {
+        code: 1,
+        stdout: 'Database migrations applied',
+        stderr: [
+          'FAIL test/query-growth.integration.spec.ts',
+          '  ● query growth › bounds the number of reads',
+          '    Expected: <= 4',
+          '    Received:    9',
+          ...Array.from({ length: 20 }, () => '    at test stack frame'),
+          'Test Suites: 1 failed, 2 passed, 3 total',
+        ].join('\n'),
+      };
+    },
+  });
+  assert.equal(findings.length, 1);
+  assert.match(
+    findings[0].message,
+    /FAIL test\/query-growth\.integration\.spec\.ts/,
+  );
+  assert.match(
+    findings[0].message,
+    /query growth › bounds the number of reads/,
+  );
+  assert.doesNotMatch(findings[0].message, /Expected:|Received:/);
+});
+
+test('hook output is a bounded redacted Jest summary and the raw log is private', async (t) => {
+  const bearer = 'synthetic-access-token-1234567890';
+  const opaque = 'aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789ABCD';
+  const filler = 'q'.repeat(1024 * 1024);
+  const findings = await checkQueryGates({
+    cwd: '/repo',
+    source: 'pre-push',
+    findPsql: () => '',
+    runCommand: async (command, _args, options) => {
+      if (command === 'pnpm') return { code: 0, stdout: '', stderr: '' };
+      const report = failedReport();
+      report.testResults[0].assertionResults[0].failureMessages = [
+        `Expected: x\n  ● ${opaque}`,
+      ];
+      assert.equal(
+        statSync(options.env.BACKEND_INTEGRATION_JEST_REPORT).mode & 0o777,
+        0o600,
+      );
+      writeFileSync(
+        options.env.BACKEND_INTEGRATION_JEST_REPORT,
+        JSON.stringify(report),
+      );
+      return {
+        code: 7,
+        stdout: 'unrelated output',
+        stderr: [
+          `Authorization: Bearer ${bearer}`,
+          filler,
+          'FAIL test/query-growth.integration.spec.ts',
+          '  ● bounds reads',
+          '    Expected: 4',
+          `    Received: { apiKey: "${opaque}" }`,
+          `    ● ${opaque}`,
+          '    at test stack frame',
+          'Test Suites: 1 failed',
+        ].join('\n'),
+      };
+    },
+  });
+  const message = findings[0].message;
+  assert.ok(Buffer.byteLength(message) < 4096);
+  assert.doesNotMatch(
+    message,
+    new RegExp(`${bearer}|${opaque}|stack frame|Test Suites`),
+  );
+  assert.match(
+    message,
+    /FAIL test\/query-growth\.integration\.spec\.ts\n\s+● bounds reads\nFull local log:/,
+  );
+  const path = /Full local log: (.+)/.exec(message)?.[1];
+  assert.ok(path);
+  t.after(() => rmSync(dirname(path), { recursive: true, force: true }));
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+  const raw = readFileSync(path, 'utf8');
+  assert.ok(
+    raw.includes(filler) &&
+      raw.includes(bearer) &&
+      raw.includes('unrelated output'),
+  );
 });
 
 test('query gate failures block with rule ids and https sources', async () => {
@@ -249,7 +486,14 @@ test('query gate failures block with rule ids and https sources', async () => {
   ]);
   assert.deepEqual(calls[1].env, {
     BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN,
+    BACKEND_INTEGRATION_JEST_REPORT:
+      calls[1].env.BACKEND_INTEGRATION_JEST_REPORT,
   });
+  assert.match(calls[1].env.BACKEND_INTEGRATION_JEST_REPORT, /jest\.json$/);
+  assert.equal(
+    statSync(calls[1].env.BACKEND_INTEGRATION_JEST_REPORT).mode & 0o777,
+    0o600,
+  );
 });
 
 test('the gate pattern selects exactly the three committed gate specs', () => {

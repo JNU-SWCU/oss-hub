@@ -2,7 +2,7 @@
   "origin": "https://jnu-oss-hub.com",
   "requestTimeoutMs": 15000,
   "lighthouse": {
-    "runs": 3,
+    "runs": 5,
     "formFactor": "mobile",
     "deadlineSeconds": 180,
     "pages": ["/", "/programs", "/ranking"],

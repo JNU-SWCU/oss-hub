@@ -84,6 +84,10 @@ integration_storage_endpoint="http://127.0.0.1:${object_storage_port}"
 
 (
   cd "$backend_directory"
+  set -- --runInBand "--testPathPattern=$test_pattern"
+  if [ -n "${BACKEND_INTEGRATION_JEST_REPORT:-}" ]; then
+    set -- "$@" --json "--outputFile=$BACKEND_INTEGRATION_JEST_REPORT"
+  fi
   OSS_HUB_INTEGRATION_RUNNER=oss-hub-isolated-integration-v1 \
     DATABASE_URL="$integration_database_url" \
     SUBMISSION_FILE_STORAGE_MODE=local \
@@ -103,7 +107,5 @@ integration_storage_endpoint="http://127.0.0.1:${object_storage_port}"
     SUBMISSION_FILE_S3_ACCESS_KEY_ID="$OBJECT_STORAGE_ACCESS_KEY_ID" \
     SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$OBJECT_STORAGE_SECRET_ACCESS_KEY" \
     SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true \
-    pnpm exec jest \
-    --runInBand \
-    --testPathPattern="$test_pattern"
+    pnpm exec jest "$@"
 )
