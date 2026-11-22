@@ -138,4 +138,25 @@ test.describe('touch', () => {
     await page.getByRole('columnheader').first().tap();
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
+
+  test('reduced motion shows the tapped tooltip without animation', async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const tag = await openLeaderRanking(page);
+    await tag.tap();
+    await expectMeaningDescribes(page, tag);
+    const content = page.locator('[data-slot="tooltip-content"]');
+    expect(
+      await content.evaluate(
+        (element) => getComputedStyle(element).animationName,
+      ),
+    ).toBe('none');
+    await expect(page.locator('[data-streak-confetti]')).toHaveCount(0);
+    await page.screenshot({
+      path: testInfo.outputPath('reduced-motion-tooltip-390.png'),
+    });
+    await page.getByRole('columnheader').first().tap();
+    await expect(content).toHaveCount(0);
+  });
 });
