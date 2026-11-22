@@ -419,14 +419,39 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     });
   }
 
+  it.each([2, 3])(
+    'shows configured minimum %i even when satisfied',
+    async (minimum) => {
+      listTeamManagementApplicationsMock.mockResolvedValue(
+        page([team(3, { teamMinSize: minimum })]),
+      );
+      await mount();
+      expect(
+        container.querySelector<HTMLDataElement>('summary data')?.value,
+      ).toBe('3');
+      expect(
+        container.querySelector<HTMLDataElement>('[data-limit="minimum"]')
+          ?.value,
+      ).toBe(String(minimum));
+      expect(
+        container.querySelector<HTMLDataElement>('[data-limit="maximum"]')
+          ?.value,
+      ).toBe('4');
+      expect(container.querySelector('[data-missing-members]')).toBeNull();
+    },
+  );
+
   it('정원을 채운 팀은 정원과 함께 보여 주고 부족 경고는 없다', async () => {
     listTeamManagementApplicationsMock.mockResolvedValue(page([team(4)]));
     await mount();
 
     expect(container.querySelector('data')?.value).toBe('4');
-    expect(container.querySelector('summary')?.getAttribute('aria-label')).toBe(
-      '팀원 4명, 정원 4명',
-    );
+    expect(
+      container.querySelector<HTMLDataElement>('[data-limit="minimum"]')?.value,
+    ).toBe('2');
+    expect(
+      container.querySelector<HTMLDataElement>('[data-limit="maximum"]')?.value,
+    ).toBe('4');
     expect(container.textContent).not.toContain('부족');
   });
 
@@ -437,7 +462,7 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     await mount();
 
     expect(container.querySelector('data')?.value).toBe('2');
-    expect(container.querySelector('tbody details')).toBeNull();
+    expect(container.querySelector('[data-limit="maximum"]')).toBeNull();
   });
 
   it('혼자 참여하는 프로그램은 수락한 인원만 보여 준다', async () => {

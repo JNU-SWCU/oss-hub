@@ -7,6 +7,7 @@ import { parseListEnum, useUrlSearchDraft } from '@/lib/list-url-state';
 import { useStaffTeamsUrlState } from './staff-teams-url-state';
 import { useStaffTeamsQuery } from './queries';
 import { teamMemberCountText } from './team-member-count';
+import { TeamMemberCountValue } from './team-member-count-value';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, RotateCcw, TriangleAlert } from 'lucide-react';
 import {
@@ -241,23 +242,19 @@ export function ProgramStaffTeamsPage({
           });
           return (
             <div className="grid gap-1 whitespace-nowrap tabular-nums">
-              {size.capacity ? (
-                <details>
-                  <summary
-                    className="cursor-pointer"
-                    aria-label={`팀원 ${size.label}, ${size.capacity}`}
-                  >
-                    <data value={item.team.memberCount}>{size.label}</data>
-                  </summary>
-                  <span className="text-xs text-muted-foreground">
-                    {size.capacity}
-                  </span>
-                </details>
-              ) : (
-                <data value={item.team.memberCount}>{size.label}</data>
-              )}
+              <TeamMemberCountValue
+                memberCount={item.team.memberCount}
+                minSize={item.teamMinSize}
+                maxSize={item.teamMaxSize}
+              />
               {size.shortage ? (
-                <span className="flex items-center gap-1 text-xs text-status-pending-fg">
+                <span
+                  data-missing-members={Math.max(
+                    (item.teamMinSize ?? 0) - item.team.memberCount,
+                    0,
+                  )}
+                  className="flex items-center gap-1 text-xs text-status-pending-fg"
+                >
                   <TriangleAlert
                     aria-hidden="true"
                     className="size-3 shrink-0"
