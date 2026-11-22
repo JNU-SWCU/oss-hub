@@ -1,12 +1,26 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { RankHeadwear } from './ranking-rank-headwear';
 import styles from './ranking-streak-decoration.module.css';
 
 export type RankingStreakTier = 'plain' | 'shimmer' | 'strong' | 'celebration';
+export type RankingStreakMeaningSide = 'right' | 'left' | 'bottom';
+
+const MEANING_GAP = 6;
+const MEANING_PLACEMENT = {
+  right: { side: 'right', align: 'start', alignOffset: MEANING_GAP },
+  left: { side: 'left', align: 'start', alignOffset: MEANING_GAP },
+  bottom: { side: 'bottom', align: 'start' },
+} as const;
 
 interface RankingStreakDecorationProps {
   readonly rank: number;
@@ -19,6 +33,7 @@ interface RankingStreakDecorationProps {
   readonly linkAriaLabel: string;
   readonly headwear?: ReactNode;
   readonly interactionSlot?: ReactNode;
+  readonly meaningSide?: RankingStreakMeaningSide;
 }
 
 function splitFirstGrapheme(value: string): readonly [string, string] {
@@ -39,11 +54,15 @@ export function RankingStreakDecoration({
   linkAriaLabel,
   headwear = <RankHeadwear rank={rank} />,
   interactionSlot,
+  meaningSide = 'right',
 }: RankingStreakDecorationProps) {
   const [firstCharacter, remainder] = splitFirstGrapheme(name);
   const [entered, setEntered] = useState(false);
   const [interaction, setInteraction] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [meaningOpen, setMeaningOpen] = useState(false);
+  const tagRef = useRef<HTMLButtonElement>(null);
+  const pressingTagRef = useRef(false);
   const streakMeaning = `${tenureLabel} 유지 ${days}일째`;
 
   useEffect(() => {
@@ -91,38 +110,71 @@ export function RankingStreakDecoration({
       <span className="sr-only" data-streak-accessible-name>
         {accessibleTierName}
       </span>
-      <Button
-        type="button"
-        variant="bare"
-        size="content"
-        className={cn(styles.tag, styles[tier])}
-        aria-label={streakMeaning}
-        title={streakMeaning}
-        onClick={() => {
-          if (!reducedMotion) setInteraction((value) => value + 1);
-        }}
-        data-ranking-streak-tier={tier}
-      >
-        <span className={styles.days} data-day-count aria-hidden="true">
-          {days}일째
-        </span>
-        {interactionSlot}
-        {tier === 'celebration' && interaction > 0 ? (
-          <span
-            key={interaction}
-            aria-hidden="true"
-            className={styles.confetti}
-            data-streak-confetti
+      <TooltipProvider>
+        <Tooltip
+          open={meaningOpen}
+          onOpenChange={(open) => {
+            if (open || !pressingTagRef.current) setMeaningOpen(open);
+          }}
+        >
+          <TooltipTrigger asChild>
+            <Button
+              ref={tagRef}
+              type="button"
+              variant="bare"
+              size="content"
+              className={cn(styles.tag, styles[tier])}
+              aria-label={streakMeaning}
+              onPointerDown={() => {
+                pressingTagRef.current = true;
+                queueMicrotask(() => {
+                  pressingTagRef.current = false;
+                });
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                setMeaningOpen(true);
+                if (!reducedMotion) setInteraction((value) => value + 1);
+              }}
+              data-ranking-streak-tier={tier}
+            >
+              <span className={styles.days} data-day-count aria-hidden="true">
+                {days}일째
+              </span>
+              {interactionSlot}
+              {tier === 'celebration' && interaction > 0 ? (
+                <span
+                  key={interaction}
+                  aria-hidden="true"
+                  className={styles.confetti}
+                  data-streak-confetti
+                >
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              ) : null}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent
+            {...MEANING_PLACEMENT[meaningSide]}
+            sideOffset={MEANING_GAP}
+            collisionPadding={16}
+            onPointerDownOutside={(event) => {
+              if (
+                event.target instanceof Node &&
+                tagRef.current?.contains(event.target)
+              )
+                event.preventDefault();
+            }}
           >
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </span>
-        ) : null}
-      </Button>
+            {streakMeaning}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </span>
   );
 }
