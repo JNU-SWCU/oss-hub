@@ -209,6 +209,42 @@ describe('when legacy finishes work after an unfinished paused import', () => {
     await expect(status.getMailStatus(new Date(0))).resolves.toEqual(expected);
   });
 
+  it(
+    'counts the recorded failure when a malformed receipt leaves its typed delivery pending',
+    async () => {
+      await completeAfterRollback();
+      const prisma = database.prisma;
+      const status = new SystemStatusRepository(
+        prisma,
+        new PlatformRepository(),
+      );
+      const receipts = new ProgramMailJobRepository(prisma, payloads);
+      const expected = {
+        sent7d: 0,
+        failed7d: 1,
+        unknown7d: 0,
+        lastSentAt: null,
+      };
+      await expect(status.getMailStatus(new Date(0))).resolves.toEqual(
+        expected,
+      );
+      await prisma.$executeRaw`UPDATE "Notification" SET payload = jsonb_set(payload, '{result,failedCount}', '"1"'::jsonb) WHERE id = ${jobId}`;
+      await prisma.mailControl.update({
+        where: { id: 1 },
+        data: { mode: 'PAUSED' },
+      });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await refresh();
+        await expect(receipts.status(programId, jobId)).rejects.toThrow();
+        expect((await receipts.recent(programId)).items).toEqual([]);
+        await expect(status.getMailStatus(new Date(0))).resolves.toEqual(
+          expected,
+        );
+      }
+    },
+    BODY_TIMEOUT_MS,
+  );
+
   it('keeps a refreshed receipt quarantined when the final roster disagrees with its audits', async () => {
     await completeAfterRollback();
     const prisma = database.prisma;
@@ -364,12 +400,13 @@ async function seedTerminalReceipt(
   members: readonly string[],
   attemptMembers: readonly string[],
   resultMembers: readonly string[],
+  sentCount = 1,
 ) {
   const prisma = database.prisma;
   const result = {
-    sentCount: 1,
+    sentCount,
     failedCount: 0,
-    unknownCount: members.length - 1,
+    unknownCount: members.length - sentCount,
     duplicateCount: 0,
   };
   await prisma.notification.createMany({
@@ -395,14 +432,14 @@ async function seedTerminalReceipt(
         userId: id,
         type: 'PROGRAM_MAIL',
         channel: 'EMAIL',
-        status: index === 0 ? 'SENT' : 'FAILED',
+        status: index < sentCount ? 'SENT' : 'FAILED',
         idempotencyKey: `program-mail:synthetic:${id}`,
         payload: {
           schemaVersion: 1,
           batchKey: 'program-mail-send:synthetic',
-          ...(index === 0 ? {} : { code: 'MAIL_DELIVERY_UNKNOWN' }),
+          ...(index < sentCount ? {} : { code: 'MAIL_DELIVERY_UNKNOWN' }),
         },
-        sentAt: index === 0 ? CREATED : null,
+        sentAt: index < sentCount ? CREATED : null,
       })),
     ],
   });
@@ -443,6 +480,50 @@ async function seedTerminalReceipt(
   );
   return result;
 }
+
+it(
+  'keeps all 201 recorded sends and their last-sent time when the over-capacity receipt is quarantined',
+  async () => {
+    const prisma = database.prisma;
+    const members = Array.from(
+      { length: 201 },
+      (_, i) => `synthetic-over-cap-${i}`,
+    );
+    await prisma.user.createMany({
+      data: members.map((id, i) => ({
+        id,
+        nickname: id,
+        githubId: 987654322000n + BigInt(i),
+      })),
+    });
+    await seedTerminalReceipt(members, members, members, members.length);
+    const status = new SystemStatusRepository(prisma, new PlatformRepository());
+    const receipts = new ProgramMailJobRepository(
+      prisma,
+      new ProgramMailBatchPayloadRepository(),
+    );
+    const expected = {
+      sent7d: 201,
+      failed7d: 0,
+      unknown7d: 0,
+      lastSentAt: CREATED,
+    };
+    await expect(status.getMailStatus(CREATED)).resolves.toEqual(expected);
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await prisma.$queryRaw`SELECT import_legacy_program_mail('synthetic-batch')`;
+      await expect(
+        receipts.status(programId, 'synthetic-batch'),
+      ).rejects.toThrow();
+      expect((await receipts.recent(programId)).items).toEqual([]);
+      await expect(status.getMailStatus(CREATED)).resolves.toEqual(expected);
+    }
+  },
+  BODY_TIMEOUT_MS,
+);
 
 it.each([
   { phase: 'attempt', attempt: [otherUserId], result: [userId] },
@@ -879,7 +960,7 @@ it(
         prisma,
         new PlatformRepository(),
       ).getMailStatus(new Date(0)),
-    ).toEqual({ sent7d: 1, failed7d: 3, unknown7d: 1, lastSentAt: CREATED });
+    ).toEqual({ sent7d: 1, failed7d: 4, unknown7d: 1, lastSentAt: CREATED });
   },
   BODY_TIMEOUT_MS,
 );

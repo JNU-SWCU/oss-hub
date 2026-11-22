@@ -123,25 +123,18 @@ export class SystemStatusRepository {
 
   async getMailStatus(since: Date): Promise<MailStatusDto> {
     const [result] = await this.prisma.$queryRaw<[MailStatusDto]>`
-      WITH deliveries AS (
+      WITH terminal_recipients AS (
+        SELECT "deliveryKey", state, "createdAt", "finishedAt" FROM "MailRecipient"
+        WHERE "deliveryKey" IS NOT NULL AND state NOT IN ('PENDING', 'SENDING')
+      ), deliveries AS (
         SELECT CASE WHEN status = 'FAILED' AND payload->>'code' = 'MAIL_DELIVERY_UNKNOWN' THEN 'UNKNOWN' ELSE status END AS state,
           "createdAt", "sentAt"
         FROM "Notification" legacy WHERE channel = 'EMAIL'
           AND NOT EXISTS (
-            SELECT 1 FROM "MailJob" job WHERE legacy.type = 'PROGRAM_MAIL'
-              AND job."intentKey" = legacy.payload->>'batchKey'
-              AND (job.state = 'COMPLETED' OR job."legacySnapshotStatus" = 'COMPLETED'
-                OR (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS')
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM "MailRecipient" recipient WHERE recipient."deliveryKey" = legacy."idempotencyKey"
-              AND (recipient.state NOT IN ('PENDING', 'SENDING')
-                OR (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS')
+            SELECT 1 FROM terminal_recipients recipient WHERE recipient."deliveryKey" = legacy."idempotencyKey"
           )
         UNION ALL
-        SELECT recipient.state::text, recipient."createdAt", recipient."finishedAt"
-        FROM "MailRecipient" recipient
-        WHERE recipient."deliveryKey" IS NOT NULL
+        SELECT state::text, "createdAt", "finishedAt" FROM terminal_recipients
       )
       SELECT count(*) FILTER (WHERE state = 'SENT' AND "sentAt" >= ${since})::int AS "sent7d",
         count(*) FILTER (WHERE state = 'FAILED' AND "createdAt" >= ${since})::int AS "failed7d",
