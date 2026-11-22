@@ -119,99 +119,144 @@ it(
   BODY_TIMEOUT_MS,
 );
 
+async function seedTerminalReceipt(
+  members: readonly string[],
+  attemptMembers: readonly string[],
+  resultMembers: readonly string[],
+) {
+  const prisma = database.prisma;
+  const result = {
+    sentCount: 1,
+    failedCount: 0,
+    unknownCount: members.length - 1,
+    duplicateCount: 0,
+  };
+  await prisma.notification.createMany({
+    data: [
+      {
+        id: 'synthetic-batch',
+        userId,
+        type: 'PROGRAM_MAIL_SEND',
+        channel: 'INTERNAL',
+        status: 'COMPLETED',
+        idempotencyKey: 'program-mail-send:synthetic',
+        payload: {
+          schemaVersion: 1,
+          programId,
+          previewVersion: 'synthetic',
+          result,
+        },
+        createdAt: CREATED,
+        sentAt: CREATED,
+      },
+      ...members.map((id, index) => ({
+        id: `synthetic-delivery-${index}`,
+        userId: id,
+        type: 'PROGRAM_MAIL',
+        channel: 'EMAIL',
+        status: index === 0 ? 'SENT' : 'FAILED',
+        idempotencyKey: `program-mail:synthetic:${id}`,
+        payload: {
+          schemaVersion: 1,
+          batchKey: 'program-mail-send:synthetic',
+          ...(index === 0 ? {} : { code: 'MAIL_DELIVERY_UNKNOWN' }),
+        },
+        sentAt: index === 0 ? CREATED : null,
+      })),
+    ],
+  });
+  const audit = new ProgramMailAuditRepository();
+  const content = {
+    actorId: userId,
+    programId,
+    programName: 'Synthetic mail bridge',
+    senderName: 'Synthetic sender',
+    subject: 'Synthetic subject',
+    body: 'Synthetic body',
+    bodyHash: 'synthetic-hash',
+    bodyLength: 14,
+    previewVersion: 'synthetic',
+    occurredAt: CREATED,
+  };
+  const recipients = (ids: readonly string[]) =>
+    ids.map((id) => ({
+      id,
+      displayName: id,
+      notificationEmail: `${id}@example.invalid`,
+    }));
+  await audit.recordAttempt(
+    {
+      input: { ...content, recipients: recipients(attemptMembers) },
+      batchKey: 'program-mail-send:synthetic',
+    },
+    prisma,
+  );
+  await audit.recordResult(
+    {
+      input: { ...content, recipients: recipients(resultMembers) },
+      batchKey: 'program-mail-send:synthetic',
+      result,
+      occurredAt: CREATED,
+    },
+    prisma,
+  );
+  return result;
+}
+
+it.each([
+  { phase: 'attempt', attempt: [otherUserId], result: [userId] },
+  { phase: 'result', attempt: [userId], result: [otherUserId] },
+  {
+    phase: 'expanded result',
+    attempt: [userId],
+    result: [userId, otherUserId],
+  },
+  { phase: 'duplicated result', attempt: [userId], result: [userId, userId] },
+])(
+  'quarantines a receipt when its $phase roster differs from the delivery rows',
+  async ({ attempt, result }) => {
+    const prisma = database.prisma;
+    await seedTerminalReceipt([userId], attempt, result);
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    await prisma.$queryRaw`SELECT import_legacy_program_mail('synthetic-batch')`;
+    expect(
+      await prisma.mailJob.findUniqueOrThrow({
+        where: { id: 'synthetic-batch' },
+        select: {
+          state: true,
+          partFinishedAt: true,
+          receiptFinishedAt: true,
+          result: true,
+        },
+      }),
+    ).toEqual({
+      state: 'QUARANTINED',
+      partFinishedAt: null,
+      receiptFinishedAt: null,
+      result: null,
+    });
+    const reader = new ProgramMailJobRepository(
+      prisma,
+      new ProgramMailBatchPayloadRepository(),
+    );
+    await expect(reader.status(programId, 'synthetic-batch')).rejects.toThrow();
+    expect((await reader.recent(programId)).items).toEqual([]);
+  },
+  BODY_TIMEOUT_MS,
+);
+
 it(
   'imports a mixed terminal receipt twice without changing identities, audits or totals',
   async () => {
     const prisma = database.prisma;
-    const result = {
-      sentCount: 1,
-      failedCount: 0,
-      unknownCount: 1,
-      duplicateCount: 0,
-    };
-    await prisma.notification.createMany({
-      data: [
-        {
-          id: 'synthetic-batch',
-          userId,
-          type: 'PROGRAM_MAIL_SEND',
-          channel: 'INTERNAL',
-          status: 'COMPLETED',
-          idempotencyKey: 'program-mail-send:synthetic',
-          payload: {
-            schemaVersion: 1,
-            programId,
-            previewVersion: 'synthetic',
-            result,
-          },
-          createdAt: CREATED,
-          sentAt: CREATED,
-        },
-        {
-          id: 'synthetic-sent',
-          userId,
-          type: 'PROGRAM_MAIL',
-          channel: 'EMAIL',
-          status: 'SENT',
-          idempotencyKey: 'program-mail:synthetic:sent',
-          payload: {
-            schemaVersion: 1,
-            batchKey: 'program-mail-send:synthetic',
-          },
-          sentAt: CREATED,
-        },
-        {
-          id: 'synthetic-unknown',
-          userId: otherUserId,
-          type: 'PROGRAM_MAIL',
-          channel: 'EMAIL',
-          status: 'FAILED',
-          idempotencyKey: 'program-mail:synthetic:unknown',
-          payload: {
-            schemaVersion: 1,
-            batchKey: 'program-mail-send:synthetic',
-            code: 'MAIL_DELIVERY_UNKNOWN',
-          },
-        },
-      ],
-    });
-    const audit = new ProgramMailAuditRepository();
-    const content = {
-      actorId: userId,
-      programId,
-      programName: 'Synthetic mail bridge',
-      senderName: 'Synthetic sender',
-      subject: 'Synthetic subject',
-      body: 'Synthetic body',
-      bodyHash: 'synthetic-hash',
-      bodyLength: 14,
-      previewVersion: 'synthetic',
-      occurredAt: CREATED,
-      recipients: [
-        {
-          id: userId,
-          displayName: 'Synthetic one',
-          notificationEmail: 'one@example.invalid',
-        },
-        {
-          id: otherUserId,
-          displayName: 'Synthetic two',
-          notificationEmail: 'two@example.invalid',
-        },
-      ],
-    };
-    await audit.recordAttempt(
-      { input: content, batchKey: 'program-mail-send:synthetic' },
-      prisma,
-    );
-    await audit.recordResult(
-      {
-        input: content,
-        batchKey: 'program-mail-send:synthetic',
-        result,
-        occurredAt: CREATED,
-      },
-      prisma,
+    const members = [userId, otherUserId];
+    const result = await seedTerminalReceipt(
+      members,
+      members,
+      [...members].reverse(),
     );
     const reader = new ProgramMailJobRepository(
       prisma,

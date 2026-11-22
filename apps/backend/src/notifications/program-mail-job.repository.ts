@@ -10,9 +10,14 @@ import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.
 import { ProgramMailStoredResultError } from './program-mail-send-state.error';
 
 const PAGE_SIZE = 10;
+const visibleLegacy = Prisma.sql`
+  NOT (legacy.status = 'COMPLETED' AND EXISTS (
+    SELECT 1 FROM "MailJob" job WHERE job.id = legacy.id AND job.state = 'QUARANTINED'
+  ))
+`;
 const receiptSources = (programId: string) => Prisma.sql`
-  SELECT id, "createdAt" FROM "Notification"
-  WHERE type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' AND payload->>'programId' = ${programId}
+  SELECT id, "createdAt" FROM "Notification" legacy
+  WHERE type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' AND payload->>'programId' = ${programId} AND ${visibleLegacy}
   UNION ALL
   SELECT id, "createdAt" FROM "MailJob" job
   WHERE "programId" = ${programId} AND "partNo" = 0 AND "receiptFinishedAt" IS NOT NULL
@@ -68,9 +73,9 @@ export class ProgramMailJobRepository {
     >`
       SELECT "createdAt", "sentAt", status, result FROM (
         SELECT "createdAt", "sentAt", status, payload->'result' AS result, 1 AS priority
-        FROM "Notification"
+        FROM "Notification" legacy
         WHERE id = ${jobId} AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL'
-          AND payload->>'programId' = ${programId}
+          AND payload->>'programId' = ${programId} AND ${visibleLegacy}
         UNION ALL
         SELECT "createdAt", "receiptFinishedAt", 'COMPLETED' AS status, result, 0 AS priority
         FROM "MailJob"
