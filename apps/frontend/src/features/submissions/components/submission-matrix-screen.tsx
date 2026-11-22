@@ -16,12 +16,12 @@ export function SubmissionMatrixScreen({
   readonly headerActions?: ReactNode;
 }) {
   const { state: urlState, navigate } = useSubmissionMatrixUrlState();
-  const { quickFilter, q, page, pageSize } = urlState;
-  const query = { q, page, pageSize };
+  const { q, page, pageSize, status, sort, direction } = urlState;
+  const query = { q, page, pageSize, status, sort, direction };
   const [search, setSearch] = useUrlSearchDraft(q);
   const result = useSubmissionMatrixQuery(programId, query);
   const data = result.data ?? null;
-  const isLoading = result.isFetching;
+  const isLoading = result.isFetching && data === null;
   const errorMessage = result.isError
     ? result.error instanceof ApiError
       ? result.error.problem.detail
@@ -33,23 +33,32 @@ export function SubmissionMatrixScreen({
       programId={programId}
       data={data}
       search={search}
-      filterActive={isMatrixFilterActive(query.q)}
-      quickFilter={quickFilter}
+      filterActive={isMatrixFilterActive(q)}
+      status={status}
+      sort={sort}
+      direction={direction}
       isLoading={isLoading}
       errorMessage={errorMessage}
       now={new Date()}
       headerActions={headerActions}
       onSearchChange={setSearch}
       onSearch={() => {
-        navigate({ q: search.trim(), page: 1, quickFilter: 'ALL' }, 'replace');
+        navigate({ q: search.trim(), page: 1 }, 'replace');
       }}
-      onQuickFilterChange={(next) => navigate({ quickFilter: next })}
+      onStatusChange={(status) => navigate({ status, page: 1 })}
+      onSort={(next) => {
+        navigate({
+          sort: next,
+          direction: next === sort && direction === 'asc' ? 'desc' : 'asc',
+          page: 1,
+        });
+      }}
       onResetFilters={() => {
         setSearch('');
-        navigate({ q: '', page: 1, quickFilter: 'ALL' });
+        navigate({ q: '', page: 1, status: undefined });
       }}
       onPageChange={(page) => {
-        navigate({ page, quickFilter: 'ALL' });
+        navigate({ page });
       }}
       onRetry={() => void result.refetch()}
     />

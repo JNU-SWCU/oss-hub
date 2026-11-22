@@ -7,6 +7,9 @@ import { hasStaffAudience } from '../../../_shell/member-access';
 import { PageBody } from '@/components/page-body';
 import { RequirementChecklistPage } from '../requirement-checklist';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
+import { StageSubmissionTable } from '@/features/submissions/components/submission-matrix-body';
+import { SubmissionStatusFilters } from '@/features/submissions/components/submission-matrix-controls';
+import type { ComponentProps } from 'react';
 import {
   documentsStageSearch,
   programDocumentsHref,
@@ -15,6 +18,26 @@ import { useSharedSessionRole } from '../../../_shell/session-role-context';
 import { ProgramDocumentArchivePanel } from '@/features/programs/documents/program-document-archive-panel';
 import { ProgramDocumentChangeRequestPanel } from '@/features/programs/documents/program-document-change-request-panel';
 import { RequirementCollectionScreen } from '@/features/programs/documents/requirement-collection-screen';
+
+function CollectionStageTable({
+  data,
+  ...props
+}: ComponentProps<
+  ComponentProps<typeof RequirementCollectionScreen>['Table']
+>) {
+  return (
+    <StageSubmissionTable
+      {...props}
+      data={{
+        ...data,
+        rows: data.rows.map((row) => ({
+          ...row,
+          applicantName: row.leaderName,
+        })),
+      }}
+    />
+  );
+}
 
 function withMilestoneQuery(
   programId: string,
@@ -40,12 +63,13 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
           programId={programId}
           onSent={() => void invalidateProgram(queryClient, programId)}
         />
-        <ProgramDocumentArchivePanel
-          key={`${programId}/${selectedMilestoneId ?? ''}`}
-          programId={programId}
-          initialMilestoneId={selectedMilestoneId ?? undefined}
-          embedded
-        />
+        {selectedMilestoneId === null ? (
+          <ProgramDocumentArchivePanel
+            key={programId}
+            programId={programId}
+            embedded
+          />
+        ) : null}
       </div>
     );
 
@@ -56,6 +80,8 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
           programId={programId}
           milestoneId={selectedMilestoneId}
           headerActions={headerActions}
+          Table={CollectionStageTable}
+          StatusFilters={SubmissionStatusFilters}
         />
       );
     }

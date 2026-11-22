@@ -106,7 +106,7 @@ export interface CreatedResubmission {
   readonly status: 'SUBMITTED';
 }
 
-export type MatrixApplicationMode = 'PERSONAL' | 'TEAM';
+type MatrixApplicationMode = 'PERSONAL' | 'TEAM';
 
 type MatrixCellStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
@@ -131,6 +131,7 @@ export interface MatrixRow {
   readonly teamId: string;
   readonly applicationMode: MatrixApplicationMode;
   readonly displayName: string;
+  readonly leaderName: string | null;
   readonly githubLogins: readonly string[];
   readonly cells: readonly MatrixCell[];
 }
@@ -141,4 +142,5 @@ export interface SubmissionMatrixPage {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+  readonly statusCounts: Readonly<Record<MatrixCellStatus, number>>;
 }

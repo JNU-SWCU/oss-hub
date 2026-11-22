@@ -1,19 +1,10 @@
 'use client';
 
-import { useId, useState, type ReactElement } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { DataTable, type DataTableColumn } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import {
-  actionLabel,
-  actorLabel,
-  formatDate,
-  formatTime,
-  roleLabel,
-  targetLabel,
-} from './audit-log-format';
+import { auditLogRecordKey } from './audit-log-fold';
+import { formatDateTime, resultLabel, targetLabel } from './audit-log-format';
 import {
   AuditLogActionValue,
   AuditLogActor,
@@ -23,207 +14,102 @@ import {
 } from './audit-log-parts';
 import type { AuditLogRecord } from './types';
 
-const SORT_KEYS = ['occurredAt', 'actor', 'role', 'action', 'target'] as const;
+const CELL_CLASS = 'px-4 py-2 align-baseline';
 
-type AuditLogSortKey = (typeof SORT_KEYS)[number];
-
-interface AuditLogSort {
-  readonly key: AuditLogSortKey;
-  readonly direction: 'asc' | 'desc';
-}
-
-const SORT_LABELS: Readonly<Record<AuditLogSortKey, string>> = {
-  occurredAt: '시각',
-  actor: '행위자',
-  role: '역할',
-  action: '동작',
-  target: '대상',
-};
-
-function sortValue(record: AuditLogRecord, key: AuditLogSortKey): string {
-  switch (key) {
-    case 'occurredAt':
-      return record.occurredAt;
-    case 'actor':
-      return actorLabel(record).primary;
-    case 'role':
-      return roleLabel(record.actor?.role ?? null) ?? '';
-    case 'action':
-      return actionLabel(record);
-    case 'target':
-      return targetLabel(record)?.primary ?? '';
-  }
-}
-
-function sortAuditLogRecords(
-  records: readonly AuditLogRecord[],
-  sort: AuditLogSort,
-): readonly AuditLogRecord[] {
-  const sign = sort.direction === 'asc' ? 1 : -1;
-  return [...records].sort(
-    (left, right) =>
-      sign *
-      sortValue(left, sort.key).localeCompare(sortValue(right, sort.key), 'ko'),
-  );
-}
-
-const WIDE_ONLY = 'hidden sm:table-cell';
-
-function sortableColumn(
-  key: AuditLogSortKey,
-  sort: AuditLogSort,
-  onSort: (key: AuditLogSortKey) => void,
-  cell: DataTableColumn<AuditLogRecord>['cell'],
-  visibility = '',
-): DataTableColumn<AuditLogRecord> {
-  const active = sort.key === key;
-  const Icon = active && sort.direction === 'asc' ? ChevronUp : ChevronDown;
-  return {
-    id: key,
-    header: (
-      <Button
-        type="button"
-        variant="bare"
-        size="content"
-        className="inline-flex items-center gap-0.5 whitespace-nowrap hover:text-foreground"
-        onClick={() => onSort(key)}
-      >
-        {SORT_LABELS[key]}
-        <Icon
-          aria-hidden="true"
-          className={active ? 'size-3.5' : 'size-3.5 opacity-40'}
-        />
-      </Button>
-    ),
-    headProps: {
-      'aria-sort': active
-        ? sort.direction === 'asc'
-          ? 'ascending'
-          : 'descending'
-        : 'none',
-    },
-    headClassName: cn('whitespace-nowrap', visibility),
-    cellClassName: cn(
-      'align-top whitespace-normal sm:whitespace-nowrap',
-      visibility,
-    ),
-    cell,
-  };
-}
+const WRAP_CELL_CLASS = `${CELL_CLASS} whitespace-normal`;
 
 export function AuditLogTable({
   records,
+  now,
+  selectedId,
+  onSelect,
 }: {
   readonly records: readonly AuditLogRecord[];
+  readonly now: Date;
+  readonly selectedId: string | null;
+  readonly onSelect: (key: string | null) => void;
 }): ReactElement {
-  const sortId = useId();
-  const [sort, setSort] = useState<AuditLogSort>({
-    key: 'occurredAt',
-    direction: 'desc',
-  });
-  const onSort = (key: AuditLogSortKey) =>
-    setSort((current) =>
-      current.key === key
-        ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
-        : { key, direction: key === 'occurredAt' ? 'desc' : 'asc' },
-    );
+  const toggle = (record: AuditLogRecord) => {
+    const key = auditLogRecordKey(record);
+    onSelect(key === selectedId ? null : key);
+  };
   const columns: DataTableColumn<AuditLogRecord>[] = [
-    sortableColumn('occurredAt', sort, onSort, (record) => (
-      <time
-        dateTime={record.occurredAt}
-        className="flex flex-col whitespace-nowrap tabular-nums sm:block"
-      >
-        <span>{formatDate(record.occurredAt)}</span>{' '}
-        <span>{formatTime(record.occurredAt)}</span>
-      </time>
-    )),
-    sortableColumn('actor', sort, onSort, (record) => (
-      <div className="flex min-w-0 flex-col gap-1">
-        <AuditLogActor record={record} />
-        <div
-          data-slot="audit-row-detail"
-          className="flex min-w-0 flex-col gap-0.5 text-xs leading-relaxed break-keep [overflow-wrap:anywhere] sm:hidden"
-        >
-          <span className="flex flex-wrap items-baseline gap-x-1">
-            <AuditLogRole record={record} />
-            <AuditLogActionValue record={record} />
-          </span>
-          <AuditLogTargetValue record={record} />
-          <AuditLogChangeValue record={record} />
-        </div>
-      </div>
-    )),
-    sortableColumn(
-      'role',
-      sort,
-      onSort,
-      (record) => <AuditLogRole record={record} />,
-      WIDE_ONLY,
-    ),
-    sortableColumn(
-      'action',
-      sort,
-      onSort,
-      (record) => <AuditLogActionValue record={record} />,
-      WIDE_ONLY,
-    ),
-    sortableColumn(
-      'target',
-      sort,
-      onSort,
-      (record) => <AuditLogTargetValue record={record} />,
-      WIDE_ONLY,
-    ),
     {
-      id: 'change',
-      header: '변경',
-      headClassName: WIDE_ONLY,
-      cellClassName: cn('align-top', WIDE_ONLY),
-      cell: (record) => <AuditLogChangeValue record={record} />,
+      id: 'occurredAt',
+      header: '시각',
+      headClassName: CELL_CLASS,
+      cellClassName: `${CELL_CLASS} tabular-nums`,
+      cell: (record) => (
+        <time dateTime={record.occurredAt}>
+          {formatDateTime(record.occurredAt, now)}
+        </time>
+      ),
     },
-  ];
-  const ascending = sort.direction === 'asc';
-  const DirectionIcon = ascending ? ArrowUp : ArrowDown;
-  const directionLabel = ascending ? '오름차순' : '내림차순';
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div
-        data-slot="audit-sort"
-        className="flex min-w-0 items-center gap-2 sm:hidden"
-      >
-        <label htmlFor={sortId} className="shrink-0 text-sm font-medium">
-          정렬
-        </label>
-        <Select
-          id={sortId}
-          className="flex-1"
-          value={sort.key}
-          onChange={(event) => onSort(event.target.value as AuditLogSortKey)}
-        >
-          {SORT_KEYS.map((key) => (
-            <option key={key} value={key}>
-              {SORT_LABELS[key]}
-            </option>
-          ))}
-        </Select>
+    {
+      id: 'actor',
+      header: '행위자',
+      headClassName: CELL_CLASS,
+      cellClassName: CELL_CLASS,
+      cell: (record) => (
+        <span className="inline-flex items-baseline gap-x-1.5">
+          <AuditLogActor record={record} />
+          <AuditLogRole record={record} />
+        </span>
+      ),
+    },
+    {
+      id: 'action',
+      header: '작업',
+      headClassName: CELL_CLASS,
+      cellClassName: CELL_CLASS,
+      cell: (record) => (
         <Button
           type="button"
-          variant="outline"
-          className="shrink-0"
-          aria-label={`정렬 방향 ${directionLabel}`}
-          onClick={() => onSort(sort.key)}
+          variant="bare"
+          size="content"
+          aria-pressed={auditLogRecordKey(record) === selectedId}
+          className="text-left aria-pressed:font-semibold"
+          onClick={() => toggle(record)}
         >
-          <DirectionIcon aria-hidden="true" />
-          {directionLabel}
+          <AuditLogActionValue record={record} />
         </Button>
-      </div>
-      <DataTable
-        className="min-w-0 rounded-lg border border-border"
-        scrollRegionLabel="감사 로그 표"
-        columns={columns}
-        data={[...sortAuditLogRecords(records, sort)]}
-        rowKey={(record) => record.id}
-      />
-    </div>
+      ),
+    },
+    {
+      id: 'target',
+      header: '대상',
+      headClassName: CELL_CLASS,
+      cellClassName: WRAP_CELL_CLASS,
+      cell: (record) =>
+        targetLabel(record) === null ? (
+          <span aria-hidden="true" className="text-muted-foreground">
+            —
+          </span>
+        ) : (
+          <AuditLogTargetValue record={record} />
+        ),
+    },
+    {
+      id: 'result',
+      header: '결과',
+      headClassName: CELL_CLASS,
+      cellClassName: WRAP_CELL_CLASS,
+      cell: (record) =>
+        record.mailDelivery ? (
+          <AuditLogChangeValue record={record} />
+        ) : (
+          resultLabel(record)
+        ),
+    },
+  ];
+  return (
+    <DataTable
+      className="min-w-0 overflow-hidden rounded-card ring-1 ring-foreground/10"
+      scrollRegionLabel="감사 로그 표"
+      columns={columns}
+      data={[...records]}
+      rowKey={auditLogRecordKey}
+      onRowClick={toggle}
+    />
   );
 }

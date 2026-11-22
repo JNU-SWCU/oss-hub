@@ -2,14 +2,27 @@ import type { ReactElement } from 'react';
 import { FailureState, PageHeader } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { GroupsTab } from './groups-panel';
-import { ViewTabs, YearLinks } from './insights-controls';
-import { StudentsTab } from './leaderboard-panel';
-import { ProgramsTab } from './program-scorecard';
+import { PeriodSelect, ViewTabs } from './insights-controls';
 import {
-  type InsightsView,
-  type InsightsYearScope,
-  type StaffInsightsSummary,
+  FinderTab,
+  StudentsTab,
+  type StaffInsightsFinderProps,
+} from './leaderboard-panel';
+import { ProgramsTab } from './program-scorecard';
+import type {
+  InsightsView,
+  InsightsYearScope,
+  StaffInsightsSummary,
 } from './types';
+
+type ReadyState = {
+  readonly kind: 'ready';
+  readonly summary: StaffInsightsSummary;
+  readonly onScopeChange: (scope: InsightsYearScope) => void;
+} & (
+  | { readonly view: Exclude<InsightsView, 'finder'> }
+  | { readonly view: 'finder'; readonly finder: StaffInsightsFinderProps }
+);
 
 export type StaffInsightsViewState =
   | { readonly kind: 'loading' }
@@ -18,11 +31,7 @@ export type StaffInsightsViewState =
       readonly message: string;
       readonly onRetry: () => void;
     }
-  | {
-      readonly kind: 'ready';
-      readonly summary: StaffInsightsSummary;
-      readonly view: InsightsView;
-    };
+  | ReadyState;
 
 export function StaffInsightsView({
   state,
@@ -53,48 +62,23 @@ export function StaffInsightsView({
   }
 
   const { summary, view } = state;
-  const urlState = { scope: summary.scope, view };
-
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8">
-      <PageHeader
-        title="인사이트"
-        description="학생·학과·프로그램 단위로 GitHub 활동과 참여를 봅니다."
-      />
-      <ViewTabs state={urlState} />
-      <section className="flex flex-wrap items-end gap-4" aria-label="필터">
-        <div
-          className="grid gap-2"
-          role="group"
-          aria-labelledby="insights-period-label"
-        >
-          <span
-            id="insights-period-label"
-            className="text-xs font-semibold text-muted-foreground"
-          >
-            기간
-          </span>
-          <YearLinks state={urlState} years={summary.years} />
-        </div>
-      </section>
-      <p className="text-sm text-muted-foreground">
-        {scopeCaption(summary.scope)}
-        {summary.dataAsOf === null
-          ? ' · 수집 시각 없음'
-          : ` · 기준 ${summary.dataAsOf.toLocaleString('ko-KR')}`}
-      </p>
-      {view === 'students' ? (
-        <StudentsTab
-          summary={summary}
-          periodLabel={scopeCaption(summary.scope)}
+    <main className="mx-auto grid w-full min-w-0 max-w-6xl gap-6 px-4 py-8">
+      <PageHeader title="인사이트" />
+      <ViewTabs state={{ scope: summary.scope, view }} />
+      <div className="justify-self-start">
+        <PeriodSelect
+          scope={summary.scope}
+          years={summary.years}
+          onChange={state.onScopeChange}
         />
+      </div>
+      {view === 'students' ? <StudentsTab summary={summary} /> : null}
+      {state.view === 'finder' ? (
+        <FinderTab summary={summary} {...state.finder} />
       ) : null}
       {view === 'groups' ? <GroupsTab summary={summary} /> : null}
       {view === 'programs' ? <ProgramsTab summary={summary} /> : null}
     </main>
   );
-}
-
-function scopeCaption(scope: InsightsYearScope): string {
-  return scope.kind === 'all' ? '기간 전체' : `${scope.year}년`;
 }

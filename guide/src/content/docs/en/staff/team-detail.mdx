@@ -15,34 +15,44 @@ import Verified from '~/components/Verified.astro';
 ## Check team information
 
 <Steps>
-1. Read the sections from top to bottom: `팀원` (members), `구성원 관리` (membership management), `프로젝트 저장소` (project repository), `팀 활동` (team activity), and `검토 이력` (review history). Click the collapsed review history to expand it.
-2. Use the pencil beside the heading to rename the team. You can also decide its application with ① `신청 상태` (application status) at the top right.
-3. Use `구성원 관리` to remove members, change the leader, invite members, or cancel invitations.
-4. To change the repository address, click ② the pencil in `프로젝트 저장소`. Enter `새 저장소 URL` (new repository URL), then click `저장소 변경 저장` (save repository change). `저장소 변경을 저장했습니다.` confirms the save, and the change appears in `저장소 URL 변경 이력` (repository URL change history).
+1. The page shows `프로젝트 저장소` (project repository), `팀원` (members), and `팀 활동` (team activity), in that order. If `검토 이력` (review history) appears, click it to expand it.
+2. Use the pencil beside the heading to rename the team. You can also decide its application with `신청 상태` (application status) at the top right.
+3. The `팀원` card shows the member count and team leader. When activity data is available, each member's row shows `최근 2주 커밋` (commits in the past two weeks). Click `팀원 초대` (invite member), or use the row menu for actions such as `팀장 변경` (change leader), `팀에서 제외` (remove from team), or `초대 취소` (cancel invitation).
 </Steps>
-<Shot src="staff/team-detail.webp" alt="Full team detail screen with members, repository, activity, and review history. Marker ① points to status, ② to the repository pencil, and ③ to delete team." caption="① Status ② Edit repository ③ Delete team" />
 
-Only approved teams can change repository URLs, and only before the program ends. Otherwise, `승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다.` explains this restriction.
+## Check the repository and change its address
+
+Click the repository name in `프로젝트 저장소` to open it on GitHub. When available, `기본 브랜치` (default branch) and `마지막 수집` (last collected) appear below the name. If no repository is linked, the card says `연결된 저장소가 없습니다.` (No repository connected).
+
+Staff can change the repository address of an approved team before the program ends. Otherwise, the `변경` (change) button is disabled and the card says `승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다.` (Only approved teams can change it before the program ends).
 
 Replacing the address removes the previous repository's OSS Hub registration and collected records, then connects the new repository. The system history records the old URL and deletion counts. The original GitHub repository remains intact.
+
+<Steps>
+1. Click ② `변경` in `프로젝트 저장소`. The `저장소 주소` (repository address) field opens in the same card.
+2. Enter the new GitHub repository address and click `저장` (save). `저장소 변경을 저장했습니다.` (Repository changes saved) confirms the save.
+3. To leave without saving, click `취소` (cancel). If you edited the address, click `변경사항 버리기` (discard changes) in the confirmation dialog.
+</Steps>
+<Shot src="staff/team-detail.webp" alt="Project repository card. Marker ② points to the Change button." caption="② Change" />
+
+① `변경 이력` (change history) starts collapsed. The button shows the number of records you can view when that count is available. The list loads the first time you expand it. Each entry shows the date, who made the change, and the old and new repositories. Click `변경 이력 더 보기` (show more changes) when available. This list is separate from the application's `검토 이력` (review history).
+
+<Shot src="staff/team-repo-history.webp" alt="Project repository card with the changes from old to new repositories expanded. Marker ① points to the change history count." caption="① Change history count and expanded list" />
 
 ## Read the activity graph
 
 `팀 활동` shows records collected from the linked repository. These messages describe states, not necessarily errors in your actions.
 
 - `아직 연결한 저장소가 없습니다` (no repository connected): connect one in `프로젝트 저장소`.
-- ① `첫 수집을 기다리는 중입니다` (waiting for the first collection): the graph appears when collection finishes. Wait for it.
-- ① `최근 수집에 실패했습니다` (the latest collection failed): only activity through the last collection date is shown. Check again later.
+- `첫 수집을 기다리는 중입니다` (waiting for the first collection): the graph appears when collection finishes. Wait for it.
+- `최근 수집에 실패했습니다` (the latest collection failed): only activity through the last collection date is shown. Check again later.
 - `아직 모은 활동이 없습니다. 잠시 후 다시 확인해 주세요.` (no activity collected yet): collection ran, but found no records.
 
-<Shot src="staff/team-detail-pending.webp" alt="Team detail screen. Marker ① points to the waiting-for-first-collection message, with a repository visibility card above." caption="① Waiting for the first collection" />
-<Shot src="staff/team-detail-failed.webp" alt="Team detail screen. Marker ① points to the latest-collection-failed message." caption="① Latest collection failed" />
-
-Collection starts on the hour for repositories registered to teams. After collection completes, `마지막 수집 {날짜}` (last collected) appears. This is the completion time, so it need not be exactly on the hour. You cannot set a separate interval for each repository.
+Collection starts on the hour for repositories registered to teams. `마지막 수집` in `프로젝트 저장소` shows when the last successful collection finished. For a recent collection, it may show elapsed time such as `방금 전` (just now). You cannot set a separate interval for each repository.
 
 ## Make a repository public
 
-The `저장소 공개` (repository visibility) card lets you make an approved team's repository public on GitHub. It appears only for program-provisioned repositories, not repositories registered by teams themselves. This is separate from reviewing student documents. A public repository is visible to anyone, so check that publication is appropriate before proceeding.
+The `저장소 공개` (repository visibility) card inside `프로젝트 저장소` lets you make an approved team's repository public on GitHub. It appears only for program-provisioned repositories, not repositories registered by teams themselves. This is separate from reviewing student documents. A public repository is visible to anyone, so check that publication is appropriate before proceeding.
 
 <Steps>
 1. Check the `PRIVATE` or `PUBLIC` badge in `저장소 공개`.
@@ -70,11 +80,11 @@ Use `팀 삭제` (delete team) in `위험 영역` (danger zone) at the bottom. I
 <Shot src="staff/team-delete-confirmation.webp" alt="Delete team confirmation. Marker ① points to deletion counts, ② to removal of OSS Hub repository records while preserving GitHub, and ③ to delete." caption="① Data to delete ② Repository notice ③ `삭제` (delete)" />
 
 <Success>
-Your changes appear on screen. After changing members or repositories, check `검토 이력` (review history) and `팀원` (members).
+Membership changes appear in `팀원`. Address changes appear in `프로젝트 저장소` and `변경 이력`.
 </Success>
 
 <Recover title="If you cannot make a change">
-- If membership or repository changes fail, check that the team is approved and the program has not ended.
+- If you cannot change the repository, check that the team is approved and the program has not ended. If OSS Hub cannot confirm the save, click `다시 불러오기` (reload) and check the current address before saving again.
 - `GitHub 저장소 공개 전환에 실패했습니다.` or `저장소를 공개 전환하지 못했습니다.` means publication failed. Try again later. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
 - If the graph stays empty, identify its state under “Read the activity graph” above.
 </Recover>

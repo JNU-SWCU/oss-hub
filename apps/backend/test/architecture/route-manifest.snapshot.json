@@ -34,6 +34,11 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/dashboard/staff/insights/students",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/dashboard/staff/summary",
     "access": "PROTECTED"
   },
@@ -272,6 +277,16 @@
   {
     "method": "GET",
     "path": "/api/v1/programs/:programId/documents/collection/archive",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/mail/jobs",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/mail/jobs/:jobId",
     "access": "PROTECTED"
   },
   {

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
+import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailSendRepository } from './program-mail-send.repository';
 import {
@@ -55,6 +56,7 @@ export function registerProgramMailPendingRecoveryCase(
       world.prisma,
       new ProgramMailAuditRepository(),
       new ProgramMailKeyRepository(),
+      new ProgramMailBatchPayloadRepository(),
     ).reserve({
       actorId: principal.id,
       programId: audience.id,

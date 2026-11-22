@@ -12,6 +12,7 @@ export interface TeamSearchFormProps {
   readonly inputId: string;
   readonly search: string;
   readonly resettable: boolean;
+  readonly compact?: boolean;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
   readonly onReset: () => void;
@@ -22,6 +23,45 @@ export function TeamSearchForm(props: TeamSearchFormProps): ReactElement {
     event.preventDefault();
     props.onSearch();
   };
+  const input = (
+    <Input
+      id={props.inputId}
+      className={
+        props.compact ? 'h-control min-w-0 flex-1' : 'h-control w-full min-w-0'
+      }
+      value={props.search}
+      onChange={(event) => props.onSearchChange(event.target.value)}
+      placeholder="신청자·팀명·GitHub ID"
+    />
+  );
+
+  if (props.compact) {
+    return (
+      <form
+        className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"
+        onSubmit={submit}
+      >
+        <label htmlFor={props.inputId} className="sr-only">
+          검색
+        </label>
+        {input}
+        <Button type="submit" variant="outline" size="sm" className="h-control">
+          조회
+        </Button>
+        {props.resettable ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-control"
+            onClick={props.onReset}
+          >
+            초기화
+          </Button>
+        ) : null}
+      </form>
+    );
+  }
 
   return (
     <form className={FILTER_ROW} onSubmit={submit}>
@@ -33,13 +73,7 @@ export function TeamSearchForm(props: TeamSearchFormProps): ReactElement {
           <Search aria-hidden="true" className="size-4 text-muted-foreground" />
           검색
         </label>
-        <Input
-          id={props.inputId}
-          className="h-control w-full min-w-0"
-          value={props.search}
-          onChange={(event) => props.onSearchChange(event.target.value)}
-          placeholder="신청자·팀명·GitHub ID"
-        />
+        {input}
       </div>
       <div className="flex w-full min-w-0 gap-2">
         <Button type="submit" className="h-control flex-1 sm:flex-none">

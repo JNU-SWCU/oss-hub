@@ -1,12 +1,14 @@
 import { RequirementCollectionService } from './requirement-archive.service';
-import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import { configureHttpApp } from '../configure-http-app';
 import {
   SubmissionMatrixRepository,
+  type MatrixStatusCounts,
+  type SubmissionMatrixFilter,
   type SubmissionMatrixRepositoryPort,
 } from './submissions.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
@@ -25,12 +27,19 @@ const STUDENT_GITHUB_ID = 9_124_100_003n;
 const PROGRAM_ID = 'synthetic-matrix-program';
 const MATRIX_URL_PATH = `/api/v1/programs/${PROGRAM_ID}/submissions/matrix`;
 
-const pageCalls: Array<{
-  q: string;
-  applicationMode: string | null;
-  skip: number;
-  take: number;
-}> = [];
+const pageCalls: Array<
+  SubmissionMatrixFilter & {
+    skip: number;
+    take: number;
+  }
+> = [];
+const statusCounts = {
+  NOT_SUBMITTED: 1,
+  SUBMITTED: 1,
+  CHANGES_REQUESTED: 0,
+  REJECTED: 0,
+  APPROVED: 0,
+} satisfies MatrixStatusCounts;
 
 const repository: SubmissionMatrixRepositoryPort = {
   programExists: (programId) => Promise.resolve(programId === PROGRAM_ID),
@@ -49,12 +58,17 @@ const repository: SubmissionMatrixRepositoryPort = {
       items: [
         {
           id: 'synthetic-application-personal',
+          leaderName: '합성 신청자',
           applicant: { name: '합성 신청자', nickname: 'synthetic-hong' },
           team: null,
         },
         {
           id: 'synthetic-application-team',
-          applicant: { name: null, nickname: 'synthetic-leader' },
+          leaderName: null,
+          applicant: {
+            name: '합성 원래 신청자',
+            nickname: 'synthetic-applicant',
+          },
           team: {
             name: '합성 오픈소스팀',
             memberNicknames: ['synthetic-leader', 'synthetic-member'],
@@ -62,6 +76,7 @@ const repository: SubmissionMatrixRepositoryPort = {
         },
       ],
       total: 2,
+      statusCounts,
     });
   },
   findCurrentSubmissions: () =>
@@ -128,15 +143,7 @@ beforeAll(async () => {
     .compile();
 
   application = moduleRef.createNestApplication();
-  application.setGlobalPrefix('api/v1');
-  application.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-  application.useGlobalFilters(new ProblemDetailFilter());
+  configureHttpApp(application);
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
 });
@@ -189,6 +196,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
         teamId: 'synthetic-application-personal',
         applicationMode: 'PERSONAL',
         displayName: '합성 신청자',
+        leaderName: '합성 신청자',
         githubLogins: ['synthetic-hong'],
         cells: [
           {
@@ -206,6 +214,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
         teamId: 'synthetic-application-team',
         applicationMode: 'TEAM',
         displayName: '합성 오픈소스팀',
+        leaderName: null,
         githubLogins: ['synthetic-leader', 'synthetic-member'],
         cells: [
           {
@@ -223,7 +232,35 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
     page: 1,
     pageSize: 20,
     total: 2,
+    statusCounts,
   });
+});
+
+it('검색·상태·마일스톤 정렬·페이지 쿼리를 매트릭스 조회에 전달한다', async () => {
+  const params = new URLSearchParams({
+    q: ' 합성 ',
+    status: 'SUBMITTED',
+    sort: 'milestone:synthetic-milestone',
+    direction: 'desc',
+    page: '2',
+    pageSize: '5',
+  });
+  const response = await fetch(`${baseUrl}${MATRIX_URL_PATH}?${params}`, {
+    headers: { cookie: await cookie(STAFF_GITHUB_ID) },
+  });
+
+  expect(response.status).toBe(200);
+  expect(pageCalls).toEqual([
+    {
+      q: '합성',
+      applicationMode: null,
+      status: 'SUBMITTED',
+      sort: 'milestone:synthetic-milestone',
+      direction: 'desc',
+      skip: 5,
+      take: 5,
+    },
+  ]);
 });
 
 it('ADMIN 단독 세션은 매트릭스를 조회하지 못한다', async () => {
@@ -249,6 +286,10 @@ it.each([
   ['pageSize 상한 100 초과', 'pageSize=101'],
   ['page 0', 'page=0'],
   ['허용되지 않은 applicationMode', 'applicationMode=BOTH'],
+  ['허용되지 않은 status', 'status=OVERDUE'],
+  ['ID 없는 마일스톤 정렬', 'sort=milestone%3A'],
+  ['허용되지 않은 direction', 'direction=up'],
+  ['단계 범위 파라미터', 'milestoneId=synthetic-milestone'],
 ] as const)('%s 요청은 서비스 호출 전에 400으로 거절한다', async (_, qs) => {
   const response = await fetch(`${baseUrl}${MATRIX_URL_PATH}?${qs}`, {
     headers: { cookie: await cookie(STAFF_GITHUB_ID) },

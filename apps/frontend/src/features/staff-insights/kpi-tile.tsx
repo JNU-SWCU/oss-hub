@@ -12,17 +12,23 @@ export function KpiTile({
   value,
   ratio,
   note,
+  compact = false,
 }: {
   readonly label: string;
   readonly value: string;
   readonly ratio?: string;
   readonly note?: string;
+  readonly compact?: boolean;
 }): ReactElement {
   return (
-    <Card>
+    <Card className={compact ? '[--card-spacing:--spacing(4)]' : undefined}>
       <CardHeader>
         <CardDescription className="break-keep">{label}</CardDescription>
-        <CardTitle className="text-2xl font-semibold tabular-nums">
+        <CardTitle
+          className={
+            compact ? 'tabular-nums' : 'text-2xl font-semibold tabular-nums'
+          }
+        >
           {value}
         </CardTitle>
       </CardHeader>

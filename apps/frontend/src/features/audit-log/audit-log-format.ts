@@ -2,6 +2,8 @@ import {
   AUDIT_LOG_ACTION_LABELS,
   type AuditLogCategory,
   type AuditLogChangeValue,
+  type AuditLogFilters,
+  type AuditLogPeriod,
   type AuditLogPerson,
   type AuditLogRecord,
   type TeamMembershipOperation,
@@ -61,6 +63,17 @@ const MEMBERSHIP_ACTION_LABELS: Readonly<
   REMOVE: '팀원 제외',
   TRANSFER_LEADER: '팀장 변경',
 };
+
+export const AUDIT_LOG_PERIOD_LABELS: Readonly<Record<AuditLogPeriod, string>> =
+  {
+    '7d': '최근 7일',
+    '30d': '최근 30일',
+    custom: '직접 지정',
+  };
+
+const PERIOD_DAYS = { '7d': 7, '30d': 30 } as const;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const SEOUL = 'Asia/Seoul';
 
@@ -206,11 +219,14 @@ const timeFormatter = new Intl.DateTimeFormat('ko-KR', {
   hourCycle: 'h23',
 });
 
-const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
+const stampFormatter = new Intl.DateTimeFormat('ko-KR', {
   timeZone: SEOUL,
   year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
 });
 
 const dayFormatter = new Intl.DateTimeFormat('ko-KR', {
@@ -231,8 +247,53 @@ export function formatTime(iso: string): string {
   return timeFormatter.format(new Date(iso));
 }
 
-export function formatDate(iso: string): string {
-  return dateFormatter.format(new Date(iso));
+export function formatDateTime(iso: string, now: Date): string {
+  const [year, month, day] = dayKey(iso).split('-');
+  const date = `${Number(month)}.${Number(day)} ${formatTime(iso)}`;
+  return year === dayKey(now).slice(0, 4) ? date : `${year}.${date}`;
+}
+
+export function formatFullDateTime(iso: string): string {
+  return `${dayKey(iso).replaceAll('-', '.')} ${formatTime(iso)}`;
+}
+
+export function formatTimeRange(from: string, to: string): string {
+  const start = formatTime(from);
+  const end = formatTime(to);
+  return start === end ? start : `${start}–${end}`;
+}
+
+export function formatStamp(date: Date): string {
+  return stampFormatter.format(date);
+}
+
+export function periodRange(
+  filters: Pick<AuditLogFilters, 'period' | 'from' | 'to'>,
+  now: Date,
+): { readonly from: string; readonly to: string } {
+  if (filters.period === 'custom') {
+    return { from: filters.from, to: filters.to };
+  }
+  const days = PERIOD_DAYS[filters.period];
+  return {
+    from: dayKey(new Date(now.getTime() - (days - 1) * DAY_MS)),
+    to: '',
+  };
+}
+
+export function resultLabel(record: AuditLogRecord): string {
+  switch (record.action) {
+    case 'PROGRAM_MAIL_PARTIALLY_FAILED':
+      return '일부 실패';
+    case 'PROGRAM_MAIL_DELIVERY_UNKNOWN':
+      return '미확인';
+    case 'DEADLINE_DIGEST_SEND_COMPLETED':
+      return '완료';
+    default:
+      if (record.action.endsWith('_FAILED')) return '실패';
+      if (record.action.endsWith('_ATTEMPTED')) return '시도';
+      return '성공';
+  }
 }
 
 export function dayKey(iso: string | Date): string {
@@ -241,7 +302,7 @@ export function dayKey(iso: string | Date): string {
 
 export function dayLabel(iso: string, now: Date): string {
   const key = dayKey(iso);
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterday = new Date(now.getTime() - DAY_MS);
   const date = dayFormatter.format(new Date(iso));
   if (key === dayKey(now)) return `오늘 · ${date}`;
   if (key === dayKey(yesterday)) return `어제 · ${date}`;

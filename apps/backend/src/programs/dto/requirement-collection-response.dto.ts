@@ -12,6 +12,7 @@ import type {
 } from '../requirements.repository';
 import type { SubmissionReviewDecision } from '../submissions.repository';
 import { RequirementTextContentResponseDto } from './requirement-text-content-response.dto';
+import { MatrixStatusCountsResponseDto } from './submission-matrix-response.dto';
 export class RequirementCollectionMilestoneResponseDto {
   declare readonly id: string;
   declare readonly programId: string;
@@ -76,12 +77,12 @@ export class RequirementCollectionCellResponseDto {
   declare readonly status: SubmissionStatus | null;
   declare readonly review: RequirementCollectionReviewResponseDto | null;
   static from(
-    document: RequirementRecord,
+    documentId: string,
     submission: RequirementCollectionCell | null,
   ): RequirementCollectionCellResponseDto {
     if (submission === null) {
       return {
-        documentId: document.id,
+        documentId,
         isSubmitted: false,
         submittedAt: null,
         revision: null,
@@ -92,7 +93,7 @@ export class RequirementCollectionCellResponseDto {
       };
     }
     return {
-      documentId: document.id,
+      documentId,
       isSubmitted: true,
       submittedAt: submission.submittedAt.toISOString(),
       revision: submission.revision,
@@ -128,7 +129,7 @@ export class RequirementCollectionRowResponseDto {
       memberNicknames: [...row.application.memberNicknames],
       cells: documents.map((document, index) =>
         RequirementCollectionCellResponseDto.from(
-          document,
+          document.id,
           row.cells[index] ?? null,
         ),
       ),
@@ -199,20 +200,29 @@ export class RequirementDeliveryCollectionRowResponseDto {
   declare readonly teamId: string;
   declare readonly teamName: string;
   declare readonly applicantName: string | null;
+  declare readonly leaderName: string | null;
   declare readonly memberNicknames: string[];
   declare readonly cells: RequirementCollectionCellResponseDto[];
   declare readonly deliveryStatus: DocumentDeliveryStatus;
+  declare readonly sortDocumentId?: string;
   static from(
-    row: RequirementCollectionRowResponseDto,
-    deliveryStatus: DocumentDeliveryStatus,
+    row: RequirementDeliveryCollectionResult['rows'][number],
+    documents: readonly RequirementRecord[],
   ): RequirementDeliveryCollectionRowResponseDto {
     return {
-      teamId: row.teamId,
-      teamName: row.teamName,
-      applicantName: row.applicantName,
-      memberNicknames: row.memberNicknames,
-      cells: row.cells,
-      deliveryStatus,
+      teamId: row.application.teamId,
+      teamName: row.application.teamName,
+      applicantName: row.application.applicantName,
+      leaderName: row.application.leaderName,
+      memberNicknames: [...row.application.memberNicknames],
+      cells: documents.map((document, index) =>
+        RequirementCollectionCellResponseDto.from(
+          document.id,
+          row.cells[index] ?? null,
+        ),
+      ),
+      deliveryStatus: row.deliveryStatus,
+      sortDocumentId: row.sortDocumentId,
     };
   }
 }
@@ -225,6 +235,7 @@ export class RequirementDeliveryCollectionResponseDto {
   declare readonly total: number;
   declare readonly filterCounts: RequirementCollectionFilterCountsResponseDto;
   declare readonly documentTotals: RequirementCollectionDocumentTotalResponseDto[];
+  declare readonly statusCounts: MatrixStatusCountsResponseDto;
   declare readonly deliveryCounts: {
     readonly missing: number;
     readonly late: number;
@@ -234,24 +245,26 @@ export class RequirementDeliveryCollectionResponseDto {
   static from(
     result: RequirementDeliveryCollectionResult,
   ): RequirementDeliveryCollectionResponseDto {
-    const response = RequirementCollectionResponseDto.from(result);
     return {
-      milestone: response.milestone,
-      documents: response.documents,
-      rows: response.rows.map((row, index) => {
-        const coordinateRow = result.rows[index];
-        if (coordinateRow === undefined)
-          throw new Error('Collection row mapping lost its source');
-        return RequirementDeliveryCollectionRowResponseDto.from(
-          row,
-          coordinateRow.deliveryStatus,
-        );
-      }),
-      page: response.page,
-      pageSize: response.pageSize,
-      total: response.total,
-      filterCounts: response.filterCounts,
-      documentTotals: response.documentTotals,
+      milestone: RequirementCollectionMilestoneResponseDto.from(
+        result.milestone,
+      ),
+      documents: result.documents.map((document) =>
+        RequirementCollectionDocumentResponseDto.from(document),
+      ),
+      rows: result.rows.map((row) =>
+        RequirementDeliveryCollectionRowResponseDto.from(row, result.documents),
+      ),
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      filterCounts: RequirementCollectionFilterCountsResponseDto.from(
+        result.filterCounts,
+      ),
+      documentTotals: result.documentTotals.map((total) =>
+        RequirementCollectionDocumentTotalResponseDto.from(total),
+      ),
+      statusCounts: MatrixStatusCountsResponseDto.from(result.statusCounts),
       deliveryCounts: {
         missing: result.deliveryCounts.missing,
         late: result.deliveryCounts.late,

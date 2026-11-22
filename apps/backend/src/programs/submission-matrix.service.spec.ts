@@ -1,30 +1,36 @@
 import { MilestoneCompletionService } from './submissions.service';
 import { RequirementCollectionService } from './requirement-archive.service';
-import type { PrismaService } from '../platform/prisma.service';
-import { PlatformRepository } from '../platform/platform.repository';
-import {
-  SubmissionMatrixRepository,
-  type MatrixApplicationRecord,
-  type MatrixDocumentChangeRequest,
-  type MatrixMilestoneRecord,
-  type MatrixSubmissionRecord,
-  type SubmissionMatrixRepositoryPort,
-  type SubmissionMatrixFilter,
+import type {
+  MatrixApplicationPage,
+  MatrixDocumentChangeRequest,
+  MatrixMilestoneRecord,
+  MatrixSubmissionRecord,
+  SubmissionMatrixRepositoryPort,
+  SubmissionMatrixFilter,
 } from './submissions.repository';
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import {
   SubmissionMatrixService,
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions.error';
 
-const STAFF_GITHUB_ID = 9_124_000_001n;
 const PROGRAM_ID = 'synthetic-matrix-program';
+const EMPTY_PAGE: MatrixApplicationPage = {
+  items: [],
+  total: 0,
+  statusCounts: {
+    NOT_SUBMITTED: 0,
+    SUBMITTED: 0,
+    CHANGES_REQUESTED: 0,
+    REJECTED: 0,
+    APPROVED: 0,
+  },
+};
 
 interface FakeFixtures {
   readonly milestones?: readonly MatrixMilestoneRecord[];
-  readonly applications?: readonly MatrixApplicationRecord[];
-  readonly total?: number;
+  readonly page?: MatrixApplicationPage;
   readonly submissions?: readonly MatrixSubmissionRecord[];
   readonly firstSubmissions?: readonly {
     readonly teamId: string;
@@ -35,22 +41,19 @@ interface FakeFixtures {
 }
 
 class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
-  readonly pageCalls: Array<{
+  readonly pageCalls: Array<
+    SubmissionMatrixFilter & {
+      programId: string;
+      skip: number;
+      take: number;
+    }
+  > = [];
+  readonly submissionCalls: Array<{
     programId: string;
-    q: string;
-    applicationMode: string | null;
-    skip: number;
-    take: number;
+    teamIds: readonly string[];
   }> = [];
-  readonly submissionCalls: Array<readonly string[]> = [];
 
   constructor(private readonly fixtures: FakeFixtures = {}) {}
-
-  findActiveStaffOrAdmin(githubId: bigint) {
-    return Promise.resolve(
-      githubId === STAFF_GITHUB_ID ? { id: 'synthetic-staff' } : null,
-    );
-  }
 
   programExists(programId: string) {
     return Promise.resolve(programId === PROGRAM_ID);
@@ -67,14 +70,11 @@ class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
     take: number,
   ) {
     this.pageCalls.push({ programId, ...filter, skip, take });
-    return Promise.resolve({
-      items: this.fixtures.applications ?? [],
-      total: this.fixtures.total ?? (this.fixtures.applications ?? []).length,
-    });
+    return Promise.resolve(this.fixtures.page ?? EMPTY_PAGE);
   }
 
-  findCurrentSubmissions(teamIds: readonly string[]) {
-    this.submissionCalls.push(teamIds);
+  findCurrentSubmissions(teamIds: readonly string[], programId: string) {
+    this.submissionCalls.push({ programId, teamIds });
     return Promise.resolve(this.fixtures.submissions ?? []);
   }
   findDocumentFirstSubmissions() {
@@ -110,6 +110,13 @@ describe('SubmissionMatrixService', () => {
 
   it('제출 셀은 현재 revision·제출 시각, 미제출 셀은 NOT_SUBMITTED null들로 결합하고 칸마다 보완 요청 중인 서류 수를 센다', async () => {
     const submittedAt = new Date('2026-08-19T01:00:00.000Z');
+    const statusCounts = {
+      NOT_SUBMITTED: 3,
+      SUBMITTED: 0,
+      CHANGES_REQUESTED: 3,
+      REJECTED: 0,
+      APPROVED: 0,
+    };
     const repository = new FakeSubmissionMatrixRepository({
       milestones: [
         {
@@ -125,21 +132,27 @@ describe('SubmissionMatrixService', () => {
           requiredDocumentIds: ['required-2'],
         },
       ],
-      applications: [
-        {
-          id: 'application-personal',
-          applicant: { name: '합성 신청자', nickname: 'synthetic-hong' },
-          team: null,
-        },
-        {
-          id: 'application-team',
-          applicant: { name: null, nickname: 'synthetic-leader' },
-          team: {
-            name: '합성 오픈소스팀',
-            memberNicknames: ['synthetic-leader', 'synthetic-member'],
+      page: {
+        items: [
+          {
+            id: 'application-personal',
+            leaderName: '합성 신청자',
+            applicant: { name: '합성 신청자', nickname: 'synthetic-hong' },
+            team: null,
           },
-        },
-      ],
+          {
+            id: 'application-team',
+            leaderName: '합성 팀장',
+            applicant: { name: '원래 신청자', nickname: 'synthetic-applicant' },
+            team: {
+              name: '합성 오픈소스팀',
+              memberNicknames: ['synthetic-leader', 'synthetic-member'],
+            },
+          },
+        ],
+        total: 2,
+        statusCounts,
+      },
       submissions: [
         {
           id: 'submission-1',
@@ -159,6 +172,7 @@ describe('SubmissionMatrixService', () => {
         },
       ],
       changeRequests: [
+        { teamId: 'application-personal', milestoneId: 'milestone-1' },
         { teamId: 'application-team', milestoneId: 'milestone-2' },
         { teamId: 'application-team', milestoneId: 'milestone-2' },
       ],
@@ -172,7 +186,10 @@ describe('SubmissionMatrixService', () => {
     const matrix = await service.matrix(PROGRAM_ID, query());
 
     expect(repository.submissionCalls).toEqual([
-      ['application-personal', 'application-team'],
+      {
+        programId: PROGRAM_ID,
+        teamIds: ['application-personal', 'application-team'],
+      },
     ]);
     expect(matrix).toEqual({
       milestones: [
@@ -192,6 +209,7 @@ describe('SubmissionMatrixService', () => {
           teamId: 'application-personal',
           applicationMode: 'PERSONAL',
           displayName: '합성 신청자',
+          leaderName: '합성 신청자',
           githubLogins: ['synthetic-hong'],
           cells: [
             {
@@ -201,7 +219,7 @@ describe('SubmissionMatrixService', () => {
               status: SubmissionStatus.CHANGES_REQUESTED,
               submittedAt,
               deliveryStatus: 'COMPLETE',
-              changesRequestedCount: 0,
+              changesRequestedCount: 1,
             },
             {
               milestoneId: 'milestone-2',
@@ -218,6 +236,7 @@ describe('SubmissionMatrixService', () => {
           teamId: 'application-team',
           applicationMode: 'TEAM',
           displayName: '합성 오픈소스팀',
+          leaderName: '합성 팀장',
           githubLogins: ['synthetic-leader', 'synthetic-member'],
           cells: [
             {
@@ -244,18 +263,24 @@ describe('SubmissionMatrixService', () => {
       page: 1,
       pageSize: 20,
       total: 2,
+      statusCounts,
     });
   });
 
   it('개인형 displayName은 User.name이 없으면 nickname으로 대체한다', async () => {
     const repository = new FakeSubmissionMatrixRepository({
-      applications: [
-        {
-          id: 'application-personal',
-          applicant: { name: null, nickname: 'synthetic-nameless' },
-          team: null,
-        },
-      ],
+      page: {
+        ...EMPTY_PAGE,
+        items: [
+          {
+            id: 'application-personal',
+            leaderName: null,
+            applicant: { name: null, nickname: 'synthetic-nameless' },
+            team: null,
+          },
+        ],
+        total: 1,
+      },
     });
     const service = new SubmissionMatrixService(
       repository,
@@ -267,13 +292,23 @@ describe('SubmissionMatrixService', () => {
 
     expect(matrix.rows[0]).toMatchObject({
       displayName: 'synthetic-nameless',
+      leaderName: null,
       githubLogins: ['synthetic-nameless'],
       cells: [],
     });
   });
 
-  it('페이지네이션 skip/take를 계산하고 page·pageSize·total을 그대로 돌려준다', async () => {
-    const repository = new FakeSubmissionMatrixRepository({ total: 42 });
+  it('검색·상태·정렬과 페이지 범위를 전달하고 빈 페이지에서도 total과 상태 건수를 돌려준다', async () => {
+    const statusCounts = {
+      NOT_SUBMITTED: 3,
+      SUBMITTED: 1,
+      CHANGES_REQUESTED: 0,
+      REJECTED: 2,
+      APPROVED: 0,
+    };
+    const repository = new FakeSubmissionMatrixRepository({
+      page: { items: [], total: 2, statusCounts },
+    });
     const service = new SubmissionMatrixService(
       repository,
       new RequirementCollectionService({} as never),
@@ -282,7 +317,15 @@ describe('SubmissionMatrixService', () => {
 
     const matrix = await service.matrix(
       PROGRAM_ID,
-      query({ q: 'hong', applicationMode: 'TEAM', page: 3, pageSize: 5 }),
+      query({
+        q: '  hong  ',
+        applicationMode: 'TEAM',
+        status: 'REJECTED',
+        sort: 'progress',
+        direction: 'desc',
+        page: 3,
+        pageSize: 5,
+      }),
     );
 
     expect(repository.pageCalls).toEqual([
@@ -290,89 +333,19 @@ describe('SubmissionMatrixService', () => {
         programId: PROGRAM_ID,
         q: 'hong',
         applicationMode: 'TEAM',
+        status: 'REJECTED',
+        sort: 'progress',
+        direction: 'desc',
         skip: 10,
         take: 5,
       },
     ]);
-    expect(matrix).toMatchObject({ rows: [], page: 3, pageSize: 5, total: 42 });
-  });
-});
-
-describe('submissionMatrixApplicationWhere', () => {
-  it('항상 프로그램 범위의 승인 신청만 겨냥한다', () => {
-    expect(
-      new SubmissionMatrixRepository(
-        {} as PrismaService,
-        new PlatformRepository(),
-      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
-        q: '',
-        applicationMode: null,
-      }),
-    ).toEqual({
-      programId: PROGRAM_ID,
-      status: ApplicationStatus.APPROVED,
-      archivedAt: null,
-    });
-  });
-
-  it('형태 필터(applicationMode)는 D5 이후 teamId 분기를 하지 않는다', () => {
-    const base = {
-      programId: PROGRAM_ID,
-      status: ApplicationStatus.APPROVED,
-      archivedAt: null,
-    };
-    expect(
-      new SubmissionMatrixRepository(
-        {} as PrismaService,
-        new PlatformRepository(),
-      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
-        q: '',
-        applicationMode: 'PERSONAL',
-      }),
-    ).toEqual(base);
-    expect(
-      new SubmissionMatrixRepository(
-        {} as PrismaService,
-        new PlatformRepository(),
-      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
-        q: '',
-        applicationMode: 'TEAM',
-      }),
-    ).toEqual(base);
-    expect(
-      new SubmissionMatrixRepository(
-        {} as PrismaService,
-        new PlatformRepository(),
-      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
-        q: '',
-        applicationMode: null,
-      }),
-    ).toEqual(base);
-  });
-
-  it('검색어는 신청자 이름·핸들·팀명·팀원 핸들을 대소문자 무시 contains로 찾는다', () => {
-    const contains = { contains: 'Hong', mode: 'insensitive' };
-
-    expect(
-      new SubmissionMatrixRepository(
-        {} as PrismaService,
-        new PlatformRepository(),
-      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
-        q: 'Hong',
-        applicationMode: null,
-      }),
-    ).toEqual({
-      programId: PROGRAM_ID,
-      status: ApplicationStatus.APPROVED,
-      archivedAt: null,
-      OR: [
-        {
-          applicant: { name: contains },
-        },
-        { applicant: { nickname: contains } },
-        { name: contains },
-        { members: { some: { user: { nickname: contains } } } },
-      ],
+    expect(matrix).toMatchObject({
+      rows: [],
+      page: 3,
+      pageSize: 5,
+      total: 2,
+      statusCounts,
     });
   });
 });

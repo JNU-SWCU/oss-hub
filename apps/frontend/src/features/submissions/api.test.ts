@@ -12,6 +12,8 @@ import {
   listRequirementCurrentFiles,
   uploadSubmissionFile,
 } from './api';
+import { MATRIX_DEFAULT_ORDER } from './matrix';
+import type { SubmissionMatrixPage } from './types';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -316,13 +318,29 @@ describe('submissions api', () => {
     );
   });
 
-  it('매트릭스 조회는 programId를 인코딩하고 #124 query 계약대로 직렬화한다', async () => {
-    const page = {
+  it('매트릭스 조회에서 상태와 정렬을 보내고 서버 건수와 팀장 정보를 그대로 보존한다', async () => {
+    const page: SubmissionMatrixPage = {
       milestones: [],
-      rows: [],
+      rows: [
+        {
+          teamId: 'team-21',
+          applicationMode: 'TEAM',
+          displayName: '오픈소스팀',
+          leaderName: '홍길동',
+          githubLogins: [],
+          cells: [],
+        },
+      ],
       page: 2,
       pageSize: 20,
-      total: 0,
+      total: 21,
+      statusCounts: {
+        NOT_SUBMITTED: 21,
+        SUBMITTED: 0,
+        CHANGES_REQUESTED: 2,
+        REJECTED: 58,
+        APPROVED: 11,
+      },
     };
     const request = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(page), {
@@ -336,11 +354,17 @@ describe('submissions api', () => {
       q: ' 홍길동 ',
       page: 2,
       pageSize: 20,
+      status: 'REJECTED',
+      sort: 'milestone:plan/2',
+      direction: 'desc',
     });
 
     expect(result).toEqual(page);
     const expectedQuery = new URLSearchParams({
       q: '홍길동',
+      status: 'REJECTED',
+      sort: 'milestone:plan/2',
+      direction: 'desc',
       page: '2',
       pageSize: '20',
     });
@@ -350,7 +374,7 @@ describe('submissions api', () => {
     );
   });
 
-  it('매트릭스 조회에서 빈 검색어는 query에 넣지 않는다', async () => {
+  it('매트릭스 조회에서 빈 필터를 보내지 않아도 팀 오름차순은 명시한다', async () => {
     const request = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -359,6 +383,13 @@ describe('submissions api', () => {
           page: 1,
           pageSize: 20,
           total: 0,
+          statusCounts: {
+            NOT_SUBMITTED: 0,
+            SUBMITTED: 0,
+            CHANGES_REQUESTED: 0,
+            REJECTED: 0,
+            APPROVED: 0,
+          },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
@@ -369,10 +400,13 @@ describe('submissions api', () => {
       q: '  ',
       page: 1,
       pageSize: 20,
+      ...MATRIX_DEFAULT_ORDER,
     });
 
     expect(request).toHaveBeenCalledWith(
-      apiPath('programs/program-1/submissions/matrix?page=1&pageSize=20'),
+      apiPath(
+        'programs/program-1/submissions/matrix?sort=team&direction=asc&page=1&pageSize=20',
+      ),
       undefined,
     );
   });

@@ -1,9 +1,17 @@
+import { ApiProperty } from '@nestjs/swagger';
 import type { ProgramCategory } from '@prisma/client';
+import { STAFF_INSIGHTS_PERIOD_LEADER_LIMIT } from '../staff-insights-query.config';
 import type {
+  StaffInsightsFinderPage,
+  StaffInsightsFinderRow,
+} from '../staff-insights.repository';
+import type {
+  StaffInsightsAttentionStudentRow,
   StaffInsightsCohortRow,
   StaffInsightsCohortLeaders,
   StaffInsightsDepartmentRow,
   StaffInsightsLeaders,
+  StaffInsightsPeriodLeaderRow,
   StaffInsightsProgramRow,
   StaffInsightsProgramSummary,
   StaffInsightsRecentLeaderRow,
@@ -44,11 +52,13 @@ export class StaffInsightsCohortResponseDto {
 
 export class StaffInsightsDepartmentResponseDto {
   declare readonly department: string;
+  declare readonly major: string | null;
   declare readonly cohort: DepartmentCohort;
   declare readonly studentCount: number;
   declare readonly activeStudentCount: number;
   declare readonly participantCount: number;
   declare readonly activityPerStudent: number;
+  declare readonly recentPerStudent: number | null;
   declare readonly sampleTooSmall: boolean;
 
   static from(
@@ -56,11 +66,13 @@ export class StaffInsightsDepartmentResponseDto {
   ): StaffInsightsDepartmentResponseDto {
     return {
       department: row.department,
+      major: row.major,
       cohort: row.cohort,
       studentCount: row.studentCount,
       activeStudentCount: row.activeStudentCount,
       participantCount: row.participantCount,
       activityPerStudent: row.activityPerStudent,
+      recentPerStudent: row.recentPerStudent,
       sampleTooSmall: row.sampleTooSmall,
     };
   }
@@ -106,14 +118,105 @@ export class StaffInsightsCohortLeadersResponseDto {
   }
 }
 
+class StaffInsightsPeriodLeaderResponseDto extends StaffInsightsLeaderResponseDto {
+  declare readonly studentId: string | null;
+  declare readonly major: string | null;
+
+  @ApiProperty({ type: 'integer', minimum: 0, nullable: true })
+  declare readonly recentTotal: number | null;
+
+  @ApiProperty({ type: 'integer', minimum: 1, nullable: true })
+  declare readonly previousRank: number | null;
+
+  @ApiProperty({ type: 'number', minimum: 0, maximum: 1, nullable: true })
+  declare readonly collaborationRatio: number | null;
+
+  static override from(
+    row: StaffInsightsPeriodLeaderRow,
+  ): StaffInsightsPeriodLeaderResponseDto {
+    return {
+      rank: row.rank,
+      name: row.name,
+      githubLogin: row.githubLogin,
+      department: row.department,
+      total: row.total,
+      studentId: row.studentId,
+      major: row.major,
+      recentTotal: row.recentTotal,
+      previousRank: row.previousRank,
+      collaborationRatio: row.collaborationRatio,
+    };
+  }
+}
+
+class StaffInsightsPeriodCohortLeadersResponseDto {
+  @ApiProperty({
+    type: [StaffInsightsPeriodLeaderResponseDto],
+    maxItems: STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  })
+  declare readonly all: StaffInsightsPeriodLeaderResponseDto[];
+
+  @ApiProperty({
+    type: [StaffInsightsPeriodLeaderResponseDto],
+    maxItems: STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  })
+  declare readonly swMajor: StaffInsightsPeriodLeaderResponseDto[];
+
+  @ApiProperty({
+    type: [StaffInsightsPeriodLeaderResponseDto],
+    maxItems: STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  })
+  declare readonly nonSw: StaffInsightsPeriodLeaderResponseDto[];
+
+  static from(
+    leaders: StaffInsightsCohortLeaders<StaffInsightsPeriodLeaderRow>,
+  ): StaffInsightsPeriodCohortLeadersResponseDto {
+    return {
+      all: leaders.all.map((row) =>
+        StaffInsightsPeriodLeaderResponseDto.from(row),
+      ),
+      swMajor: leaders.swMajor.map((row) =>
+        StaffInsightsPeriodLeaderResponseDto.from(row),
+      ),
+      nonSw: leaders.nonSw.map((row) =>
+        StaffInsightsPeriodLeaderResponseDto.from(row),
+      ),
+    };
+  }
+}
+
 export class StaffInsightsLeadersResponseDto {
-  declare readonly period: StaffInsightsCohortLeadersResponseDto;
+  declare readonly period: StaffInsightsPeriodCohortLeadersResponseDto;
   declare readonly recent: StaffInsightsCohortLeadersResponseDto;
 
   static from(leaders: StaffInsightsLeaders): StaffInsightsLeadersResponseDto {
     return {
-      period: StaffInsightsCohortLeadersResponseDto.from(leaders.period),
+      period: StaffInsightsPeriodCohortLeadersResponseDto.from(leaders.period),
       recent: StaffInsightsCohortLeadersResponseDto.from(leaders.recent),
+    };
+  }
+}
+
+class StaffInsightsAttentionStudentResponseDto {
+  declare readonly name: string | null;
+  declare readonly githubLogin: string;
+  declare readonly studentId: string | null;
+  declare readonly department: string | null;
+  declare readonly total: number;
+
+  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
+  declare readonly lastActiveAt: string | null;
+
+  static from(
+    row: StaffInsightsAttentionStudentRow,
+  ): StaffInsightsAttentionStudentResponseDto {
+    return {
+      name: row.name,
+      githubLogin: row.githubLogin,
+      studentId: row.studentId,
+      department: row.department,
+      total: row.total,
+      lastActiveAt: row.lastActiveAt?.toISOString() ?? null,
     };
   }
 }
@@ -197,6 +300,11 @@ export class StaffInsightsResponseDto {
   declare readonly programs: StaffInsightsProgramResponseDto[];
   declare readonly programSummary: StaffInsightsProgramSummaryResponseDto;
   declare readonly leaders: StaffInsightsLeadersResponseDto;
+  declare readonly attentionStudents: StaffInsightsAttentionStudentResponseDto[];
+
+  @ApiProperty({ type: 'integer', minimum: 0, nullable: true })
+  declare readonly firstContributionCount: number | null;
+
   declare readonly recentWindow: {
     readonly from: string;
     readonly to: string;
@@ -221,10 +329,67 @@ export class StaffInsightsResponseDto {
         summary.programSummary,
       ),
       leaders: StaffInsightsLeadersResponseDto.from(summary.leaders),
+      attentionStudents: summary.attentionStudents.map((row) =>
+        StaffInsightsAttentionStudentResponseDto.from(row),
+      ),
+      firstContributionCount: summary.firstContributionCount,
       recentWindow: {
         from: summary.recentWindow.from.toISOString(),
         to: summary.recentWindow.to.toISOString(),
       },
+    };
+  }
+}
+
+class StaffInsightsFinderRowResponseDto {
+  declare readonly name: string | null;
+  declare readonly githubLogin: string;
+  declare readonly studentId: string | null;
+  declare readonly major: string | null;
+
+  @ApiProperty({ type: 'integer', minimum: 0 })
+  declare readonly total: number;
+
+  @ApiProperty({ type: 'integer', minimum: 0, nullable: true })
+  declare readonly recentTotal: number | null;
+
+  @ApiProperty({ type: 'number', minimum: 0, maximum: 1, nullable: true })
+  declare readonly collaborationRatio: number | null;
+
+  declare readonly programIds: string[];
+
+  static from(row: StaffInsightsFinderRow): StaffInsightsFinderRowResponseDto {
+    return {
+      name: row.name,
+      githubLogin: row.githubLogin,
+      studentId: row.studentId,
+      major: row.major,
+      total: row.total,
+      recentTotal: row.recentTotal,
+      collaborationRatio: row.collaborationRatio,
+      programIds: [...row.programIds],
+    };
+  }
+}
+
+export class StaffInsightsFinderResponseDto {
+  declare readonly rows: StaffInsightsFinderRowResponseDto[];
+
+  @ApiProperty({ type: 'integer', minimum: 1 })
+  declare readonly page: number;
+
+  @ApiProperty({ type: 'integer', minimum: 1 })
+  declare readonly pageSize: number;
+
+  @ApiProperty({ type: 'integer', minimum: 0 })
+  declare readonly total: number;
+
+  static from(page: StaffInsightsFinderPage): StaffInsightsFinderResponseDto {
+    return {
+      rows: page.rows.map((row) => StaffInsightsFinderRowResponseDto.from(row)),
+      page: page.page,
+      pageSize: page.pageSize,
+      total: page.total,
     };
   }
 }

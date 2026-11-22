@@ -79,6 +79,28 @@ describe('team activity boundary', () => {
     );
   });
 
+  it.each(['release/trunk', null])(
+    '기본 브랜치 %j를 보존한다',
+    (defaultBranch) => {
+      const repository = { ...activity.repository, defaultBranch };
+
+      expect(
+        parseTeamActivity({ ...activity, repository }).repository,
+      ).toStrictEqual(repository);
+    },
+  );
+
+  it.each([undefined, 42, { name: 'trunk' }])(
+    '확인할 수 없는 기본 브랜치 %j는 생략한다',
+    (defaultBranch) => {
+      const repository = { ...activity.repository, defaultBranch };
+
+      expect(
+        parseTeamActivity({ ...activity, repository }).repository,
+      ).toStrictEqual(activity.repository);
+    },
+  );
+
   it.each([
     ['미연결', { ...activity, status: 'NOT_CONNECTED', repository: null }],
     [

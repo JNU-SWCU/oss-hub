@@ -10,10 +10,17 @@ import {
   RANKING_ORDER_BY_SQL,
   STANDING_SQL,
 } from '../platform/contributor-read.config';
-
-const STANDING = Prisma.raw(STANDING_SQL);
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { PrismaService } from '../platform/prisma.service';
+import {
+  STAFF_INSIGHTS_ATTENTION_STUDENT_LIMIT,
+  STAFF_INSIGHTS_PERIOD_LEADER_LIMIT,
+  STAFF_INSIGHTS_RECENT_LEADER_LIMIT,
+  UNREGISTERED_DEPARTMENT,
+  type StaffInsightsFinderQuery,
+} from './staff-insights-query.config';
+
+const STANDING = Prisma.raw(STANDING_SQL);
 
 interface StaffInsightsActivityCounts {
   readonly commitCount: number;
@@ -28,6 +35,7 @@ export interface StaffInsightsDepartmentMetricsRecord {
   readonly studentCount: number;
   readonly activeStudentCount: number;
   readonly total: number;
+  readonly recentTotal: number | null;
   readonly participantCount: number;
 }
 
@@ -35,6 +43,21 @@ export interface StaffInsightsLeaderCandidateRecord extends StaffInsightsActivit
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly name: string | null;
+  readonly department: string | null;
+  readonly total: number;
+}
+
+export interface StaffInsightsPeriodLeaderCandidateRecord extends StaffInsightsLeaderCandidateRecord {
+  readonly studentId: string | null;
+  readonly recentTotal: number | null;
+  readonly previousOverallRank: number | null;
+  readonly previousCohortRank: number | null;
+}
+
+export interface StaffInsightsAttentionStudentRecord {
+  readonly name: string | null;
+  readonly githubLogin: string;
+  readonly studentId: string | null;
   readonly department: string | null;
   readonly total: number;
 }
@@ -52,6 +75,7 @@ export interface StaffInsightsParticipantCountRecord {
 
 export interface StaffInsightsRecentWindow {
   readonly cutoff: Date;
+  readonly now: Date;
   readonly cutoffYear: number;
   readonly nowYear: number;
 }
@@ -89,7 +113,34 @@ export interface StaffInsightsActivityQuery {
   readonly currentYear?: number;
 }
 
-const LEADER_LIMIT = 10;
+export interface StaffInsightsFinderRow {
+  readonly name: string | null;
+  readonly githubLogin: string;
+  readonly studentId: string | null;
+  readonly major: string | null;
+  readonly total: number;
+  readonly recentTotal: number | null;
+  readonly collaborationRatio: number | null;
+  readonly programIds: readonly string[];
+}
+
+export interface StaffInsightsFinderPage {
+  readonly rows: readonly StaffInsightsFinderRow[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+const FINDER_PAGE_SIZE = 20;
+const FINDER_SORT_COLUMNS: Readonly<
+  Record<StaffInsightsFinderQuery['sort'], Prisma.Sql>
+> = {
+  name: Prisma.sql`lower(name) COLLATE "C"`,
+  studentId: Prisma.sql`"studentId" COLLATE "C"`,
+  total: Prisma.sql`total`,
+  recentTotal: Prisma.sql`recent_total`,
+  collaborationRatio: Prisma.sql`collaboration_ratio`,
+};
 
 const PUBLIC_STANDING = Prisma.sql`
   SELECT * FROM ${STANDING} WHERE visibility = 'PUBLIC'::"ActivityVisibility"
@@ -106,11 +157,34 @@ const APPROVED_PARTICIPANTS = Prisma.sql`
   WHERE team.status = 'APPROVED' AND team."archivedAt" IS NULL
 `;
 
+const PUBLISHED_PARTICIPANTS = Prisma.sql`
+  SELECT approved.program_id, approved.user_id
+  FROM (${APPROVED_PARTICIPANTS}) AS approved
+  JOIN "Program" AS program ON program.id = approved.program_id
+  WHERE program.lifecycle = 'PUBLISHED'
+`;
+
+const DEPARTMENT_MISSING = Prisma.sql`
+  student.department IS NULL OR btrim(student.department, E' \\t\\n\\r') = ''
+`;
+
+const LEADER_COLUMNS = Prisma.sql`
+  leader.github_id AS "githubId",
+  leader.login AS "githubLogin",
+  leader.name,
+  leader.department,
+  leader.commit_count AS "commitCount",
+  leader.pull_request_count AS "pullRequestCount",
+  leader.issue_count AS "issueCount",
+  leader.repository_count AS "repositoryCount",
+  leader.star_count AS "starCount",
+  leader.total
+`;
+
 function cohortSql(swMajorDepartments: readonly string[]): Prisma.Sql {
   return Prisma.sql`
     CASE
-      WHEN student.department IS NULL
-        OR btrim(student.department, E' \\t\\n\\r') = '' THEN 'unregistered'
+      WHEN ${DEPARTMENT_MISSING} THEN 'unregistered'
       WHEN student.department = ANY(${[...swMajorDepartments]}::text[]) THEN 'sw-major'
       ELSE 'non-sw'
     END
@@ -123,52 +197,48 @@ function rankedCandidatesSql(
 ): Prisma.Sql {
   const order = Prisma.sql`ORDER BY ${Prisma.raw(RANKING_ORDER_BY_SQL)}`;
   return Prisma.sql`
-    WITH activity AS (${activity}),
+    WITH activity AS (${activityWithTotalSql(activity)}),
     candidates AS (
       SELECT
         student."githubId" AS github_id,
         student.login,
         student.name,
         student.department,
+        student."studentId" AS student_id,
         ${cohortSql(swMajorDepartments)} AS cohort,
         activity.commit_count,
         activity.pull_request_count,
         activity.issue_count,
         activity.repository_count,
         activity.star_count,
-        activity.commit_count + activity.pull_request_count
-          + activity.issue_count + activity.repository_count
-          + activity.star_count AS total
+        activity.total
       FROM "User" AS student
       JOIN activity ON activity.github_id = student."githubId"
       WHERE student.type = 'STUDENT'
         AND student."accountStatus" = 'ACTIVE'
         AND student.login <> ''
-    ),
-    ranked AS (
-      SELECT
-        candidates.*,
-        ROW_NUMBER() OVER (${order}) AS overall_rank,
-        ROW_NUMBER() OVER (PARTITION BY cohort ${order}) AS cohort_rank
-      FROM candidates
-      WHERE total > 0
     )
     SELECT
-      github_id AS "githubId",
-      login AS "githubLogin",
-      name,
-      department,
-      commit_count AS "commitCount",
-      pull_request_count AS "pullRequestCount",
-      issue_count AS "issueCount",
-      repository_count AS "repositoryCount",
-      star_count AS "starCount",
-      total
-    FROM ranked
-    WHERE overall_rank <= ${LEADER_LIMIT}
-      OR (cohort <> 'unregistered' AND cohort_rank <= ${LEADER_LIMIT})
-    ORDER BY overall_rank
-    LIMIT ${LEADER_LIMIT * 3}
+      candidates.*,
+      ROW_NUMBER() OVER (${order}) AS overall_rank,
+      ROW_NUMBER() OVER (PARTITION BY cohort ${order}) AS cohort_rank
+    FROM candidates
+    WHERE total > 0
+  `;
+}
+
+function topLeadersFilter(limit: number): Prisma.Sql {
+  return Prisma.sql`
+    leader.overall_rank <= ${limit}
+    OR (leader.cohort <> 'unregistered' AND leader.cohort_rank <= ${limit})
+  `;
+}
+
+function activityWithTotalSql(activity: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`
+    SELECT activity.*,
+      commit_count + pull_request_count + issue_count + repository_count + star_count AS total
+    FROM (${activity}) AS activity
   `;
 }
 
@@ -188,6 +258,76 @@ function foldedActivitySql(query: StaffInsightsActivityQuery): Prisma.Sql {
     FROM (${PUBLIC_STANDING}) AS standing
     ${year}
     GROUP BY github_id
+  `;
+}
+
+function recentActivitySql(window: StaffInsightsRecentWindow): Prisma.Sql {
+  return Prisma.sql`
+    WITH current_year AS (
+      SELECT * FROM (${PUBLIC_STANDING}) AS standing
+      WHERE year = ${window.cutoffYear}
+    ),
+    baseline AS (
+      SELECT DISTINCT ON (observation.github_id)
+        observation.github_id,
+        observation.commit_count,
+        observation.pull_request_count,
+        observation.issue_count,
+        observation.repository_count
+      FROM github_user_activity_history AS observation
+      WHERE observation.observed_at < ${window.cutoff}
+        AND observation.year = ${window.cutoffYear}
+        AND observation.visibility = 'PUBLIC'::"ActivityVisibility"
+      ORDER BY observation.github_id, observation.observed_at DESC
+    ),
+    combined AS (
+      SELECT
+        current_year.github_id,
+        GREATEST(0, current_year.commit_count - baseline.commit_count) AS commit_count,
+        GREATEST(0, current_year.pull_request_count - baseline.pull_request_count) AS pull_request_count,
+        GREATEST(0, current_year.issue_count - baseline.issue_count) AS issue_count,
+        GREATEST(0, current_year.repository_count - baseline.repository_count) AS repository_count,
+        current_year.observed_at BETWEEN ${window.cutoff} AND ${window.now} AS reobserved
+      FROM current_year
+      JOIN baseline USING (github_id)
+      ${
+        window.nowYear === window.cutoffYear
+          ? Prisma.empty
+          : Prisma.sql`
+            UNION ALL
+            SELECT github_id, commit_count, pull_request_count, issue_count, repository_count,
+              standing.observed_at BETWEEN ${window.cutoff} AND ${window.now} AS reobserved
+            FROM (${PUBLIC_STANDING}) AS standing
+            WHERE year = ${window.nowYear}
+              AND NOT EXISTS (
+                SELECT 1 FROM current_year
+                LEFT JOIN baseline USING (github_id)
+                WHERE current_year.github_id = standing.github_id
+                  AND baseline.github_id IS NULL
+              )
+          `
+      }
+    )
+    SELECT
+      github_id,
+      SUM(commit_count)::int AS commit_count,
+      SUM(pull_request_count)::int AS pull_request_count,
+      SUM(issue_count)::int AS issue_count,
+      SUM(repository_count)::int AS repository_count,
+      0 AS star_count,
+      BOOL_OR(reobserved) AS reobserved
+    FROM combined
+    GROUP BY github_id
+  `;
+}
+
+function measuredRecentTotalsSql(
+  window: StaffInsightsRecentWindow,
+): Prisma.Sql {
+  return Prisma.sql`
+    SELECT github_id, total
+    FROM (${activityWithTotalSql(recentActivitySql(window))}) AS recent
+    WHERE total > 0 OR reobserved
   `;
 }
 
@@ -219,26 +359,25 @@ export class StaffInsightsRepository {
 
   async listDepartmentMetrics(
     query: StaffInsightsActivityQuery,
+    window: StaffInsightsRecentWindow,
   ): Promise<readonly StaffInsightsDepartmentMetricsRecord[]> {
     return this.boundedReads.readAllInBatches(
       (after: string | null | undefined, take) =>
         this.prisma.$queryRaw<StaffInsightsDepartmentMetricsRecord[]>`
-      WITH activity AS (${foldedActivitySql(query)}),
+      WITH activity AS (${activityWithTotalSql(foldedActivitySql(query))}),
+      recent AS (${measuredRecentTotalsSql(window)}),
       participants AS (
         SELECT DISTINCT user_id FROM (${APPROVED_PARTICIPANTS}) AS approved
       ),
       students AS (
         SELECT
           student.department,
-          COALESCE(
-            activity.commit_count + activity.pull_request_count
-              + activity.issue_count + activity.repository_count
-              + activity.star_count,
-            0
-          ) AS total,
+          COALESCE(activity.total, 0) AS total,
+          recent.total AS recent_total,
           participants.user_id IS NOT NULL AS participant
         FROM "User" AS student
         LEFT JOIN activity ON activity.github_id = student."githubId"
+        LEFT JOIN recent ON recent.github_id = student."githubId"
         LEFT JOIN participants ON participants.user_id = student.id
         WHERE student.type = 'STUDENT'
           AND student."accountStatus" = 'ACTIVE'
@@ -249,6 +388,8 @@ export class StaffInsightsRepository {
         COUNT(*)::int AS "studentCount",
         COUNT(*) FILTER (WHERE total > 0)::int AS "activeStudentCount",
         SUM(total)::int AS total,
+        CASE WHEN COUNT(recent_total) = COUNT(*)
+          THEN SUM(recent_total)::int END AS "recentTotal",
         COUNT(*) FILTER (WHERE participant)::int AS "participantCount"
       FROM students
       GROUP BY department
@@ -262,79 +403,136 @@ export class StaffInsightsRepository {
   async listPeriodLeaderCandidates(
     query: StaffInsightsActivityQuery,
     swMajorDepartments: readonly string[],
-  ): Promise<readonly StaffInsightsLeaderCandidateRecord[]> {
-    return this.prisma.$queryRaw<StaffInsightsLeaderCandidateRecord[]>(
-      rankedCandidatesSql(foldedActivitySql(query), swMajorDepartments),
-    );
+    window: StaffInsightsRecentWindow,
+  ): Promise<readonly StaffInsightsPeriodLeaderCandidateRecord[]> {
+    const priorRanks =
+      query.currentYear === undefined
+        ? Prisma.sql`SELECT NULL::bigint AS github_id, NULL::int AS overall_rank, NULL::int AS cohort_rank WHERE FALSE`
+        : rankedCandidatesSql(
+            foldedActivitySql({ currentYear: query.currentYear - 1 }),
+            swMajorDepartments,
+          );
+    return this.prisma.$queryRaw<StaffInsightsPeriodLeaderCandidateRecord[]>`
+      WITH recent AS (${measuredRecentTotalsSql(window)}),
+        prior AS (${priorRanks})
+      SELECT ${LEADER_COLUMNS},
+        leader.student_id AS "studentId",
+        recent.total AS "recentTotal",
+        prior.overall_rank::int AS "previousOverallRank",
+        prior.cohort_rank::int AS "previousCohortRank"
+      FROM (${rankedCandidatesSql(foldedActivitySql(query), swMajorDepartments)}) AS leader
+      LEFT JOIN recent ON recent.github_id = leader.github_id
+      LEFT JOIN prior ON prior.github_id = leader.github_id
+      WHERE ${topLeadersFilter(STAFF_INSIGHTS_PERIOD_LEADER_LIMIT)}
+      ORDER BY leader.overall_rank
+      LIMIT ${STAFF_INSIGHTS_PERIOD_LEADER_LIMIT * 3}
+    `;
   }
 
   async listRecentLeaderCandidates(
     window: StaffInsightsRecentWindow,
     swMajorDepartments: readonly string[],
   ): Promise<readonly StaffInsightsLeaderCandidateRecord[]> {
-    const newYear =
-      window.nowYear === window.cutoffYear
-        ? Prisma.sql`SELECT * FROM (${PUBLIC_STANDING}) AS standing WHERE false`
-        : Prisma.sql`SELECT * FROM (${PUBLIC_STANDING}) AS standing WHERE year = ${window.nowYear}`;
-    return this.prisma.$queryRaw<StaffInsightsLeaderCandidateRecord[]>(
-      rankedCandidatesSql(
-        Prisma.sql`
-          WITH current_year AS (
-            SELECT * FROM (${PUBLIC_STANDING}) AS standing
-            WHERE year = ${window.cutoffYear}
-          ),
-          baseline AS (
-            SELECT DISTINCT ON (observation.github_id)
-              observation.github_id,
-              observation.commit_count,
-              observation.pull_request_count,
-              observation.issue_count,
-              observation.repository_count
-            FROM github_user_activity_history AS observation
-            WHERE observation.observed_at < ${window.cutoff}
-              AND observation.year = ${window.cutoffYear}
-              AND observation.visibility = 'PUBLIC'::"ActivityVisibility"
-            ORDER BY observation.github_id, observation.observed_at DESC
-          ),
-          since_cutoff AS (
-            SELECT
-              current_year.github_id,
-              GREATEST(0, current_year.commit_count - baseline.commit_count) AS commit_count,
-              GREATEST(0, current_year.pull_request_count - baseline.pull_request_count) AS pull_request_count,
-              GREATEST(0, current_year.issue_count - baseline.issue_count) AS issue_count,
-              GREATEST(0, current_year.repository_count - baseline.repository_count) AS repository_count
-            FROM current_year
-            JOIN baseline ON baseline.github_id = current_year.github_id
-          ),
-          excluded AS (
-            SELECT current_year.github_id
-            FROM current_year
-            LEFT JOIN baseline ON baseline.github_id = current_year.github_id
-            WHERE baseline.github_id IS NULL
-          ),
-          new_year AS (${newYear})
-          SELECT
-            combined.github_id,
-            SUM(combined.commit_count)::int AS commit_count,
-            SUM(combined.pull_request_count)::int AS pull_request_count,
-            SUM(combined.issue_count)::int AS issue_count,
-            SUM(combined.repository_count)::int AS repository_count,
-            0 AS star_count
-          FROM (
-            SELECT github_id, commit_count, pull_request_count, issue_count, repository_count
-            FROM since_cutoff
-            UNION ALL
-            SELECT github_id, commit_count, pull_request_count, issue_count, repository_count
-            FROM new_year
-          ) AS combined
-          WHERE NOT EXISTS (
-            SELECT 1 FROM excluded WHERE excluded.github_id = combined.github_id
-          )
-          GROUP BY combined.github_id
-        `,
-        swMajorDepartments,
-      ),
-    );
+    return this.prisma.$queryRaw<StaffInsightsLeaderCandidateRecord[]>`
+      SELECT ${LEADER_COLUMNS}
+      FROM (${rankedCandidatesSql(recentActivitySql(window), swMajorDepartments)}) AS leader
+      WHERE ${topLeadersFilter(STAFF_INSIGHTS_RECENT_LEADER_LIMIT)}
+      ORDER BY leader.overall_rank
+      LIMIT ${STAFF_INSIGHTS_RECENT_LEADER_LIMIT * 3}
+    `;
+  }
+
+  async listAttentionStudents(
+    query: StaffInsightsActivityQuery,
+    window: StaffInsightsRecentWindow,
+  ): Promise<readonly StaffInsightsAttentionStudentRecord[]> {
+    return this.prisma.$queryRaw<StaffInsightsAttentionStudentRecord[]>`
+      WITH period AS (${activityWithTotalSql(foldedActivitySql(query))}),
+        recent AS (${measuredRecentTotalsSql(window)})
+      SELECT student.name, student.login AS "githubLogin", student."studentId",
+        student.department, period.total
+      FROM "User" AS student
+      JOIN period ON period.github_id = student."githubId"
+      JOIN recent ON recent.github_id = student."githubId"
+      WHERE student.type = 'STUDENT'
+        AND student."accountStatus" = 'ACTIVE'
+        AND student.login <> ''
+        AND period.total > 0
+        AND recent.total = 0
+      ORDER BY student.id COLLATE "C"
+      LIMIT ${STAFF_INSIGHTS_ATTENTION_STUDENT_LIMIT}
+    `;
+  }
+
+  async findStudents(
+    query: StaffInsightsFinderQuery,
+    window: StaffInsightsRecentWindow,
+  ): Promise<StaffInsightsFinderPage> {
+    const direction =
+      query.direction === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+    const order = Prisma.sql`${FINDER_SORT_COLUMNS[query.sort]} ${direction} NULLS LAST, id COLLATE "C"`;
+    const search = `%${query.search.replace(/[\\%_]/g, '\\$&')}%`;
+    const [result] = await this.prisma.$queryRaw<
+      Pick<StaffInsightsFinderPage, 'rows' | 'total'>[]
+    >`
+      WITH period AS (${activityWithTotalSql(foldedActivitySql(query))}),
+      recent AS (${measuredRecentTotalsSql(window)}),
+      participants AS (${PUBLISHED_PARTICIPANTS}),
+      filtered AS (
+        SELECT student.id, student.name, student.login, student."studentId",
+          COALESCE(period.total, 0) AS total,
+          recent.total AS recent_total,
+          (period.pull_request_count + period.issue_count)::float8
+            / NULLIF(period.total, 0) AS collaboration_ratio
+        FROM "User" AS student
+        LEFT JOIN period ON period.github_id = student."githubId"
+        LEFT JOIN recent ON recent.github_id = student."githubId"
+        WHERE student.type = 'STUDENT'
+          AND student."accountStatus" = 'ACTIVE'
+          AND COALESCE(period.total, 0) >= ${query.minActivity}
+          ${
+            query.search
+              ? Prisma.sql`AND (student.name ILIKE ${search} OR student.login ILIKE ${search} OR student."studentId" LIKE ${search})`
+              : Prisma.empty
+          }
+          ${
+            query.department
+              ? Prisma.sql`AND (CASE WHEN ${DEPARTMENT_MISSING} THEN ${UNREGISTERED_DEPARTMENT} ELSE student.department END) = ${query.department}`
+              : Prisma.empty
+          }
+          ${
+            query.programId
+              ? Prisma.sql`AND EXISTS (SELECT 1 FROM participants WHERE user_id = student.id AND program_id = ${query.programId})`
+              : Prisma.empty
+          }
+          ${
+            query.recentActivity === 'all'
+              ? Prisma.empty
+              : query.recentActivity === 'active'
+                ? Prisma.sql`AND recent.total > 0`
+                : Prisma.sql`AND recent.total = 0`
+          }
+      )
+      SELECT (SELECT COUNT(*)::int FROM filtered) AS total,
+        COALESCE(json_agg(json_build_object(
+          'name', page.name,
+          'githubLogin', page.login,
+          'studentId', page."studentId",
+          'major', NULL::text,
+          'total', page.total,
+          'recentTotal', page.recent_total,
+          'collaborationRatio', page.collaboration_ratio,
+          'programIds', ARRAY(SELECT program_id FROM participants WHERE user_id = page.id ORDER BY program_id COLLATE "C")
+        ) ORDER BY ${order}), '[]'::json) AS rows
+      FROM (
+        SELECT * FROM filtered ORDER BY ${order}
+        LIMIT ${FINDER_PAGE_SIZE} OFFSET ${(query.page - 1) * FINDER_PAGE_SIZE}
+      ) AS page
+      LIMIT 1
+    `;
+    if (result === undefined)
+      throw new Error('Student finder returned no page');
+    return { ...result, page: query.page, pageSize: FINDER_PAGE_SIZE };
   }
 
   async listProgramParticipantDepartments(): Promise<
@@ -357,10 +555,8 @@ export class StaffInsightsRepository {
               THEN student.department
           END AS department,
           COUNT(DISTINCT approved.user_id)::int AS "participantCount"
-        FROM (${APPROVED_PARTICIPANTS}) AS approved
-        JOIN "Program" AS program ON program.id = approved.program_id
+        FROM (${PUBLISHED_PARTICIPANTS}) AS approved
         JOIN "User" AS student ON student.id = approved.user_id
-        WHERE program.lifecycle = 'PUBLISHED'
         GROUP BY 1, 2
       ) AS grouped
       WHERE ${
@@ -384,9 +580,7 @@ export class StaffInsightsRepository {
         COUNT(*) FILTER (WHERE program_count >= 2)::int AS "repeatParticipantCount"
       FROM (
         SELECT approved.user_id, COUNT(DISTINCT approved.program_id) AS program_count
-        FROM (${APPROVED_PARTICIPANTS}) AS approved
-        JOIN "Program" AS program ON program.id = approved.program_id
-        WHERE program.lifecycle = 'PUBLISHED'
+        FROM (${PUBLISHED_PARTICIPANTS}) AS approved
         GROUP BY approved.user_id
       ) AS per_user
       LIMIT 1

@@ -1,6 +1,22 @@
-import type { ReactElement } from 'react';
+'use client';
+
+import { useId, useState, type ReactElement } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { ListPanel } from '@/components';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { dayKey, dayLabel, formatTime } from './audit-log-format';
+import {
+  auditLogRecordKey,
+  type AuditFeedDay,
+  type AuditFeedRun,
+} from './audit-log-fold';
+import {
+  AUDIT_LOG_CATEGORY_LABELS,
+  dayLabel,
+  formatTime,
+  formatTimeRange,
+  targetLabel,
+} from './audit-log-format';
 import {
   AuditLogActionValue,
   AuditLogActor,
@@ -10,111 +26,173 @@ import {
 } from './audit-log-parts';
 import type { AuditLogRecord } from './types';
 
-interface FeedChain {
-  readonly head: AuditLogRecord;
-  readonly linked: AuditLogRecord[];
+const ROW_CLASS = cn(
+  'flex w-full flex-wrap items-baseline justify-start gap-x-2 gap-y-0.5 px-4 py-3 text-left text-table',
+  'hover:bg-muted/50 aria-pressed:bg-muted sm:py-2',
+);
+
+const ROW_ITEM_CLASS = 'border-t border-border/50';
+
+interface RowSelection {
+  readonly selectedId: string | null;
+  readonly onSelect: (key: string | null) => void;
 }
 
-interface FeedDay {
-  readonly key: string;
-  readonly chains: FeedChain[];
-}
-
-export function groupAuditFeed(
-  records: readonly AuditLogRecord[],
-): readonly FeedDay[] {
-  const days: FeedDay[] = [];
-  for (const record of records) {
-    const key = dayKey(record.occurredAt);
-    let day = days.at(-1);
-    if (day?.key !== key) {
-      day = { key, chains: [] };
-      days.push(day);
-    }
-    const chain = day.chains.at(-1);
-    const previous = chain ? (chain.linked.at(-1) ?? chain.head) : undefined;
-    if (
-      chain &&
-      record.requestId !== null &&
-      previous?.requestId === record.requestId
-    ) {
-      chain.linked.push(record);
-      continue;
-    }
-    day.chains.push({ head: record, linked: [] });
-  }
-  return days;
-}
-
-function FeedRow({
+function EventRow({
   record,
-  chained,
-}: {
+  nested,
+  selectedId,
+  onSelect,
+}: RowSelection & {
   readonly record: AuditLogRecord;
-  readonly chained: boolean;
+  readonly nested: boolean;
 }): ReactElement {
+  const key = auditLogRecordKey(record);
+  const selected = key === selectedId;
   return (
-    <li
-      className={cn(
-        'grid grid-cols-[1fr_auto] items-baseline gap-3 border-b border-border/60 py-2.5 text-sm',
-        chained && 'ml-4 border-l-2 border-l-border pl-3',
-      )}
-    >
-      <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 leading-relaxed">
+    <li className={ROW_ITEM_CLASS}>
+      <Button
+        type="button"
+        variant="bare"
+        size="content"
+        aria-pressed={selected}
+        className={cn(ROW_CLASS, nested && 'pl-10')}
+        onClick={() => onSelect(selected ? null : key)}
+      >
+        <time
+          dateTime={record.occurredAt}
+          className="shrink-0 text-muted-foreground tabular-nums"
+        >
+          {formatTime(record.occurredAt)}
+        </time>
         <AuditLogActor record={record} />
         <AuditLogRole record={record} />
-        {record.category === 'LOGIN' ? null : (
-          <>
+        <AuditLogActionValue record={record} />
+        {targetLabel(record) === null ? null : (
+          <span className="inline-flex min-w-0 items-baseline gap-x-2">
             <span aria-hidden="true" className="text-muted-foreground">
               →
             </span>
             <AuditLogTargetValue record={record} />
-          </>
+          </span>
         )}
-        <AuditLogActionValue record={record} />
         <AuditLogChangeValue record={record} />
-      </p>
-      <time
-        dateTime={record.occurredAt}
-        className="text-xs text-muted-foreground tabular-nums"
+      </Button>
+    </li>
+  );
+}
+
+function RunRow({
+  run,
+  open,
+  onToggle,
+  selectedId,
+  onSelect,
+}: RowSelection & {
+  readonly run: AuditFeedRun;
+  readonly open: boolean;
+  readonly onToggle: () => void;
+}): ReactElement {
+  const panelId = useId();
+  return (
+    <li className={ROW_ITEM_CLASS}>
+      <Button
+        type="button"
+        variant="bare"
+        size="content"
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={ROW_CLASS}
+        onClick={onToggle}
       >
-        {formatTime(record.occurredAt)}
-      </time>
+        <ChevronRight
+          aria-hidden="true"
+          className={cn(
+            'size-4 shrink-0 self-center text-muted-foreground',
+            open && 'rotate-90',
+          )}
+        />
+        <span>
+          {AUDIT_LOG_CATEGORY_LABELS.LOGIN} {run.records.length}건 · 실패{' '}
+          {run.failures}건
+        </span>
+        <span className="ml-auto text-muted-foreground tabular-nums">
+          {formatTimeRange(run.from, run.to)}
+        </span>
+      </Button>
+      <ul id={panelId} hidden={!open}>
+        {open
+          ? run.records.map((record) => (
+              <EventRow
+                key={auditLogRecordKey(record)}
+                record={record}
+                nested
+                selectedId={selectedId}
+                onSelect={onSelect}
+              />
+            ))
+          : null}
+      </ul>
     </li>
   );
 }
 
 export function AuditLogFeed({
-  records,
+  days,
   now,
-}: {
-  readonly records: readonly AuditLogRecord[];
+  selectedId,
+  onSelect,
+}: RowSelection & {
+  readonly days: readonly AuditFeedDay[];
   readonly now: Date;
 }): ReactElement {
+  const [openRuns, setOpenRuns] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (key: string) =>
+    setOpenRuns((current) => {
+      const next = new Set(current);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   return (
     <div className="flex flex-col gap-4">
-      {groupAuditFeed(records).map((day) => (
-        <section
-          key={day.key}
-          aria-label={dayLabel(day.chains[0].head.occurredAt, now)}
-        >
-          <h2 className="text-xs font-semibold text-muted-foreground">
-            {dayLabel(day.chains[0].head.occurredAt, now)}
-          </h2>
-          <ul className="flex flex-col">
-            {day.chains.flatMap((chain) => [
-              <FeedRow
-                key={chain.head.id}
-                record={chain.head}
-                chained={false}
-              />,
-              ...chain.linked.map((record) => (
-                <FeedRow key={record.id} record={record} chained />
-              )),
-            ])}
-          </ul>
-        </section>
-      ))}
+      {days.map((day) => {
+        const label = dayLabel(day.at, now);
+        return (
+          <section
+            key={day.key}
+            aria-label={label}
+            className="flex flex-col gap-2"
+          >
+            <h2 className="text-xs font-semibold text-muted-foreground">
+              {label}
+            </h2>
+            <ListPanel>
+              <ul className="[&>li:first-child]:border-t-0">
+                {day.items.map((item) =>
+                  item.kind === 'run' ? (
+                    <RunRow
+                      key={item.key}
+                      run={item}
+                      open={openRuns.has(item.key)}
+                      onToggle={() => toggle(item.key)}
+                      selectedId={selectedId}
+                      onSelect={onSelect}
+                    />
+                  ) : (
+                    <EventRow
+                      key={item.key}
+                      record={item.record}
+                      nested={false}
+                      selectedId={selectedId}
+                      onSelect={onSelect}
+                    />
+                  ),
+                )}
+              </ul>
+            </ListPanel>
+          </section>
+        );
+      })}
     </div>
   );
 }

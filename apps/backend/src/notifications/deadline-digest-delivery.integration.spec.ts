@@ -164,7 +164,7 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   ]);
   expect(ledger.every((row) => row.status === 'SENT')).toBe(true);
 
-  await service.sendProgramFromPreview(
+  const repeated = await service.sendProgramFromPreview(
     DIGEST_FIXTURE.notifyProgram,
     preview,
     DIGEST_FIXTURE.staffOn,
@@ -172,6 +172,12 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   );
 
   expect(manual.sent).toHaveLength(2);
+  expect(repeated).toMatchObject({
+    sentCount: 0,
+    duplicateCount: 1,
+    failedCount: 0,
+    staffRecipientCount: 1,
+  });
 });
 
 it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 된다', async () => {

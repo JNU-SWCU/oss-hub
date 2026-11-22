@@ -3423,6 +3423,15 @@
             }
           },
           {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^(?:team|progress|milestone:\\S+)$",
+              "type": "string"
+            }
+          },
+          {
             "name": "q",
             "required": false,
             "in": "query",
@@ -3439,6 +3448,33 @@
               "enum": [
                 "PERSONAL",
                 "TEAM"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NOT_SUBMITTED",
+                "SUBMITTED",
+                "CHANGES_REQUESTED",
+                "REJECTED",
+                "APPROVED"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
               ]
             }
           },
@@ -3761,6 +3797,56 @@
               "type": "string",
               "enum": [
                 "all"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NOT_SUBMITTED",
+                "SUBMITTED",
+                "CHANGES_REQUESTED",
+                "REJECTED",
+                "APPROVED"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "team",
+                "document",
+                "status",
+                "submittedAt",
+                "reviewedAt"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
               ]
             }
           },
@@ -4593,6 +4679,100 @@
         ]
       }
     },
+    "/api/v1/programs/{programId}/mail/jobs": {
+      "get": {
+        "operationId": "ProgramMailController_recent",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/mail/jobs/{jobId}": {
+      "get": {
+        "operationId": "ProgramMailController_status",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
     "/api/v1/programs/{programId}/mail/recipients": {
       "get": {
         "operationId": "ProgramMailController_recipients",
@@ -4992,6 +5172,34 @@
                 "ended"
               ]
             }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Required when direction is provided.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "deadline",
+                "submission",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "Required when sort is provided.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
           }
         ],
         "responses": {
@@ -5031,6 +5239,123 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StaffInsightsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "StaffDashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/staff/insights/students": {
+      "get": {
+        "operationId": "StaffDashboardController_insightsStudents",
+        "parameters": [
+          {
+            "name": "recentActivity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "studentId",
+                "total",
+                "recentTotal",
+                "collaborationRatio"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "department",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "minActivity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 2147483647,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 2147483647,
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffInsightsFinderResponseDto"
                 }
               }
             }
@@ -8973,6 +9298,10 @@
       "TeamActivityRepositoryResponseDto": {
         "type": "object",
         "properties": {
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
@@ -9056,6 +9385,11 @@
       "TeamActivityResponseDto": {
         "type": "object",
         "properties": {
+          "repositoryUrlHistoryCount": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
           "teamId": {
             "type": "string",
             "nullable": true
@@ -10220,12 +10554,16 @@
           "applicationMode": {
             "type": "string",
             "enum": [
-              "TEAM",
-              "PERSONAL"
+              "PERSONAL",
+              "TEAM"
             ]
           },
           "displayName": {
             "type": "string"
+          },
+          "leaderName": {
+            "type": "string",
+            "nullable": true
           },
           "githubLogins": {
             "type": "array",
@@ -10244,8 +10582,36 @@
           "teamId",
           "applicationMode",
           "displayName",
+          "leaderName",
           "githubLogins",
           "cells"
+        ]
+      },
+      "MatrixStatusCountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "NOT_SUBMITTED": {
+            "type": "number"
+          },
+          "SUBMITTED": {
+            "type": "number"
+          },
+          "CHANGES_REQUESTED": {
+            "type": "number"
+          },
+          "REJECTED": {
+            "type": "number"
+          },
+          "APPROVED": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "NOT_SUBMITTED",
+          "SUBMITTED",
+          "CHANGES_REQUESTED",
+          "REJECTED",
+          "APPROVED"
         ]
       },
       "SubmissionMatrixResponseDto": {
@@ -10271,6 +10637,9 @@
           },
           "total": {
             "type": "number"
+          },
+          "statusCounts": {
+            "$ref": "#/components/schemas/MatrixStatusCountsResponseDto"
           }
         },
         "required": [
@@ -10278,7 +10647,8 @@
           "rows",
           "page",
           "pageSize",
-          "total"
+          "total",
+          "statusCounts"
         ]
       },
       "SubmissionReviewFileResponseDto": {
@@ -10392,8 +10762,8 @@
               },
               "applicationMode": {
                 "enum": [
-                  "TEAM",
-                  "PERSONAL"
+                  "PERSONAL",
+                  "TEAM"
                 ],
                 "type": "string"
               },
@@ -10911,6 +11281,10 @@
             "type": "string",
             "nullable": true
           },
+          "leaderName": {
+            "type": "string",
+            "nullable": true
+          },
           "memberNicknames": {
             "type": "array",
             "items": {
@@ -10931,12 +11305,16 @@
               "COMPLETE",
               "NO_REQUIRED_ITEMS"
             ]
+          },
+          "sortDocumentId": {
+            "type": "string"
           }
         },
         "required": [
           "teamId",
           "teamName",
           "applicantName",
+          "leaderName",
           "memberNicknames",
           "cells",
           "deliveryStatus"
@@ -11012,6 +11390,9 @@
               "$ref": "#/components/schemas/RequirementCollectionDocumentTotalResponseDto"
             }
           },
+          "statusCounts": {
+            "$ref": "#/components/schemas/MatrixStatusCountsResponseDto"
+          },
           "deliveryCounts": {
             "type": "object",
             "properties": {
@@ -11045,6 +11426,7 @@
           "total",
           "filterCounts",
           "documentTotals",
+          "statusCounts",
           "deliveryCounts"
         ]
       },
@@ -11637,6 +12019,77 @@
           "failedCount"
         ]
       },
+      "ProgramMailReceiptResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "acceptedAt"
+        ]
+      },
+      "ProgramMailJobListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramMailReceiptResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ProgramMailJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "QUEUED",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "sentCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "number"
+          },
+          "unknownCount": {
+            "type": "number"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "jobId",
+          "acceptedAt"
+        ]
+      },
       "ProgramMailApplicantResponseDto": {
         "type": "object",
         "properties": {
@@ -11853,6 +12306,9 @@
       "ProgramMailSendResponseDto": {
         "type": "object",
         "properties": {
+          "jobId": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -12398,8 +12854,8 @@
           "applicationMode": {
             "type": "string",
             "enum": [
-              "TEAM",
-              "PERSONAL"
+              "PERSONAL",
+              "TEAM"
             ]
           }
         },
@@ -12729,6 +13185,39 @@
           "rejected"
         ]
       },
+      "StaffDashboardMilestoneSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string"
+          },
+          "submittedTeams": {
+            "type": "number",
+            "nullable": true
+          },
+          "totalTeams": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "startAt",
+          "dueAt",
+          "submittedTeams",
+          "totalTeams"
+        ]
+      },
       "StaffDashboardProgramSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -12776,6 +13265,12 @@
           },
           "submissions": {
             "$ref": "#/components/schemas/StaffDashboardSubmissionSummaryResponseDto"
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffDashboardMilestoneSummaryResponseDto"
+            }
           }
         },
         "required": [
@@ -12787,7 +13282,8 @@
           "endAt",
           "applications",
           "activity",
-          "submissions"
+          "submissions",
+          "milestones"
         ]
       },
       "StaffDashboardStatusSummaryResponseDto": {
@@ -12895,6 +13391,10 @@
           "department": {
             "type": "string"
           },
+          "major": {
+            "type": "string",
+            "nullable": true
+          },
           "cohort": {
             "type": "string",
             "enum": [
@@ -12915,17 +13415,23 @@
           "activityPerStudent": {
             "type": "number"
           },
+          "recentPerStudent": {
+            "type": "number",
+            "nullable": true
+          },
           "sampleTooSmall": {
             "type": "boolean"
           }
         },
         "required": [
           "department",
+          "major",
           "cohort",
           "studentCount",
           "activeStudentCount",
           "participantCount",
           "activityPerStudent",
+          "recentPerStudent",
           "sampleTooSmall"
         ]
       },
@@ -13061,6 +13567,95 @@
           "repeatParticipantRate"
         ]
       },
+      "StaffInsightsPeriodLeaderResponseDto": {
+        "type": "object",
+        "properties": {
+          "recentTotal": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "previousRank": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1
+          },
+          "collaborationRatio": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "major": {
+            "type": "string",
+            "nullable": true
+          },
+          "rank": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "recentTotal",
+          "previousRank",
+          "collaborationRatio",
+          "studentId",
+          "major",
+          "rank",
+          "name",
+          "githubLogin",
+          "department",
+          "total"
+        ]
+      },
+      "StaffInsightsPeriodCohortLeadersResponseDto": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
+            }
+          },
+          "swMajor": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
+            }
+          },
+          "nonSw": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsPeriodLeaderResponseDto"
+            }
+          }
+        },
+        "required": [
+          "all",
+          "swMajor",
+          "nonSw"
+        ]
+      },
       "StaffInsightsLeaderResponseDto": {
         "type": "object",
         "properties": {
@@ -13122,7 +13717,7 @@
         "type": "object",
         "properties": {
           "period": {
-            "$ref": "#/components/schemas/StaffInsightsCohortLeadersResponseDto"
+            "$ref": "#/components/schemas/StaffInsightsPeriodCohortLeadersResponseDto"
           },
           "recent": {
             "$ref": "#/components/schemas/StaffInsightsCohortLeadersResponseDto"
@@ -13133,9 +13728,50 @@
           "recent"
         ]
       },
+      "StaffInsightsAttentionStudentResponseDto": {
+        "type": "object",
+        "properties": {
+          "lastActiveAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "lastActiveAt",
+          "name",
+          "githubLogin",
+          "studentId",
+          "department",
+          "total"
+        ]
+      },
       "StaffInsightsResponseDto": {
         "type": "object",
         "properties": {
+          "firstContributionCount": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
           "scope": {
             "$ref": "#/components/schemas/StaffInsightsScopeResponseDto"
           },
@@ -13173,6 +13809,12 @@
           "leaders": {
             "$ref": "#/components/schemas/StaffInsightsLeadersResponseDto"
           },
+          "attentionStudents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsAttentionStudentResponseDto"
+            }
+          },
           "recentWindow": {
             "type": "object",
             "properties": {
@@ -13190,6 +13832,7 @@
           }
         },
         "required": [
+          "firstContributionCount",
           "scope",
           "dataAsOf",
           "years",
@@ -13198,7 +13841,88 @@
           "programs",
           "programSummary",
           "leaders",
+          "attentionStudents",
           "recentWindow"
+        ]
+      },
+      "StaffInsightsFinderRowResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recentTotal": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "collaborationRatio": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "githubLogin": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "major": {
+            "type": "string",
+            "nullable": true
+          },
+          "programIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "recentTotal",
+          "collaborationRatio",
+          "name",
+          "githubLogin",
+          "studentId",
+          "major",
+          "programIds"
+        ]
+      },
+      "StaffInsightsFinderResponseDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffInsightsFinderRowResponseDto"
+            }
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "rows"
         ]
       },
       "AccessRequestsUserResponseDto": {

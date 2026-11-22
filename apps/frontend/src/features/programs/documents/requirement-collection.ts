@@ -167,19 +167,6 @@ export function collectionRowMemberSummary(
   return others === 0 ? lead : `${lead} 외 ${others}명`;
 }
 
-export function searchCollectionRows(
-  rows: readonly RequirementCollectionRow[],
-  q: string,
-): readonly RequirementCollectionRow[] {
-  const needle = q.trim().toLocaleLowerCase();
-  if (needle === '') return rows;
-  return rows.filter((row) =>
-    [row.teamName, row.applicantName ?? '', ...row.memberNicknames].some(
-      (field) => field.toLocaleLowerCase().includes(needle),
-    ),
-  );
-}
-
 export type RequirementCollectionEmptyKind =
   | 'wrong-program'
   | 'no-documents'

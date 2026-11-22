@@ -29,7 +29,11 @@ import {
   SubmissionMembershipChangedError,
 } from './submissions.error';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
-import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
+import {
+  type MATRIX_APPLICATION_MODES,
+  type MATRIX_CELL_STATUSES,
+  SUBMISSION_DASHBOARD_STAGE_COUNT_CTES,
+} from './submission-matrix.config';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
 import type { SubmissionCompletionTargetRow } from './submission-completion.config';
 @Injectable()
@@ -289,9 +293,18 @@ const attachedFileSelect = {
   mimeType: true,
   sizeBytes: true,
 } satisfies Prisma.FileSelect;
+export interface SubmissionDashboardMilestoneSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly startAt: string;
+  readonly dueAt: string;
+  readonly submittedTeams: number | null;
+  readonly totalTeams: number | null;
+}
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
   readonly milestones: number;
+  readonly milestoneSummaries: readonly SubmissionDashboardMilestoneSummary[];
   readonly total: number;
   readonly notSubmitted: number;
   readonly submitted: number;
@@ -311,67 +324,57 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     programIds: readonly string[],
   ): Promise<readonly SubmissionDashboardProgramSummary[]> {
     if (programIds.length === 0) return [];
-    const programs = Prisma.join(programIds);
     return this.prisma.$queryRaw<SubmissionDashboardProgramSummary[]>`
-      WITH teams AS (
-        SELECT team."id", team."programId"
-        FROM "Team" AS team
-        WHERE team."programId" IN (${programs})
-          AND team."status" = 'APPROVED'
-          AND team."archivedAt" IS NULL
+      WITH program_ids AS (
+        SELECT DISTINCT unnest(ARRAY[${Prisma.join(programIds)}]::text[]) AS "programId"
       ),
-      documents AS (
-        SELECT requirement."id", requirement."milestoneId", milestone."programId"
-        FROM "Requirement" AS requirement
-        JOIN "Milestone" AS milestone ON milestone."id" = requirement."milestoneId"
-        WHERE requirement."required"
-          AND milestone."programId" IN (${programs})
+      milestones AS (
+        SELECT milestone."id", milestone."programId", milestone."name",
+          milestone."startAt", milestone."dueAt"
+        FROM "Milestone" AS milestone
+        JOIN program_ids USING ("programId")
       ),
-      cells AS (
-        SELECT teams."programId", MIN(
-          CASE submission."status"::text
-            WHEN 'REJECTED' THEN 0
-            WHEN 'CHANGES_REQUESTED' THEN 1
-            WHEN 'SUBMITTED' THEN 3
-            WHEN 'APPROVED' THEN 4
-            ELSE 2
-          END
-        ) AS worst
-        FROM teams
-        JOIN documents ON documents."programId" = teams."programId"
-        LEFT JOIN "Submission" AS submission
-          ON submission."teamId" = teams."id"
-          AND submission."requirementId" = documents."id"
-        GROUP BY teams."programId", teams."id", documents."milestoneId"
-      ),
-      program_ids AS (
-        SELECT DISTINCT unnest(ARRAY[${programs}]::text[]) AS "programId"
-      )
+      ${Prisma.raw(SUBMISSION_DASHBOARD_STAGE_COUNT_CTES)}
       SELECT
         program_ids."programId",
-        (SELECT COUNT(DISTINCT documents."milestoneId") FROM documents
-          WHERE documents."programId" = program_ids."programId")::int AS milestones,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId")::int
-          AS total,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 2)::int AS "notSubmitted",
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 3)::int AS submitted,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 4)::int AS approved,
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 1)::int AS "changesRequested",
-        (SELECT COUNT(*) FROM cells WHERE cells."programId" = program_ids."programId"
-          AND cells.worst = 0)::int AS rejected
+        COUNT(milestone_counts."milestoneId")::int AS milestones,
+        COALESCE(SUM(milestone_counts."totalTeams"), 0)::int AS total,
+        COALESCE(SUM(milestone_counts."notSubmitted"), 0)::int AS "notSubmitted",
+        COALESCE(SUM(milestone_counts.submitted), 0)::int AS submitted,
+        COALESCE(SUM(milestone_counts.approved), 0)::int AS approved,
+        COALESCE(SUM(milestone_counts."changesRequested"), 0)::int AS "changesRequested",
+        COALESCE(SUM(milestone_counts.rejected), 0)::int AS rejected,
+        COALESCE(
+          jsonb_agg(jsonb_build_object(
+            'id', milestone."id",
+            'name', milestone."name",
+            'startAt', to_char(milestone."startAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'dueAt', to_char(milestone."dueAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+            'submittedTeams', milestone_counts."submittedTeams",
+            'totalTeams', milestone_counts."totalTeams"
+          ) ORDER BY milestone."dueAt", milestone."id") FILTER (WHERE milestone."id" IS NOT NULL),
+          '[]'::jsonb
+        ) AS "milestoneSummaries"
       FROM program_ids
+      LEFT JOIN milestones AS milestone USING ("programId")
+      LEFT JOIN milestone_counts ON milestone_counts."milestoneId" = milestone."id"
+      GROUP BY program_ids."programId"
       LIMIT ${programIds.length}
     `;
   }
 }
 export type MatrixApplicationMode = (typeof MATRIX_APPLICATION_MODES)[number];
+export type MatrixCellStatus = (typeof MATRIX_CELL_STATUSES)[number];
+export type MatrixStatusCounts = Readonly<Record<MatrixCellStatus, number>>;
+export type MatrixSort = 'team' | 'progress' | `milestone:${string}`;
+export type MatrixSortDirection = 'asc' | 'desc';
+
 export interface SubmissionMatrixFilter {
   readonly q: string;
   readonly applicationMode: MatrixApplicationMode | null;
+  readonly status?: MatrixCellStatus;
+  readonly sort?: MatrixSort;
+  readonly direction?: MatrixSortDirection;
 }
 export interface MatrixDocumentFirstSubmission {
   readonly teamId: string;
@@ -421,6 +424,7 @@ export interface MatrixMilestoneRecord {
 }
 export interface MatrixApplicationRecord {
   readonly id: string;
+  readonly leaderName: string | null;
   readonly applicant: {
     readonly name: string | null;
     readonly nickname: string;
@@ -442,7 +446,12 @@ export interface MatrixSubmissionRecord {
 export interface MatrixApplicationPage {
   readonly items: readonly MatrixApplicationRecord[];
   readonly total: number;
+  readonly statusCounts: MatrixStatusCounts;
 }
+type MatrixPageSelection = MatrixStatusCounts & {
+  readonly teamIds: string[];
+  readonly total: number;
+};
 export interface SubmissionMatrixRepositoryPort {
   programExists(programId: string): Promise<boolean>;
   findMilestones(programId: string): Promise<readonly MatrixMilestoneRecord[]>;
@@ -454,6 +463,7 @@ export interface SubmissionMatrixRepositoryPort {
   ): Promise<MatrixApplicationPage>;
   findCurrentSubmissions(
     teamIds: readonly string[],
+    programId: string,
   ): Promise<readonly MatrixSubmissionRecord[]>;
   findDocumentFirstSubmissions(
     teamIds: readonly string[],
@@ -461,6 +471,7 @@ export interface SubmissionMatrixRepositoryPort {
   ): Promise<readonly MatrixDocumentFirstSubmission[]>;
   findDocumentChangeRequests(
     teamIds: readonly string[],
+    programId: string,
   ): Promise<readonly MatrixDocumentChangeRequest[]>;
 }
 export interface MatrixDocumentChangeRequest {
@@ -475,6 +486,7 @@ const matrixApplicationSelect = {
       ...USER_PROFILE_NAME_SELECT,
     },
   },
+  leader: { select: USER_PROFILE_NAME_SELECT },
   name: true,
   members: {
     take: READ_CAP.membersPerTeam + 1,
@@ -490,6 +502,7 @@ function toMatrixApplication(
 ): MatrixApplicationRecord {
   return {
     id: application.id,
+    leaderName: application.leader.name,
     applicant: {
       name: application.applicant.name ?? null,
       nickname: application.applicant.nickname,
@@ -506,10 +519,7 @@ function toMatrixApplication(
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
   private readonly boundedReads = new BoundedReadRepository();
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly platformRepository: PlatformRepository,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
   async programExists(programId: string): Promise<boolean> {
     const program = await this.prisma.program.findUnique({
       where: { id: programId },
@@ -528,7 +538,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
           .findMany({
             take,
             where: { programId },
-            orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+            orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
             select: {
               id: true,
               name: true,
@@ -568,29 +578,177 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     skip: number,
     take: number,
   ): Promise<MatrixApplicationPage> {
-    const where = this.submissionMatrixApplicationWhere(programId, filter);
-    const [applications, total] = await Promise.all([
-      this.prisma.team
-        .findMany({
-          where,
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          skip,
-          take,
-          select: matrixApplicationSelect,
-        })
-        .then((result) =>
-          this.boundedReads.assertNestedWithin(
-            result,
-            { members: READ_CAP.membersPerTeam },
-            'Team.findMany',
-          ),
-        ),
-      this.prisma.team.count({ where }),
-    ]);
-    return { items: applications.map(toMatrixApplication), total };
+    const { teamIds, total, ...statusCounts } = await this.selectMatrixPage(
+      programId,
+      filter,
+      skip,
+      take,
+    );
+    if (teamIds.length === 0) return { items: [], total, statusCounts };
+
+    const applications = this.boundedReads.assertNestedWithin(
+      await this.prisma.team.findMany({
+        where: {
+          id: { in: teamIds },
+          programId,
+          status: ApplicationStatus.APPROVED,
+          archivedAt: null,
+        },
+        take: teamIds.length,
+        select: matrixApplicationSelect,
+      }),
+      { members: READ_CAP.membersPerTeam },
+      'Team.findMany',
+    );
+    const byId = new Map(applications.map((row) => [row.id, row]));
+    return {
+      items: teamIds.flatMap((id) => {
+        const row = byId.get(id);
+        return row === undefined ? [] : [toMatrixApplication(row)];
+      }),
+      total,
+      statusCounts,
+    };
   }
+
+  private async selectMatrixPage(
+    programId: string,
+    filter: SubmissionMatrixFilter,
+    skip: number,
+    take: number,
+  ): Promise<MatrixPageSelection> {
+    const contains = `%${filter.q}%`;
+    const search = filter.q
+      ? Prisma.sql`AND (
+          applicant."name" ILIKE ${contains}
+          OR applicant."login" ILIKE ${contains}
+          OR team."name" ILIKE ${contains}
+          OR EXISTS (
+            SELECT 1 FROM "TeamMember" AS member
+            JOIN "User" AS member_user ON member_user."id" = member."userId"
+            WHERE member."teamId" = team."id" AND member_user."login" ILIKE ${contains}
+          )
+        )`
+      : Prisma.empty;
+    const displayName =
+      filter.sort === 'team'
+        ? Prisma.sql`, CASE WHEN EXISTS (
+          SELECT 1 FROM "TeamMember" AS member
+          WHERE member."teamId" = team."id" OFFSET 1
+        ) THEN team."name" ELSE COALESCE(applicant."name", applicant."login") END AS "displayName"`
+        : Prisma.empty;
+    const milestoneId = filter.sort?.startsWith('milestone:')
+      ? filter.sort.slice('milestone:'.length)
+      : null;
+    const direction =
+      filter.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+    const order =
+      filter.sort === 'team'
+        ? Prisma.sql`LOWER(matching."displayName") ${direction},`
+        : filter.sort === 'progress'
+          ? Prisma.sql`matching."progress" ${direction},`
+          : milestoneId !== null
+            ? Prisma.sql`matching."milestoneRank" ${direction},`
+            : Prisma.empty;
+
+    const [selection] = await this.prisma.$queryRaw<
+      readonly [MatrixPageSelection]
+    >`
+      WITH scoped_teams AS (
+        SELECT team."id", team."createdAt" ${displayName}
+        FROM "Team" AS team
+        JOIN "User" AS applicant ON applicant."id" = team."applicantId"
+        WHERE team."programId" = ${programId}
+          AND team."status" = 'APPROVED'
+          AND team."archivedAt" IS NULL
+          ${search}
+      ), milestones AS (
+        SELECT "id" FROM "Milestone" WHERE "programId" = ${programId}
+      ), documents AS (
+        SELECT document."id", document."milestoneId"
+        FROM "Requirement" AS document
+        JOIN milestones AS milestone ON milestone."id" = document."milestoneId"
+        WHERE document."required"
+      ), required_by_milestone AS (
+        SELECT "milestoneId", COUNT(*) AS "total"
+        FROM documents
+        GROUP BY "milestoneId"
+      ), submitted_by_milestone AS (
+        SELECT submission."teamId", document."milestoneId",
+          COUNT(*) AS "requiredSubmitted",
+          MIN(CASE submission."status"
+            WHEN 'REJECTED' THEN 0
+            WHEN 'CHANGES_REQUESTED' THEN 1
+            WHEN 'SUBMITTED' THEN 3
+            WHEN 'APPROVED' THEN 4
+          END) AS "requiredRank"
+        FROM scoped_teams AS team
+        JOIN "Submission" AS submission ON submission."teamId" = team."id"
+        JOIN documents AS document ON document."id" = submission."requirementId"
+        GROUP BY submission."teamId", document."milestoneId"
+      ), ranked_cells AS (
+        -- Match MilestoneCompletionService: a missing required document ranks
+        -- below SUBMITTED but above CHANGES_REQUESTED and REJECTED.
+        SELECT submitted."teamId", submitted."milestoneId",
+          LEAST("requiredRank",
+            CASE WHEN "requiredSubmitted" = required."total" THEN 4 ELSE 2 END
+          ) AS rank
+        FROM submitted_by_milestone AS submitted
+        JOIN required_by_milestone AS required USING ("milestoneId")
+      ), submitted_by_team AS (
+        SELECT "teamId",
+          COUNT(*) FILTER (WHERE rank = 3) AS "SUBMITTED",
+          COUNT(*) FILTER (WHERE rank = 1) AS "CHANGES_REQUESTED",
+          COUNT(*) FILTER (WHERE rank = 0) AS "REJECTED",
+          COUNT(*) FILTER (WHERE rank = 4) AS "APPROVED",
+          COUNT(*) FILTER (WHERE rank <> 2) AS "nonMissingCells",
+          MIN(rank) FILTER (WHERE "milestoneId" = ${milestoneId}::text) AS "milestoneRank"
+        FROM ranked_cells
+        GROUP BY "teamId"
+      ), team_slots AS (
+        SELECT team.*,
+          -- Only stages with required documents display a review status.
+          -- Count the remaining applicable cells without expanding team × milestone pairs.
+          (SELECT COUNT(*) FROM required_by_milestone) - COALESCE("nonMissingCells", 0) AS "NOT_SUBMITTED",
+          COALESCE("SUBMITTED", 0) AS "SUBMITTED",
+          COALESCE("CHANGES_REQUESTED", 0) AS "CHANGES_REQUESTED",
+          COALESCE("REJECTED", 0) AS "REJECTED",
+          COALESCE("APPROVED", 0) AS "APPROVED",
+          COALESCE("APPROVED", 0) AS "progress",
+          COALESCE("milestoneRank", 2) AS "milestoneRank"
+        FROM scoped_teams AS team
+        LEFT JOIN submitted_by_team AS submitted ON submitted."teamId" = team."id"
+      ), matching AS (
+        SELECT * FROM team_slots
+        WHERE CASE ${filter.status ?? null}::text
+          WHEN 'NOT_SUBMITTED' THEN "NOT_SUBMITTED"
+          WHEN 'SUBMITTED' THEN "SUBMITTED"
+          WHEN 'CHANGES_REQUESTED' THEN "CHANGES_REQUESTED"
+          WHEN 'REJECTED' THEN "REJECTED"
+          WHEN 'APPROVED' THEN "APPROVED"
+          ELSE 1
+        END > 0
+      )
+      SELECT ARRAY(
+          SELECT matching."id" FROM matching
+          ORDER BY ${order} matching."createdAt" ASC, matching."id" ASC
+          LIMIT ${take} OFFSET ${skip}
+        ) AS "teamIds",
+        (SELECT COUNT(*)::int FROM matching) AS "total",
+        COALESCE(SUM("NOT_SUBMITTED"), 0)::int AS "NOT_SUBMITTED",
+        COALESCE(SUM("SUBMITTED"), 0)::int AS "SUBMITTED",
+        COALESCE(SUM("CHANGES_REQUESTED"), 0)::int AS "CHANGES_REQUESTED",
+        COALESCE(SUM("REJECTED"), 0)::int AS "REJECTED",
+        COALESCE(SUM("APPROVED"), 0)::int AS "APPROVED"
+      FROM team_slots
+      LIMIT 1
+    `;
+    return selection;
+  }
+
   async findDocumentChangeRequests(
     teamIds: readonly string[],
+    programId: string,
   ): Promise<readonly MatrixDocumentChangeRequest[]> {
     if (teamIds.length === 0) return [];
     const submissions = await this.boundedReads.readCapped(
@@ -602,7 +760,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
           where: {
             teamId: { in: [...teamIds] },
             status: SubmissionStatus.CHANGES_REQUESTED,
-            requirement: {},
+            requirement: { milestone: { programId } },
           },
           select: {
             teamId: true,
@@ -617,6 +775,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
   }
   async findCurrentSubmissions(
     teamIds: readonly string[],
+    programId: string,
   ): Promise<readonly MatrixSubmissionRecord[]> {
     if (teamIds.length === 0) return [];
     const submissions = await this.boundedReads.readCapped(
@@ -627,7 +786,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
           take,
           where: {
             teamId: { in: [...teamIds] },
-            requirement: { required: true },
+            requirement: { required: true, milestone: { programId } },
           },
           select: {
             id: true,
@@ -649,26 +808,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       currentRevision: submission.revision,
       submittedAt: submission.submittedAt,
     }));
-  }
-  submissionMatrixApplicationWhere(
-    programId: string,
-    filter: SubmissionMatrixFilter,
-  ): Prisma.TeamWhereInput {
-    const where: Prisma.TeamWhereInput = {
-      programId,
-      status: ApplicationStatus.APPROVED,
-      archivedAt: null,
-    };
-    if (filter.q.length > 0) {
-      const contains = { contains: filter.q, mode: 'insensitive' as const };
-      where.OR = [
-        { applicant: this.platformRepository.userProfileNameWhere(filter.q) },
-        { applicant: { nickname: contains } },
-        { name: contains },
-        { members: { some: { user: { nickname: contains } } } },
-      ];
-    }
-    return where;
   }
 }
 type JsonObject = {

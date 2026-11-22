@@ -46,7 +46,7 @@ describe('buildRequirementCollectionSearchParams', () => {
   it('page·pageSize·filter를 언제나 함께 싣는다', () => {
     expect(
       buildRequirementCollectionSearchParams({
-        q: '',
+        q: ' \t ',
         page: 2,
         pageSize: 20,
         filter: 'HAS_MISSING',
@@ -119,13 +119,41 @@ describe('getRequirementCollection', () => {
           isRequired: true,
         },
       ],
-      rows: [],
-      page: 3,
+      rows: [
+        {
+          deliveryStatus: 'MISSING',
+          teamId: 'app-1',
+          teamName: '팀 & 1',
+          applicantName: '김철수',
+          leaderName: '이영희',
+          memberNicknames: ['chulsoo', 'younghee'],
+          cells: [
+            {
+              documentId: 'd1',
+              isSubmitted: false,
+              status: null,
+              revision: null,
+              submittedAt: null,
+              file: null,
+              content: null,
+              review: null,
+            },
+          ],
+        },
+      ],
+      page: 1,
       pageSize: 20,
-      total: 47,
-      deliveryCounts: { missing: 0, late: 0, complete: 0, noRequiredItems: 0 },
-      filterCounts: { all: 47, zeroSubmission: 5 },
-      documentTotals: [],
+      total: 1,
+      deliveryCounts: { missing: 1, late: 0, complete: 2, noRequiredItems: 0 },
+      filterCounts: { all: 3, zeroSubmission: 1 },
+      documentTotals: [{ documentId: 'd1', submitted: 2, total: 3 }],
+      statusCounts: {
+        NOT_SUBMITTED: 1,
+        SUBMITTED: 1,
+        APPROVED: 1,
+        CHANGES_REQUESTED: 0,
+        REJECTED: 0,
+      },
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(body), {
@@ -137,16 +165,19 @@ describe('getRequirementCollection', () => {
 
     await expect(
       getRequirementCollection('milestone-1', {
-        q: '',
-        page: 3,
+        q: ' 팀 & ',
+        page: 1,
         pageSize: 20,
         filter: 'ZERO_SUBMISSION',
+        status: 'NOT_SUBMITTED',
+        sort: 'reviewedAt',
+        direction: 'desc',
       }),
     ).resolves.toEqual(body);
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(
-        'milestones/milestone-1/documents/collection?page=3&pageSize=20&filter=ZERO_SUBMISSION',
+        'milestones/milestone-1/documents/collection?page=1&pageSize=20&q=%ED%8C%80+%26&status=NOT_SUBMITTED&sort=reviewedAt&direction=desc&filter=ZERO_SUBMISSION',
       ),
       undefined,
     );
