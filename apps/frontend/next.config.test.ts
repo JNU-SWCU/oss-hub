@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { getImgProps } from 'next/dist/shared/lib/get-img-props';
+import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
+import defaultLoader from 'next/dist/shared/lib/image-loader';
 import { hasLocalMatch } from 'next/dist/shared/lib/match-local-pattern';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import nextConfig from './next.config';
@@ -166,6 +169,29 @@ describe('nextConfig poweredByHeader', () => {
 });
 
 describe('nextConfig image optimizer', () => {
+  it('88px 카드에 2배 해상도를 넘지 않는 고밀도 표지 URL을 제공한다', () => {
+    const { props } = getImgProps(
+      {
+        src: '/program-cover-source/p1/c1',
+        alt: '',
+        fill: true,
+        sizes: '88px',
+      },
+      {
+        defaultLoader,
+        imgConf: { ...imageConfigDefault, ...nextConfig.images },
+      },
+    );
+    const candidates = props.srcSet?.split(', ').map((entry) => {
+      const [url, descriptor] = entry.split(' ');
+      const width = Number(
+        new URL(url, 'https://example.test').searchParams.get('w'),
+      );
+      return { width, descriptor };
+    });
+    expect(candidates).toContainEqual({ width: 176, descriptor: '176w' });
+  });
+
   it('공개 프로그램 표지 경로만 최적화 대상으로 받는다', () => {
     const patterns = nextConfig.images?.localPatterns ?? [];
 
