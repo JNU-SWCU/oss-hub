@@ -43,20 +43,29 @@ export function parseAuditLogSearchParams(
   const from = parseDate(params.get('from'));
   const to = parseDate(params.get('to'));
   const hasDates = from !== '' || to !== '';
+  const action = parseListEnum(
+    params.get('action'),
+    [...AUDIT_LOG_ACTIONS, ''],
+    '',
+  );
+  const category = parseListEnum(
+    params.get('category'),
+    [...AUDIT_LOG_CATEGORIES, ''],
+    '',
+  );
   const rawPeriod = params.get('period');
   const period = parseListEnum(
     rawPeriod,
     AUDIT_LOG_PERIODS,
-    hasDates || (rawPeriod === null && q !== '') ? 'custom' : '30d',
+    hasDates ||
+      (rawPeriod === null && (q !== '' || action !== '' || category !== ''))
+      ? 'custom'
+      : '30d',
   );
   return {
     q,
-    action: parseListEnum(params.get('action'), [...AUDIT_LOG_ACTIONS, ''], ''),
-    category: parseListEnum(
-      params.get('category'),
-      [...AUDIT_LOG_CATEGORIES, ''],
-      '',
-    ),
+    action,
+    category,
     period,
     from: period === 'custom' ? from : '',
     to: period === 'custom' ? to : '',
@@ -78,7 +87,10 @@ export function buildAuditLogSearchParams(state: AuditLogUrlState) {
 
   if (
     state.limit !== IMPLICIT_DATE_PAGE_LIMIT &&
-    (state.period !== '30d' || q !== '')
+    (state.period !== '30d' ||
+      q !== '' ||
+      state.category !== '' ||
+      state.action !== '')
   ) {
     params.set('period', state.period);
   }
