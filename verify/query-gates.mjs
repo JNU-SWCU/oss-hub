@@ -1,4 +1,11 @@
-import { existsSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { runWithDockerLock } from './docker-lock.mjs';
 import { queryDiagnostics } from './query-diagnostics.mjs';
@@ -61,6 +68,9 @@ export async function checkQueryGates({
     );
     return findings;
   }
+  const directory = mkdtempSync(join(tmpdir(), 'oss-hub-jest-'));
+  const reportFile = join(directory, 'jest.json');
+  writeFileSync(reportFile, '', { mode: 0o600, flag: 'wx' });
   const growth = await (runCommand ?? runWithDockerLock)(
     'bash',
     ['apps/backend/test/run-integration.sh'],
@@ -70,6 +80,7 @@ export async function checkQueryGates({
       killGraceMs: 30_000,
       env: {
         BACKEND_INTEGRATION_TEST_PATTERN: QUERY_GATE_PATTERN,
+        BACKEND_INTEGRATION_JEST_REPORT: reportFile,
         ...(psqlDir
           ? { PATH: `${psqlDir}${delimiter}${process.env.PATH ?? ''}` }
           : {}),
@@ -77,22 +88,23 @@ export async function checkQueryGates({
     },
   );
   if (growth.code !== 0) {
-    const diagnostics = queryDiagnostics(growth, { jest: true });
+    let report;
+    try {
+      report = JSON.parse(readFileSync(reportFile, 'utf8'));
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
+    const diagnostics = queryDiagnostics(growth, { report, cwd, directory });
     findings.push(
-      diagnostics.hasLint
-        ? finding(
-            'query-lint',
-            `a query on a measured route violated the query lint\n${diagnostics.text}`,
-            'query lint violation',
-            '0 violations',
-          )
-        : finding(
-            'query-growth',
-            `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${diagnostics.text}`,
-            `exit ${growth.code}`,
-            'exit 0',
-          ),
+      finding(
+        'query-growth',
+        `${QUERY_GATE_SPECS.join(', ')} integration specs failed\n${diagnostics.text}`,
+        `exit ${growth.code}`,
+        'exit 0',
+      ),
     );
+  } else {
+    rmSync(directory, { recursive: true });
   }
   return findings;
 }
