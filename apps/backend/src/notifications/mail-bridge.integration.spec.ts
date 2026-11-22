@@ -61,7 +61,9 @@ describe('when legacy finishes work after an unfinished paused import', () => {
   const refresh = () =>
     database.prisma.$queryRaw`SELECT import_legacy_program_mail(${jobId})`;
 
-  beforeEach(async () => {
+  async function completeAfterRollback(
+    members: readonly string[] = [otherUserId],
+  ) {
     const prisma = database.prisma;
     const audit = new ProgramMailAuditRepository();
     const keys = new ProgramMailKeyRepository();
@@ -83,13 +85,11 @@ describe('when legacy finishes work after an unfinished paused import', () => {
       bodyHash: 'synthetic',
       previewVersion: 'synthetic-rollback',
       occurredAt: CREATED,
-      recipients: [
-        {
-          id: otherUserId,
-          displayName: 'Synthetic',
-          notificationEmail: 'rollback@example.invalid',
-        },
-      ],
+      recipients: members.map((id) => ({
+        id,
+        displayName: 'Synthetic',
+        notificationEmail: `${id}@example.invalid`,
+      })),
     });
     jobId = reservation.jobId;
     const delivery = {
@@ -125,29 +125,33 @@ describe('when legacy finishes work after an unfinished paused import', () => {
       throw new Error(
         'Expected the original legacy reservation to be claimable',
       );
-    const [recipient] = await deliveries.states(work);
-    if (!recipient) throw new Error('Expected the reserved legacy recipient');
     await prisma.notification.update({
       where: delivery,
       data: { userId: otherUserId },
     });
-    expect(await deliveries.claim(work, recipient, CREATED)).toBe(true);
-    expect(
-      await deliveries.complete({
-        work,
-        state: recipient,
-        status: 'FAILED',
-        now: CREATED,
-      }),
-    ).toBe(true);
+    for (const recipient of await deliveries.states(work)) {
+      expect(await deliveries.claim(work, recipient, CREATED)).toBe(true);
+      expect(
+        await deliveries.complete({
+          work,
+          state: recipient,
+          status: 'FAILED',
+          now: CREATED,
+        }),
+      ).toBe(true);
+    }
     const result = await deliveries.result(work);
     if (!result) throw new Error('Expected a terminal delivery result');
     await expect(
       batches.complete(work, result, CREATED),
-    ).resolves.toMatchObject({ kind: 'COMPLETED', result: { failedCount: 1 } });
-  }, BODY_TIMEOUT_MS);
+    ).resolves.toMatchObject({
+      kind: 'COMPLETED',
+      result: { failedCount: members.length },
+    });
+  }
 
   it('replaces the stale recipient with the audited user and preserves the original completed receipt on repeat import', async () => {
+    await completeAfterRollback();
     const prisma = database.prisma;
     const receipts = new ProgramMailJobRepository(prisma, payloads);
     const check = async () => {
@@ -192,6 +196,7 @@ describe('when legacy finishes work after an unfinished paused import', () => {
   });
 
   it('counts the confirmed legacy failure once before and after re-import', async () => {
+    await completeAfterRollback();
     const prisma = database.prisma;
     const status = new SystemStatusRepository(prisma, new PlatformRepository());
     const expected = { sent7d: 0, failed7d: 1, unknown7d: 0, lastSentAt: null };
@@ -205,6 +210,7 @@ describe('when legacy finishes work after an unfinished paused import', () => {
   });
 
   it('keeps a refreshed receipt quarantined when the final roster disagrees with its audits', async () => {
+    await completeAfterRollback();
     const prisma = database.prisma;
     await prisma.notification.update({
       where: {
@@ -231,6 +237,59 @@ describe('when legacy finishes work after an unfinished paused import', () => {
     await expect(receipts.status(programId, jobId)).rejects.toThrow();
     expect((await receipts.recent(programId)).items).toEqual([]);
   });
+
+  it(
+    'hides the legacy completion on both imports when an audited delivery row is missing',
+    async () => {
+      const prisma = database.prisma;
+      const missing = 'synthetic-missing-recipient';
+      await prisma.user.create({
+        data: { id: missing, githubId: 987654321236n, nickname: missing },
+      });
+      await completeAfterRollback([otherUserId, missing]);
+      const receipts = new ProgramMailJobRepository(prisma, payloads);
+      await expect(receipts.status(programId, jobId)).resolves.toMatchObject({
+        status: 'COMPLETED',
+        failedCount: 2,
+      });
+      await prisma.notification.delete({
+        where: {
+          idempotencyKey: new ProgramMailKeyRepository().delivery(
+            'synthetic-rollback',
+            missing,
+          ),
+        },
+      });
+      await prisma.mailControl.update({
+        where: { id: 1 },
+        data: { mode: 'PAUSED' },
+      });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await refresh();
+        expect(
+          await prisma.mailJob.findUniqueOrThrow({
+            where: { id: jobId },
+            select: {
+              state: true,
+              legacySnapshotStatus: true,
+              result: true,
+              receiptFinishedAt: true,
+              recipients: { take: 3, select: { userId: true, state: true } },
+            },
+          }),
+        ).toEqual({
+          state: 'QUARANTINED',
+          legacySnapshotStatus: 'COMPLETED',
+          result: null,
+          receiptFinishedAt: null,
+          recipients: [{ userId: otherUserId, state: 'FAILED' }],
+        });
+        await expect(receipts.status(programId, jobId)).rejects.toThrow();
+        expect((await receipts.recent(programId)).items).toEqual([]);
+      }
+    },
+    BODY_TIMEOUT_MS,
+  );
 });
 
 it(

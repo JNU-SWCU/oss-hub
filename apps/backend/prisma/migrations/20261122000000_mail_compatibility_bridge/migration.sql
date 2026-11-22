@@ -98,6 +98,7 @@ CREATE FUNCTION import_legacy_program_mail(receipt TEXT) RETURNS TEXT LANGUAGE p
 DECLARE
   batch "Notification"%ROWTYPE;
   total INTEGER;
+  copied INTEGER;
   sent INTEGER;
   failed INTEGER;
   unknown_count INTEGER;
@@ -105,6 +106,8 @@ DECLARE
   recipient_ids JSONB;
   audit_phases INTEGER;
   valid_child_versions BOOLEAN;
+  valid_counts BOOLEAN;
+  invalid_provenance BOOLEAN;
   reconciled BOOLEAN := false;
   current_mode "MailMode";
 BEGIN
@@ -118,19 +121,35 @@ BEGIN
     SELECT 1 FROM "MailJob" WHERE id = receipt
       AND ("legacySnapshotStatus" IS NULL OR "legacySnapshotStatus" = 'COMPLETED' OR state <> 'QUARANTINED')
   ) THEN RETURN receipt; END IF;
-  IF jsonb_typeof(batch.payload->'schemaVersion') IS DISTINCT FROM 'number'
+  invalid_provenance := jsonb_typeof(batch.payload->'schemaVersion') IS DISTINCT FROM 'number'
     OR batch.payload->'schemaVersion' IS DISTINCT FROM '1'::jsonb
     OR (batch.payload ? 'bodyLength' AND jsonb_typeof(batch.payload->'bodyLength') IS DISTINCT FROM 'number')
-    OR batch."idempotencyKey" IS NULL THEN
-    RAISE EXCEPTION 'unrecognized mail provenance' USING ERRCODE = '22023';
-  END IF;
+    OR batch."idempotencyKey" IS NULL;
   SELECT count(*)::int,
     bool_and((jsonb_typeof(payload->'schemaVersion') = 'number' AND payload->'schemaVersion' = '1'::jsonb) IS TRUE)
   INTO total, valid_child_versions
   FROM "Notification"
   WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
-  IF NOT valid_child_versions THEN RAISE EXCEPTION 'unrecognized recipient provenance' USING ERRCODE = '22023'; END IF;
-  IF total > 200 THEN RAISE EXCEPTION 'legacy batch exceeds recipient cap' USING ERRCODE = '22023'; END IF;
+  stored := batch.payload->'result';
+  valid_counts := (
+    jsonb_typeof(stored->'sentCount') = 'number' AND
+    jsonb_typeof(stored->'failedCount') = 'number' AND
+    jsonb_typeof(stored->'duplicateCount') = 'number' AND
+    (NOT (stored ? 'unknownCount') OR jsonb_typeof(stored->'unknownCount') = 'number')
+  ) IS TRUE;
+  IF batch.status = 'COMPLETED' THEN
+    SELECT count(*) INTO audit_phases FROM "UserHistory"
+    WHERE "sourceTable" = 'ProgramMail' AND "sourceId" = batch."idempotencyKey"
+      AND "sourcePart" IN ('attempt', 'result');
+  END IF;
+  IF invalid_provenance OR valid_child_versions IS FALSE
+      OR (batch.status = 'COMPLETED' AND (NOT valid_counts OR audit_phases <> 2)) THEN
+    -- Reject an unrecognized first import. A known snapshot must keep its terminal hide marker.
+    UPDATE "MailJob" SET "legacySnapshotStatus" = 'COMPLETED', "updatedAt" = CURRENT_TIMESTAMP
+    WHERE id = receipt AND batch.status = 'COMPLETED';
+    IF FOUND THEN RETURN receipt; END IF;
+    RAISE EXCEPTION 'unrecognized legacy receipt or audit' USING ERRCODE = '22023';
+  END IF;
 
   INSERT INTO "MailJob" (
     id, "receiptId", "partNo", source, "programId", "actorId", "intentKey",
@@ -144,6 +163,7 @@ BEGIN
   WHERE "MailJob"."legacySnapshotStatus" IS DISTINCT FROM EXCLUDED."legacySnapshotStatus";
 
   DELETE FROM "MailRecipient" WHERE "jobId" = receipt;
+  IF total > 200 THEN RETURN receipt; END IF;
   INSERT INTO "MailRecipient" (id, "jobId", ordinal, audience, "userId", "deliveryKey", state, reason, "createdAt", "updatedAt", "finishedAt")
   SELECT id, receipt, (row_number() OVER (ORDER BY id) - 1)::int, 'STUDENT', "userId", "idempotencyKey",
     CASE
@@ -155,21 +175,16 @@ BEGIN
     END,
     CASE WHEN status = 'FAILED' THEN payload->>'code' END, "createdAt", coalesce("sentAt", batch."sentAt", "createdAt"), "sentAt"
   FROM "Notification"
-  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
-  IF batch.status <> 'COMPLETED' THEN RETURN receipt; END IF;
+  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey"
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS copied = ROW_COUNT;
+  IF copied <> total OR batch.status <> 'COMPLETED' THEN RETURN receipt; END IF;
 
   SELECT count(*)::int, count(*) FILTER (WHERE state = 'SENT')::int,
     count(*) FILTER (WHERE state = 'FAILED')::int, count(*) FILTER (WHERE state = 'UNKNOWN')::int,
     coalesce(jsonb_agg("userId"), '[]'::jsonb)
   INTO total, sent, failed, unknown_count, recipient_ids
   FROM "MailRecipient" WHERE "jobId" = receipt;
-  stored := batch.payload->'result';
-  IF (
-    jsonb_typeof(stored->'sentCount') IS DISTINCT FROM 'number' OR
-    jsonb_typeof(stored->'failedCount') IS DISTINCT FROM 'number' OR
-    jsonb_typeof(stored->'duplicateCount') IS DISTINCT FROM 'number' OR
-    (stored ? 'unknownCount' AND jsonb_typeof(stored->'unknownCount') IS DISTINCT FROM 'number')
-  ) THEN RAISE EXCEPTION 'legacy receipt counts must be numbers' USING ERRCODE = '22023'; END IF;
   IF (
     batch."sentAt" IS NULL OR stored IS NULL OR
     (stored->>'sentCount')::numeric IS DISTINCT FROM sent OR
@@ -177,7 +192,7 @@ BEGIN
     (stored ? 'unknownCount' AND (stored->>'unknownCount')::numeric <> unknown_count) OR
     (stored->>'duplicateCount')::numeric IS DISTINCT FROM 0 OR
     total <> sent + failed + unknown_count
-  ) THEN RAISE EXCEPTION 'legacy terminal receipt does not reconcile' USING ERRCODE = '22023'; END IF;
+  ) THEN RETURN receipt; END IF;
   SELECT count(*), bool_and((
       history."userId" = batch."userId" AND history."actorId" = batch."userId"
       AND history.data->>'targetId' = batch.payload->>'programId'
@@ -212,8 +227,7 @@ BEGIN
   FROM "UserHistory" history
   WHERE history."sourceTable" = 'ProgramMail' AND history."sourceId" = batch."idempotencyKey"
     AND history."sourcePart" IN ('attempt', 'result');
-  IF audit_phases <> 2 THEN RAISE EXCEPTION 'missing legacy mail audit' USING ERRCODE = '22023'; END IF;
-  IF reconciled THEN
+  IF audit_phases = 2 AND reconciled THEN
     UPDATE "MailJob" SET state = 'COMPLETED', "partFinishedAt" = batch."sentAt", "receiptFinishedAt" = batch."sentAt",
       result = jsonb_build_object('sentCount', sent, 'failedCount', failed, 'unknownCount', unknown_count, 'duplicateCount', 0)
     WHERE id = receipt;
