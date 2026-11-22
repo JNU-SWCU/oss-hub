@@ -156,7 +156,10 @@ describe('when legacy finishes work after an unfinished paused import', () => {
     expect(
       await prisma.mailJob.findUniqueOrThrow({
         where: { id: jobId },
-        select: { state: true, recipients: { select: { state: true } } },
+        select: {
+          state: true,
+          recipients: { take: 2, select: { state: true } },
+        },
       }),
     ).toEqual({ state: 'COMPLETED', recipients: [{ state: 'FAILED' }] });
     await check();
