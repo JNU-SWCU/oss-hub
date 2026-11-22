@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
   },
 
   eslint: { ignoreDuringBuilds: true },
-  experimental: { optimizePackageImports: ['radix-ui'] },
+  experimental: {
+    optimizePackageImports: ['radix-ui', '@tanstack/react-query'],
+  },
 
   devIndicators: { position: 'bottom-right' },
   async redirects() {
