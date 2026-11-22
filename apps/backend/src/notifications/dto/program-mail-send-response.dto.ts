@@ -1,4 +1,5 @@
 export class ProgramMailSendResponseDto {
+  declare readonly jobId?: string;
   declare readonly status: 'IN_PROGRESS' | 'COMPLETED';
   declare readonly sentCount: number;
   declare readonly duplicateCount: number;
@@ -9,6 +10,7 @@ export class ProgramMailSendResponseDto {
   static from(value: ProgramMailSendResponseDto): ProgramMailSendResponseDto {
     return {
       status: value.status,
+      jobId: value.jobId,
       sentCount: value.sentCount,
       duplicateCount: value.duplicateCount,
       failedCount: value.failedCount,

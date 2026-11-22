@@ -176,25 +176,33 @@ export function registerProgramMailConcurrencyCases(
       now,
     );
     await bounded(barrier.entered.promise);
-    await expect(
-      secondService.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
-    ).resolves.toEqual({
-      status: 'IN_PROGRESS',
-      sentCount: 0,
-      duplicateCount: 0,
-      failedCount: 0,
-      unknownCount: 0,
-      previewVersion: preview.previewVersion,
-    });
     const batchKey = `program-mail-send:${preview.previewVersion}`;
-    expect(
-      await world.prisma.userHistory.count({
-        where: { sourceTable: 'ProgramMail', sourceId: batchKey },
-      }),
-    ).toBe(1);
-
-    barrier.released.resolve();
+    const { id: jobId } = await world.prisma.notification.findUniqueOrThrow({
+      where: { idempotencyKey: batchKey },
+      select: { id: true },
+    });
+    try {
+      await expect(
+        secondService.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
+      ).resolves.toEqual({
+        jobId,
+        status: 'IN_PROGRESS',
+        sentCount: 0,
+        duplicateCount: 0,
+        failedCount: 0,
+        unknownCount: 0,
+        previewVersion: preview.previewVersion,
+      });
+      expect(
+        await world.prisma.userHistory.count({
+          where: { sourceTable: 'ProgramMail', sourceId: batchKey },
+        }),
+      ).toBe(1);
+    } finally {
+      barrier.released.resolve();
+    }
     await expect(first).resolves.toEqual({
+      jobId,
       status: 'COMPLETED',
       sentCount: 1,
       duplicateCount: 0,
@@ -204,7 +212,7 @@ export function registerProgramMailConcurrencyCases(
     });
     await expect(
       secondService.send(DIGEST_FIXTURE.notifyProgram, actor, request, now),
-    ).resolves.toMatchObject({ status: 'COMPLETED', sentCount: 1 });
+    ).resolves.toMatchObject({ jobId, status: 'COMPLETED', sentCount: 1 });
     expect(barrier.attempts).toBe(1);
     expect(
       await world.prisma.userHistory.count({

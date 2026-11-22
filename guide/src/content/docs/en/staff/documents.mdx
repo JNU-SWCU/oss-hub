@@ -10,52 +10,43 @@ import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 
-`서류 현황` (document status) is a table showing whether participating teams have submitted the required documents for each milestone. Open it from the program menu. The left menu is the only place that selects a stage: `서류 현황` shows every milestone as a column, and a milestone name beneath it narrows the table to that stage. The chosen stage stays in the address, so browser back and forward move between stages. To review individual documents, see [Review submitted documents](/oss-hub/en/staff/review-submission/).
+Open `서류 현황` (document status) in the program menu to compare teams' submission status across milestones. Select ① a milestone beneath it to see that stage's documents grouped by team. To download individual files or review documents, see [Review submitted documents](/oss-hub/en/staff/review-submission/).
 
 <Shot src="staff/documents-stage-menu.webp" alt="Program left menu with document status selected and its two milestones nested beneath it. Marker ① points to the first milestone." caption="① Choosing a stage narrows the table to it" />
-
-At the top right, ② `보완 요청 보내기` (send revision requests) sits beside ① `내려받기` (download).
-
-<Shot src="staff/documents-full.webp" alt="Document status with every milestone shown together: stage status summaries and filter chips above the team-by-milestone table. Marker ① points to download and ② to send revision requests." caption="① `내려받기` (download) ② `보완 요청 보내기` (send revision requests)" />
 
 ## Read submission status
 
 <Steps>
-1. When every milestone is shown together, read `단계별 상태` (stage status): `기한 지남` (overdue), `검토 대기` (awaiting review), `보완 요청` (revision requested), and `승인` (approved). These count team-by-milestone cells on the current page, not teams. This summary is hidden when you select a single milestone.
-2. Read the status in each cell. Missing required documents show `미제출` (not submitted) before the deadline or `기한 지남` afterward. Other submissions show one review status: `검토 대기`, `보완 요청`, `승인`, or `반려` (rejected). Late submissions add `· 지각` (late) after that status. A cell with neither required documents nor a submission shows `—`.
-3. When every milestone is shown together, missing-submission cells show remaining days, such as `D-3`. Overdue cells show elapsed days, such as `2일 지남` (two days overdue). The single-milestone view does not repeat the remaining days.
-4. Cells submitted as a single submission include `열어 보기` (open), which opens `최종 제출 검토` (final submission review). Review milestones that collect individual documents in `서류 수합` (document collection) under `프로그램 개요` (program overview). Both screens are explained in [Review submitted documents](/oss-hub/en/staff/review-submission/).
+1. The numbers beside `전체` (all), `미제출` (not submitted), `검토 대기` (awaiting review), `보완 요청` (revision requested), `반려` (rejected), and `승인` (approved) count team-by-milestone cells, not teams. They cover every page of the current search and do not change when you pick a status. Cells marked `—` do not count.
+2. On desktop, click `팀` (team), a milestone name, or `진행` (progress) to sort the teams. Click the same heading again to reverse the order. On narrow screens, check the milestones in each team's card.
+3. On desktop, click the team name to expand its milestone details. On mobile, these details are already in the team card. Click a linked status to open `최종 제출 검토` (final submission review). To review documents individually, select the milestone name in the left menu.
 </Steps>
-<Shot src="staff/documents-matrix.webp" alt="Team-by-milestone table with approved, awaiting-review, revision-requested, and missing statuses. Marker ① points to the awaiting-review chip." caption="① `검토 대기` (awaiting review). Filters use each team’s representative status." />
 
 ## Filter teams with missing documents
 
 <Steps>
-1. Select a milestone in the left menu. The status chips then change to `전체` (all), ① `미제출` (not submitted), `지각 제출` (late), `제출 완료` (submitted), and `전부 미제출` (nothing submitted). Click `미제출` to find missing documents. When every milestone is shown together the chips are `전체`, `검토 대기`, `보완 요청`, `승인`, and `반려`. Zero-count chips are hidden unless selected.
-2. To find a team, enter a name in `신청자·팀명·GitHub ID` (applicant, team name, or GitHub ID) and click `조회` (search). Click `초기화` (reset) to clear it.
+1. Select `미제출`. On mobile, open the status dropdown. A team stays in the list if any of its milestones is marked `미제출`. To check for missing documents in only one milestone, select that milestone first, then select `미제출`.
+2. To find a team, enter its name in the `신청자·팀명·GitHub ID` search box and click `조회` (search). Click `초기화` (reset) to clear both search and status filters.
 </Steps>
-<Shot src="staff/documents-filter-missing.webp" alt="Document status for one milestone. The chips read all, not submitted, late, submitted and nothing submitted, and marker ① points to the selected not-submitted chip. Only teams that have not submitted remain." caption="① Selected `미제출` (not submitted) chip" />
-
-Status chips apply only to the current page. When every milestone is shown together, a team with several statuses is assigned to the first matching status in this order: `기한 지남` → `검토 대기` → `보완 요청` → `미제출` → `반려` → `승인`. A team awaiting review in another stage may therefore not appear under `미제출` even if a document is missing. Select a milestone first when checking missing documents. Scroll sideways if the table is too wide.
 
 ## Download submissions as a ZIP
 
 <Steps>
-1. Click ① `내려받기` to open `다운로드 범위` (download scope).
+1. In the all-milestone `서류 현황` view, click `내려받기` (download) to open `다운로드 범위` (download scope). For `ZIP 내려받기` in the single-milestone view, see [Download milestone materials](/oss-hub/en/staff/review-submission/#download-milestone-materials).
 2. Choose `프로그램 전체` (whole program), ① `마일스톤` (milestone), or `팀` (team). For milestone or team scope, select the target.
 3. In `ZIP 폴더 묶기` (ZIP folder grouping), select `팀별로 묶기` (group by team) or `서류별로 묶기` (group by document).
 4. Click `ZIP 내려받기` (download ZIP).
 </Steps>
 <Shot src="staff/documents-download.webp" alt="Download scope panel with whole-program, milestone, and team choices, ZIP grouping, and download ZIP. Marker ① points to milestone scope." caption="① `마일스톤` (milestone) download scope" />
 
-The ZIP includes the current submission for each item, both text and files. It does not include earlier submission history.
+The ZIP includes current submission text and files from approved teams in the chosen scope. The list's search and status filters do not affect the ZIP. Earlier submissions are not included.
 
 ## Send revision requests in bulk
 
 Students receiving a revision request check its reason and the submission screen instructions before resubmitting. Your reason is shown exactly as written, so be specific about what needs changing.
 
 <Steps>
-1. Click ② `보완 요청 보내기`.
+1. Click `보완 요청 보내기` (send revision requests).
 2. Select `프로그램 전체` or `팀` as the scope. To include submissions already approved or rejected, enable `이미 승인·반려한 제출도 포함` (include previously approved or rejected submissions).
 3. Check the target count.
 4. Optionally enter up to 2,000 characters in `사유 (선택)` (reason, optional). You can leave it blank; there is no separate deadline field.
@@ -72,6 +63,6 @@ Requests reach students immediately. Check the target count before sending.
 <Recover title="If the table is empty">
 - `마일스톤이 없습니다` means the program has no milestones. Add one in [Edit program dates and submission items](/oss-hub/en/staff/edit-program/).
 - `참여 중인 신청이 없습니다` means there are no approved teams yet. See [Approve or reject team applications](/oss-hub/en/staff/decide-application/).
-- `조건에 맞는 팀이 없습니다` means no teams match the filter or search. Click `전체 보기` (show all).
+- `조건에 맞는 팀이 없습니다` or `검색 결과가 없습니다` means no teams match the filter or search. Click `필터 초기화` (reset filters).
 - If the revision request target count is zero, change the scope or enable `이미 승인·반려한 제출도 포함`.
 </Recover>

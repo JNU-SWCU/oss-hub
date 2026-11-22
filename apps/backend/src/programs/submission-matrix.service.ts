@@ -4,11 +4,13 @@ import { DomainException } from '../platform/error-code.error';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,
+  type MatrixCellStatus,
   type MatrixMilestoneRecord,
+  type MatrixStatusCounts,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
-  SubmissionMatrixFilter,
-  MatrixApplicationMode,
+  type SubmissionMatrixFilter,
+  type MatrixApplicationMode,
   SubmissionDashboardSummaryRepository,
   type SubmissionDashboardProgramSummary,
   type SubmissionDashboardSummaryRepositoryPort,
@@ -17,25 +19,16 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions.error';
-import { SubmissionStatus } from '@prisma/client';
 import { type DocumentDeliveryStatus } from './requirements.repository';
 import { RequirementCollectionService } from './requirement-archive.service';
-import {} from './milestone-completion.config';
 export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
   readonly page: number;
   readonly pageSize: number;
 }
 
-export interface SubmissionMatrixRequest {
-  readonly q?: string;
-  readonly applicationMode?: MatrixApplicationMode | null;
-  readonly page?: number;
-  readonly pageSize?: number;
-}
+export type SubmissionMatrixRequest = Partial<SubmissionMatrixQuery>;
 
 const MATRIX_DEFAULT_PAGE_SIZE = 20;
-
-export type MatrixCellStatus = SubmissionStatus | 'NOT_SUBMITTED';
 
 interface MatrixCellResult {
   readonly milestoneId: string;
@@ -51,6 +44,7 @@ export interface MatrixRowResult {
   readonly teamId: string;
   readonly applicationMode: MatrixApplicationMode;
   readonly displayName: string;
+  readonly leaderName: string | null;
   readonly githubLogins: readonly string[];
   readonly cells: readonly MatrixCellResult[];
 }
@@ -65,6 +59,7 @@ export interface SubmissionMatrixResult {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+  readonly statusCounts: MatrixStatusCounts;
 }
 
 @Injectable()
@@ -82,6 +77,9 @@ export class SubmissionMatrixService {
     return {
       q: request.q?.trim() ?? '',
       applicationMode: request.applicationMode ?? null,
+      status: request.status,
+      sort: request.sort,
+      direction: request.direction,
       page: request.page ?? 1,
       pageSize: request.pageSize ?? MATRIX_DEFAULT_PAGE_SIZE,
     };
@@ -91,7 +89,7 @@ export class SubmissionMatrixService {
     programId: string,
     request: SubmissionMatrixRequest,
   ): Promise<SubmissionMatrixResult> {
-    const query = this.matrixQueryFromRequest(request);
+    const { page, pageSize, ...filter } = this.matrixQueryFromRequest(request);
     if (!(await this.repository.programExists(programId))) {
       throw this.error(SubmissionsErrorCode.PROGRAM_NOT_FOUND);
     }
@@ -100,20 +98,20 @@ export class SubmissionMatrixService {
       this.repository.findMilestones(programId),
       this.repository.findApprovedApplications(
         programId,
-        { q: query.q, applicationMode: query.applicationMode },
-        (query.page - 1) * query.pageSize,
-        query.pageSize,
+        filter,
+        (page - 1) * pageSize,
+        pageSize,
       ),
     ]);
 
     const teamIds = applications.items.map((application) => application.id);
     const [submissions, firstSubmissions, changeRequests] = await Promise.all([
-      this.repository.findCurrentSubmissions(teamIds),
+      this.repository.findCurrentSubmissions(teamIds, programId),
       this.repository.findDocumentFirstSubmissions(
         teamIds,
         milestones.flatMap((milestone) => milestone.requiredDocumentIds),
       ),
-      this.repository.findDocumentChangeRequests(teamIds),
+      this.repository.findDocumentChangeRequests(teamIds, programId),
     ]);
     const cellIndex = new Map<string, MatrixSubmissionRecord[]>();
     for (const submission of submissions) {
@@ -147,9 +145,10 @@ export class SubmissionMatrixService {
           changeRequestCounts,
         }),
       ),
-      page: query.page,
-      pageSize: query.pageSize,
+      page,
+      pageSize,
       total: applications.total,
+      statusCounts: applications.statusCounts,
     };
   }
 
@@ -175,6 +174,7 @@ export class SubmissionMatrixService {
         : (application.team?.name ??
           application.applicant.name ??
           application.applicant.nickname),
+      leaderName: application.leaderName,
       githubLogins: application.team
         ? application.team.memberNicknames
         : [application.applicant.nickname],

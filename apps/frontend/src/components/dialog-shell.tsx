@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 
 interface DialogShellBaseProps {
   readonly title: string;
+  readonly titleAction?: React.ReactNode;
   readonly description?: string | null;
   readonly children: React.ReactNode;
 
@@ -131,7 +132,14 @@ function DialogShell(props: DialogShellProps) {
           returnFocusRef.current?.focus();
         }}
       >
-        <DialogTitle>{title}</DialogTitle>
+        {props.titleAction ? (
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>{title}</DialogTitle>
+            {props.titleAction}
+          </div>
+        ) : (
+          <DialogTitle>{title}</DialogTitle>
+        )}
         {description ? (
           <DialogDescription className="mt-1 text-small">
             {description}

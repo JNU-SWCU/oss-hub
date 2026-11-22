@@ -456,6 +456,7 @@ describe('Audience authorization HTTP characterization', () => {
             listDepartmentMetrics: () => Promise.resolve([]),
             listPeriodLeaderCandidates: () => Promise.resolve([]),
             listRecentLeaderCandidates: () => Promise.resolve([]),
+            listAttentionStudents: () => Promise.resolve([]),
             listActivityYears: () => Promise.resolve([]),
             listProgramParticipantDepartments: () => Promise.resolve([]),
             countPublishedParticipants: () =>

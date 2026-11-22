@@ -40,11 +40,19 @@ function setup(firstTimes: readonly (Date | null)[]) {
         items: [
           {
             id: 'application',
+            leaderName: null,
             applicant: { name: null, nickname: 'synthetic-student' },
             team: null,
           },
         ],
         total: 1,
+        statusCounts: {
+          NOT_SUBMITTED: Number(firstTimes.every((time) => time === null)),
+          SUBMITTED: 0,
+          CHANGES_REQUESTED: 0,
+          REJECTED: Number(firstTimes.some((time) => time !== null)),
+          APPROVED: 0,
+        },
       }),
     findCurrentSubmissions: () =>
       Promise.resolve(

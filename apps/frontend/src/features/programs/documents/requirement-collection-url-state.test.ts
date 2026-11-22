@@ -14,6 +14,9 @@ describe('RequirementCollection URL state', () => {
       page: 1,
       pageSize: 20,
       filter: 'ALL',
+      status: undefined,
+      sort: 'team',
+      direction: 'asc',
     });
   });
 
@@ -33,25 +36,27 @@ describe('RequirementCollection URL state', () => {
       q: '',
       page: 2,
       pageSize: 20,
-      filter: 'LATE',
-      document: { id: 'doc/1', submissionState: 'MISSING' },
+      filter: 'ALL',
+      status: 'APPROVED',
+      sort: 'reviewedAt',
+      direction: 'desc',
     } as const;
     const params = buildRequirementCollectionSearchParams(input);
     expect(params.toString()).toBe(
-      'filter=LATE&documentId=doc%2F1&submissionState=MISSING&page=2',
+      'status=APPROVED&sort=reviewedAt&direction=desc&page=2',
     );
     expect(parseRequirementCollectionSearchParams(params)).toEqual(input);
   });
 
-  it('팀 검색어를 실어 나르고, 검색 중에는 한 번에 더 많은 팀을 불러온다', () => {
-    const input = {
-      q: 'hong',
-      page: 1,
-      pageSize: 100,
-      filter: 'ALL',
-    } as const;
-    const params = buildRequirementCollectionSearchParams(input);
-    expect(params.toString()).toBe('q=hong');
-    expect(parseRequirementCollectionSearchParams(params)).toEqual(input);
+  it('trims search without enlarging the server page or applying legacy filters', () => {
+    const input = parseRequirementCollectionSearchParams(
+      new URLSearchParams(
+        'q=+hong+&filter=LATE&documentId=old&submissionState=MISSING',
+      ),
+    );
+    expect(input).toMatchObject({ q: 'hong', pageSize: 20, filter: 'ALL' });
+    expect(buildRequirementCollectionSearchParams(input).toString()).toBe(
+      'q=hong',
+    );
   });
 });

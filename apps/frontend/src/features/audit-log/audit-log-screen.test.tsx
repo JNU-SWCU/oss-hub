@@ -7,6 +7,7 @@ import {
 } from '../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditLogPage, AuditLogRecord } from './types';
+import type { AuditLogViewProps } from './audit-log-view';
 import { parseAuditLogPage } from './parser';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 
@@ -24,21 +25,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const api = vi.hoisted(() => ({ fetchAuditLogs: vi.fn() }));
 vi.mock('./api', () => api);
 
-type CapturedViewProps = {
-  readonly records: readonly AuditLogRecord[];
-  readonly total: number;
-  readonly page: number;
-  readonly isLoading: boolean;
-  readonly errorMessage: string | null;
-  readonly onPageChange: (page: number) => void;
-};
-
 const captured = vi.hoisted(() => ({
-  props: null as CapturedViewProps | null,
+  props: null as AuditLogViewProps | null,
 }));
 
 vi.mock('./audit-log-view', () => ({
-  AuditLogView: (props: CapturedViewProps) => {
+  AuditLogView: (props: AuditLogViewProps) => {
     captured.props = props;
     return null;
   },
@@ -46,7 +38,7 @@ vi.mock('./audit-log-view', () => ({
 
 import { AuditLogScreen } from './audit-log-screen';
 
-function props(): CapturedViewProps {
+function props(): AuditLogViewProps {
   if (captured.props === null) {
     throw new Error('expected AuditLogView props');
   }
@@ -83,7 +75,7 @@ function deferred<T>(): {
   return { promise, resolve, reject };
 }
 
-describe('AuditLogScreen 이전 조회 결과가 최신 조건을 덮지 않는다', () => {
+describe('AuditLogScreen', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -98,6 +90,95 @@ describe('AuditLogScreen 이전 조회 결과가 최신 조건을 덮지 않는�
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.useRealTimers();
+  });
+
+  it('기존 날짜 북마크의 페이지 범위를 보기 전환과 이동에도 유지한다', async () => {
+    const from = '2026-01-01';
+    const to = '2026-02-01';
+    listNavigation.search = `from=${from}&to=${to}&page=2`;
+    api.fetchAuditLogs.mockResolvedValue({ ...fixture, total: 65 });
+
+    await act(async () => root.render(<AuditLogScreen />));
+
+    const request = { q: '', action: '', category: '', from, to, limit: 20 };
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith({
+      ...request,
+      page: 2,
+    });
+    expect(props()).toMatchObject({ page: 2, limit: 20 });
+
+    await act(async () => props().onViewChange('table'));
+
+    expect(props()).toMatchObject({ view: 'table', page: 2, limit: 20 });
+    expect(api.fetchAuditLogs).toHaveBeenCalledTimes(1);
+
+    await act(async () => props().onPageChange(3));
+
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith({
+      ...request,
+      page: 3,
+    });
+    expect(props()).toMatchObject({ page: 3, limit: 20 });
+
+    const filters = { ...props().filters, from: '2026-01-15' };
+    await act(async () => props().onApply(filters));
+
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith({
+      ...request,
+      from: filters.from,
+      page: 1,
+      limit: 50,
+    });
+    expect(props()).toMatchObject({ page: 1, limit: 50 });
+  });
+
+  it('검색어만 있는 기존 조사 링크는 날짜 제한 없이 조회한다', async () => {
+    const q = 'synthetic-admin';
+    listNavigation.search = `q=${q}`;
+    api.fetchAuditLogs.mockResolvedValue(fixture);
+
+    await act(async () => root.render(<AuditLogScreen />));
+
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith({
+      q,
+      action: '',
+      category: '',
+      from: '',
+      to: '',
+      page: 1,
+      limit: 50,
+    });
+    expect(props().filters).toMatchObject({ q, period: 'custom' });
+  });
+
+  it('기본 화면에서 검색해도 최근 30일과 새 페이지 범위를 유지한다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T00:00:00+09:00'));
+    api.fetchAuditLogs.mockResolvedValue(fixture);
+
+    await act(async () => root.render(<AuditLogScreen />));
+
+    const request = {
+      q: '',
+      action: '',
+      category: '',
+      from: '2026-05-03',
+      to: '',
+      page: 1,
+      limit: 50,
+    };
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith(request);
+    expect(props()).toMatchObject({ view: 'feed', page: 1, limit: 50 });
+
+    const q = 'synthetic-admin';
+    const filters = { ...props().filters, q: `  ${q}  ` };
+    await act(async () => props().onApply(filters));
+
+    expect(api.fetchAuditLogs).toHaveBeenLastCalledWith({ ...request, q });
+    expect(new URLSearchParams(listNavigation.search).get('period')).toBe(
+      '30d',
+    );
   });
 
   it('늦게 끝난 이전 요청의 목록이 최신 결과를 덮지 않는다', async () => {

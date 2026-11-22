@@ -42,6 +42,7 @@ export type ProgramMailPreview = ProgramMailDraft & {
 };
 
 export type ProgramMailSendResult = {
+  readonly jobId?: string;
   readonly status: 'IN_PROGRESS' | 'COMPLETED';
   readonly sentCount: number;
   readonly duplicateCount: number;
@@ -49,3 +50,18 @@ export type ProgramMailSendResult = {
   readonly unknownCount?: number;
   readonly previewVersion: string;
 };
+
+export type MailReceipt = {
+  readonly jobId: string;
+  readonly acceptedAt: string;
+};
+export type MailJob = MailReceipt &
+  (
+    | { readonly status: 'QUEUED' | 'IN_PROGRESS' }
+    | (Required<
+        Pick<
+          ProgramMailSendResult,
+          'sentCount' | 'failedCount' | 'duplicateCount' | 'unknownCount'
+        >
+      > & { readonly status: 'COMPLETED'; readonly finishedAt: string })
+  );

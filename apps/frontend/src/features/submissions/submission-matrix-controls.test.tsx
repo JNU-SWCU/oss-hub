@@ -1,127 +1,78 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import { MatrixQuickFilterButtons } from './components/submission-matrix-controls';
-import { parseSubmissionMatrixSearchParams } from './submission-matrix-url-state';
-import type { MatrixCell, MatrixMilestone, MatrixRow } from './types';
+import { SubmissionStatusFilters } from './components/submission-matrix-controls';
 
-const NOW = new Date('2026-09-15T12:00:00+09:00');
-const milestones: MatrixMilestone[] = [
-  { id: 'm1', name: '기획서', dueAt: '2026-09-10T23:59:59+09:00' },
-];
+vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 
-function rowWith(
-  teamId: string,
-  cell: Pick<MatrixCell, 'status' | 'deliveryStatus'>,
-): MatrixRow {
-  return {
-    teamId,
-    applicationMode: 'TEAM',
-    displayName: teamId,
-    githubLogins: [],
-    cells: [
-      {
-        milestoneId: 'm1',
-        submissionId: null,
-        revision: null,
-        submittedAt: null,
-        changesRequestedCount: 0,
-        ...cell,
-      },
-    ],
-  };
-}
-
-const rows = [
-  rowWith('a', { status: 'NOT_SUBMITTED', deliveryStatus: 'MISSING' }),
-  rowWith('b', { status: 'SUBMITTED', deliveryStatus: 'COMPLETE' }),
-  rowWith('c', { status: 'SUBMITTED', deliveryStatus: 'LATE' }),
-];
-
-function chipLabels(html: string): readonly string[] {
+it('서버 상태 건수와 선택 상태를 표시하고 상태 선택 및 해제를 전달한다', () => {
   const container = document.createElement('div');
-  container.innerHTML = html;
-  return [...container.querySelectorAll('button')].map(
-    (button) => `${button.textContent}:${button.getAttribute('aria-pressed')}`,
-  );
-}
+  const root = createRoot(container);
+  const onStatusChange = vi.fn();
 
-it('각 필터 그룹의 접근성 이름이 자기 화면 제목을 참조한다', () => {
-  const container = document.createElement('div');
-
-  container.innerHTML = renderToStaticMarkup(
-    <>
-      {[0, 1].map((key) => (
-        <MatrixQuickFilterButtons
-          key={key}
-          rows={[]}
-          visibleMilestones={[]}
-          now={NOW}
-          quickFilter="ALL"
-          onQuickFilterChange={vi.fn()}
-        />
-      ))}
-    </>,
-  );
-
-  const groups = [...container.querySelectorAll('[role="group"]')];
-  expect(groups).toHaveLength(2);
-  const titleIds = groups.map((group) => {
-    const title = group.querySelector('p');
-    expect(title?.id).toBeTruthy();
-    expect(title?.textContent).toBe('상태');
-    expect(group.getAttribute('aria-labelledby')).toBe(title?.id);
-    expect(group.hasAttribute('aria-label')).toBe(false);
-    return title?.id;
-  });
-  expect(new Set(titleIds).size).toBe(groups.length);
-});
-
-it('0건인 상태 칩은 숨기고, 눌린 칩은 0건이어도 남긴다', () => {
-  const render = (quickFilter: 'ALL' | 'REJECTED') =>
-    chipLabels(
-      renderToStaticMarkup(
-        <MatrixQuickFilterButtons
-          rows={rows}
-          visibleMilestones={milestones}
-          now={NOW}
-          quickFilter={quickFilter}
-          onQuickFilterChange={vi.fn()}
+  try {
+    act(() =>
+      root.render(
+        <SubmissionStatusFilters
+          status="REJECTED"
+          counts={{
+            NOT_SUBMITTED: 4,
+            SUBMITTED: 3,
+            CHANGES_REQUESTED: 2,
+            REJECTED: 0,
+            APPROVED: 1,
+          }}
+          onStatusChange={onStatusChange}
         />,
       ),
     );
 
-  expect(render('ALL')).toEqual([
-    '전체 3:true',
-    '기한 지남 1:false',
-    '검토 대기 2:false',
-  ]);
-  expect(render('REJECTED')).toEqual([
-    '전체 3:false',
-    '기한 지남 1:false',
-    '검토 대기 2:false',
-    '반려 0:true',
-  ]);
-});
-
-it.each(['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'])(
-  '옛 quickFilter=%s 주소는 전체 칩이 눌린 상태로 연다',
-  (legacy) => {
-    const { quickFilter } = parseSubmissionMatrixSearchParams(
-      new URLSearchParams(`quickFilter=${legacy}`),
+    const group = container.querySelector(
+      '[role="group"][aria-label="제출 상태 필터"]',
     );
-    const labels = chipLabels(
-      renderToStaticMarkup(
-        <MatrixQuickFilterButtons
-          rows={rows}
-          visibleMilestones={milestones}
-          now={NOW}
-          quickFilter={quickFilter}
-          onQuickFilterChange={vi.fn()}
-        />,
-      ),
-    );
-    expect(labels.filter((label) => label.endsWith(':true'))).toEqual([
-      '전체 3:true',
+    const buttons = [...(group?.querySelectorAll('button') ?? [])];
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      '전체 10',
+      '미제출 4',
+      '검토 대기 3',
+      '보완 요청 2',
+      '반려 0',
+      '승인 1',
     ]);
-  },
-);
+    expect(group?.querySelector('[aria-pressed="true"]')?.textContent).toBe(
+      '반려 0',
+    );
+
+    act(() => buttons[2].click());
+    act(() => buttons[0].click());
+    expect(onStatusChange.mock.calls).toEqual([['SUBMITTED'], [undefined]]);
+
+    const select = container.querySelector('select');
+    if (!select) throw new Error('Missing mobile status filter');
+    expect(select.getAttribute('aria-label')).toBe('제출 상태 필터');
+    expect(select.classList.contains('md:hidden')).toBe(true);
+    expect(group?.classList.contains('hidden')).toBe(true);
+    expect(group?.classList.contains('md:grid')).toBe(true);
+    expect([...select.options].map((option) => option.textContent)).toEqual(
+      buttons.map((button) => button.textContent),
+    );
+    expect(select.value).toBe('REJECTED');
+
+    onStatusChange.mockClear();
+    for (const value of ['SUBMITTED', '']) {
+      act(() => {
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+    expect(onStatusChange.mock.calls).toEqual([['SUBMITTED'], [undefined]]);
+
+    act(() =>
+      root.render(<SubmissionStatusFilters onStatusChange={onStatusChange} />),
+    );
+    expect(select.value).toBe('');
+    expect(select.selectedOptions[0].textContent).toBe('전체');
+  } finally {
+    act(() => root.unmount());
+  }
+});

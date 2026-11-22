@@ -75,7 +75,40 @@ it('lists all application statuses, sends mail, and records an attributable audi
   const sendResponse = await world.post('send', confirmed, cookie);
 
   expect(sendResponse.status).toBe(201);
-  await expect(sendResponse.json()).resolves.toMatchObject({ sentCount: 1 });
+  const batch = await world.prisma.notification.findUniqueOrThrow({
+    where: { idempotencyKey: `program-mail-send:${confirmed.previewVersion}` },
+    select: { id: true, createdAt: true, sentAt: true },
+  });
+  expect(await sendResponse.json()).toMatchObject({
+    sentCount: 1,
+    jobId: batch.id,
+  });
+  const headers = { cookie };
+  const list = await fetch(world.endpoint('jobs'), { headers });
+  const item = { jobId: batch.id, acceptedAt: batch.createdAt.toISOString() };
+  expect(await list.json()).toEqual({ items: [item] });
+  const path = `jobs/${batch.id}`;
+  const status = await fetch(world.endpoint(path), { headers });
+  expect(status.headers.get('cache-control')).toBe('private, no-store');
+  expect(await status.json()).toEqual({
+    ...item,
+    status: 'COMPLETED',
+    finishedAt: batch.sentAt?.toISOString(),
+    sentCount: 1,
+    failedCount: 0,
+    unknownCount: 0,
+    duplicateCount: 0,
+  });
+  expect(
+    (
+      await fetch(world.endpoint(path, DIGEST_FIXTURE.silentProgram), {
+        headers,
+      })
+    ).status,
+  ).toBe(404);
+  expect((await fetch(world.endpoint('jobs/absent'), { headers })).status).toBe(
+    404,
+  );
   expect(world.mailSender.sent).toEqual([
     expect.objectContaining({
       to: 'student-missing@example.com',
@@ -219,6 +252,15 @@ it.each([
         headers: cookie === null ? {} : { cookie },
       });
       expect(response.status).toBe(status);
+      for (const path of ['jobs', 'jobs/absent']) {
+        expect(
+          (
+            await fetch(world.endpoint(path), {
+              headers: cookie === null ? {} : { cookie },
+            })
+          ).status,
+        ).toBe(status);
+      }
       expect(recipients).not.toHaveBeenCalled();
     } finally {
       recipients.mockRestore();

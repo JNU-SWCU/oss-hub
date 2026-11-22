@@ -19,8 +19,6 @@ export const REQUIREMENT_COLLECTION_FILTERS: readonly RequirementCollectionFilte
 
 export const REQUIREMENT_COLLECTION_PAGE_SIZE = 20;
 
-export const REQUIREMENT_COLLECTION_SEARCH_PAGE_SIZE = 100;
-
 function documentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
@@ -31,6 +29,10 @@ export function buildRequirementCollectionSearchParams(
   const params = new URLSearchParams();
   params.set('page', String(query.page));
   params.set('pageSize', String(query.pageSize));
+  if (query.q.trim()) params.set('q', query.q.trim());
+  if (query.status !== undefined) params.set('status', query.status);
+  if (query.sort !== undefined) params.set('sort', query.sort);
+  if (query.direction !== undefined) params.set('direction', query.direction);
   if (query.document !== undefined) {
     params.set('documentId', query.document.id);
     params.set('submissionState', query.document.submissionState);

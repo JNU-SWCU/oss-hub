@@ -1,4 +1,6 @@
 import { MilestoneCompletionService } from './submissions.service';
+import { plainToInstance } from 'class-transformer';
+import { validateOrReject } from 'class-validator';
 import {
   ApprovalStatus,
   DepartmentType,
@@ -8,7 +10,8 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { RequirementCollectionService } from './requirement-archive.service';
-import { PlatformRepository } from '../platform/platform.repository';
+import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto';
+import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
@@ -35,7 +38,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new SubmissionMatrixService(
-  new SubmissionMatrixRepository(prisma, new PlatformRepository()),
+  new SubmissionMatrixRepository(prisma),
   new RequirementCollectionService({} as never),
   new MilestoneCompletionService(),
 );
@@ -391,5 +394,328 @@ describe('SubmissionMatrixService integration', () => {
     expect(secondPage).toMatchObject({ page: 2, pageSize: 1, total: 3 });
     expect(beyondPage.rows).toEqual([]);
     expect(beyondPage.total).toBe(3);
+  });
+
+  describe('프로그램 전체 서류 상태와 정렬', () => {
+    const programId = 'synthetic-matrix-slot-program';
+    const teamIdAt = (place: number) =>
+      `${programId}-team-${String(place).padStart(2, '0')}`;
+    const teamIds = Array.from({ length: 21 }, (_, index) =>
+      teamIdAt(index + 1),
+    );
+    const firstTeamId = teamIdAt(1);
+    const secondTeamId = teamIdAt(2);
+    const lastTeamId = teamIdAt(21);
+    const pendingTeamId = `${programId}-pending`;
+    const archivedTeamId = `${programId}-archived`;
+    const leaderId = (teamId: string) => `${teamId}-leader`;
+    const originalApplicantId = `${lastTeamId}-applicant`;
+    const lastMemberId = `${lastTeamId}-member`;
+    const planId = `${programId}-plan`;
+    const reportId = `${programId}-report`;
+    const optionalStageId = `${programId}-optional`;
+    const primaryDocId = `${planId}-primary`;
+    const secondaryDocId = `${planId}-secondary`;
+    const reportDocId = `${reportId}-document`;
+    const optionalDocId = `${optionalStageId}-document`;
+    const optionalApprovedDocId = `${optionalStageId}-approved-document`;
+    const approvedReportSubmissionId = `${lastTeamId}-approved-report`;
+    const allTeamIds = [...teamIds, pendingTeamId, archivedTeamId];
+    const userIds = [
+      ...allTeamIds.map(leaderId),
+      originalApplicantId,
+      lastMemberId,
+    ];
+    const at = new Date('2026-07-01T00:00:00Z');
+    const statusCounts = {
+      NOT_SUBMITTED: 39,
+      SUBMITTED: 1,
+      CHANGES_REQUESTED: 0,
+      REJECTED: 1,
+      APPROVED: 1,
+    };
+
+    beforeAll(async () => {
+      const namedProfiles = new Map([
+        [leaderId(firstTeamId), 'Zulu participant'],
+        [leaderId(lastTeamId), 'Actual leader'],
+        [originalApplicantId, 'Original applicant'],
+      ]);
+      await prisma.user.createMany({
+        data: userIds.map((id) => {
+          const name = namedProfiles.get(id);
+          return {
+            id,
+            githubId: seedGithubId(id),
+            nickname: id,
+            ...(name !== undefined && {
+              name,
+              type: UserType.STUDENT,
+              department: 'Synthetic department',
+              departmentType: DepartmentType.DEPARTMENT,
+              profileCreatedAt: at,
+              profileUpdatedAt: at,
+            }),
+          };
+        }),
+      });
+      await prisma.program.create({
+        data: {
+          id: programId,
+          name: programId,
+          organizers: ['Synthetic matrix fixture'],
+          category: 'BASIC',
+          trackType: 'CURRICULAR',
+          applicationTemplateKey: 'capstone-v1',
+          applicationTemplateVersion: 1,
+          applicationStartAt: at,
+          applicationEndAt: new Date('2026-07-10T00:00:00Z'),
+          startAt: new Date('2026-07-11T00:00:00Z'),
+          endAt: new Date('2026-09-30T00:00:00Z'),
+          teamMinSize: 1,
+          teamMaxSize: 5,
+          description: 'Synthetic matrix slots fixture',
+        },
+      });
+      await prisma.team.createMany({
+        data: allTeamIds.map((id) => ({
+          id,
+          programId,
+          leaderId: leaderId(id),
+          applicantId: id === lastTeamId ? originalApplicantId : leaderId(id),
+          name: id === lastTeamId ? 'Alpha team' : `Aardvark stored ${id}`,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status: id === pendingTeamId ? 'SUBMITTED' : 'APPROVED',
+          archivedAt: id === archivedTeamId ? at : null,
+          createdAt: at,
+        })),
+      });
+      await prisma.teamMember.createMany({
+        data: [
+          ...allTeamIds.map((teamId) => ({
+            teamId,
+            programId,
+            userId: leaderId(teamId),
+          })),
+          { teamId: lastTeamId, programId, userId: lastMemberId },
+        ],
+      });
+      await prisma.milestone.createMany({
+        data: [planId, reportId, optionalStageId].map((id, index) => ({
+          id,
+          programId,
+          name: id,
+          startAt: new Date('2026-07-11T00:00:00Z'),
+          dueAt: new Date(Date.UTC(2026, 7, index + 1)),
+        })),
+      });
+      await prisma.requirement.createMany({
+        data: (
+          [
+            [primaryDocId, planId, true],
+            [secondaryDocId, planId, true],
+            [reportDocId, reportId, true],
+            [optionalDocId, optionalStageId, false],
+            [optionalApprovedDocId, optionalStageId, false],
+          ] as const
+        ).map(([id, milestoneId, required], sortOrder) => ({
+          id,
+          milestoneId,
+          name: id,
+          required,
+          sortOrder,
+        })),
+      });
+      await prisma.submission.createMany({
+        data: (
+          [
+            [firstTeamId, primaryDocId, 'APPROVED'],
+            [firstTeamId, optionalDocId, 'CHANGES_REQUESTED'],
+            [firstTeamId, optionalApprovedDocId, 'APPROVED'],
+            [secondTeamId, primaryDocId, 'SUBMITTED'],
+            [secondTeamId, secondaryDocId, 'APPROVED'],
+            [lastTeamId, primaryDocId, 'REJECTED'],
+            [lastTeamId, secondaryDocId, 'APPROVED'],
+            [lastTeamId, reportDocId, 'APPROVED'],
+            [pendingTeamId, primaryDocId, 'REJECTED'],
+            [archivedTeamId, primaryDocId, 'REJECTED'],
+          ] as const
+        ).map(([teamId, requirementId, status]) => ({
+          id:
+            requirementId === reportDocId
+              ? approvedReportSubmissionId
+              : `${teamId}-${requirementId}`,
+          teamId,
+          requirementId,
+          status,
+          submittedById: leaderId(teamId),
+        })),
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.submission.deleteMany({
+        where: { teamId: { in: allTeamIds } },
+      });
+      await prisma.teamMember.deleteMany({ where: { programId } });
+      await prisma.team.deleteMany({ where: { programId } });
+      await prisma.requirement.deleteMany({
+        where: { milestone: { programId } },
+      });
+      await prisma.milestone.deleteMany({ where: { programId } });
+      await prisma.program.deleteMany({ where: { id: programId } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    });
+
+    it('21번째 팀의 반려 서류를 첫 페이지에서 찾고 별도 단계의 승인 서류를 보존한다', async () => {
+      const unfiltered = await service.matrix(programId, {});
+      expect(unfiltered.rows.map((row) => row.teamId)).toEqual(
+        teamIds.slice(0, 20),
+      );
+      expect(unfiltered).toMatchObject({ total: 21, statusCounts });
+
+      const request = plainToInstance(SubmissionMatrixRequestDto, {
+        status: 'REJECTED',
+        page: '1',
+        pageSize: '20',
+      });
+      await validateOrReject(request, {
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      });
+      const response = SubmissionMatrixResponseDto.from(
+        await service.matrix(programId, request),
+      );
+      expect(response).toMatchObject({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        statusCounts,
+      });
+      expect(response.rows).toHaveLength(1);
+      expect(response.rows[0]).toMatchObject({
+        teamId: lastTeamId,
+        leaderName: 'Actual leader',
+        displayName: 'Alpha team',
+        cells: [
+          { milestoneId: planId, status: 'REJECTED', submissionId: null },
+          {
+            milestoneId: reportId,
+            status: 'APPROVED',
+            submissionId: approvedReportSubmissionId,
+          },
+          { milestoneId: optionalStageId, deliveryStatus: 'NO_REQUIRED_ITEMS' },
+        ],
+      });
+
+      const beyondPage = await service.matrix(programId, {
+        status: 'REJECTED',
+        page: 2,
+      });
+      expect(beyondPage).toMatchObject({ rows: [], total: 1, statusCounts });
+    });
+
+    it('검색 후 필수 서류가 있는 단계의 표시 상태만 세고 그 상태로 팀을 필터링한다', async () => {
+      const [search, missing, optional, approved, submitted] =
+        await Promise.all([
+          service.matrix(programId, { q: '  zULu  ', status: 'REJECTED' }),
+          service.matrix(programId, { status: 'NOT_SUBMITTED' }),
+          service.matrix(programId, { status: 'CHANGES_REQUESTED' }),
+          service.matrix(programId, { status: 'APPROVED' }),
+          service.matrix(programId, { status: 'SUBMITTED' }),
+        ]);
+      expect(search).toMatchObject({
+        rows: [],
+        total: 0,
+        statusCounts: {
+          NOT_SUBMITTED: 2,
+          SUBMITTED: 0,
+          CHANGES_REQUESTED: 0,
+          REJECTED: 0,
+          APPROVED: 0,
+        },
+      });
+      expect(missing.rows.map((row) => row.teamId)).toEqual(
+        teamIds.slice(0, 20),
+      );
+      expect(missing).toMatchObject({ total: 20, statusCounts });
+      expect(optional).toMatchObject({ rows: [], total: 0, statusCounts });
+      expect(approved.rows.map((row) => row.teamId)).toEqual([lastTeamId]);
+      expect(approved).toMatchObject({ total: 1, statusCounts });
+      expect(submitted.rows.map((row) => row.teamId)).toEqual([secondTeamId]);
+      expect(submitted).toMatchObject({ total: 1, statusCounts });
+      expect(cellFor(rowFor(submitted.rows, secondTeamId), planId).status).toBe(
+        'SUBMITTED',
+      );
+    });
+
+    it('표시 이름·승인 단계 수·단계 상태를 페이지 앞에서 정렬하며 동률은 ID로 가른다', async () => {
+      const [
+        teamAsc,
+        teamDesc,
+        progress,
+        progressTie,
+        milestoneAsc,
+        milestoneDesc,
+      ] = await Promise.all([
+        service.matrix(programId, {
+          sort: 'team',
+          direction: 'asc',
+          pageSize: 1,
+        }),
+        service.matrix(programId, {
+          sort: 'team',
+          direction: 'desc',
+          pageSize: 1,
+        }),
+        service.matrix(programId, {
+          sort: 'progress',
+          direction: 'desc',
+          pageSize: 1,
+        }),
+        service.matrix(programId, {
+          sort: 'progress',
+          direction: 'desc',
+          page: 2,
+          pageSize: 1,
+        }),
+        service.matrix(programId, {
+          sort: `milestone:${planId}`,
+          direction: 'asc',
+          pageSize: 1,
+        }),
+        service.matrix(programId, {
+          sort: `milestone:${planId}`,
+          direction: 'desc',
+          pageSize: 1,
+        }),
+      ]);
+      expect(teamAsc.rows.map((row) => row.teamId)).toEqual([lastTeamId]);
+      expect(teamDesc.rows.map((row) => row.teamId)).toEqual([firstTeamId]);
+      expect(progress.rows.map((row) => row.teamId)).toEqual([lastTeamId]);
+      expect(progressTie.rows.map((row) => row.teamId)).toEqual([firstTeamId]);
+      expect(milestoneAsc).toMatchObject({ total: 21, statusCounts });
+      expect(milestoneAsc.rows.map((row) => row.teamId)).toEqual([lastTeamId]);
+      expect(milestoneDesc.rows[0]).toMatchObject({
+        teamId: secondTeamId,
+        leaderName: null,
+      });
+    });
+
+    it.each([
+      { status: 'OVERDUE' },
+      { direction: 'up' },
+      { sort: 'milestone:' },
+      { milestoneId: planId },
+    ])('지원하지 않는 매트릭스 쿼리를 거절한다: %j', async (invalid) => {
+      const request = plainToInstance(SubmissionMatrixRequestDto, invalid);
+      await expect(
+        validateOrReject(request, {
+          whitelist: true,
+          forbidNonWhitelisted: true,
+        }),
+      ).rejects.toHaveLength(1);
+    });
   });
 });

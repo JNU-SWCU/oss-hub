@@ -14,6 +14,7 @@ import {
 } from './program-mail.repository';
 import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
+import { ProgramMailJobRepository } from './program-mail-job.repository';
 
 const PREVIEW_TTL_MS = 10 * 60 * 1000;
 const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
@@ -60,6 +61,7 @@ export type ProgramMailSendRequest = ProgramMailDraft & {
 };
 
 export type ProgramMailSendResult = {
+  readonly jobId: string;
   readonly status: 'IN_PROGRESS' | 'COMPLETED';
   readonly sentCount: number;
   readonly duplicateCount: number;
@@ -83,7 +85,17 @@ export class ProgramMailService {
     private readonly repository: ProgramMailRepositoryPort,
     @Inject(ProgramMailDeliveryService)
     private readonly delivery: Pick<ProgramMailDeliveryService, 'send'>,
+    @Inject(ProgramMailJobRepository)
+    private readonly jobs: Pick<ProgramMailJobRepository, 'recent' | 'status'>,
   ) {}
+
+  recent(programId: string, before?: string) {
+    return this.jobs.recent(programId, before);
+  }
+
+  status(programId: string, jobId: string) {
+    return this.jobs.status(programId, jobId);
+  }
 
   async recipients(
     programId: string,
@@ -153,6 +165,7 @@ export class ProgramMailService {
     });
     return {
       status: delivery.kind,
+      jobId: delivery.jobId,
       ...(delivery.kind === 'COMPLETED'
         ? delivery.result
         : {

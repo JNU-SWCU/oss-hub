@@ -1,23 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import { UserMinus, UserPlus, UserRoundPen, X } from 'lucide-react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
+import { Clock, Ellipsis } from 'lucide-react';
+import { DropdownMenu } from 'radix-ui';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ListPanel, ListRow } from '@/components/list-panel';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ListRow } from '@/components/list-panel';
 import { ApiError } from '@/lib/api-client';
 import { ApplicationActionDialog } from '../applications/application-confirmation-dialog';
 import { mapTeamError } from './program-teams-flow';
@@ -25,7 +21,7 @@ import {
   removeStaffTeamMember,
   transferStaffTeamLeader,
 } from './staff-team-members-api';
-import type { SentTeamInvitation } from './team-invitation-dto';
+import type { TeamActivity } from './team-activity-dto';
 import { TeamInvitePanel } from './team-invite-panel';
 import type { StaffProgramTeamMember } from './dto';
 import {
@@ -38,6 +34,9 @@ const TRANSFER_LABEL = '팀장 변경';
 const INVITE_LABEL = '팀원 초대';
 const PENDING_LABEL = '초대 대기';
 const CANCEL_INVITE_LABEL = '초대 취소';
+
+const DAY_MS = 86_400_000;
+const SEOUL_OFFSET_MS = 9 * 3_600_000;
 
 const REMOVE_FAILED_MESSAGE =
   '팀원을 제외하지 못했습니다. 현재 팀 상태를 확인한 뒤 다시 시도해 주세요.';
@@ -54,12 +53,10 @@ type ConfirmTarget =
   | { readonly kind: 'remove'; readonly member: StaffProgramTeamMember }
   | { readonly kind: 'transfer'; readonly member: StaffProgramTeamMember };
 
-function displayNameOf(member: StaffProgramTeamMember): string {
-  return member.name?.trim() || member.nickname;
-}
+type RosterPerson = Pick<StaffProgramTeamMember, 'name' | 'nickname'>;
 
-function inviteeNameOf(invitation: SentTeamInvitation): string {
-  return invitation.invitee.name?.trim() || invitation.invitee.nickname;
+function displayNameOf(person: RosterPerson): string {
+  return person.name?.trim() || person.nickname;
 }
 
 function orderedRoster(
@@ -82,12 +79,111 @@ function mutationErrorMessage(cause: unknown, fallback: string): string {
   return cause instanceof ApiError ? mapTeamError(cause.problem) : fallback;
 }
 
+function recentCommitsByUser(activity: TeamActivity | undefined, now: number) {
+  const commits = new Map<string, number>();
+  if (activity?.status !== 'COLLECTED') return commits;
+
+  const today = Math.floor((now + SEOUL_OFFSET_MS) / DAY_MS);
+  const start = (today - 13) * DAY_MS;
+  const end = (today + 1) * DAY_MS;
+  for (const member of activity.members) {
+    let count = 0;
+    for (const point of member.points) {
+      const day = Date.parse(point.date);
+      if (day >= start && day < end) count += point.commitCount;
+    }
+    if (count > 0) commits.set(member.userId, count);
+  }
+  return commits;
+}
+
+function RosterRow({
+  person,
+  disabled,
+  actions,
+  focusAfterSelect,
+  children,
+}: {
+  readonly person: RosterPerson;
+  readonly disabled: boolean;
+  readonly actions: readonly {
+    readonly label: string;
+    readonly onSelect: (trigger: HTMLButtonElement | null) => void;
+  }[];
+  readonly focusAfterSelect?: RefObject<HTMLButtonElement | null>;
+  readonly children?: ReactNode;
+}) {
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const selected = useRef(false);
+  const name = displayNameOf(person);
+  const { nickname } = person;
+
+  return (
+    <li>
+      <ListRow className="min-h-control flex-nowrap gap-2 px-(--card-spacing) py-2">
+        <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+          <span className="max-w-full font-semibold break-keep [overflow-wrap:anywhere]">
+            {name === nickname ? `@${nickname}` : name}
+          </span>
+          {name !== nickname ? (
+            <span className="max-w-full text-small break-all text-muted-foreground">
+              @{nickname}
+            </span>
+          ) : null}
+          {children}
+        </span>
+        <DropdownMenu.Root modal={false}>
+          <DropdownMenu.Trigger asChild disabled={disabled}>
+            <Button
+              ref={trigger}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`${name} 작업`}
+            >
+              <Ellipsis aria-hidden="true" />
+            </Button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={4}
+              collisionPadding={8}
+              className="z-50 min-w-40 rounded-control border border-border bg-background p-1 text-small text-foreground shadow-lg outline-none"
+              onCloseAutoFocus={(event) => {
+                if (!selected.current) return;
+                selected.current = false;
+
+                event.preventDefault();
+                focusAfterSelect?.current?.focus();
+              }}
+            >
+              {actions.map((action) => (
+                <DropdownMenu.Item
+                  key={action.label}
+                  className="flex min-h-control cursor-pointer items-center rounded-control px-3 outline-none data-[highlighted]:bg-muted"
+                  onSelect={() => {
+                    selected.current = true;
+                    action.onSelect(trigger.current);
+                  }}
+                >
+                  {action.label}
+                </DropdownMenu.Item>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      </ListRow>
+    </li>
+  );
+}
+
 export interface StaffTeamMembersPanelProps {
   readonly programId: string;
   readonly teamId: string;
-  readonly teamName: string;
   readonly memberCount: number;
   readonly members: readonly StaffProgramTeamMember[];
+  readonly activity?: TeamActivity;
 
   readonly sessionKey: string | null;
   readonly onChanged: () => void;
@@ -109,9 +205,9 @@ export function StaffTeamMembersPanel(props: StaffTeamMembersPanelProps) {
 function StaffTeamMembersPanelInstance({
   programId,
   teamId,
-  teamName,
   memberCount,
   members,
+  activity,
   sessionKey,
   onChanged,
 }: StaffTeamMembersPanelProps) {
@@ -128,9 +224,9 @@ function StaffTeamMembersPanelInstance({
       <StaffTeamMembersRoster
         programId={programId}
         teamId={teamId}
-        teamName={teamName}
         memberCount={memberCount}
         members={members}
+        activity={activity}
         invitation={invitation}
         inviteTriggerRef={inviteTriggerRef}
         onOpenInvite={() => setInviteOpen(true)}
@@ -149,9 +245,9 @@ function StaffTeamMembersPanelInstance({
 function StaffTeamMembersRoster({
   programId,
   teamId,
-  teamName,
   memberCount,
   members,
+  activity,
   invitation,
   inviteTriggerRef,
   onOpenInvite,
@@ -159,9 +255,9 @@ function StaffTeamMembersRoster({
 }: {
   readonly programId: string;
   readonly teamId: string;
-  readonly teamName: string;
   readonly memberCount: number;
   readonly members: readonly StaffProgramTeamMember[];
+  readonly activity?: TeamActivity;
   readonly invitation: TeamInvitationManagement;
   readonly inviteTriggerRef: RefObject<HTMLButtonElement | null>;
   readonly onOpenInvite: () => void;
@@ -171,7 +267,14 @@ function StaffTeamMembersRoster({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
-  const trigger = useRef<HTMLButtonElement | null>(null);
+  const titleId = useId();
+  const rowTrigger = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef: RefObject<HTMLButtonElement | null> = {
+    get current() {
+      const trigger = rowTrigger.current;
+      return trigger?.isConnected ? trigger : inviteTriggerRef.current;
+    },
+  };
   const pending = useRef(false);
   const active = useRef(true);
 
@@ -188,6 +291,7 @@ function StaffTeamMembersRoster({
   }, [invitingUserId]);
 
   const roster = orderedRoster(members);
+  const commitsByUser = recentCommitsByUser(activity, Date.now());
   const memberIds = new Set(roster.map((member) => member.userId));
   const pendingInvitations = invitation.sentInvitations.filter(
     (item) => !memberIds.has(item.invitee.id),
@@ -201,41 +305,43 @@ function StaffTeamMembersRoster({
       ? cancelTargetId
       : null;
 
-  async function runMutation(
-    work: () => Promise<void>,
-    fallback: string,
-  ): Promise<void> {
+  function openConfirmation(
+    target: ConfirmTarget,
+    trigger: HTMLButtonElement | null,
+  ) {
+    rowTrigger.current = trigger;
+    setError(null);
+    setTarget(target);
+  }
+
+  async function runMutation({ kind, member }: ConfirmTarget): Promise<void> {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     setError(null);
     try {
-      await work();
+      if (kind === 'remove') {
+        await removeStaffTeamMember(programId, teamId, member.userId);
+      } else {
+        await transferStaffTeamLeader(programId, teamId, member.userId);
+      }
       if (!active.current) return;
+      if (kind === 'remove') rowTrigger.current = null;
       setTarget(null);
       onChanged();
     } catch (cause: unknown) {
       if (!active.current) return;
-      setError(mutationErrorMessage(cause, fallback));
+      setError(
+        mutationErrorMessage(
+          cause,
+          kind === 'remove' ? REMOVE_FAILED_MESSAGE : TRANSFER_FAILED_MESSAGE,
+        ),
+      );
       onChanged();
     } finally {
       pending.current = false;
       if (active.current) setBusy(false);
     }
-  }
-
-  async function remove(member: StaffProgramTeamMember): Promise<void> {
-    await runMutation(
-      () => removeStaffTeamMember(programId, teamId, member.userId),
-      REMOVE_FAILED_MESSAGE,
-    );
-  }
-
-  async function transfer(member: StaffProgramTeamMember): Promise<void> {
-    await runMutation(
-      () => transferStaffTeamLeader(programId, teamId, member.userId),
-      TRANSFER_FAILED_MESSAGE,
-    );
   }
 
   const confirmTitle =
@@ -262,35 +368,29 @@ function StaffTeamMembersRoster({
       : `${REMOVE_LABEL} 실패`;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <Card size="sm">
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div className="min-w-0">
-            <CardTitle>
-              <h2 className="contents">구성원 관리</h2>
-            </CardTitle>
-            <CardDescription>{`${teamName} · 팀원 ${memberCount}명`}</CardDescription>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                ref={inviteTriggerRef}
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label={INVITE_LABEL}
-                aria-haspopup="dialog"
-                onClick={onOpenInvite}
-              >
-                <UserPlus aria-hidden="true" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{INVITE_LABEL}</TooltipContent>
-          </Tooltip>
+    <>
+      <Card role="region" aria-labelledby={titleId}>
+        <CardHeader className="flex items-start justify-between gap-3">
+          <CardTitle className="flex flex-wrap items-baseline gap-x-1 text-sm">
+            <h2 id={titleId}>팀원</h2>
+            <span className="text-small font-normal text-muted-foreground">
+              {memberCount}명
+            </span>
+          </CardTitle>
+          <Button
+            ref={inviteTriggerRef}
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-haspopup="dialog"
+            onClick={onOpenInvite}
+          >
+            {INVITE_LABEL}
+          </Button>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-col gap-4 px-0">
           {invitation.sentError ? (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mx-(--card-spacing)">
               <AlertTitle>보낸 초대를 불러오지 못했습니다</AlertTitle>
               <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
                 <span className="break-keep">{invitation.sentError}</span>
@@ -306,7 +406,7 @@ function StaffTeamMembersRoster({
             </Alert>
           ) : null}
           {inviteActionError ? (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mx-(--card-spacing)">
               <AlertTitle>
                 {retryCancelId !== null
                   ? `${CANCEL_INVITE_LABEL} 실패`
@@ -328,159 +428,104 @@ function StaffTeamMembersRoster({
             </Alert>
           ) : null}
           {invitation.sentLoading ? (
-            <p className="text-small text-muted-foreground" aria-live="polite">
+            <p
+              className="mx-(--card-spacing) text-small text-muted-foreground"
+              aria-live="polite"
+            >
               보낸 초대를 불러오는 중…
             </p>
           ) : null}
-          <ListPanel>
-            <ul
-              aria-label="팀 구성원과 초대"
-              className="[&>li+li]:border-t [&>li+li]:border-border/50"
-            >
-              {roster.map((member) => {
-                const displayName = displayNameOf(member);
-                const showNickname = displayName !== member.nickname;
-                return (
-                  <li key={member.userId}>
-                    <ListRow className="justify-between">
-                      <span className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="whitespace-nowrap rounded-control border border-border px-2 text-small text-muted-foreground">
-                          {member.isLeader ? '팀장' : '팀원'}
-                        </span>
-                        {displayName}
-                        {showNickname ? (
-                          <span className="max-w-full break-all font-mono text-small text-muted-foreground">
-                            {member.nickname}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-1">
-                        {member.isLeader ? null : (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`${displayName} ${TRANSFER_LABEL}`}
-                                disabled={busy}
-                                onClick={(event) => {
-                                  trigger.current = event.currentTarget;
-                                  setError(null);
-                                  setTarget({ kind: 'transfer', member });
-                                }}
-                              >
-                                <UserRoundPen aria-hidden="true" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{`${displayName} ${TRANSFER_LABEL}`}</TooltipContent>
-                          </Tooltip>
-                        )}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`${displayName} ${REMOVE_LABEL}`}
-                              disabled={busy}
-                              onClick={(event) => {
-                                trigger.current = event.currentTarget;
-                                setError(null);
-                                setTarget({ kind: 'remove', member });
-                              }}
-                            >
-                              <UserMinus aria-hidden="true" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{`${displayName} ${REMOVE_LABEL}`}</TooltipContent>
-                        </Tooltip>
-                      </span>
-                    </ListRow>
-                  </li>
-                );
-              })}
-              {pendingInvitations.map((item) => {
-                const name = inviteeNameOf(item);
-                const canceling = invitation.cancelingInvitationId === item.id;
-                return (
-                  <li key={item.id}>
-                    <ListRow className="justify-between">
-                      <span className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="whitespace-nowrap rounded-control border border-dashed border-border px-2 text-small text-muted-foreground">
-                          {PENDING_LABEL}
-                        </span>
-                        {name}
-                        {name !== item.invitee.nickname ? (
-                          <span className="max-w-full break-all font-mono text-small text-muted-foreground">
-                            {item.invitee.nickname}
-                          </span>
-                        ) : null}
-                      </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`${name} ${CANCEL_INVITE_LABEL}`}
-                            disabled={canceling}
-                            onClick={() => {
-                              setCancelTargetId(item.id);
-                              invitation.onCancelInvitation(item.id);
-                            }}
-                          >
-                            <X aria-hidden="true" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{`${name} ${CANCEL_INVITE_LABEL}`}</TooltipContent>
-                      </Tooltip>
-                    </ListRow>
-                  </li>
-                );
-              })}
-            </ul>
-          </ListPanel>
-        </CardContent>
-        {target ? (
-          <ApplicationActionDialog
-            title={confirmTitle}
-            description={confirmDescription}
-            confirmLabel={confirmLabel}
-            destructive={target.kind === 'remove'}
-            submitting={busy}
-            returnFocusRef={trigger}
-            onClose={() => setTarget(null)}
-            onConfirm={() =>
-              void (target.kind === 'remove'
-                ? remove(target.member)
-                : transfer(target.member))
-            }
+          <ul
+            aria-label="팀 구성원과 초대"
+            className="[&>li+li]:border-t [&>li+li]:border-border/50"
           >
-            {error ? (
-              <Alert variant="destructive">
-                <AlertTitle>{confirmFailedTitle}</AlertTitle>
-                <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="break-keep">{error}</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() =>
-                      void (target.kind === 'remove'
-                        ? remove(target.member)
-                        : transfer(target.member))
-                    }
-                  >
-                    다시 시도
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-          </ApplicationActionDialog>
-        ) : null}
+            {roster.map((member) => {
+              const commits = commitsByUser.get(member.userId);
+              const remove = {
+                label: REMOVE_LABEL,
+                onSelect: (trigger: HTMLButtonElement | null) =>
+                  openConfirmation({ kind: 'remove', member }, trigger),
+              };
+              const transfer = {
+                label: TRANSFER_LABEL,
+                onSelect: (trigger: HTMLButtonElement | null) =>
+                  openConfirmation({ kind: 'transfer', member }, trigger),
+              };
+              return (
+                <RosterRow
+                  key={`member-${member.userId}`}
+                  person={member}
+                  disabled={busy}
+                  actions={member.isLeader ? [remove] : [transfer, remove]}
+                >
+                  {member.isLeader ? (
+                    <span className="text-small text-muted-foreground">
+                      팀장
+                    </span>
+                  ) : null}
+                  {commits !== undefined ? (
+                    <span className="text-small break-keep text-muted-foreground tabular-nums">
+                      최근 2주 커밋 {commits}
+                    </span>
+                  ) : null}
+                </RosterRow>
+              );
+            })}
+            {pendingInvitations.map((item) => (
+              <RosterRow
+                key={`invite-${item.id}`}
+                person={item.invitee}
+                disabled={invitation.cancelingInvitationId === item.id}
+                focusAfterSelect={inviteTriggerRef}
+                actions={[
+                  {
+                    label: CANCEL_INVITE_LABEL,
+                    onSelect: () => {
+                      setCancelTargetId(item.id);
+                      invitation.onCancelInvitation(item.id);
+                    },
+                  },
+                ]}
+              >
+                <span className="inline-flex items-center gap-1 text-small whitespace-nowrap text-muted-foreground">
+                  <Clock className="size-3.5" aria-hidden="true" />
+                  {PENDING_LABEL}
+                </span>
+              </RosterRow>
+            ))}
+          </ul>
+        </CardContent>
       </Card>
-    </TooltipProvider>
+      {target ? (
+        <ApplicationActionDialog
+          title={confirmTitle}
+          description={confirmDescription}
+          confirmLabel={confirmLabel}
+          destructive={target.kind === 'remove'}
+          submitting={busy}
+          returnFocusRef={returnFocusRef}
+          onClose={() => setTarget(null)}
+          onConfirm={() => void runMutation(target)}
+        >
+          {error ? (
+            <Alert variant="destructive">
+              <AlertTitle>{confirmFailedTitle}</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span className="break-keep">{error}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void runMutation(target)}
+                >
+                  다시 시도
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </ApplicationActionDialog>
+      ) : null}
+    </>
   );
 }

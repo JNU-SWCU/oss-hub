@@ -13,6 +13,10 @@ it('parses document and submission selectors while preserving existing paginatio
     page: '2',
     pageSize: '20',
     filter: 'ALL',
+    q: 'example team',
+    status: 'NOT_SUBMITTED',
+    sort: 'reviewedAt',
+    direction: 'desc',
     documentId: 'synthetic-document',
     submissionState: 'MISSING',
   });
@@ -21,6 +25,10 @@ it('parses document and submission selectors while preserving existing paginatio
     page: 2,
     pageSize: 20,
     filter: 'ALL',
+    q: 'example team',
+    status: 'NOT_SUBMITTED',
+    sort: 'reviewedAt',
+    direction: 'desc',
     document: { id: 'synthetic-document', submissionState: 'MISSING' },
   });
 });
@@ -53,4 +61,16 @@ it.each([
 ])('rejects an invalid document selector: %j', async (input) => {
   const dto = plainToInstance(RequirementCollectionRequestDto, input);
   expect(await validate(dto)).not.toHaveLength(0);
+});
+
+it.each([
+  { q: ['one', 'two'] },
+  { status: 'COMPLETE' },
+  { sort: 'milestone:other' },
+  { direction: 'ascending' },
+])('rejects an invalid stage table query: %j', async (input) => {
+  const dto = plainToInstance(RequirementCollectionRequestDto, input);
+  expect((await validate(dto)).map(({ property }) => property)).toEqual(
+    Object.keys(input),
+  );
 });

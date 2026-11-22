@@ -34,6 +34,7 @@ export function ProgramMailAction({
       </Button>
       {open ? (
         <ProgramMailDialog
+          key={programId}
           programId={programId}
           open
           returnFocusRef={triggerRef}

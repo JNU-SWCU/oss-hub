@@ -1,52 +1,64 @@
 import { useSearchParams } from 'next/navigation';
 import {
   parseListPage,
-  parseListEnum,
   setListPage,
   useListUrlNavigation,
   useParsedListUrlState,
 } from '@/lib/list-url-state';
+import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
 import {
+  MATRIX_DEFAULT_ORDER,
   MATRIX_PAGE_SIZE,
   type MatrixQueryInput,
-  type MatrixQuickFilter,
+  type MatrixSort,
 } from './matrix';
-interface SubmissionMatrixUrlState extends MatrixQueryInput {
-  readonly quickFilter: MatrixQuickFilter;
-}
+
+const MATRIX_SORT_PATTERN = /^(?:team|progress|milestone:\S+)$/u;
+
 export function parseSubmissionMatrixSearchParams(
   params: URLSearchParams,
-): SubmissionMatrixUrlState {
+): MatrixQueryInput {
+  const status = params.get('status');
+  const sort = params.get('sort');
+  const direction = params.get('direction');
+  const order: Pick<MatrixQueryInput, 'sort' | 'direction'> =
+    sort !== null &&
+    sort === sort.trim() &&
+    MATRIX_SORT_PATTERN.test(sort) &&
+    (direction === 'asc' || direction === 'desc')
+      ? { sort: sort as MatrixSort, direction }
+      : MATRIX_DEFAULT_ORDER;
+
   return {
     q: params.get('q')?.trim() ?? '',
     page: parseListPage(params.get('page')),
     pageSize: MATRIX_PAGE_SIZE,
-    quickFilter: parseListEnum(
-      params.get('quickFilter'),
-      [
-        'ALL',
-        'OVERDUE',
-        'NOT_SUBMITTED',
-        'SUBMITTED',
-        'CHANGES_REQUESTED',
-        'APPROVED',
-        'REJECTED',
-      ],
-      'ALL',
-    ),
+    ...(status !== null && Object.hasOwn(SUBMISSION_STATUS_LABELS, status)
+      ? { status: status as NonNullable<MatrixQueryInput['status']> }
+      : {}),
+    ...order,
   };
 }
+
 export function buildSubmissionMatrixSearchParams(
-  state: SubmissionMatrixUrlState,
-) {
+  state: MatrixQueryInput,
+): URLSearchParams {
   const params = new URLSearchParams();
-  if (state.q.trim()) params.set('q', state.q.trim());
+  const q = state.q.trim();
+  if (q !== '') params.set('q', q);
   setListPage(params, state.page);
-  if (state.quickFilter !== 'ALL') params.set('quickFilter', state.quickFilter);
+  if (state.status !== undefined) params.set('status', state.status);
+  if (
+    state.sort !== MATRIX_DEFAULT_ORDER.sort ||
+    state.direction !== MATRIX_DEFAULT_ORDER.direction
+  ) {
+    params.set('sort', state.sort);
+    params.set('direction', state.direction);
+  }
   return params;
 }
 
-const OWNED_PARAMS = ['q', 'page', 'quickFilter'] as const;
+const OWNED_PARAMS = ['q', 'page', 'status', 'sort', 'direction'] as const;
 
 export function useSubmissionMatrixUrlState() {
   const serialized = useSearchParams().toString();

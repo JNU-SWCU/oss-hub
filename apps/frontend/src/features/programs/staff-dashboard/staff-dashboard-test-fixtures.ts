@@ -6,6 +6,18 @@ import type {
 
 export const staffDashboardNow = new Date('2026-07-20T00:00:00.000Z');
 
+const midtermReport = {
+  name: '중간 보고',
+  startAt: '2026-08-01T00:00:00.000Z',
+  dueAt: '2026-08-20T00:00:00.000Z',
+};
+
+const finalReport = {
+  name: '최종 보고',
+  startAt: '2026-08-21T00:00:00.000Z',
+  dueAt: '2026-09-04T00:00:00.000Z',
+};
+
 export function staffDashboardProgram(
   overrides: Partial<StaffDashboardProgramSummary>,
 ): StaffDashboardProgramSummary {
@@ -42,6 +54,20 @@ export function staffDashboardProgram(
       changesRequested: 0,
       rejected: 0,
     },
+    milestones: [
+      {
+        ...midtermReport,
+        id: `${id}:midterm`,
+        submittedTeams: 1,
+        totalTeams: 1,
+      },
+      {
+        ...finalReport,
+        id: `${id}:final`,
+        submittedTeams: 1,
+        totalTeams: 1,
+      },
+    ],
     ...overrides,
   };
 }
@@ -82,7 +108,7 @@ export const staffDashboardSummary: StaffDashboardSummary =
         rejected: 0,
       },
       submissions: {
-        milestones: 2,
+        milestones: 1,
         total: 0,
         notSubmitted: 0,
         submitted: 0,
@@ -90,6 +116,20 @@ export const staffDashboardSummary: StaffDashboardSummary =
         changesRequested: 0,
         rejected: 0,
       },
+      milestones: [
+        {
+          ...midtermReport,
+          id: 'program:empty-activity:midterm',
+          submittedTeams: 0,
+          totalTeams: 0,
+        },
+        {
+          ...finalReport,
+          id: 'program:empty-activity:final',
+          submittedTeams: null,
+          totalTeams: null,
+        },
+      ],
     }),
     staffDashboardProgram({
       id: 'program:stale',
@@ -111,6 +151,20 @@ export const staffDashboardSummary: StaffDashboardSummary =
         changesRequested: 0,
         rejected: 0,
       },
+      milestones: [
+        {
+          ...midtermReport,
+          id: 'program:stale:midterm',
+          submittedTeams: 0,
+          totalTeams: 1,
+        },
+        {
+          ...finalReport,
+          id: 'program:stale:final',
+          submittedTeams: 0,
+          totalTeams: 1,
+        },
+      ],
     }),
     staffDashboardProgram({
       id: 'program:no-milestone',
@@ -124,5 +178,6 @@ export const staffDashboardSummary: StaffDashboardSummary =
         changesRequested: 0,
         rejected: 0,
       },
+      milestones: [],
     }),
   ]);

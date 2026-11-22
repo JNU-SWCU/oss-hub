@@ -1,46 +1,19 @@
-import {
-  DOCUMENT_DELIVERY_LABELS,
-  DOCUMENT_DELIVERY_VARIANTS,
-} from '@/lib/document-delivery';
+import { ChevronDown, Download } from 'lucide-react';
 import Link from 'next/link';
-import { Fragment, type ReactElement, type ReactNode } from 'react';
-import {
-  EmptyState,
-  FilterChip,
-  FilterChipGroup,
-  PageBody,
-  PageHeader,
-  StatusBadge,
-  TeamSearchForm,
-} from '@/components';
+import type { ComponentType, ReactNode } from 'react';
+import { EmptyState, PageBody, PageHeader, TeamSearchForm } from '@/components';
+import { DeadlineDate } from '@/components/deadline-date';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { programEditHref } from '@/lib/program-route';
-import { submissionStatusLabel } from '@/lib/status-vocabulary';
+import { cn } from '@/lib/utils';
 import {
-  collectionCellFor,
-  collectionDocumentTotalFor,
-  collectionEmptyKind,
-  collectionFilterCountFor,
-  collectionRowMemberSummary,
   isCollectionProgramMismatch,
-  REQUIREMENT_COLLECTION_FILTER_LABELS,
   requirementCollectionPageState,
-  searchCollectionRows,
   type RequirementCollectionLoadPhase,
 } from './requirement-collection';
 import {
-  REQUIREMENT_COLLECTION_FILTERS,
   requirementCollectionArchiveHref,
   requirementCollectionDocumentArchiveHref,
   submissionFileHref,
@@ -49,43 +22,55 @@ import type {
   RequirementCollection,
   RequirementCollectionArchiveGrouping,
   RequirementCollectionCell,
-  RequirementCollectionDocument,
-  RequirementCollectionFilter,
-  RequirementCollectionFilterCounts,
-  RequirementDeliveryCounts,
-  RequirementCollectionRow,
-  RequirementCollectionSelection,
+  RequirementCollectionSort,
+  RequirementCollectionStatus,
+  RequirementCollectionStatusCounts,
 } from './requirement-collection-dto';
 import {
   isSameRequirementReviewTarget,
-  REQUIREMENT_REVIEW_DISPLAY_LABELS,
-  REQUIREMENT_REVIEW_DISPLAY_VARIANTS,
-  requirementCellDisplay,
-  requirementReviewVersionOf,
   type RequirementReviewFormState,
   type RequirementReviewTarget,
-  type RequirementReviewVersion,
 } from './requirement-review';
 import type { RequirementReviewDecision } from './requirement-review-dto';
 import { RequirementReviewPanel } from './requirement-review-panel';
-import {
-  formatSeoulDate,
-  formatSeoulShortDateTime,
-} from '../catalog/program-detail-format';
+import { formatSeoulDate } from '../catalog/program-detail-format';
 import { programHref } from '../program-paths';
-import { RequirementCollectionSummary } from './requirement-collection-summary';
-
-const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
-const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
-
-const STICKY_TEAM_CELL = 'sticky left-0 z-10 min-w-48 bg-background';
-const SCROLL_HINT_ID = 'milestone-document-collection-scroll-hint';
 
 const ARCHIVE_HINT_ID = 'milestone-document-collection-archive-hint';
 const DOWNLOAD_BEHAVIOR_HINT_ID = 'milestone-document-download-behavior-hint';
 const ARCHIVE_GROUPING_ID = 'milestone-document-collection-archive-grouping';
 
-export interface RequirementCollectionViewProps {
+export interface RequirementCollectionPresentation {
+  readonly Table: ComponentType<{
+    readonly programId: string;
+    readonly data: RequirementCollection;
+    readonly now: Date;
+    readonly sort: RequirementCollectionSort;
+    readonly direction: 'asc' | 'desc';
+    readonly onSort: (sort: RequirementCollectionSort) => void;
+    readonly isRefreshing: boolean;
+    readonly reviewTarget: RequirementReviewTarget | null;
+    readonly onReviewOpen: (
+      target: RequirementReviewTarget,
+      cell: RequirementCollectionCell,
+    ) => void;
+    readonly renderReview: (
+      target: RequirementReviewTarget,
+      cell: RequirementCollectionCell,
+    ) => ReactNode;
+    readonly fileHref: (target: RequirementReviewTarget) => string;
+    readonly downloadBehaviorHintId: string;
+  }>;
+  readonly StatusFilters: ComponentType<{
+    readonly status?: RequirementCollectionStatus;
+    readonly counts?: RequirementCollectionStatusCounts;
+    readonly onStatusChange: (
+      status: RequirementCollectionStatus | undefined,
+    ) => void;
+  }>;
+}
+
+export interface RequirementCollectionViewProps extends RequirementCollectionPresentation {
   readonly programId: string;
   readonly headerActions?: ReactNode;
   readonly data: RequirementCollection | null;
@@ -93,30 +78,31 @@ export interface RequirementCollectionViewProps {
   readonly searchQuery: string;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
-  readonly filter: RequirementCollectionFilter;
-  readonly documentSelection: RequirementCollectionSelection | null;
-  readonly onDocumentSelectionChange: (
-    selection: RequirementCollectionSelection | null,
+  readonly status?: RequirementCollectionStatus;
+  readonly sort: RequirementCollectionSort;
+  readonly direction: 'asc' | 'desc';
+  readonly onStatusChange: (
+    status: RequirementCollectionStatus | undefined,
   ) => void;
-
+  readonly onSort: (sort: RequirementCollectionSort) => void;
   readonly loadPhase: RequirementCollectionLoadPhase;
   readonly errorMessage: string | null;
-
-  readonly review: RequirementReviewFormState | null;
-
+  readonly review:
+    | (RequirementReviewFormState & {
+        readonly cell: RequirementCollectionCell;
+      })
+    | null;
   readonly reviewNotice: string | null;
-
   readonly archiveGrouping: RequirementCollectionArchiveGrouping;
   readonly onArchiveGroupingChange: (
     grouping: RequirementCollectionArchiveGrouping,
   ) => void;
   readonly onResetFilters: () => void;
-  readonly onFilterChange: (filter: RequirementCollectionFilter) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
   readonly onReviewOpen: (
     target: RequirementReviewTarget,
-    version: RequirementReviewVersion | null,
+    cell: RequirementCollectionCell,
   ) => void;
   readonly onReviewClose: () => void;
   readonly onReviewDecisionChange: (
@@ -127,223 +113,31 @@ export interface RequirementCollectionViewProps {
   readonly onReviewHistoryMore: () => void;
 }
 
-function DocumentArchiveIcon(): ReactElement {
-  return (
-    <svg
-      aria-hidden
-      focusable="false"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-5"
-    >
-      <path d="M12 4v10" />
-      <path d="M8 10.5 12 14l4-3.5" />
-      <path d="M5 18h14" />
-    </svg>
-  );
-}
-
-function DocumentHeader({
-  document,
-  milestoneId,
-}: {
-  readonly document: RequirementCollectionDocument;
-  readonly milestoneId: string;
-}): ReactElement {
-  return (
-    <span className="flex items-center gap-1">
-      <span>
-        {document.name}
-        {document.isRequired ? (
-          <span aria-label="필수" className="ml-0.5 text-destructive">
-            *
-          </span>
-        ) : null}
-      </span>
-
-      <Button asChild variant="ghost" size="icon-xs">
-        <a
-          href={requirementCollectionDocumentArchiveHref(
-            milestoneId,
-            document.id,
-          )}
-          aria-label={`${document.name} 서류별 내려받기(ZIP)`}
-          title={`${document.name} 서류별 내려받기(ZIP)`}
-          aria-describedby={`${ARCHIVE_HINT_ID} ${DOWNLOAD_BEHAVIOR_HINT_ID}`}
-        >
-          <DocumentArchiveIcon />
-        </a>
-      </Button>
-    </span>
-  );
-}
-
-function SubmittedAt({
-  submittedAt,
-}: {
-  readonly submittedAt: string | null;
-}): ReactElement | null {
-  if (submittedAt === null) return null;
-  return (
-    <span className="text-small text-muted-foreground">
-      {formatSeoulShortDateTime(submittedAt)}
-    </span>
-  );
-}
-
-function CollectionCellContent({
-  cell,
-  milestoneId,
-  documentId,
-  teamId,
-  teamName,
-  documentName,
-  isReviewOpen,
-  onReviewOpen,
-}: {
-  readonly cell: RequirementCollectionCell;
-  readonly milestoneId: string;
-  readonly documentId: string;
-  readonly teamId: string;
-  readonly teamName: string;
-  readonly documentName: string;
-  readonly isReviewOpen: boolean;
-  readonly onReviewOpen: (
-    target: RequirementReviewTarget,
-    version: RequirementReviewVersion | null,
-  ) => void;
-}): ReactElement {
-  const display = requirementCellDisplay(cell);
-  const badge = (
-    <StatusBadge variant={REQUIREMENT_REVIEW_DISPLAY_VARIANTS[display]}>
-      {display === 'CHANGES_REQUESTED'
-        ? submissionStatusLabel('CHANGES_REQUESTED', 'staff')
-        : REQUIREMENT_REVIEW_DISPLAY_LABELS[display]}
-    </StatusBadge>
-  );
-
-  return (
-    <span className="flex flex-col items-start gap-0.5">
-      {cell.isSubmitted ? (
-        <Button
-          type="button"
-          variant="bare"
-          size="content"
-          aria-expanded={isReviewOpen}
-          aria-label={`${teamName} ${documentName} 검토`}
-          className="flex flex-col items-start gap-0.5 rounded-control text-left whitespace-nowrap hover:opacity-80"
-
-          onClick={() =>
-            onReviewOpen(
-              { teamId, documentId },
-              requirementReviewVersionOf(cell),
-            )
-          }
-        >
-          {badge}
-          <SubmittedAt submittedAt={cell.submittedAt} />
-        </Button>
-      ) : (
-        badge
-      )}
-      {cell.file === null ? null : (
-        <a
-          href={submissionFileHref(milestoneId, documentId, teamId)}
-          aria-label={`${teamName} ${documentName} 개별 파일 내려받기: ${cell.file.name}`}
-          aria-describedby={DOWNLOAD_BEHAVIOR_HINT_ID}
-          title={cell.file.name}
-          className="block max-w-56 truncate text-small font-medium underline underline-offset-2 hover:opacity-80"
-        >
-          {cell.file.name}
-        </a>
-      )}
-    </span>
-  );
-}
-
-function TeamCellContent({
-  row,
-}: {
-  readonly row: RequirementCollectionRow;
-}): ReactElement {
-  const members = collectionRowMemberSummary(row);
-  return (
-    <span className="flex flex-col gap-0.5">
-      <span className="font-semibold">{row.teamName}</span>
-      {members === null ? null : (
-        <span className="text-small text-muted-foreground">{members}</span>
-      )}
-    </span>
-  );
-}
-
-function CollectionFilterButtons({
-  filterCounts,
-  deliveryCounts,
-  filter,
-  onFilterChange,
-}: {
-  readonly filterCounts: RequirementCollectionFilterCounts;
-  readonly deliveryCounts: RequirementDeliveryCounts;
-  readonly filter: RequirementCollectionFilter;
-  readonly onFilterChange: (filter: RequirementCollectionFilter) => void;
-}): ReactElement {
-  return (
-    <FilterChipGroup aria-label="팀별 필수 서류 제출 상태">
-      <p className="w-full text-small font-semibold">
-        팀별 필수 서류 제출 상태
-      </p>
-      {REQUIREMENT_COLLECTION_FILTERS.map((option) => {
-        const count = collectionFilterCountFor(
-          filterCounts,
-          option,
-          deliveryCounts,
-        );
-        if (option === 'NO_REQUIRED_ITEMS' && count === 0) return null;
-        return (
-          <FilterChip
-            key={option}
-            pressed={filter === option}
-            onClick={() => onFilterChange(option)}
-          >
-            {REQUIREMENT_COLLECTION_FILTER_LABELS[option]} {count}
-          </FilterChip>
-        );
-      })}
-    </FilterChipGroup>
-  );
-}
-
 function CollectionArchiveControls({
-  milestoneId,
+  data: { milestone, documents },
   archiveGrouping,
   onArchiveGroupingChange,
-}: {
-  readonly milestoneId: string;
-  readonly archiveGrouping: RequirementCollectionArchiveGrouping;
-  readonly onArchiveGroupingChange: (
-    grouping: RequirementCollectionArchiveGrouping,
-  ) => void;
-}): ReactElement {
+}: Pick<
+  RequirementCollectionViewProps,
+  'archiveGrouping' | 'onArchiveGroupingChange'
+> & {
+  readonly data: RequirementCollection;
+}) {
+  const describedBy = `${ARCHIVE_HINT_ID} ${DOWNLOAD_BEHAVIOR_HINT_ID}`;
   return (
     <div className="flex min-w-0 flex-col items-start gap-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
         <Button asChild variant="outline">
           <a
             href={requirementCollectionArchiveHref(
-              milestoneId,
+              milestone.id,
               archiveGrouping,
             )}
-            aria-describedby={`${ARCHIVE_HINT_ID} ${DOWNLOAD_BEHAVIOR_HINT_ID}`}
+            aria-describedby={describedBy}
           >
             마일스톤 전체 내려받기(ZIP)
           </a>
         </Button>
-
         <span className="flex min-w-0 items-center gap-2">
           <input
             id={ARCHIVE_GROUPING_ID}
@@ -363,12 +157,29 @@ function CollectionArchiveControls({
           </label>
         </span>
       </div>
-
+      <ul aria-label="서류별 ZIP 내려받기" className="flex flex-wrap gap-2">
+        {documents.map((document) => (
+          <li key={document.id}>
+            <Button asChild variant="ghost" size="xs">
+              <a
+                href={requirementCollectionDocumentArchiveHref(
+                  milestone.id,
+                  document.id,
+                )}
+                aria-label={`${document.name} 서류별 내려받기(ZIP)`}
+                aria-describedby={describedBy}
+              >
+                {document.name} ZIP
+              </a>
+            </Button>
+          </li>
+        ))}
+      </ul>
       <p
         id={ARCHIVE_HINT_ID}
         className="text-small text-muted-foreground break-keep"
       >
-        빠른 필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.
+        검색·필터·페이지와 무관하게 이 마일스톤의 전체 팀을 담습니다.
       </p>
       <p
         id={DOWNLOAD_BEHAVIOR_HINT_ID}
@@ -389,7 +200,7 @@ function CollectionPagination({
   readonly page: number;
   readonly totalPages: number;
   readonly onPageChange: (page: number) => void;
-}): ReactElement | null {
+}) {
   if (totalPages <= 1) return null;
   return (
     <nav
@@ -417,196 +228,7 @@ function CollectionPagination({
   );
 }
 
-function ReviewPanelRow({
-  data,
-  row,
-  review,
-  onReviewClose,
-  onReviewDecisionChange,
-  onReviewCommentChange,
-  onReviewSubmit,
-  onReviewHistoryMore,
-}: {
-  readonly data: RequirementCollection;
-  readonly row: RequirementCollectionRow;
-  readonly review: RequirementReviewFormState;
-  readonly onReviewClose: () => void;
-  readonly onReviewDecisionChange: (
-    decision: RequirementReviewDecision,
-  ) => void;
-  readonly onReviewCommentChange: (comment: string) => void;
-  readonly onReviewSubmit: () => void;
-  readonly onReviewHistoryMore: () => void;
-}): ReactElement | null {
-  const { milestone, documents } = data;
-  const document = documents.find(
-    (candidate) => candidate.id === review.target.documentId,
-  );
-
-  if (document === undefined) return null;
-  const cell = collectionCellFor(row, document.id);
-
-  return (
-    <TableRow>
-      <TableCell colSpan={documents.length + 1}>
-        <div
-          data-testid="milestone-document-review-panel-viewport"
-          className="sticky left-0 w-[calc(100vw-4rem)] sm:max-w-3xl"
-        >
-          <RequirementReviewPanel
-            teamName={row.teamName}
-            documentName={document.name}
-            cell={cell}
-            fileHref={
-              cell.file === null
-                ? null
-                : submissionFileHref(milestone.id, document.id, row.teamId)
-            }
-            decision={review.decision}
-            comment={review.comment}
-            isSubmitting={review.isSubmitting}
-            errorMessage={review.errorMessage}
-            history={review.history}
-            isHistoryLoading={review.isHistoryLoading}
-            historyError={review.historyError}
-            hasMoreHistory={review.historyNextCursor !== null}
-            historyIsComplete={review.historyIsComplete}
-            onHistoryMore={onReviewHistoryMore}
-            onDecisionChange={onReviewDecisionChange}
-            onCommentChange={onReviewCommentChange}
-            onSubmit={onReviewSubmit}
-            onClose={onReviewClose}
-          />
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function CollectionTable({
-  data,
-  loadPhase,
-  review,
-  onReviewOpen,
-  onReviewClose,
-  onReviewDecisionChange,
-  onReviewCommentChange,
-  onReviewSubmit,
-  onReviewHistoryMore,
-}: {
-  readonly data: RequirementCollection;
-  readonly loadPhase: RequirementCollectionLoadPhase;
-  readonly review: RequirementReviewFormState | null;
-  readonly onReviewOpen: (
-    target: RequirementReviewTarget,
-    version: RequirementReviewVersion | null,
-  ) => void;
-  readonly onReviewClose: () => void;
-  readonly onReviewDecisionChange: (
-    decision: RequirementReviewDecision,
-  ) => void;
-  readonly onReviewCommentChange: (comment: string) => void;
-  readonly onReviewSubmit: () => void;
-  readonly onReviewHistoryMore: () => void;
-}): ReactElement {
-  const { milestone, documents, rows, documentTotals } = data;
-
-  return (
-    <div className={TABLE_CARD} aria-busy={loadPhase === 'refreshing'}>
-      <Table
-        scrollRegionLabel="팀별 서류 수합 표"
-        scrollRegionDescribedBy={SCROLL_HINT_ID}
-      >
-        <TableHeader>
-          <TableRow>
-            <TableHead className={STICKY_TEAM_CELL}>팀</TableHead>
-            {documents.map((document) => (
-              <TableHead key={document.id} className="min-w-40">
-                <DocumentHeader
-                  document={document}
-                  milestoneId={milestone.id}
-                />
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const openReview =
-              review !== null && review.target.teamId === row.teamId
-                ? review
-                : null;
-            return (
-              <Fragment key={row.teamId}>
-                <TableRow>
-                  <TableCell className={STICKY_TEAM_CELL}>
-                    <TeamCellContent row={row} />
-                    <StatusBadge
-                      variant={DOCUMENT_DELIVERY_VARIANTS[row.deliveryStatus]}
-                    >
-                      {DOCUMENT_DELIVERY_LABELS[row.deliveryStatus]}
-                    </StatusBadge>
-                  </TableCell>
-                  {documents.map((document) => (
-                    <TableCell key={document.id} className="min-w-40">
-                      <CollectionCellContent
-                        cell={collectionCellFor(row, document.id)}
-                        milestoneId={milestone.id}
-                        documentId={document.id}
-                        teamId={row.teamId}
-                        teamName={row.teamName}
-                        documentName={document.name}
-                        isReviewOpen={
-                          openReview !== null &&
-                          isSameRequirementReviewTarget(openReview.target, {
-                            teamId: row.teamId,
-                            documentId: document.id,
-                          })
-                        }
-                        onReviewOpen={onReviewOpen}
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-                {openReview === null ? null : (
-                  <ReviewPanelRow
-                    data={data}
-                    row={row}
-                    review={openReview}
-                    onReviewClose={onReviewClose}
-                    onReviewDecisionChange={onReviewDecisionChange}
-                    onReviewCommentChange={onReviewCommentChange}
-                    onReviewSubmit={onReviewSubmit}
-                    onReviewHistoryMore={onReviewHistoryMore}
-                  />
-                )}
-              </Fragment>
-            );
-          })}
-        </TableBody>
-
-        <TableFooter>
-          <TableRow>
-            <TableCell className={STICKY_TEAM_CELL}>합계</TableCell>
-            {documents.map((document) => {
-              const total = collectionDocumentTotalFor(
-                documentTotals,
-                document.id,
-              );
-              return (
-                <TableCell key={document.id} className="min-w-40">
-                  제출 {total.submitted} / 전체 {total.total}
-                </TableCell>
-              );
-            })}
-          </TableRow>
-        </TableFooter>
-      </Table>
-    </div>
-  );
-}
-
-function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
+function CollectionBody(props: RequirementCollectionViewProps) {
   if (props.loadPhase === 'skeleton') {
     return (
       <Skeleton
@@ -620,29 +242,16 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
       </Skeleton>
     );
   }
-  if (props.data === null) return null;
-
+  const data = props.data;
+  if (data === null) return null;
   const { milestone, documents, rows, page, pageSize, total, filterCounts } =
-    props.data;
-  const searching = props.searchQuery.trim() !== '';
-  const visibleRows = searchCollectionRows(rows, props.searchQuery);
-  const searchBound = searching && total > rows.length;
-  const searchBoundNotice = searchBound ? (
-    <Alert data-testid="milestone-document-search-bound">
-      <AlertDescription className="break-keep">
-        먼저 불러온 {rows.length}개 팀 안에서만 찾습니다.
-      </AlertDescription>
-    </Alert>
-  ) : null;
-  const empty = collectionEmptyKind({
-    programId: props.programId,
-    milestoneProgramId: milestone.programId,
-    documentCount: documents.length,
-    applicationCount: filterCounts.all,
-    filteredCount: searching ? visibleRows.length : total,
-  });
-
-  if (empty === 'wrong-program') {
+    data;
+  if (
+    isCollectionProgramMismatch({
+      programId: props.programId,
+      milestoneProgramId: milestone.programId,
+    })
+  ) {
     return (
       <EmptyState
         title="이 프로그램에서 찾을 수 없는 마일스톤입니다"
@@ -655,8 +264,7 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
       />
     );
   }
-
-  if (empty === 'no-documents') {
+  if (documents.length === 0) {
     return (
       <EmptyState
         title="이 마일스톤에는 등록된 제출 항목이 없습니다"
@@ -669,17 +277,30 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
       />
     );
   }
-  const documentSummary = (
-    <RequirementCollectionSummary
-      data={props.data}
-      selection={props.documentSelection}
-      onSelectionChange={props.onDocumentSelectionChange}
-    />
-  );
-  if (empty === 'no-applications') {
-    return (
-      <>
-        {documentSummary}
+
+  const { totalPages, lastPage, outOfRange } = requirementCollectionPageState({
+    page,
+    total,
+    pageSize,
+  });
+  const fileHref = ({ documentId, teamId }: RequirementReviewTarget) =>
+    submissionFileHref(milestone.id, documentId, teamId);
+  return (
+    <>
+      <props.StatusFilters
+        status={props.status}
+        counts={data.statusCounts}
+        onStatusChange={props.onStatusChange}
+      />
+      <div className="flex flex-col gap-1">
+        <h2 className="font-heading text-xl font-bold tracking-tight break-keep">
+          {milestone.name}
+        </h2>
+        <span title={`${formatSeoulDate(milestone.dueAt)} 마감`}>
+          <DeadlineDate dueAt={milestone.dueAt} />
+        </span>
+      </div>
+      {filterCounts.all === 0 && props.searchQuery === '' ? (
         <EmptyState
           title="아직 승인된 신청이 없습니다"
           description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
@@ -691,45 +312,9 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
             </Button>
           }
         />
-      </>
-    );
-  }
-
-  const collectionToolbar = (
-    <>
-      {documentSummary}
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <CollectionFilterButtons
-          filterCounts={filterCounts}
-          deliveryCounts={props.data.deliveryCounts}
-          filter={props.filter}
-          onFilterChange={props.onFilterChange}
-        />
-        <CollectionArchiveControls
-          milestoneId={milestone.id}
-          archiveGrouping={props.archiveGrouping}
-          onArchiveGroupingChange={props.onArchiveGroupingChange}
-        />
-      </div>
-    </>
-  );
-
-  if (empty === 'no-filter-results') {
-    return (
-      <>
-        {collectionToolbar}
-        {searchBoundNotice}
+      ) : total === 0 ? (
         <EmptyState
-          title={
-            searchBound
-              ? '불러온 팀 중에는 없습니다'
-              : '조건에 맞는 팀이 없습니다'
-          }
-          description={
-            searchBound
-              ? undefined
-              : '서류의 제출 여부나 빠른 필터를 바꿔 다시 확인해 보세요.'
-          }
+          title="조건에 맞는 제출 항목이 없습니다"
           action={
             <Button
               type="button"
@@ -740,23 +325,10 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
             </Button>
           }
         />
-      </>
-    );
-  }
-
-  const { totalPages, lastPage, outOfRange } = requirementCollectionPageState({
-    page,
-    total,
-    pageSize,
-  });
-
-  if (outOfRange) {
-    return (
-      <>
-        {collectionToolbar}
+      ) : outOfRange ? (
         <EmptyState
-          title="이 페이지에는 더 이상 팀이 없습니다"
-          description={`조건에 맞는 팀이 ${total}개로 줄어 이 페이지가 사라졌습니다.`}
+          title="이 페이지에 표시할 팀이 없습니다"
+          description={`조건에 맞는 팀은 ${total}팀입니다.`}
           action={
             <Button
               type="button"
@@ -767,41 +339,62 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
             </Button>
           }
         />
-      </>
-    );
-  }
-
-  return (
-    <>
-      {collectionToolbar}
-
-      <p
-        id={SCROLL_HINT_ID}
-        className="break-keep text-small text-muted-foreground"
-      >
-        {searching
-          ? `검색 결과 ${visibleRows.length}개 팀(조건에 맞는 전체 ${total}개 중) · 표는 좌우로 `
-          : `이 페이지 ${rows.length}개 팀(조건에 맞는 전체 ${total}개) · 표는 좌우로 `}
-        <span className="whitespace-nowrap">스크롤해 확인하세요.</span>
-      </p>
-      {searchBoundNotice}
-      <CollectionTable
-        data={searching ? { ...props.data, rows: visibleRows } : props.data}
-        loadPhase={props.loadPhase}
-        review={props.review}
-        onReviewOpen={props.onReviewOpen}
-        onReviewClose={props.onReviewClose}
-        onReviewDecisionChange={props.onReviewDecisionChange}
-        onReviewCommentChange={props.onReviewCommentChange}
-        onReviewSubmit={props.onReviewSubmit}
-        onReviewHistoryMore={props.onReviewHistoryMore}
-      />
-      {searching ? null : (
-        <CollectionPagination
-          page={page}
-          totalPages={totalPages}
-          onPageChange={props.onPageChange}
-        />
+      ) : (
+        <>
+          <props.Table
+            programId={props.programId}
+            data={data}
+            now={new Date()}
+            sort={props.sort}
+            direction={props.direction}
+            onSort={props.onSort}
+            isRefreshing={props.loadPhase === 'refreshing'}
+            reviewTarget={props.review?.target ?? null}
+            onReviewOpen={props.onReviewOpen}
+            renderReview={(target) => {
+              const review = props.review;
+              if (
+                review === null ||
+                !isSameRequirementReviewTarget(review.target, target)
+              )
+                return null;
+              const row = rows.find(({ teamId }) => teamId === target.teamId);
+              const document = documents.find(
+                ({ id }) => id === target.documentId,
+              );
+              if (row === undefined || document === undefined) return null;
+              return (
+                <RequirementReviewPanel
+                  teamName={row.teamName}
+                  documentName={document.name}
+                  cell={review.cell}
+                  fileHref={review.cell.file === null ? null : fileHref(target)}
+                  decision={review.decision}
+                  comment={review.comment}
+                  isSubmitting={review.isSubmitting}
+                  errorMessage={review.errorMessage}
+                  history={review.history}
+                  isHistoryLoading={review.isHistoryLoading}
+                  historyError={review.historyError}
+                  hasMoreHistory={review.historyNextCursor !== null}
+                  historyIsComplete={review.historyIsComplete}
+                  onHistoryMore={props.onReviewHistoryMore}
+                  onDecisionChange={props.onReviewDecisionChange}
+                  onCommentChange={props.onReviewCommentChange}
+                  onSubmit={props.onReviewSubmit}
+                  onClose={props.onReviewClose}
+                />
+              );
+            }}
+            fileHref={fileHref}
+            downloadBehaviorHintId={DOWNLOAD_BEHAVIOR_HINT_ID}
+          />
+          <CollectionPagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={props.onPageChange}
+          />
+        </>
       )}
     </>
   );
@@ -810,37 +403,62 @@ function CollectionBody(props: RequirementCollectionViewProps): ReactNode {
 export function RequirementCollectionView(
   props: RequirementCollectionViewProps,
 ) {
-  const milestone =
-    props.data !== null &&
+  const data = props.data;
+  const showArchive =
+    data !== null &&
+    data.documents.length > 0 &&
+    props.loadPhase !== 'skeleton' &&
     !isCollectionProgramMismatch({
       programId: props.programId,
-      milestoneProgramId: props.data.milestone.programId,
-    })
-      ? props.data.milestone
-      : null;
+      milestoneProgramId: data.milestone.programId,
+    });
   return (
-    <PageBody>
+    <PageBody className="gap-4 px-4 sm:gap-6 sm:px-12 sm:pt-8">
       <PageHeader
-        title={
-          milestone === null ? '서류 수합' : `서류 수합 — ${milestone.name}`
-        }
-        actions={props.headerActions}
-        description={
-          milestone === null ? undefined : (
-            <span className="break-keep">
-              {formatSeoulDate(milestone.dueAt)} 마감
-            </span>
+        title="서류 현황"
+        className="gap-3"
+        actions={
+          showArchive ? (
+            <>
+              {props.headerActions}
+              <details className="group min-w-0 open:basis-full">
+                <summary
+                  className={cn(
+                    'inline-flex h-control cursor-pointer list-none items-center gap-1.5 rounded-control border border-border',
+                    'bg-background px-3 text-small font-medium hover:bg-muted',
+                    'focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden',
+                  )}
+                >
+                  <Download aria-hidden="true" className="size-4" />
+                  ZIP 내려받기
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="size-3.5 group-open:rotate-180"
+                  />
+                </summary>
+                <div className="mt-2 rounded-card border border-border p-3">
+                  <CollectionArchiveControls
+                    data={data}
+                    archiveGrouping={props.archiveGrouping}
+                    onArchiveGroupingChange={props.onArchiveGroupingChange}
+                  />
+                </div>
+              </details>
+            </>
+          ) : (
+            props.headerActions
           )
         }
       />
-      <div className={SECTION_BODY}>
+      <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
         <TeamSearchForm
+          compact
           inputId="collection-search"
           search={props.search}
           resettable={
             props.search.trim() !== '' ||
-            props.filter !== 'ALL' ||
-            props.documentSelection !== null
+            props.searchQuery !== '' ||
+            props.status !== undefined
           }
           onSearchChange={props.onSearchChange}
           onSearch={props.onSearch}
@@ -861,7 +479,6 @@ export function RequirementCollectionView(
             </AlertDescription>
           </Alert>
         ) : null}
-
         {props.reviewNotice === null ? null : (
           <Alert data-testid="milestone-document-review-notice">
             <AlertDescription className="break-keep">

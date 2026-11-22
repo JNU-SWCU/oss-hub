@@ -25,6 +25,7 @@ import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { ProgramMailBatchRepository } from './program-mail-batch.repository';
 import { ProgramMailController } from './program-mail.controller';
+import { ProgramMailJobRepository } from './program-mail-job.repository';
 import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
 import { ProgramMailDeliveryService } from './program-mail-delivery.service';
 import { ProgramMailKeyRepository } from './program-mail-key.repository';
@@ -71,7 +72,7 @@ export type ProgramMailIntegrationWorld = {
   };
   createService(mailSender: MailSender): ProgramMailService;
   principal(githubId: bigint): Promise<ActiveAccountPrincipal>;
-  endpoint(action: 'recipients' | 'preview' | 'send'): string;
+  endpoint(action: string, programId?: string): string;
   sessionCookie(githubId: bigint): Promise<string>;
   cookieForUser(userId: string): Promise<string>;
   post(
@@ -123,9 +124,10 @@ export async function startProgramMailIntegration(
       service: new ProgramMailService(
         new ProgramMailRepository(harness.prisma),
         new ProgramMailDeliveryService(
-          new ProgramMailSendRepository(harness.prisma, audit, keys),
+          new ProgramMailSendRepository(harness.prisma, audit, keys, payloads),
           worker,
         ),
+        new ProgramMailJobRepository(harness.prisma, payloads),
       ),
     };
   };
@@ -196,8 +198,10 @@ export async function startProgramMailIntegration(
   app.useGlobalFilters(new ProblemDetailFilter());
   await app.listen(0, '127.0.0.1');
   const baseUrl = await app.getUrl();
-  const endpoint = (action: 'recipients' | 'preview' | 'send') =>
-    `${baseUrl}/api/v1/programs/${DIGEST_FIXTURE.notifyProgram}/mail/${action}`;
+  const endpoint = (
+    action: string,
+    programId: string = DIGEST_FIXTURE.notifyProgram,
+  ) => `${baseUrl}/api/v1/programs/${programId}/mail/${action}`;
   const sessionCookie = async (githubId: bigint) => {
     const token = await sessions.issueSessionToken(sessionSecret, githubId, 0);
     return `${sessions.sessionCookieName(false)}=${token}`;

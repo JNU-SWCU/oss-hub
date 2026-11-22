@@ -74,11 +74,6 @@
       "count": 1
     }
   },
-  "src/features/consents/policy-document-style.test.ts": {
-    "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
   "src/features/profile/components/department-select-contrast.test.ts": {
     "local/design-no-hex-color": {
       "count": 1
@@ -107,7 +102,12 @@
       "count": 3
     }
   },
-  "src/features/programs/documents/milestone-submission-block.test.tsx": {
+  "src/features/programs/authoring/program-edit-milestone-dialog.test.tsx": {
+    "local/design-no-raw-button": {
+      "count": 1
+    }
+  },
+  "src/features/programs/authoring/program-edit-team-size.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
     }
@@ -122,12 +122,7 @@
       "count": 1
     }
   },
-  "src/features/programs/authoring/program-edit-milestone-dialog.test.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/features/programs/authoring/program-edit-team-size.test.tsx": {
+  "src/features/programs/documents/milestone-submission-block.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
     }
@@ -147,11 +142,6 @@
       "count": 1
     }
   },
-  "src/features/submissions/api.test.ts": {
-    "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
   "src/features/submissions/submission-checklist-page.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
@@ -160,11 +150,6 @@
   "src/features/submissions/submission-checklist-view.test.tsx": {
     "local/design-no-hex-color": {
       "count": 2
-    }
-  },
-  "src/features/submissions/submission-matrix-view.test.tsx": {
-    "local/design-no-hex-color": {
-      "count": 4
     }
   },
   "src/features/submissions/submission-view.test.tsx": {

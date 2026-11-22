@@ -4,15 +4,23 @@ import {
   createListScreenRoot as createRoot,
   listNavigation,
   useTestSearchParams,
-} from '../../../../test-support/list-screen-root';
+} from '../../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiPath } from '@/lib/api-client';
-import { RequirementCollectionScreen } from './requirement-collection-screen';
+import { DocumentsRoute } from './documents-route';
+
+vi.mock('@/app/_shell/session-role-context', () => ({
+  useSharedSessionRole: () => ({
+    status: 'assigned',
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+  }),
+}));
 import type {
   RequirementCollection,
   RequirementCollectionArchiveGrouping,
   RequirementCollectionRow,
-} from './requirement-collection-dto';
+} from '@/features/programs/documents/requirement-collection-dto';
 
 vi.mock('next/navigation', () => ({
   useSearchParams: useTestSearchParams,
@@ -42,18 +50,24 @@ const { getRequirementCollectionMock, getRequirementHistoryMock } = vi.hoisted(
   }),
 );
 
-vi.mock('./requirement-collection-api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./requirement-collection-api')>()),
-  getRequirementCollection: getRequirementCollectionMock,
-  getRequirementHistory: getRequirementHistoryMock,
-}));
+vi.mock(
+  '@/features/programs/documents/requirement-collection-api',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('@/features/programs/documents/requirement-collection-api')
+    >()),
+    getRequirementCollection: getRequirementCollectionMock,
+    getRequirementHistory: getRequirementHistoryMock,
+  }),
+);
 
 function row(teamId: string, teamName: string): RequirementCollectionRow {
   return {
     teamId,
     deliveryStatus: 'MISSING',
     teamName,
-    applicantName: '김철수',
+    applicantName: '신청자',
+    leaderName: '김철수',
     memberNicknames: ['chulsoo'],
     cells: [
       {
@@ -95,6 +109,13 @@ function collection(
     total: rows.length,
     deliveryCounts: { missing: 12, late: 10, complete: 20, noRequiredItems: 5 },
     filterCounts: { all: 47, zeroSubmission: 5 },
+    statusCounts: {
+      NOT_SUBMITTED: 12,
+      SUBMITTED: 7,
+      CHANGES_REQUESTED: 2,
+      REJECTED: 1,
+      APPROVED: 3,
+    },
     documentTotals: [{ documentId: 'd1', submitted: 30, total: 47 }],
     ...overrides,
   };
@@ -125,6 +146,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     container = window.document.createElement('div');
     window.document.body.append(container);
     root = createRoot(container);
+    listNavigation.search = 'milestoneId=milestone-1';
     getRequirementCollectionMock.mockReset();
     getRequirementHistoryMock.mockReset();
     getRequirementHistoryMock.mockResolvedValue({
@@ -141,12 +163,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
 
   async function render() {
     await act(async () => {
-      root.render(
-        <RequirementCollectionScreen
-          programId="program-capstone"
-          milestoneId="milestone-1"
-        />,
-      );
+      root.render(<DocumentsRoute programId="program-capstone" />);
     });
     await act(async () => {
       await Promise.resolve();
@@ -184,42 +201,39 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     });
   }
 
-  it('팀 검색은 주소의 q를 바꾸고 한 번에 더 많은 팀을 불러온다', async () => {
+  it('팀 검색은 주소의 q를 바꾸고 서버 검색 결과를 표시한다', async () => {
     getRequirementCollectionMock.mockResolvedValue(
-      collection([row('a', '가팀'), row('b', '홍길동')]),
+      collection([row('a', '가팀')]),
     );
     await render();
 
+    getRequirementCollectionMock.mockResolvedValueOnce(
+      collection([row('b', '홍길동')]),
+    );
     await typeSearch('홍길동');
     await click('조회');
 
-    expect(listNavigation.search).toBe('q=%ED%99%8D%EA%B8%B8%EB%8F%99');
+    expect(listNavigation.search).toBe(
+      'milestoneId=milestone-1&q=%ED%99%8D%EA%B8%B8%EB%8F%99',
+    );
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '홍길동', page: 1, pageSize: 100, filter: 'ALL' },
+      {
+        q: '홍길동',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: undefined,
+        sort: 'team',
+        direction: 'asc',
+      },
     );
     expect(container.textContent).toContain('홍길동');
     expect(container.textContent).not.toContain('가팀');
 
     await click('초기화');
 
-    expect(listNavigation.search).toBe('');
-    expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
-      'milestone-1',
-      { q: '', page: 1, pageSize: 20, filter: 'ALL' },
-    );
-    expect(container.textContent).toContain('가팀');
-  });
-
-  it('shows whole milestone summary and narrows the existing matrix by document submission', async () => {
-    getRequirementCollectionMock.mockResolvedValue(
-      collection([row('a', '가팀')]),
-    );
-    await render();
-    expect(container.textContent).toContain('서류별 요약');
-    expect(container.textContent).toContain('제출 30 / 47');
-    await click('기획서');
-    await click('미제출 17');
+    expect(listNavigation.search).toBe('milestoneId=milestone-1');
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
       {
@@ -227,58 +241,91 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
         page: 1,
         pageSize: 20,
         filter: 'ALL',
-        document: { id: 'd1', submissionState: 'MISSING' },
+        status: undefined,
+        sort: 'team',
+        direction: 'asc',
       },
     );
-    expect(container.querySelector('table')).not.toBeNull();
     expect(container.textContent).toContain('가팀');
-    await click('모든 서류 보기');
-    expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
-      'milestone-1',
-      {
-        q: '',
-        page: 1,
-        pageSize: 20,
-        filter: 'ALL',
-      },
-    );
+    expect(container.textContent).toContain('팀장 김철수');
+    expect(container.textContent).not.toContain('팀장 신청자');
   });
 
-  it('preserves a selected document through pagination and combines submission and delivery filters', async () => {
+  it('restores status and sort on the first stage request, and keeps them through pagination', async () => {
+    listNavigation.search =
+      'milestoneId=milestone-1&q=leader&status=APPROVED&sort=reviewedAt&direction=desc&page=2';
     getRequirementCollectionMock.mockResolvedValue(
-      collection([row('a', '가팀')], { total: 47 }),
+      collection([row('a', '가팀')], { page: 2, total: 47 }),
     );
     await render();
-    await click('기획서');
-    await click('지각 제출');
-    await click('미제출 17');
+    expect(getRequirementCollectionMock).toHaveBeenCalledExactlyOnceWith(
+      'milestone-1',
+      {
+        q: 'leader',
+        page: 2,
+        pageSize: 20,
+        filter: 'ALL',
+        status: 'APPROVED',
+        sort: 'reviewedAt',
+        direction: 'desc',
+      },
+    );
+    expect(
+      container.querySelector('[aria-sort="descending"]')?.textContent,
+    ).toContain('검토');
     await click('다음');
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
       {
-        q: '',
-        page: 2,
+        q: 'leader',
+        page: 3,
         pageSize: 20,
-        filter: 'LATE',
-        document: { id: 'd1', submissionState: 'MISSING' },
+        filter: 'ALL',
+        status: 'APPROVED',
+        sort: 'reviewedAt',
+        direction: 'desc',
       },
     );
   });
 
-  it('clears both document and delivery selections from an empty result', async () => {
+  it('toggles column direction, resets the page, and retains the selected stage and search', async () => {
+    listNavigation.search =
+      'milestoneId=milestone-1&q=leader&sort=submittedAt&page=2';
+    getRequirementCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')], { page: 2, total: 47 }),
+    );
+    await render();
+    await click('제출 시각');
+    expect(new URLSearchParams(listNavigation.search).get('milestoneId')).toBe(
+      'milestone-1',
+    );
+    expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      {
+        q: 'leader',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: undefined,
+        sort: 'submittedAt',
+        direction: 'desc',
+      },
+    );
+  });
+
+  it('clears a status filter from an empty result without dropping the stage', async () => {
+    getRequirementCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')]),
+    );
     getRequirementCollectionMock.mockResolvedValueOnce(
       collection([row('a', '가팀')]),
     );
-    getRequirementCollectionMock.mockResolvedValue(
-      collection([], { total: 0 }),
-    );
+    getRequirementCollectionMock.mockResolvedValueOnce(collection([]));
     await render();
-    await click('지각 제출');
-    await click('기획서');
-    await click('미제출 17');
-    expect(container.textContent).toContain('조건에 맞는 팀이 없습니다');
-    expect(container.textContent).toContain('제출 30 / 47');
+    await click('미제출');
+    expect(container.textContent).toContain('조건에 맞는 제출 항목이 없습니다');
     await click('전체 보기');
+    expect(listNavigation.search).toBe('milestoneId=milestone-1');
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
       {
@@ -286,65 +333,10 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
         page: 1,
         pageSize: 20,
         filter: 'ALL',
+        status: undefined,
+        sort: 'team',
+        direction: 'asc',
       },
-    );
-  });
-
-  it.each([
-    ['지각 제출', 'LATE'],
-    ['미제출', 'HAS_MISSING'],
-  ] as const)(
-    'keeps %s when selecting and changing documents',
-    async (label, filter) => {
-      getRequirementCollectionMock.mockResolvedValue(
-        collection([row('a', '가팀')], {
-          total: 47,
-          documents: [
-            { id: 'd1', name: '기획서', isRequired: true },
-            { id: 'd2', name: '결과서', isRequired: true },
-          ],
-        }),
-      );
-      await render();
-      await click(label);
-      await click('다음');
-
-      await click('기획서');
-
-      expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
-        'milestone-1',
-        {
-          q: '',
-          page: 1,
-          pageSize: 20,
-          filter,
-          document: { id: 'd1', submissionState: 'ALL' },
-        },
-      );
-      await click('결과서');
-      expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
-        'milestone-1',
-        {
-          q: '',
-          page: 1,
-          pageSize: 20,
-          filter,
-          document: { id: 'd2', submissionState: 'ALL' },
-        },
-      );
-    },
-  );
-
-  it('does not leave old rows under a document selection when that request fails', async () => {
-    getRequirementCollectionMock.mockResolvedValueOnce(
-      collection([row('a', '가팀')]),
-    );
-    getRequirementCollectionMock.mockRejectedValueOnce(loadFailure());
-    await render();
-    await click('기획서');
-    expect(container.textContent).not.toContain('가팀');
-    expect(container.textContent).toContain(
-      '표를 만드는 중 문제가 생겼습니다.',
     );
   });
 
@@ -360,6 +352,9 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
       page: 1,
       pageSize: 20,
       filter: 'ALL',
+      status: undefined,
+      sort: 'team',
+      direction: 'asc',
     });
     expect(container.textContent).toContain('가팀');
   });
@@ -377,14 +372,22 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 1, pageSize: 20, filter: 'HAS_MISSING' },
+      {
+        q: '',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: 'NOT_SUBMITTED',
+        sort: 'team',
+        direction: 'asc',
+      },
     );
     expect(container.textContent).toContain(
       '표를 만드는 중 문제가 생겼습니다.',
     );
     expect(container.textContent).not.toContain('가팀');
 
-    expect(container.textContent).not.toContain('제출 30 / 전체 47');
+    expect(container.textContent).not.toContain('서류 1종');
   });
 
   it('페이지를 바꾼 조회가 실패해도 마찬가지다', async () => {
@@ -398,7 +401,15 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 2, pageSize: 20, filter: 'ALL' },
+      {
+        q: '',
+        page: 2,
+        pageSize: 20,
+        filter: 'ALL',
+        status: undefined,
+        sort: 'team',
+        direction: 'asc',
+      },
     );
     expect(container.textContent).not.toContain('가팀');
   });
@@ -473,7 +484,15 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 2, pageSize: 20, filter: 'HAS_MISSING' },
+      {
+        q: '',
+        page: 2,
+        pageSize: 20,
+        filter: 'ALL',
+        status: 'NOT_SUBMITTED',
+        sort: 'team',
+        direction: 'asc',
+      },
     );
     const archiveUrl = new URL(initialHref, 'https://example.test');
     expect([...archiveUrl.searchParams.keys()]).toEqual(['groupBy']);
@@ -494,7 +513,15 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
 
     expect(getRequirementCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
-      { q: '', page: 1, pageSize: 20, filter: 'HAS_MISSING' },
+      {
+        q: '',
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        status: 'NOT_SUBMITTED',
+        sort: 'team',
+        direction: 'asc',
+      },
     );
     expect(container.textContent).toContain('나팀');
     expect(container.textContent).not.toContain('가팀');

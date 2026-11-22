@@ -5,9 +5,20 @@ import {
   Header,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiQuery,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
+import {
+  ProgramMailJobListResponseDto,
+  ProgramMailJobResponseDto,
+} from './dto/program-mail-job-response.dto';
 import { Protected } from '../auth/auth-route.decorator';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { DomainException } from '../platform/error-code.error';
@@ -35,6 +46,39 @@ type SessionIdentity = Pick<AuthenticatedRequest, 'principal'>;
 @Controller('programs/:programId/mail')
 export class ProgramMailController {
   constructor(private readonly service: ProgramMailService) {}
+
+  @Get('jobs')
+  @Header('Cache-Control', 'private, no-store')
+  @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
+  @ApiQuery({ name: 'before', required: false, type: String })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse()
+  @ApiNotFoundResponse()
+  async recent(
+    @Param('programId') programId: string,
+    @Query('before') before?: string,
+  ): Promise<ProgramMailJobListResponseDto> {
+    return ProgramMailJobListResponseDto.from(
+      await this.service.recent(programId, before),
+    );
+  }
+
+  @Get('jobs/:jobId')
+  @Header('Cache-Control', 'private, no-store')
+  @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse()
+  @ApiNotFoundResponse()
+  async status(
+    @Param('programId') programId: string,
+    @Param('jobId') jobId: string,
+  ): Promise<ProgramMailJobResponseDto> {
+    return ProgramMailJobResponseDto.from(
+      await this.service.status(programId, jobId),
+    );
+  }
 
   @Get('recipients')
   @Header('Cache-Control', 'private, no-store')
