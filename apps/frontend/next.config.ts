@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   images: {
+    imageSizes: [16, 32, 48, 64, 96, 128, 176, 256, 384],
     localPatterns: [{ pathname: '/program-cover-source/*/*', search: '' }],
   },
 
