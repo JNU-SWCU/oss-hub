@@ -72,7 +72,7 @@ export function ProgramCover({
   title = '프로그램',
   size = 'card',
   sizes,
-  priority = false,
+  priority,
   className,
 }: ProgramCoverProps) {
   const [failure, setFailure] = useState<CoverFailure | null>(null);
@@ -117,7 +117,9 @@ export function ProgramCover({
             fill
             sizes={imageSizes}
             priority={priority}
-            fetchPriority={priority ? 'high' : undefined}
+            fetchPriority={
+              priority === undefined ? undefined : priority ? 'high' : 'low'
+            }
             unoptimized={optimizedSrc === null}
             referrerPolicy="no-referrer"
             className="object-contain"

@@ -427,7 +427,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     expect(covers.map((cover) => cover.getAttribute('fetchpriority'))).toEqual([
       'high',
       'high',
-      null,
+      'low',
     ]);
     expect(covers.map((cover) => cover.getAttribute('loading'))).toEqual([
       null,
