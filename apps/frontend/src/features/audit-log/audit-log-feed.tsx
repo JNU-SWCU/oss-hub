@@ -6,7 +6,7 @@ import { ListPanel } from '@/components';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  auditLogRecordKey,
+  type AuditFeedEvent,
   type AuditFeedDay,
   type AuditFeedRun,
 } from './audit-log-fold';
@@ -24,7 +24,6 @@ import {
   AuditLogRole,
   AuditLogTargetValue,
 } from './audit-log-parts';
-import type { AuditLogRecord } from './types';
 
 const ROW_CLASS = cn(
   'flex w-full flex-wrap items-baseline justify-start gap-x-2 gap-y-0.5 px-4 py-3 text-left text-table',
@@ -39,15 +38,15 @@ interface RowSelection {
 }
 
 function EventRow({
-  record,
+  event,
   nested,
   selectedId,
   onSelect,
 }: RowSelection & {
-  readonly record: AuditLogRecord;
+  readonly event: AuditFeedEvent;
   readonly nested: boolean;
 }): ReactElement {
-  const key = auditLogRecordKey(record);
+  const { key, record } = event;
   const selected = key === selectedId;
   return (
     <li className={ROW_ITEM_CLASS}>
@@ -113,7 +112,7 @@ function RunRow({
           )}
         />
         <span>
-          {AUDIT_LOG_CATEGORY_LABELS.LOGIN} {run.records.length}건 · 실패{' '}
+          {AUDIT_LOG_CATEGORY_LABELS.LOGIN} {run.events.length}건 · 실패{' '}
           {run.failures}건
         </span>
         <span className="ml-auto text-muted-foreground tabular-nums">
@@ -122,10 +121,10 @@ function RunRow({
       </Button>
       <ul id={panelId} hidden={!open}>
         {open
-          ? run.records.map((record) => (
+          ? run.events.map((event) => (
               <EventRow
-                key={auditLogRecordKey(record)}
-                record={record}
+                key={event.key}
+                event={event}
                 nested
                 selectedId={selectedId}
                 onSelect={onSelect}
@@ -181,7 +180,7 @@ export function AuditLogFeed({
                   ) : (
                     <EventRow
                       key={item.key}
-                      record={item.record}
+                      event={item}
                       nested={false}
                       selectedId={selectedId}
                       onSelect={onSelect}
