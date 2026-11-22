@@ -126,14 +126,18 @@ export class SystemStatusRepository {
       WITH deliveries AS (
         SELECT CASE WHEN status = 'FAILED' AND payload->>'code' = 'MAIL_DELIVERY_UNKNOWN' THEN 'UNKNOWN' ELSE status END AS state,
           "createdAt", "sentAt"
-        FROM "Notification" WHERE channel = 'EMAIL'
+        FROM "Notification" legacy WHERE channel = 'EMAIL'
+          AND NOT EXISTS (
+            SELECT 1 FROM "MailJob" job WHERE legacy.type = 'PROGRAM_MAIL'
+              AND job."intentKey" = legacy.payload->>'batchKey'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "MailRecipient" recipient WHERE recipient."deliveryKey" = legacy."idempotencyKey"
+          )
         UNION ALL
         SELECT recipient.state::text, recipient."createdAt", recipient."finishedAt"
         FROM "MailRecipient" recipient
-        WHERE recipient."deliveryKey" IS NOT NULL AND NOT EXISTS (
-          SELECT 1 FROM "Notification" legacy WHERE legacy.channel = 'EMAIL'
-            AND legacy."idempotencyKey" = recipient."deliveryKey"
-        )
+        WHERE recipient."deliveryKey" IS NOT NULL
       )
       SELECT count(*) FILTER (WHERE state = 'SENT' AND "sentAt" >= ${since})::int AS "sent7d",
         count(*) FILTER (WHERE state = 'FAILED' AND "createdAt" >= ${since})::int AS "failed7d",

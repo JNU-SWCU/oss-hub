@@ -554,24 +554,41 @@ it(
   'system status counts owning typed rows once and keeps unknown distinct from failure',
   async () => {
     const prisma = database.prisma;
-    await prisma.notification.create({
-      data: {
-        id: 'synthetic-shadow',
-        userId: otherUserId,
-        type: 'PROGRAM_MAIL',
-        channel: 'EMAIL',
-        status: 'FAILED',
-        idempotencyKey: 'synthetic-shadow-key',
-        payload: { code: 'MAIL_DELIVERY_UNKNOWN' },
-        createdAt: CREATED,
-      },
+    await prisma.notification.createMany({
+      data: [
+        {
+          id: 'synthetic-shadow',
+          userId: otherUserId,
+          type: 'PROGRAM_MAIL',
+          channel: 'EMAIL',
+          status: 'FAILED',
+          idempotencyKey: 'synthetic-shadow-key',
+          payload: {},
+          createdAt: CREATED,
+        },
+        {
+          userId,
+          type: 'PROGRAM_MAIL',
+          channel: 'EMAIL',
+          status: 'FAILED',
+          payload: { batchKey: 'synthetic-status-batch' },
+        },
+        {
+          userId,
+          type: 'DEADLINE_DIGEST',
+          channel: 'EMAIL',
+          status: 'FAILED',
+          payload: {},
+        },
+      ],
     });
     await prisma.mailJob.create({
       data: {
         id: 'synthetic-typed-status',
         receiptId: 'synthetic-typed-status',
+        intentKey: 'synthetic-status-batch',
         partNo: 0,
-        source: 'DEADLINE_MANUAL',
+        source: 'PROGRAM_MANUAL',
         programId,
         actorId: userId,
         seoulDay: CREATED,
@@ -603,8 +620,16 @@ it(
           ordinal: 2,
           audience: 'STAFF',
           userId: otherUserId,
-          deliveryKey: 'synthetic-new-unknown',
-          state: 'UNKNOWN',
+          deliveryKey: 'synthetic-new-failed',
+          state: 'FAILED',
+        },
+        {
+          jobId: 'synthetic-typed-status',
+          ordinal: 3,
+          audience: 'STAFF',
+          userId,
+          deliveryKey: 'synthetic-other-failed',
+          state: 'FAILED',
         },
       ],
     });
@@ -613,7 +638,7 @@ it(
         prisma,
         new PlatformRepository(),
       ).getMailStatus(new Date(0)),
-    ).toEqual({ sent7d: 1, failed7d: 0, unknown7d: 2, lastSentAt: CREATED });
+    ).toEqual({ sent7d: 1, failed7d: 3, unknown7d: 1, lastSentAt: CREATED });
   },
   BODY_TIMEOUT_MS,
 );
