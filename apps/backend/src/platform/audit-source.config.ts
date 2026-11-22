@@ -130,7 +130,12 @@ export const AUDIT_SOURCE_QUERIES: Readonly<Record<AuditSourceKey, string>> = {
   `,
   PROGRAM: `
     SELECT history."id", 'PROGRAM' AS "source", history."actorId",
-      history."occurredAt", 'PROGRAM_' || history."event"::text AS "action",
+      history."occurredAt",
+      CASE
+        WHEN history."event"::text = 'MAIL_ACCEPTED' THEN 'PROGRAM_MAIL_SEND_ATTEMPTED'
+        WHEN history."event"::text = 'MAIL_COMPLETED' THEN history."data"->>'action'
+        ELSE 'PROGRAM_' || history."event"::text
+      END AS "action",
       'PROGRAM' AS "targetType", history."programId" AS "targetId",
       history."data"->'metadata' AS "metadata", NULL::text AS "historyKind",
       history."programId", NULL::text AS "teamId",

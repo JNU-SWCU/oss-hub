@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { MailPreviewService } from './mail-preview.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
@@ -87,6 +87,7 @@ export class ProgramMailService {
     private readonly delivery: Pick<ProgramMailDeliveryService, 'send'>,
     @Inject(ProgramMailJobRepository)
     private readonly jobs: Pick<ProgramMailJobRepository, 'recent' | 'status'>,
+    private readonly previews: MailPreviewService,
   ) {}
 
   recent(programId: string, before?: string) {
@@ -140,11 +141,7 @@ export class ProgramMailService {
     now = new Date(),
   ): Promise<ProgramMailSendResult> {
     const previewedAt = new Date(request.previewedAt);
-    if (
-      !Number.isFinite(previewedAt.getTime()) ||
-      previewedAt > now ||
-      now.getTime() > previewedAt.getTime() + PREVIEW_TTL_MS
-    ) {
+    if (!this.previews.legacyIsCurrent(previewedAt, now, PREVIEW_TTL_MS)) {
       this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
     }
     const audience = await this.requireAudience(programId, now);
@@ -221,23 +218,19 @@ export class ProgramMailService {
     }
     const senderName = sender.name ?? sender.nickname;
     const renderedSubject = `[oss-hub] ${subject}`;
-    const previewVersion = createHash('sha256')
-      .update(
-        JSON.stringify({
-          programId: audience.id,
-          programName: audience.name,
-          senderId: sender.id,
-          senderName,
-          subject,
-          body,
-          previewedAt: previewedAt.toISOString(),
-          recipients: recipients.map((recipient) => ({
-            id: recipient.id,
-            notificationEmail: recipient.notificationEmail,
-          })),
-        }),
-      )
-      .digest('hex');
+    const previewVersion = this.previews.version({
+      programId: audience.id,
+      programName: audience.name,
+      senderId: sender.id,
+      senderName,
+      subject,
+      body,
+      previewedAt: previewedAt.toISOString(),
+      recipients: recipients.map((recipient) => ({
+        id: recipient.id,
+        notificationEmail: recipient.notificationEmail,
+      })),
+    });
     return {
       subject,
       body,

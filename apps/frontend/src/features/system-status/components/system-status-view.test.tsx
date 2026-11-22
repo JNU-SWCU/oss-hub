@@ -161,6 +161,15 @@ function render(
   );
 }
 
+it('renders separate numeric values for failed and unknown deliveries', () => {
+  const html = render({
+    ...base,
+    mail: { ...base.mail, failed7d: 1, unknown7d: 2 },
+  });
+  expect(html).toContain('data-mail-outcome="failed" value="1"');
+  expect(html).toContain('data-mail-outcome="unknown" value="2"');
+});
+
 function text(html: string): string {
   return html.replace(/<[^>]+>/g, '');
 }
@@ -470,7 +479,8 @@ describe('SystemStatusView', () => {
 
   describe('구역 현황', () => {
     it('저장소 발급, 활동 수집, 알림 메일 순서로 수치를 보여준다', () => {
-      const rows = areaRows(render(base)).map(text);
+      const htmlRows = areaRows(render(base));
+      const rows = htmlRows.map(text);
 
       expect(rows).toHaveLength(3);
       expect(rows[0]).toContain(
@@ -482,9 +492,10 @@ describe('SystemStatusView', () => {
       expect(rows[1]).toContain(
         '외부 추적 저장소 7개 · 외부 마지막 수집 성공 2시간 전',
       );
-      expect(rows[2]).toContain(
-        '최근 7일 발송 1,280건 · 실패 3건 · 마지막 발송 11.17 09:00',
-      );
+      expect(htmlRows[2]).toContain('data-mail-outcome="sent" value="1280"');
+      expect(htmlRows[2]).toContain('data-mail-outcome="failed" value="3"');
+      expect(htmlRows[2]).toMatch(/datetime="2026-11-17T00:00:00\.000Z"/i);
+      expect(rows[2]).toContain('11.17 09:00');
     });
 
     it('실패가 있는 구역과 없는 구역을 배지로 구분한다', () => {

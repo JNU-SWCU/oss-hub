@@ -1,3 +1,4 @@
+import { MailPreviewService } from '../../src/notifications/mail-preview.service';
 import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import { DeadlineDigestMailService } from '../../src/notifications/deadline-digest-mail.service';
 import { MemberKind } from '../../src/users/user-contract.config';
@@ -29,6 +30,7 @@ const service = new DeadlineDigestService(
   e2eProgramAuthoringExternalPorts.mail,
   { FRONTEND_URL: 'https://oss.example' },
   new DeadlineDigestMailService(),
+  new MailPreviewService(),
 );
 
 beforeAll(async () => {

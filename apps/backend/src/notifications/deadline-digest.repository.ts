@@ -1,4 +1,9 @@
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
+import { DomainException } from '../platform/error-code.error';
+import {
+  NOTIFICATIONS_ERROR_CODES,
+  NotificationsErrorCode,
+} from './notifications-error-code.error';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
@@ -63,6 +68,7 @@ type ManualDeadlineDigestAuditResult = {
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;
+  readonly cancelledCount?: number;
 };
 export interface DeadlineDigestRepositoryPort {
   findAutomaticProgramIds(window: DeadlineWindow): Promise<readonly string[]>;
@@ -239,15 +245,18 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     payload: Prisma.InputJsonValue,
   ): Promise<boolean> {
     try {
-      await this.prisma.notification.create({
-        data: {
-          userId,
-          idempotencyKey,
-          type: 'DEADLINE_DIGEST',
-          payload,
-          channel: 'EMAIL',
-          status: 'PENDING',
-        },
+      await this.prisma.$transaction(async (transaction) => {
+        await this.requireLegacyAdmission(transaction);
+        await transaction.notification.create({
+          data: {
+            userId,
+            idempotencyKey,
+            type: 'DEADLINE_DIGEST',
+            payload,
+            channel: 'EMAIL',
+            status: 'PENDING',
+          },
+        });
       });
       return true;
     } catch (error: unknown) {
@@ -277,7 +286,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     });
   }
   async recordManualSend(input: ManualSendAudit): Promise<void> {
-    await this.audit.recordEvent(this.prisma, {
+    const entry = {
       id: `user:deadline-digest-${input.phase}:${input.requestId}`,
       sourceTable: 'DeadlineDigest',
       sourcePart: input.phase,
@@ -295,7 +304,28 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         previewVersion: input.previewVersion,
         ...input.counts,
       },
-    });
+    } satisfies Parameters<ProgramMailAuditRepository['recordEvent']>[1];
+    if (input.phase === 'attempt') {
+      await this.prisma.$transaction(async (transaction) => {
+        await this.requireLegacyAdmission(transaction);
+        await this.audit.recordEvent(transaction, entry);
+      });
+    } else {
+      await this.audit.recordEvent(this.prisma, entry);
+    }
+  }
+
+  private async requireLegacyAdmission(
+    transaction: Prisma.TransactionClient,
+  ): Promise<void> {
+    const [control] = await transaction.$queryRaw<{ mode: string }[]>`
+      SELECT mode::text FROM "MailControl" WHERE id = 1 LIMIT 1 FOR SHARE
+    `;
+    if (control?.mode !== 'LEGACY') {
+      throw new DomainException(
+        NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.MAIL_PAUSED],
+      );
+    }
   }
   findFailedNotifications(): Promise<
     readonly {

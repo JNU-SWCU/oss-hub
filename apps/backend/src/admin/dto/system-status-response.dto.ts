@@ -77,12 +77,14 @@ export class ProvisioningSystemStatusResponseDto {
 export class MailSystemStatusResponseDto {
   declare readonly sent7d: number;
   declare readonly failed7d: number;
+  declare readonly unknown7d: number;
   declare readonly lastSentAt: string | null;
 
   static from(mail: SystemStatusResult['mail']): MailSystemStatusResponseDto {
     return {
       sent7d: mail.sent7d,
       failed7d: mail.failed7d,
+      unknown7d: mail.unknown7d,
       lastSentAt: mail.lastSentAt?.toISOString() ?? null,
     };
   }

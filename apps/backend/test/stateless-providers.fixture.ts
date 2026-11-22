@@ -42,7 +42,10 @@ import { StaffInsightsQueryService } from '../src/staff/staff-insights-query.ser
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 import { AdminProfileMutationService } from '../src/users/admin-profile-mutation.service';
 
+import { MailPreviewService } from '../src/notifications/mail-preview.service';
+
 export const STATELESS_PROVIDERS = [
+  MailPreviewService,
   FileMetadataRepository,
   PlatformRepository,
   PrismaSerializationRetryRepository,

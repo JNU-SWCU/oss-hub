@@ -14,7 +14,7 @@ const HEALTH = {
 
 const NO_RECORD = '기록 없음';
 
-type Stat = readonly [label: string, value: string];
+type Stat = readonly [label: string, value: ReactNode];
 
 function count(value: number, unit = ''): string {
   return `${value.toLocaleString('ko-KR')}${unit}`;
@@ -122,16 +122,44 @@ export function AreaStatusList({ status }: { readonly status: SystemStatus }) {
           badges={
             mail.failed7d > 0 ? (
               <StatusBadge variant="pending">실패</StatusBadge>
+            ) : (mail.unknown7d ?? 0) > 0 ? (
+              <StatusBadge variant="pending">확인 불가</StatusBadge>
             ) : (
               <StatusBadge variant="approved">정상</StatusBadge>
             )
           }
           stats={[
-            ['최근 7일 발송', count(mail.sent7d, '건')],
-            ['실패', count(mail.failed7d, '건')],
+            [
+              '최근 7일 발송',
+              <data data-mail-outcome="sent" value={mail.sent7d}>
+                {count(mail.sent7d, '건')}
+              </data>,
+            ],
+            [
+              '실패',
+              <data data-mail-outcome="failed" value={mail.failed7d}>
+                {count(mail.failed7d, '건')}
+              </data>,
+            ],
+            [
+              '확인 불가',
+              mail.unknown7d === undefined ? (
+                '—'
+              ) : (
+                <data data-mail-outcome="unknown" value={mail.unknown7d}>
+                  {count(mail.unknown7d, '건')}
+                </data>
+              ),
+            ],
             [
               '마지막 발송',
-              mail.lastSentAt ? formatStamp(mail.lastSentAt) : NO_RECORD,
+              mail.lastSentAt ? (
+                <time dateTime={mail.lastSentAt}>
+                  {formatStamp(mail.lastSentAt)}
+                </time>
+              ) : (
+                NO_RECORD
+              ),
             ],
           ]}
         />

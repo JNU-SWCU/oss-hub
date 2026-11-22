@@ -6847,6 +6847,9 @@
           "failed7d": {
             "type": "number"
           },
+          "unknown7d": {
+            "type": "number"
+          },
           "lastSentAt": {
             "type": "string",
             "nullable": true
@@ -6855,6 +6858,7 @@
         "required": [
           "sent7d",
           "failed7d",
+          "unknown7d",
           "lastSentAt"
         ]
       },
@@ -12312,8 +12316,8 @@
           "status": {
             "type": "string",
             "enum": [
-              "COMPLETED",
-              "IN_PROGRESS"
+              "IN_PROGRESS",
+              "COMPLETED"
             ]
           },
           "sentCount": {

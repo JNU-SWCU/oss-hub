@@ -1,3 +1,4 @@
+import { MailPreviewService } from './mail-preview.service';
 import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
 import {
@@ -67,10 +68,15 @@ function harness() {
   return {
     repository,
     delivery,
-    service: new ProgramMailService(repository, delivery, {
-      recent: jest.fn(),
-      status: jest.fn(),
-    }),
+    service: new ProgramMailService(
+      repository,
+      delivery,
+      {
+        recent: jest.fn(),
+        status: jest.fn(),
+      },
+      new MailPreviewService(),
+    ),
   };
 }
 
