@@ -22,12 +22,14 @@ export function ApplicationStatusControl({
   disabled,
   id,
   'aria-label': ariaLabel,
+  'aria-describedby': describedBy,
   onChange,
 }: {
   readonly value: ApplicationStatus;
   readonly disabled?: boolean;
   readonly id?: string;
   readonly 'aria-label': string;
+  readonly 'aria-describedby'?: string;
   readonly onChange: (next: ApplicationStatus) => void;
 }): ReactElement {
   return (
@@ -35,6 +37,7 @@ export function ApplicationStatusControl({
       <Select
         id={id}
         aria-label={ariaLabel}
+        aria-describedby={describedBy}
         value={value}
         disabled={disabled}
         data-status={value}

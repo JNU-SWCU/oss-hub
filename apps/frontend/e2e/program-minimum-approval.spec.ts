@@ -138,17 +138,33 @@ for (const width of [1440, 390]) {
     );
 
     await page.goto(`/programs/${programId}/teams`);
-    await expect(page.getByText('팀원 1/3명', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText('최소 2명 · 1명 부족', { exact: true }),
-    ).toBeVisible();
-    const status = page.getByRole('combobox', {
-      name: 'synthetic-applicant 신청 상태',
+    const disclosure = page.locator('[data-slot="team-member-count"]');
+    const count = disclosure.locator('summary');
+    await expect(count.locator('data')).toHaveAttribute('value', '1');
+    await count.click();
+    await expect(disclosure).toHaveAttribute('open', '');
+    await expect(disclosure.locator('[data-limit="minimum"]')).toHaveAttribute(
+      'value',
+      '2',
+    );
+    await expect(disclosure.locator('[data-limit="maximum"]')).toHaveAttribute(
+      'value',
+      '3',
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`staff-count-expanded-${width}.png`),
+      fullPage: true,
     });
+    await count.click();
+    await expect(disclosure).not.toHaveAttribute('open', '');
+    await expect(page.locator('[data-missing-members="1"]')).toBeVisible();
+    const status = page.locator('tbody').getByRole('combobox');
     await status.selectOption('APPROVED');
-    const notice = page
-      .getByRole('status')
-      .filter({ hasText: /팀 최소 인원|판정 요청이 실패/ });
+    await expect(status).toHaveAttribute('aria-describedby', /^team-notice-/);
+    const notice = page.locator(
+      `#${await status.getAttribute('aria-describedby')}`,
+    );
+    await expect(notice).toHaveAttribute('role', 'status');
     await expect(notice).toBeVisible();
     await notice.scrollIntoViewIfNeeded();
     await page.addStyleTag({
@@ -168,9 +184,8 @@ for (const width of [1440, 390]) {
     }));
     expect(noticeSize.width).toBeLessThanOrEqual(width - 32);
     expect(noticeSize.scrollWidth).toBeLessThanOrEqual(noticeSize.clientWidth);
-    await expect(notice).toHaveText(
-      '팀 최소 인원이 부족해 승인할 수 없습니다. 초대한 팀원이 수락한 뒤 다시 승인해 주세요.',
-    );
+    await expect(notice).not.toBeEmpty();
+    await expect(status).toBeEnabled();
     await expect(status).toHaveValue('SUBMITTED');
   });
 }

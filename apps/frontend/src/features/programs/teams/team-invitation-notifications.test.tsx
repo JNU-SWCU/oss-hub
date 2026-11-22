@@ -176,7 +176,14 @@ describe('TeamInvitationNotifications', () => {
     const text = document.body.textContent ?? '';
     expect(text).toContain('캡스톤 2026');
     expect(text).toContain('팀장님이 초대했습니다');
-    expect(text).toContain('2/4명');
+    expect(
+      document.querySelector<HTMLDataElement>(
+        '[data-slot="team-member-count"] summary data',
+      )?.value,
+    ).toBe('2');
+    expect(
+      document.querySelector<HTMLDataElement>('[data-limit="maximum"]')?.value,
+    ).toBe('4');
     expect(text).not.toContain('닫힌 팀');
     expect(findButton('팀 초대 알림').getAttribute('aria-expanded')).toBe(
       'true',

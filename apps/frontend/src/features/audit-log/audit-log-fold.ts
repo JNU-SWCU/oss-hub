@@ -5,7 +5,7 @@ const LOGIN_RUN_MIN_LENGTH = 2;
 
 const LOGIN_RUN_MAX_GAP_MS = 60 * 60 * 1000;
 
-interface AuditFeedEvent {
+export interface AuditFeedEvent {
   readonly kind: 'event';
   readonly key: string;
   readonly record: AuditLogRecord;
@@ -14,7 +14,7 @@ interface AuditFeedEvent {
 export interface AuditFeedRun {
   readonly kind: 'run';
   readonly key: string;
-  readonly records: readonly AuditLogRecord[];
+  readonly events: readonly AuditFeedEvent[];
   readonly failures: number;
   readonly from: string;
   readonly to: string;
@@ -57,15 +57,20 @@ function compareAuditEvents(
   );
 }
 
-function newestFirst(
+export function auditEvents(
   records: readonly AuditLogRecord[],
 ): readonly AuditFeedEvent[] {
-  const unique = new Map<string, AuditFeedEvent>();
-  for (const record of records) {
-    const key = auditLogRecordKey(record);
-    if (!unique.has(key)) unique.set(key, { kind: 'event', key, record });
-  }
-  return [...unique.values()].sort(compareAuditEvents);
+  const occurrences = new Map<string, number>();
+  return records.map((record) => {
+    const payload = auditLogRecordKey(record);
+    const occurrence = occurrences.get(payload) ?? 0;
+    occurrences.set(payload, occurrence + 1);
+    return {
+      kind: 'event',
+      key: occurrence === 0 ? payload : `${payload}:${occurrence}`,
+      record,
+    };
+  });
 }
 
 function isFoldableLogin({ category, action }: AuditLogRecord): boolean {
@@ -94,7 +99,7 @@ function runItems(run: readonly AuditFeedEvent[]): readonly AuditFeedItem[] {
     {
       kind: 'run',
       key: `run:${oldest.key}`,
-      records,
+      events: run,
       failures,
       from: oldest.record.occurredAt,
       to: newest.record.occurredAt,
@@ -103,7 +108,7 @@ function runItems(run: readonly AuditFeedEvent[]): readonly AuditFeedItem[] {
 }
 
 export function foldAuditFeed(
-  records: readonly AuditLogRecord[],
+  events: readonly AuditFeedEvent[],
   options: { readonly foldLogins: boolean },
 ): readonly AuditFeedDay[] {
   const days: { key: string; at: string; items: AuditFeedItem[] }[] = [];
@@ -112,7 +117,7 @@ export function foldAuditFeed(
     days.at(-1)?.items.push(...runItems(run));
     run = [];
   };
-  for (const event of newestFirst(records)) {
+  for (const event of [...events].sort(compareAuditEvents)) {
     const { record } = event;
     const key = dayKey(record.occurredAt);
     if (days.at(-1)?.key !== key) {
