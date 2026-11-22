@@ -125,85 +125,25 @@ BEGIN
     RAISE EXCEPTION 'unrecognized mail provenance' USING ERRCODE = '22023';
   END IF;
   SELECT count(*)::int,
-    count(*) FILTER (WHERE status = 'SENT')::int,
-    count(*) FILTER (WHERE status = 'FAILED' AND payload->>'code' IS DISTINCT FROM 'MAIL_DELIVERY_UNKNOWN')::int,
-    count(*) FILTER (WHERE status = 'FAILED' AND payload->>'code' = 'MAIL_DELIVERY_UNKNOWN')::int,
-    coalesce(jsonb_agg("userId"), '[]'::jsonb),
     bool_and((jsonb_typeof(payload->'schemaVersion') = 'number' AND payload->'schemaVersion' = '1'::jsonb) IS TRUE)
-  INTO total, sent, failed, unknown_count, recipient_ids, valid_child_versions
+  INTO total, valid_child_versions
   FROM "Notification"
   WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
   IF NOT valid_child_versions THEN RAISE EXCEPTION 'unrecognized recipient provenance' USING ERRCODE = '22023'; END IF;
   IF total > 200 THEN RAISE EXCEPTION 'legacy batch exceeds recipient cap' USING ERRCODE = '22023'; END IF;
-  stored := batch.payload->'result';
-  IF batch.status = 'COMPLETED' AND (
-    jsonb_typeof(stored->'sentCount') IS DISTINCT FROM 'number' OR
-    jsonb_typeof(stored->'failedCount') IS DISTINCT FROM 'number' OR
-    jsonb_typeof(stored->'duplicateCount') IS DISTINCT FROM 'number' OR
-    (stored ? 'unknownCount' AND jsonb_typeof(stored->'unknownCount') IS DISTINCT FROM 'number')
-  ) THEN RAISE EXCEPTION 'legacy receipt counts must be numbers' USING ERRCODE = '22023'; END IF;
-  IF batch.status = 'COMPLETED' AND (
-    batch."sentAt" IS NULL OR stored IS NULL OR
-    (stored->>'sentCount')::numeric IS DISTINCT FROM sent OR
-    (stored->>'failedCount')::numeric IS DISTINCT FROM failed OR
-    (stored ? 'unknownCount' AND (stored->>'unknownCount')::numeric <> unknown_count) OR
-    (stored->>'duplicateCount')::numeric IS DISTINCT FROM 0 OR
-    total <> sent + failed + unknown_count
-  ) THEN RAISE EXCEPTION 'legacy terminal receipt does not reconcile' USING ERRCODE = '22023'; END IF;
-  IF batch.status = 'COMPLETED' THEN
-    SELECT count(*), bool_and((
-        history."userId" = batch."userId" AND history."actorId" = batch."userId"
-        AND history.data->>'targetId' = batch.payload->>'programId'
-        AND jsonb_typeof(history.data->'schemaVersion') = 'number' AND history.data->'schemaVersion' = '1'::jsonb
-        AND jsonb_typeof(history.data#>'{metadata,schemaVersion}') = 'number' AND history.data#>'{metadata,schemaVersion}' = '1'::jsonb
-        AND jsonb_typeof(history.data#>'{metadata,bodyLength}') = 'number'
-        AND jsonb_typeof(history.data#>'{metadata,recipientCount}') = 'number'
-        AND history.data#>'{metadata,recipientCount}' = to_jsonb(total)
-        AND CASE WHEN jsonb_typeof(history.data#>'{metadata,recipientIds}') = 'array' THEN
-          jsonb_array_length(history.data#>'{metadata,recipientIds}') = total
-          AND history.data#>'{metadata,recipientIds}' @> recipient_ids
-        ELSE false END
-        AND CASE WHEN history."sourcePart" = 'attempt' THEN
-          history.data->>'action' = 'PROGRAM_MAIL_SEND_ATTEMPTED'
-        ELSE
-          jsonb_typeof(history.data#>'{metadata,sentCount}') = 'number'
-          AND jsonb_typeof(history.data#>'{metadata,failedCount}') = 'number'
-          AND jsonb_typeof(history.data#>'{metadata,duplicateCount}') = 'number'
-          AND (NOT (history.data->'metadata' ? 'unknownCount') OR jsonb_typeof(history.data#>'{metadata,unknownCount}') = 'number')
-          AND history.data#>'{metadata,sentCount}' = to_jsonb(sent)
-          AND history.data#>'{metadata,failedCount}' = to_jsonb(failed)
-          AND history.data#>'{metadata,duplicateCount}' = '0'::jsonb
-          AND coalesce(history.data#>'{metadata,unknownCount}', '0'::jsonb) = to_jsonb(unknown_count)
-          AND history.data->>'action' = CASE
-            WHEN failed > 0 AND sent + unknown_count > 0 THEN 'PROGRAM_MAIL_PARTIALLY_FAILED'
-            WHEN failed > 0 THEN 'PROGRAM_MAIL_FAILED'
-            WHEN unknown_count > 0 THEN 'PROGRAM_MAIL_DELIVERY_UNKNOWN'
-            ELSE 'PROGRAM_MAIL_SENT' END
-        END
-      ) IS TRUE)
-    INTO audit_phases, reconciled
-    FROM "UserHistory" history
-    WHERE history."sourceTable" = 'ProgramMail' AND history."sourceId" = batch."idempotencyKey"
-      AND history."sourcePart" IN ('attempt', 'result');
-    IF audit_phases <> 2 THEN RAISE EXCEPTION 'missing legacy mail audit' USING ERRCODE = '22023'; END IF;
-  END IF;
+
   INSERT INTO "MailJob" (
     id, "receiptId", "partNo", source, "programId", "actorId", "intentKey",
-    "legacySnapshotStatus", "previewVersion", "seoulDay", state, "createdAt", "updatedAt",
-    "partFinishedAt", "receiptFinishedAt", result
+    "legacySnapshotStatus", "previewVersion", "seoulDay", state, "createdAt", "updatedAt"
   ) VALUES (
     receipt, receipt, 0, 'PROGRAM_MANUAL', batch.payload->>'programId', batch."userId", batch."idempotencyKey",
     batch.status, batch.payload->>'previewVersion', (batch."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::date,
-    CASE WHEN reconciled THEN 'COMPLETED'::"MailPartState" ELSE 'QUARANTINED'::"MailPartState" END,
-    batch."createdAt", CURRENT_TIMESTAMP,
-    CASE WHEN reconciled THEN batch."sentAt" END,
-    CASE WHEN reconciled THEN batch."sentAt" END,
-    CASE WHEN reconciled THEN jsonb_build_object('sentCount', sent, 'failedCount', failed, 'unknownCount', unknown_count, 'duplicateCount', 0) END
+    'QUARANTINED', batch."createdAt", CURRENT_TIMESTAMP
   ) ON CONFLICT (id) DO UPDATE SET
-    "legacySnapshotStatus" = EXCLUDED."legacySnapshotStatus", state = EXCLUDED.state,
-    "partFinishedAt" = EXCLUDED."partFinishedAt", "receiptFinishedAt" = EXCLUDED."receiptFinishedAt",
-    result = EXCLUDED.result, "updatedAt" = EXCLUDED."updatedAt"
+    "legacySnapshotStatus" = EXCLUDED."legacySnapshotStatus", "updatedAt" = EXCLUDED."updatedAt"
   WHERE "MailJob"."legacySnapshotStatus" IS DISTINCT FROM EXCLUDED."legacySnapshotStatus";
+
+  DELETE FROM "MailRecipient" WHERE "jobId" = receipt;
   INSERT INTO "MailRecipient" (id, "jobId", ordinal, audience, "userId", "deliveryKey", state, reason, "createdAt", "updatedAt", "finishedAt")
   SELECT id, receipt, (row_number() OVER (ORDER BY id) - 1)::int, 'STUDENT', "userId", "idempotencyKey",
     CASE
@@ -213,14 +153,71 @@ BEGIN
       WHEN status = 'PROCESSING' THEN 'SENDING'::"MailRecipientState"
       ELSE 'PENDING'::"MailRecipientState"
     END,
-    CASE WHEN status = 'FAILED' THEN payload->>'code' END, "createdAt", CURRENT_TIMESTAMP, "sentAt"
+    CASE WHEN status = 'FAILED' THEN payload->>'code' END, "createdAt", coalesce("sentAt", batch."sentAt", "createdAt"), "sentAt"
   FROM "Notification"
-  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey"
-  ON CONFLICT (id) DO UPDATE SET
-    state = EXCLUDED.state, reason = EXCLUDED.reason, "finishedAt" = EXCLUDED."finishedAt",
-    "updatedAt" = EXCLUDED."updatedAt"
-  WHERE "MailRecipient"."jobId" = receipt AND "MailRecipient".state IN ('PENDING', 'SENDING')
-    AND "MailRecipient".state IS DISTINCT FROM EXCLUDED.state;
+  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
+  IF batch.status <> 'COMPLETED' THEN RETURN receipt; END IF;
+
+  SELECT count(*)::int, count(*) FILTER (WHERE state = 'SENT')::int,
+    count(*) FILTER (WHERE state = 'FAILED')::int, count(*) FILTER (WHERE state = 'UNKNOWN')::int,
+    coalesce(jsonb_agg("userId"), '[]'::jsonb)
+  INTO total, sent, failed, unknown_count, recipient_ids
+  FROM "MailRecipient" WHERE "jobId" = receipt;
+  stored := batch.payload->'result';
+  IF (
+    jsonb_typeof(stored->'sentCount') IS DISTINCT FROM 'number' OR
+    jsonb_typeof(stored->'failedCount') IS DISTINCT FROM 'number' OR
+    jsonb_typeof(stored->'duplicateCount') IS DISTINCT FROM 'number' OR
+    (stored ? 'unknownCount' AND jsonb_typeof(stored->'unknownCount') IS DISTINCT FROM 'number')
+  ) THEN RAISE EXCEPTION 'legacy receipt counts must be numbers' USING ERRCODE = '22023'; END IF;
+  IF (
+    batch."sentAt" IS NULL OR stored IS NULL OR
+    (stored->>'sentCount')::numeric IS DISTINCT FROM sent OR
+    (stored->>'failedCount')::numeric IS DISTINCT FROM failed OR
+    (stored ? 'unknownCount' AND (stored->>'unknownCount')::numeric <> unknown_count) OR
+    (stored->>'duplicateCount')::numeric IS DISTINCT FROM 0 OR
+    total <> sent + failed + unknown_count
+  ) THEN RAISE EXCEPTION 'legacy terminal receipt does not reconcile' USING ERRCODE = '22023'; END IF;
+  SELECT count(*), bool_and((
+      history."userId" = batch."userId" AND history."actorId" = batch."userId"
+      AND history.data->>'targetId' = batch.payload->>'programId'
+      AND jsonb_typeof(history.data->'schemaVersion') = 'number' AND history.data->'schemaVersion' = '1'::jsonb
+      AND jsonb_typeof(history.data#>'{metadata,schemaVersion}') = 'number' AND history.data#>'{metadata,schemaVersion}' = '1'::jsonb
+      AND jsonb_typeof(history.data#>'{metadata,bodyLength}') = 'number'
+      AND jsonb_typeof(history.data#>'{metadata,recipientCount}') = 'number'
+      AND history.data#>'{metadata,recipientCount}' = to_jsonb(total)
+      AND CASE WHEN jsonb_typeof(history.data#>'{metadata,recipientIds}') = 'array' THEN
+        jsonb_array_length(history.data#>'{metadata,recipientIds}') = total
+        AND history.data#>'{metadata,recipientIds}' @> recipient_ids
+      ELSE false END
+      AND CASE WHEN history."sourcePart" = 'attempt' THEN
+        history.data->>'action' = 'PROGRAM_MAIL_SEND_ATTEMPTED'
+      ELSE
+        jsonb_typeof(history.data#>'{metadata,sentCount}') = 'number'
+        AND jsonb_typeof(history.data#>'{metadata,failedCount}') = 'number'
+        AND jsonb_typeof(history.data#>'{metadata,duplicateCount}') = 'number'
+        AND (NOT (history.data->'metadata' ? 'unknownCount') OR jsonb_typeof(history.data#>'{metadata,unknownCount}') = 'number')
+        AND history.data#>'{metadata,sentCount}' = to_jsonb(sent)
+        AND history.data#>'{metadata,failedCount}' = to_jsonb(failed)
+        AND history.data#>'{metadata,duplicateCount}' = '0'::jsonb
+        AND coalesce(history.data#>'{metadata,unknownCount}', '0'::jsonb) = to_jsonb(unknown_count)
+        AND history.data->>'action' = CASE
+          WHEN failed > 0 AND sent + unknown_count > 0 THEN 'PROGRAM_MAIL_PARTIALLY_FAILED'
+          WHEN failed > 0 THEN 'PROGRAM_MAIL_FAILED'
+          WHEN unknown_count > 0 THEN 'PROGRAM_MAIL_DELIVERY_UNKNOWN'
+          ELSE 'PROGRAM_MAIL_SENT' END
+      END
+    ) IS TRUE)
+  INTO audit_phases, reconciled
+  FROM "UserHistory" history
+  WHERE history."sourceTable" = 'ProgramMail' AND history."sourceId" = batch."idempotencyKey"
+    AND history."sourcePart" IN ('attempt', 'result');
+  IF audit_phases <> 2 THEN RAISE EXCEPTION 'missing legacy mail audit' USING ERRCODE = '22023'; END IF;
+  IF reconciled THEN
+    UPDATE "MailJob" SET state = 'COMPLETED', "partFinishedAt" = batch."sentAt", "receiptFinishedAt" = batch."sentAt",
+      result = jsonb_build_object('sentCount', sent, 'failedCount', failed, 'unknownCount', unknown_count, 'duplicateCount', 0)
+    WHERE id = receipt;
+  END IF;
   RETURN receipt;
 END;
 $$;

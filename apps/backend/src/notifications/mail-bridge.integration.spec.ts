@@ -92,11 +92,21 @@ describe('when legacy finishes work after an unfinished paused import', () => {
       ],
     });
     jobId = reservation.jobId;
+    const delivery = {
+      idempotencyKey: keys.delivery('synthetic-rollback', otherUserId),
+    };
+    await prisma.notification.update({ where: delivery, data: { userId } });
     await prisma.mailControl.update({
       where: { id: 1 },
       data: { mode: 'PAUSED' },
     });
     await refresh();
+    await expect(
+      prisma.mailRecipient.findUniqueOrThrow({
+        where: { deliveryKey: delivery.idempotencyKey },
+        select: { userId: true },
+      }),
+    ).resolves.toEqual({ userId });
     const receipts = new ProgramMailJobRepository(prisma, payloads);
     await expect(receipts.status(programId, jobId)).resolves.toMatchObject({
       jobId,
@@ -117,6 +127,10 @@ describe('when legacy finishes work after an unfinished paused import', () => {
       );
     const [recipient] = await deliveries.states(work);
     if (!recipient) throw new Error('Expected the reserved legacy recipient');
+    await prisma.notification.update({
+      where: delivery,
+      data: { userId: otherUserId },
+    });
     expect(await deliveries.claim(work, recipient, CREATED)).toBe(true);
     expect(
       await deliveries.complete({
@@ -133,7 +147,7 @@ describe('when legacy finishes work after an unfinished paused import', () => {
     ).resolves.toMatchObject({ kind: 'COMPLETED', result: { failedCount: 1 } });
   }, BODY_TIMEOUT_MS);
 
-  it('keeps the original completed receipt visible before and after re-import', async () => {
+  it('replaces the stale recipient with the audited user and preserves the original completed receipt on repeat import', async () => {
     const prisma = database.prisma;
     const receipts = new ProgramMailJobRepository(prisma, payloads);
     const check = async () => {
@@ -152,16 +166,25 @@ describe('when legacy finishes work after an unfinished paused import', () => {
       data: { mode: 'PAUSED' },
     });
     await refresh();
-    await refresh();
-    expect(
-      await prisma.mailJob.findUniqueOrThrow({
+    const storedReceipt = () =>
+      prisma.mailJob.findUniqueOrThrow({
         where: { id: jobId },
         select: {
           state: true,
-          recipients: { take: 2, select: { state: true } },
+          updatedAt: true,
+          recipients: {
+            take: 2,
+            select: { id: true, userId: true, state: true, updatedAt: true },
+          },
         },
-      }),
-    ).toEqual({ state: 'COMPLETED', recipients: [{ state: 'FAILED' }] });
+      });
+    const first = await storedReceipt();
+    expect(first).toMatchObject({
+      state: 'COMPLETED',
+      recipients: [{ userId: otherUserId, state: 'FAILED' }],
+    });
+    await refresh();
+    expect(await storedReceipt()).toEqual(first);
     await check();
     expect(
       await prisma.userHistory.count({ where: { sourceTable: 'ProgramMail' } }),
@@ -179,6 +202,34 @@ describe('when legacy finishes work after an unfinished paused import', () => {
     });
     await refresh();
     await expect(status.getMailStatus(new Date(0))).resolves.toEqual(expected);
+  });
+
+  it('keeps a refreshed receipt quarantined when the final roster disagrees with its audits', async () => {
+    const prisma = database.prisma;
+    await prisma.notification.update({
+      where: {
+        idempotencyKey: new ProgramMailKeyRepository().delivery(
+          'synthetic-rollback',
+          otherUserId,
+        ),
+      },
+      data: { userId },
+    });
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    await refresh();
+    await refresh();
+    expect(
+      await prisma.mailJob.findUniqueOrThrow({
+        where: { id: jobId },
+        select: { state: true, receiptFinishedAt: true, result: true },
+      }),
+    ).toEqual({ state: 'QUARANTINED', receiptFinishedAt: null, result: null });
+    const receipts = new ProgramMailJobRepository(prisma, payloads);
+    await expect(receipts.status(programId, jobId)).rejects.toThrow();
+    expect((await receipts.recent(programId)).items).toEqual([]);
   });
 });
 
