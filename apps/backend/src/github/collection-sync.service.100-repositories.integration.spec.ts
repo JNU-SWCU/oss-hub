@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   APP_ID,
   ORG_LOGIN,
@@ -18,36 +19,72 @@ import {
 
 type ScaleFixture = Awaited<ReturnType<typeof createScaleCollectionFixture>>;
 
-const CASE_TIMEOUT_MS = 30_000;
+const SYNC_100_REPOSITORIES_PER_TEST_TIMEOUT_MS = 30_000;
+const OWNED_DATABASE_SETUP_TIMEOUT_MS = 90_000;
+const PENDING_SYNC_AND_DATABASE_TEARDOWN_TIMEOUT_MS = 60_000;
 
 describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', () => {
-  let fixture: ScaleFixture | undefined;
-  let pendingTest: Promise<void> | undefined;
+  const summaries = new Map<string, Record<string, unknown>>();
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
 
-  beforeEach(async () => {
-    fixture = undefined;
-    pendingTest = undefined;
-    fixture = await createScaleCollectionFixture();
-  }, 90_000);
+  beforeAll(() => {
+    logSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation((entry: unknown) => {
+        if (
+          typeof entry === 'object' &&
+          entry !== null &&
+          'event' in entry &&
+          entry.event === 'collection.cycle.summary' &&
+          'runId' in entry &&
+          typeof entry.runId === 'string'
+        ) {
+          summaries.set(entry.runId, Object.fromEntries(Object.entries(entry)));
+        }
+      });
+    warnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+  });
 
-  afterEach(async () => {
-    if (pendingTest) await Promise.allSettled([pendingTest]);
-    await fixture?.close();
-  }, 60_000);
+  afterAll(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
 
   const itWithFixture = (
     name: string,
     body: (fixture: ScaleFixture) => Promise<void>,
-  ) =>
-    it(
-      name,
-      () => {
-        if (!fixture) throw new Error('scale fixture was not initialized');
-        pendingTest = body(fixture);
-        return pendingTest;
-      },
-      CASE_TIMEOUT_MS,
-    );
+  ) => {
+    describe(name, () => {
+      let setup: Promise<ScaleFixture> | undefined;
+      let pendingTest: Promise<void> | undefined;
+
+      beforeEach(() => {
+        setup = createScaleCollectionFixture(summaries);
+        return setup;
+      }, OWNED_DATABASE_SETUP_TIMEOUT_MS);
+
+      afterEach(async () => {
+        if (pendingTest) await Promise.allSettled([pendingTest]);
+        if (setup) {
+          const [result] = await Promise.allSettled([setup]);
+          if (result?.status === 'fulfilled') await result.value.close();
+        }
+      }, PENDING_SYNC_AND_DATABASE_TEARDOWN_TIMEOUT_MS);
+
+      it(
+        '수집 결과를 검증한다',
+        () => {
+          if (!setup) throw new Error('scale fixture setup was not started');
+          pendingTest = setup.then(body);
+          return pendingTest;
+        },
+        SYNC_100_REPOSITORIES_PER_TEST_TIMEOUT_MS,
+      );
+    });
+  };
 
   itWithFixture(
     '첫 실행은 probe 1번과 저장소당 수집 1번(100건 초과 저장소만 1번 더)으로 모든 기여를 한 번씩 넣는다',

@@ -1,6 +1,6 @@
 import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { seedRepos } from '../../test/repo-ledger.fixture';
-import { Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   SyntheticGithubProvider,
@@ -95,7 +95,9 @@ class ScaleCollectionRepository extends CollectionIncrementalRepository {
   }
 }
 
-export async function createScaleCollectionFixture() {
+export async function createScaleCollectionFixture(
+  summaries: Map<string, Record<string, unknown>>,
+) {
   const database = await createOwnedIntegrationDatabase();
   const prisma = database.prisma;
   const repository = new ScaleCollectionRepository(
@@ -123,7 +125,6 @@ export async function createScaleCollectionFixture() {
     new RepositoryUrlService(),
     () => new Date(now),
   );
-  let summaries: Record<string, unknown>[] = [];
 
   const contributionCount = (): Promise<number> =>
     prisma.contributionEvent.count({ where: { repoId: { in: repoIds } } });
@@ -145,26 +146,21 @@ export async function createScaleCollectionFixture() {
   ): Promise<Record<string, unknown>> => {
     now = runNow;
     provider.resetCounters();
-    summaries = [];
-    await expect(
-      service.run(OWNER_ID, `run-${runNow.toISOString()}`, kind),
-    ).resolves.toMatchObject({ status: 'COMPLETED', stoppedForBudget: false });
-    const summary = summaries.at(-1);
-    if (!summary) throw new Error('cycle summary was not logged');
-    return summary;
+    const runId = randomUUID();
+    try {
+      await expect(service.run(OWNER_ID, runId, kind)).resolves.toMatchObject({
+        status: 'COMPLETED',
+        stoppedForBudget: false,
+      });
+      const summary = summaries.get(runId);
+      if (!summary) throw new Error('cycle summary was not logged');
+      return summary;
+    } finally {
+      summaries.delete(runId);
+    }
   };
 
   try {
-    jest.spyOn(Logger.prototype, 'log').mockImplementation((entry: unknown) => {
-      if (
-        typeof entry === 'object' &&
-        entry !== null &&
-        (entry as { event?: unknown }).event === 'collection.cycle.summary'
-      ) {
-        summaries.push(entry as Record<string, unknown>);
-      }
-    });
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     await prisma.$connect();
     await prisma.user.createMany({
       data: Array.from({ length: 5 }, (_, index) => ({
@@ -212,7 +208,6 @@ export async function createScaleCollectionFixture() {
       })),
     );
   } catch (error) {
-    jest.restoreAllMocks();
     await database.close();
     throw error;
   }
@@ -226,7 +221,6 @@ export async function createScaleCollectionFixture() {
     contributionCount,
     lastSuccessAts,
     async close() {
-      jest.restoreAllMocks();
       await database.close();
     },
   };
