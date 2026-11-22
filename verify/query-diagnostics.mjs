@@ -8,6 +8,14 @@ function safeLine(line) {
     .replace(/[\x00-\x1f\x7f-\x9f]/g, '')
     .replace(/\b(Bearer|Basic)\s+[\w./+=~-]+/gi, '$1 [REDACTED]')
     .replace(
+      /\b(?:AKIA|ASIA|ABIA|ACCA|AGPA|AIDA|AIPA|ANPA|ANVA|AROA|A3T[A-Z0-9])[A-Z0-9]{16}\b/g,
+      '[REDACTED]',
+    )
+    .replace(
+      /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g,
+      '[REDACTED]',
+    )
+    .replace(
       /(\b[\w-]*(?:token|secret|password|authorization|api[-_]?key|cookie)[\w-]*["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi,
       '$1[REDACTED]',
     )

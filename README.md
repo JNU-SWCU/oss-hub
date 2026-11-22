@@ -301,7 +301,7 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 
 The Core Web Vitals verifier uses Lighthouse 13.6.0 and compares the median of five runs per page against the unchanged absolute thresholds. The local report records host load, CPU-heavy processes and running Docker containers immediately before and after each run. These diagnostics do not change the verdict or trigger retries.
 
-The local Docker query gate requires Python 3 (`python3` on `PATH`). Its shared lock recovers automatically after a verifier crash. A plain directory created by an older `mkdir`-based run has no owner metadata: the verifier waits for it rather than guessing it is stale. If one is abandoned, confirm no lane is still running before removing the directory. Failed queries print a redacted summary and the path to a private local log; do not share the raw log without reviewing it.
+The local Docker query gate requires Python 3 (`python3` on `PATH`) and owns its lock through the child process. Do not wrap it in another lock. Shell-only Docker work uses `bash verify/with-docker-lock.sh COMMAND ARGS...`: acquisition records the shell PID, process start time and command; the EXIT trap releases only its own directory. Empty or mismatched legacy owners become reclaimable after 30 seconds. Plain uninstrumented `mkdir` holders are no longer supported beyond that grace. Failed queries print a redacted summary and the path to a private local log; do not share the raw log without reviewing it.
 
 ### Documentation map
 

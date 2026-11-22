@@ -13,6 +13,52 @@ import stat
 import subprocess
 import sys
 import time
+import re
+
+LEGACY_GRACE_SECONDS = 30
+
+
+def reclaim_legacy(lock: Path) -> None:
+    try:
+        info = lock.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+            return
+        if time.time() - info.st_mtime < LEGACY_GRACE_SECONDS:
+            return
+        entries = list(lock.iterdir())
+        owner = lock / "owner"
+        if owner in entries:
+            lines = owner.read_text().splitlines()
+            if len(lines) == 2 and lines[0].isdigit():
+                identity = subprocess.run(
+                    ["ps", "-p", lines[0], "-o", "lstart=", "-o", "command="],
+                    env={**os.environ, "LC_ALL": "C"},
+                    capture_output=True, text=True, check=False,
+                )
+                if identity.returncode == 0 and identity.stdout.rstrip("\n") == lines[1]:
+                    return
+            if entries != [owner]:
+                return
+            owner.unlink()
+        elif len(entries) == 1 and re.fullmatch(r"owner-\d+-\d+-.+", entries[0].name):
+            for pid in entries[0].name.split("-")[1:3]:
+                process = subprocess.run(
+                    ["ps", "-p", pid, "-o", "lstart=", "-o", "command="],
+                    env={**os.environ, "LC_ALL": "C"},
+                    capture_output=True, text=True, check=False,
+                )
+                fields = process.stdout.strip().split(None, 5)
+                if process.returncode == 0 and len(fields) == 6:
+                    started = time.mktime(time.strptime(" ".join(fields[:5]), "%a %b %d %H:%M:%S %Y"))
+                    if started <= info.st_mtime and re.search(r"verify/(?:index|docker-lock)|run-integration|jest", fields[5]):
+                        return
+            entries[0].rmdir()
+        elif entries:
+            return
+        if lock.stat().st_ino == info.st_ino:
+            lock.rmdir()
+    except (FileNotFoundError, NotADirectoryError):
+        return
 
 
 def run_locked(lock: Path, command: list[str]) -> int:
@@ -48,6 +94,7 @@ def run_locked(lock: Path, command: list[str]) -> int:
                 break
             except FileExistsError:
                 announce()
+                reclaim_legacy(lock)
                 time.sleep(0.25)
 
         try:

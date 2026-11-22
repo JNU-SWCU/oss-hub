@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   rmSync,
   writeFileSync,
+  utimesSync,
 } from 'node:fs';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
@@ -69,6 +70,53 @@ test('a live legacy mkdir holder is respected', async (t) => {
   // A shell lane must still be able to remove its empty lock normally.
   await run('rmdir', [lock]);
   assert.equal((await next).code, 0);
+});
+
+for (const kind of ['empty', 'unrelated-pid', 'wrong-start']) {
+  test(`an abandoned legacy ${kind} lock is recovered`, async (t) => {
+    const { dir, lock } = fixture(t);
+    mkdirSync(lock);
+    if (kind === 'unrelated-pid')
+      mkdirSync(join(lock, `owner-${process.pid}-0-stale`));
+    if (kind === 'wrong-start')
+      writeFileSync(
+        join(lock, 'owner'),
+        `${process.pid}\nThu Jan  1 00:00:00 1970 synthetic-worker\n`,
+      );
+    utimesSync(lock, 0, 0);
+    const result = await runWithDockerLock(
+      'pwd',
+      [],
+      { cwd: dir, timeoutMs: 4000 },
+      { lock, log() {} },
+    );
+    assert.equal(result.code, 0);
+    assert.equal(existsSync(lock), false);
+  });
+}
+
+test('a matching legacy process identity stays protected beyond the grace', async (t) => {
+  const { dir, lock } = fixture(t);
+  mkdirSync(lock);
+  const identity = await run(
+    'ps',
+    ['-p', String(process.pid), '-o', 'lstart=', '-o', 'command='],
+    { env: { LC_ALL: 'C' } },
+  );
+  writeFileSync(join(lock, 'owner'), `${process.pid}\n${identity.stdout}`);
+  utimesSync(lock, 0, 0);
+  const { promise: waiting, resolve: wait } = Promise.withResolvers();
+  const pending = runWithDockerLock(
+    'pwd',
+    [],
+    { cwd: dir, timeoutMs: 4000 },
+    { lock, log: wait },
+  );
+  await waiting;
+  await setTimeout(350);
+  assert.ok(existsSync(join(lock, 'owner')));
+  rmSync(lock, { recursive: true });
+  assert.equal((await pending).code, 0);
 });
 
 const moduleUrl = new URL('./docker-lock.mjs', import.meta.url).href;

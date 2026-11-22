@@ -12,6 +12,32 @@ import {
 import { dirname, join } from 'node:path';
 import { eventFile, tempRepo } from './test-support.mjs';
 import { REPO_ROOT } from './tools.mjs';
+import { queryDiagnostics } from './query-diagnostics.mjs';
+
+test('unlabelled credential-shaped assertion values are redacted', (t) => {
+  const credentials = [
+    `AKIA${'SYNTHETIC1234567'}`,
+    `ASIA${'EXAMPLE012345678'}`,
+    `ghp_${'abcDEF0123456789'.repeat(3)}`,
+    `github_pat_${'abcDEF0123456789'.repeat(4)}`,
+    `Bearer ${'abcDEF0123456789'.repeat(3)}`,
+    'aZ8kR2sP9vN4mQ6tX1cB7hW3',
+  ];
+  for (const credential of credentials) {
+    const result = queryDiagnostics(
+      {
+        stdout: '',
+        stderr: `FAIL test/private.integration.spec.ts\n  ● protects values\n    Received: "${credential}"`,
+      },
+      { jest: true },
+    );
+    assert.ok(!result.text.includes(credential));
+    assert.match(result.text, /\[REDACTED\]/);
+    const log = /Full local log: (.+)/.exec(result.text)[1];
+    t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
+    assert.ok(readFileSync(log, 'utf8').includes(credential));
+  }
+});
 
 test('hook query specs match the blocking CI integration lane and its base coverage', async (t) => {
   const frontend = 'apps/frontend/src/app/page.tsx';
