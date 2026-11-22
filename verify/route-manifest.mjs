@@ -43,7 +43,7 @@ export async function checkRouteManifest({ cwd, ranges }) {
             head.slice(0, 9),
             violation.startsWith('unreferenced ')
               ? 'No code references this route. Link it from navigation, or reference the path where it is sent (email, API, redirect).'
-              : `absent at ${ancestor.slice(0, 9)}`,
+              : 'These routes render the same page component. Redirect one route to the other, or remove the redundant page.',
             'https://github.com/JNU-SWCU/oss-hub/issues/1963',
           ),
         );

@@ -196,11 +196,23 @@ function screens(file) {
   const direct = [root],
     branch = [];
   const whole = returns(root.initializer ?? root);
-  const component = (n) =>
-    ts.isJsxSelfClosingElement(n) &&
-    !ts.isIntrinsicJsxName(n.tagName.getText()) &&
-    !n.attributes.properties.length &&
-    declaration(n.tagName);
+  const childrenOf = (node) =>
+    node.children.filter((child) => !ts.isJsxText(child) || child.text.trim());
+  const component = (node) => {
+    if (ts.isJsxFragment(node)) {
+      const children = childrenOf(node);
+      return children.length === 1 && component(children[0]);
+    }
+    const element = ts.isJsxElement(node)
+      ? childrenOf(node).length === 0 && node.openingElement
+      : ts.isJsxSelfClosingElement(node) && node;
+    return (
+      element &&
+      !ts.isIntrinsicJsxName(element.tagName.getText()) &&
+      !element.attributes.properties.length &&
+      declaration(element.tagName)
+    );
+  };
   if (whole.length === 1) {
     const node = whole[0];
     if (component(node)) direct.push(component(node));
@@ -218,7 +230,7 @@ function screens(file) {
         attrs[0].name?.getText() === 'allow'
       ) {
         const key = (d, role) =>
-          `${outer.getSourceFile().fileName}:${outer.pos}/${d.getSourceFile().fileName}:${d.pos}/${role.toLowerCase()}`;
+          `${outer.getSourceFile().fileName}:${outer.pos}/${d.getSourceFile().fileName}:${d.pos}/${role.toLowerCase()}:${d.name?.getText() ?? 'default'}`;
         const allow = attrs[0].initializer?.expression;
         if (allow && ts.isArrayLiteralExpression(allow))
           for (const role of allow.elements.filter(ts.isStringLiteral))
@@ -251,11 +263,12 @@ const owners = pages.map(({ route, filePath }) => {
 });
 for (const a of owners)
   for (const b of owners) {
-    if (
-      a.route !== b.route &&
-      a.params === b.params &&
-      a.direct.some((d) => b.direct.includes(d) || b.branch.includes(d))
-    )
-      findings.add(`duplicate ${[a.route, b.route].sort().join(' and ')}`);
+    const shared = a.direct.find(
+      (d) => b.direct.includes(d) || b.branch.includes(d),
+    );
+    if (a.route !== b.route && a.params === b.params && shared)
+      findings.add(
+        `duplicate ${[a.route, b.route].sort().join(' and ')} (component ${typeof shared === 'string' ? shared.split(':').at(-1) : (shared.name?.getText() ?? 'default')})`,
+      );
   }
 console.log(JSON.stringify([...findings].sort()));

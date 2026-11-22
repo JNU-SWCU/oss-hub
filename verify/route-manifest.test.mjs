@@ -56,12 +56,30 @@ test('only new missing references and identical primary screens block', async (t
   const findings = await delta(base, head);
   assert.deepEqual(
     findings.map((f) => f.message),
-    ['duplicate /alias-one and /alias-two', 'unreferenced /orphan'],
+    [
+      'duplicate /alias-one and /alias-two (component Screen)',
+      'unreferenced /orphan',
+    ],
   );
   assert.equal(
     findings[1].threshold,
     'No code references this route. Link it from navigation, or reference the path where it is sent (email, API, redirect).',
   );
+  assert.match(findings[0].threshold, /Redirect.*remove/);
+  for (const jsx of [
+    '<Content></Content>',
+    '<><Content/></>',
+    '<><Content></Content></>',
+  ]) {
+    const equivalent = repo.commit('equivalent JSX page', {
+      [app + 'alias-two/page.tsx']:
+        `import {Screen as Content} from '../shared';export default function Page(){return ${jsx}}`,
+    });
+    assert.deepEqual(
+      (await delta(base, equivalent)).map((f) => f.message),
+      findings.map((f) => f.message),
+    );
+  }
   const unchanged = repo.commit('same references', {
     'apps/frontend/notes.md': '/orphan',
   });
