@@ -28,12 +28,18 @@ const mocks = vi.hoisted(() => {
     push,
     router: { push },
     useSessionRole: vi.fn(),
+    consentForm: Promise.withResolvers<void>(),
     getProgramOverview: vi.fn(),
     getProgramNavigationMilestones: vi.fn(),
     getProgramStatusCounts: vi.fn(),
     getRankingYears: vi.fn(),
     getMyApplication: vi.fn(),
   };
+});
+
+vi.mock('@/features/consents/components/consent-flow', async (load) => {
+  await mocks.consentForm.promise;
+  return load();
 });
 
 vi.mock('next/navigation', () => ({
@@ -232,7 +238,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     });
   }
 
-  it('reuses one consent GET for the real dialog and stays closed after accepting', async () => {
+  it('blocks the shell before the consent form loads and restores it after acceptance', async () => {
     const policyVersion = '2026-11-01';
     let consented = false;
     let consentGets = 0;
@@ -274,8 +280,19 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     const home = <p data-testid="home">학생 홈</p>;
     await renderFrame('/dashboard', '', home);
 
-    await act(() => vi.dynamicImportSettled());
-    expect(dialog()).not.toBeNull();
+    try {
+      expect(dialog()).not.toBeNull();
+      expect(document.body.style.pointerEvents).toBe('none');
+      expect(dialog()?.querySelector('input[type="checkbox"]')).toBeNull();
+      const outside = trigger();
+      await act(async () => outside.focus());
+      expect(dialog()?.contains(document.activeElement)).toBe(true);
+    } finally {
+      await act(async () => {
+        mocks.consentForm.resolve();
+        await vi.dynamicImportSettled();
+      });
+    }
     const checkbox = document.body.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',
     );
@@ -293,6 +310,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(consented).toBe(true);
     expect(consentGets).toBe(2);
     expect(dialog()).toBeNull();
+    expect(document.body.style.pointerEvents).not.toBe('none');
     expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
     await act(async () => root.render(null));
     await renderFrame('/dashboard', '', home);

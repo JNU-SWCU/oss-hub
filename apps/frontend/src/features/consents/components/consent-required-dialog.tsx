@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import {
   Dialog,
   DialogContent,
@@ -7,7 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ConsentFlow } from './consent-flow';
+
+const ConsentFlow = dynamic(
+  () => import('./consent-flow').then((module) => module.ConsentFlow),
+  { loading: () => <p role="status">불러오는 중…</p> },
+);
 
 export interface ConsentRequiredDialogProps {
   readonly open: boolean;

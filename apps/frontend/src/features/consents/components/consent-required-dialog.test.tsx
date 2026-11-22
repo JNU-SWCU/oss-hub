@@ -53,12 +53,6 @@ function installDesktopViewport(): void {
   });
 }
 
-async function flushEffects(): Promise<void> {
-  await act(async () => {
-    await Promise.resolve();
-  });
-}
-
 describe('ConsentRequiredDialog', () => {
   let container: HTMLDivElement;
   let fetchMock: Mock<FetchCall>;
@@ -115,6 +109,7 @@ describe('ConsentRequiredDialog', () => {
       );
     }
     await act(async () => root.render(<Host />));
+    await act(() => vi.dynamicImportSettled());
     const checkbox = document.body.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',
     );
@@ -153,7 +148,7 @@ describe('ConsentRequiredDialog', () => {
         />,
       );
     });
-    await flushEffects();
+    await act(() => vi.dynamicImportSettled());
 
     const trigger = [...document.body.querySelectorAll('button')].find(
       (button) => button.textContent?.includes('전문 보기') ?? false,
@@ -189,7 +184,7 @@ describe('ConsentRequiredDialog', () => {
         />,
       );
     });
-    await flushEffects();
+    await act(() => vi.dynamicImportSettled());
 
     const text = document.body.textContent ?? '';
     expect(text).toContain('개인정보·활동 동의가 필요합니다');
