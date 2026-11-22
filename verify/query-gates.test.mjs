@@ -24,6 +24,7 @@ test('unlabelled credential-shaped assertion values are redacted', (t) => {
     'aZ8kR2sP9vN4mQ6tX1cB7hW3',
     'aZ8kR2sP9vN4mQ6tX1cB7w',
     'ab12CD34ef56GH78',
+    'cRUWnZoTyfLHjKmQpAsVeA',
   ];
   for (const credential of credentials) {
     const result = queryDiagnostics(
@@ -34,11 +35,29 @@ test('unlabelled credential-shaped assertion values are redacted', (t) => {
       { jest: true },
     );
     assert.ok(!result.text.includes(credential));
-    assert.match(result.text, /\[REDACTED\]/);
+    assert.match(result.text, /<redacted: \d+ chars>/);
     const log = /Full local log: (.+)/.exec(result.text)[1];
     t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
     assert.ok(readFileSync(log, 'utf8').includes(credential));
   }
+});
+
+test('summary keeps matcher and short values but never longer assertion values', (t) => {
+  const result = queryDiagnostics(
+    {
+      stdout: '',
+      stderr:
+        'FAIL test/summary.integration.spec.ts\n  ● bounded assertions\n    expect(received).toEqual(expected)\n    Expected: 123456789012\n    Received: abcdefghijklm\n    Received: Bearer x',
+    },
+    { jest: true },
+  );
+  assert.match(result.text, /Matcher: toEqual/);
+  assert.match(result.text, /Expected: 123456789012/);
+  assert.match(result.text, /Received: <redacted: 13 chars>/);
+  assert.match(result.text, /Received: Bearer \[REDACTED\]/);
+  assert.doesNotMatch(result.text, /abcdefghijklm/);
+  const log = /Full local log: (.+)/.exec(result.text)[1];
+  t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
 });
 
 test('hook query specs match the blocking CI integration lane and its base coverage', async (t) => {

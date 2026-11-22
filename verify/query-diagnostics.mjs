@@ -6,6 +6,13 @@ import { stripVTControlCharacters } from 'node:util';
 function safeLine(line) {
   const cleaned = line
     .replace(/[\x00-\x1f\x7f-\x9f]/g, '')
+    .replace(
+      /^(\s+(?:[-+]\s+)?(?:Expected|Received)(?:\s+\w+)*:\s*)(.*)$/,
+      (_match, label, value) =>
+        value.length > 12
+          ? `${label}<redacted: ${value.length} chars>`
+          : `${label}${value}`,
+    )
     .replace(/\b(Bearer|Basic)\s+[\w./+=~-]+/gi, '$1 [REDACTED]')
     .replace(
       /\b(?:AKIA|ASIA|ABIA|ACCA|AGPA|AIDA|AIPA|ANPA|ANVA|AROA|A3T[A-Z0-9])[A-Z0-9]{16}\b/g,
@@ -19,10 +26,7 @@ function safeLine(line) {
       /(\b[\w-]*(?:token|secret|password|authorization|api[-_]?key|cookie)[\w-]*["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi,
       '$1[REDACTED]',
     )
-    .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s/]+@/gi, '[REDACTED]@')
-    .replace(/[A-Za-z0-9+/_=-]{16,}/g, (value) =>
-      /[A-Za-z]/.test(value) && /\d/.test(value) ? '[REDACTED]' : value,
-    );
+    .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s/]+@/gi, '[REDACTED]@');
   return Buffer.byteLength(cleaned) > 200
     ? `${Buffer.from(cleaned).subarray(0, 200).toString('utf8')}…`
     : cleaned;
@@ -48,6 +52,11 @@ export function queryDiagnostics({ stdout, stderr }, { jest = false } = {}) {
       } else if (failedSuite && /^\s+● /.test(line)) {
         failedTest = !/^\s+● Console\s*$/.test(line);
         if (failedTest) summary.push(safeLine(line));
+      } else if (
+        failedTest &&
+        /^\s+expect\(received\)\.[A-Za-z]+\(/.test(line)
+      ) {
+        summary.push(`Matcher: ${/\.([A-Za-z]+)\(/.exec(line)[1]}`);
       } else if (
         failedTest &&
         /^\s+(?:[-+]\s+)?(?:Expected|Received)(?:\s+\w+)*:/.test(line)
