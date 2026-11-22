@@ -1,13 +1,19 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { StatusBadge } from '@/components/status-badge';
 import { LoginButton } from '@/features/auth/components/login-button';
-import { TeamInvitationNotifications } from '@/features/programs/teams/team-invitation-notifications';
 import { useSession } from '@/features/auth/use-session';
 import { memberSurfaces, type MemberSurface } from './member-access';
 import { shouldShowAccountSlot } from './signup-completion';
 import { useSessionRole } from './use-session-role';
+
+const TeamInvitationNotifications = dynamic(() =>
+  import('@/features/programs/teams/team-invitation-notifications').then(
+    (module) => module.TeamInvitationNotifications,
+  ),
+);
 
 const SURFACE_CHIP_LABEL: Record<MemberSurface, string> = {
   student: '학생',

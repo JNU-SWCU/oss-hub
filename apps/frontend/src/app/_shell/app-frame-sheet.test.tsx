@@ -274,6 +274,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     const home = <p data-testid="home">학생 홈</p>;
     await renderFrame('/dashboard', '', home);
 
+    await act(() => vi.dynamicImportSettled());
     expect(dialog()).not.toBeNull();
     const checkbox = document.body.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',

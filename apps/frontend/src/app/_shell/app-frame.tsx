@@ -6,13 +6,12 @@ import {
   takeLoginDestination,
 } from '@/features/auth/login-destination';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CurrentConsent } from '@/features/consents/api';
 import { useCurrentConsentQuery } from '@/features/consents/queries';
 import { featureKey } from '@/lib/query-keys';
-import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
-import { PolicyNoticeDialog } from '@/features/consents/components/policy-notice-dialog';
 import { BottomTabBar } from './bottom-tab-bar';
 import { ProductShell, ShellMenuProvider } from './product-shell';
 import { ProgramNameReportProvider } from './program-name-report-context';
@@ -28,6 +27,17 @@ import { SessionError } from './session-error';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 import { SkipLink } from './skip-link';
+
+const ConsentRequiredDialog = dynamic(() =>
+  import('@/features/consents/components/consent-required-dialog').then(
+    (module) => module.ConsentRequiredDialog,
+  ),
+);
+const PolicyNoticeDialog = dynamic(() =>
+  import('@/features/consents/components/policy-notice-dialog').then(
+    (module) => module.PolicyNoticeDialog,
+  ),
+);
 
 type AppFrameProps = {
   readonly brand?: ReactNode;
@@ -79,11 +89,13 @@ function SessionAppFrame({
   }, [queryClient]);
   const consentRequiredDialog = shouldCheckConsent ? (
     <>
-      <ConsentRequiredDialog
-        open={consentStatus === 'required'}
-        onOpenChange={() => {}}
-        onCompleted={handleConsentCompleted}
-      />
+      {consentStatus === 'required' ? (
+        <ConsentRequiredDialog
+          open
+          onOpenChange={() => {}}
+          onCompleted={handleConsentCompleted}
+        />
+      ) : null}
       {consent.data?.acceptedPolicyVersion &&
       consent.data.acceptedPolicyVersion !== consent.data.policyVersion ? (
         <PolicyNoticeDialog policyVersion={consent.data.policyVersion} />
