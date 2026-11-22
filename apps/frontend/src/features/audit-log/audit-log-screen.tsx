@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { periodRange } from './audit-log-format';
 import {
@@ -36,6 +36,14 @@ export function AuditLogScreen() {
     page: state.page,
     limit: state.limit,
   });
+  const lastPage =
+    query.data === undefined
+      ? undefined
+      : Math.max(1, Math.ceil(query.data.total / state.limit));
+  useEffect(() => {
+    if (lastPage !== undefined && state.page > lastPage)
+      navigate({ page: lastPage }, 'replace');
+  }, [lastPage, state.page, navigate]);
   const errorMessage = query.isError
     ? query.error instanceof ApiError
       ? query.error.problem.detail

@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { foldAuditFeed, type AuditFeedDay } from './audit-log-fold';
+import {
+  auditEvents,
+  foldAuditFeed as foldEvents,
+  type AuditFeedDay,
+} from './audit-log-fold';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 import { parseAuditLogPage } from './parser';
 import type { AuditLogRecord } from './types';
 
 const base = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE).items[0];
+
+function foldAuditFeed(
+  records: readonly AuditLogRecord[],
+  options: { foldLogins: boolean },
+) {
+  return foldEvents(auditEvents(records), options);
+}
 
 function login(
   id: string,
@@ -24,7 +35,7 @@ function shape(days: readonly AuditFeedDay[]) {
     items: day.items.map((item) =>
       item.kind === 'run'
         ? {
-            ids: item.records.map((record) => record.id),
+            ids: item.events.map(({ record }) => record.id),
             failures: item.failures,
             from: item.from,
             to: item.to,
@@ -229,7 +240,7 @@ describe('foldAuditFeed', () => {
     ]);
   });
 
-  it('orders same-time, same-ID records by payload and counts equivalent copies once', () => {
+  it('orders same-time, same-ID records by payload without removing equivalent copies', () => {
     const first = login('shared', '2026-11-19T04:00:00.000Z');
     const second = { ...first, target: { ...first.target, id: 'user-z' } };
     const { id, ...target } = first.target;
@@ -238,7 +249,11 @@ describe('foldAuditFeed', () => {
     const days = foldAuditFeed(records, { foldLogins: true });
 
     expect(days[0].items).toMatchObject([
-      { kind: 'run', records: [second, first], failures: 0 },
+      {
+        kind: 'run',
+        events: [{ record: second }, { record: first }, { record: copy }],
+        failures: 0,
+      },
     ]);
     expect(foldAuditFeed([...records].reverse(), { foldLogins: true })).toEqual(
       days,
@@ -267,12 +282,11 @@ describe('foldAuditFeed', () => {
     },
   );
 
-  it('counts a repeated record once', () => {
-    const days = foldAuditFeed([...RECORDS, RECORDS[0], RECORDS[3]], {
-      foldLogins: true,
-    });
-
-    expect(shape(days)).toEqual(FOLDED);
+  it('keeps two identical standalone entries separately selectable', () => {
+    const days = foldAuditFeed([RECORDS[3], RECORDS[3]], { foldLogins: false });
+    const entries = days[0].items;
+    expect(entries).toHaveLength(2);
+    expect(entries[0].key).not.toBe(entries[1].key);
   });
 
   it('keeps every record as its own row when folding is off', () => {
