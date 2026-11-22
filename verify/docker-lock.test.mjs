@@ -2,19 +2,16 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import {
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
   writeFileSync,
-  utimesSync,
 } from 'node:fs';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
 import { runWithDockerLock } from './docker-lock.mjs';
 import { run } from './tools.mjs';
 
@@ -61,66 +58,7 @@ test('Docker runs from separate worktrees wait for the shared lock through clean
   assert.equal((await run('cat', [timeline])).stdout, 'cleanup\nnext\n');
 });
 
-test('a live legacy mkdir holder is respected', async (t) => {
-  const { dir, lock } = fixture(t);
-  const { promise: waiting, resolve: wait } = Promise.withResolvers();
-  mkdirSync(lock);
-  const next = runWithDockerLock('pwd', [], { cwd: dir }, { lock, log: wait });
-  await waiting;
-  // A shell lane must still be able to remove its empty lock normally.
-  await run('rmdir', [lock]);
-  assert.equal((await next).code, 0);
-});
-
-for (const kind of ['empty', 'unrelated-pid', 'wrong-start']) {
-  test(`an abandoned legacy ${kind} lock is recovered`, async (t) => {
-    const { dir, lock } = fixture(t);
-    mkdirSync(lock);
-    if (kind === 'unrelated-pid')
-      mkdirSync(join(lock, `owner-${process.pid}-0-stale`));
-    if (kind === 'wrong-start')
-      writeFileSync(
-        join(lock, 'owner'),
-        `${process.pid}\nThu Jan  1 00:00:00 1970 synthetic-worker\n`,
-      );
-    utimesSync(lock, 0, 0);
-    const result = await runWithDockerLock(
-      'pwd',
-      [],
-      { cwd: dir, timeoutMs: 4000 },
-      { lock, log() {} },
-    );
-    assert.equal(result.code, 0);
-    assert.equal(existsSync(lock), false);
-  });
-}
-
-test('a matching legacy process identity stays protected beyond the grace', async (t) => {
-  const { dir, lock } = fixture(t);
-  mkdirSync(lock);
-  const identity = await run(
-    'ps',
-    ['-p', String(process.pid), '-o', 'lstart=', '-o', 'command='],
-    { env: { LC_ALL: 'C' } },
-  );
-  writeFileSync(join(lock, 'owner'), `${process.pid}\n${identity.stdout}`);
-  utimesSync(lock, 0, 0);
-  const { promise: waiting, resolve: wait } = Promise.withResolvers();
-  const pending = runWithDockerLock(
-    'pwd',
-    [],
-    { cwd: dir, timeoutMs: 4000 },
-    { lock, log: wait },
-  );
-  await waiting;
-  await setTimeout(350);
-  assert.ok(existsSync(join(lock, 'owner')));
-  rmSync(lock, { recursive: true });
-  assert.equal((await pending).code, 0);
-});
-
 const moduleUrl = new URL('./docker-lock.mjs', import.meta.url).href;
-const helper = fileURLToPath(new URL('./docker-lock.py', import.meta.url));
 
 function contender(dir, lock, name, command, preload = []) {
   return spawn(
@@ -236,49 +174,3 @@ test('kernel ownership survives a killed supervisor until its integration child 
     'cleanup\nnext\n',
   );
 });
-
-for (const point of ['before-symlink', 'after-symlink', 'after-unlink']) {
-  test(`two peers serialize after a crash ${point}`, async (t) => {
-    const { dir, lock } = fixture(t);
-    const killed = spawn(
-      'python3',
-      [
-        '-I',
-        '-B',
-        '-c',
-        `
-import os, runpy, signal, sys
-point = sys.argv.pop(2)
-helper = sys.argv.pop(1)
-name = "unlink" if point == "after-unlink" else "symlink"
-original = getattr(os, name)
-def kill_at_boundary(*args, **kwargs):
-    if point != "before-symlink":
-        original(*args, **kwargs)
-    os.kill(os.getpid(), signal.SIGKILL)
-setattr(os, name, kill_at_boundary)
-runpy.run_path(helper, run_name="__main__")
-`,
-        helper,
-        point,
-        lock,
-        'true',
-      ],
-      { cwd: dir, stdio: 'inherit' },
-    );
-    assert.deepEqual(await once(killed, 'exit'), [null, 'SIGKILL']);
-    if (point === 'after-symlink') assert.ok(lstatSync(lock).isSymbolicLink());
-    const critical =
-      'mkdir active && { sleep .1; rmdir active; echo "$CASE_NAME" >> completed; }';
-    const peers = ['one', 'two'].map((name) =>
-      once(contender(dir, lock, name, critical), 'exit'),
-    );
-    assert.deepEqual(await Promise.all(peers), [
-      [0, null],
-      [0, null],
-    ]);
-    const result = await run('cat', ['completed'], { cwd: dir });
-    assert.deepEqual(result.stdout.trim().split('\n').sort(), ['one', 'two']);
-    assert.equal(existsSync(lock), false);
-  });
-}

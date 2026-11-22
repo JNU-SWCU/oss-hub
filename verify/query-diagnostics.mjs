@@ -20,8 +20,8 @@ function safeLine(line) {
       '$1[REDACTED]',
     )
     .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s/]+@/gi, '[REDACTED]@')
-    .replace(/[\w./+=~-]{24,}/g, (value) =>
-      /^[\w/.-]+\.integration\.spec\.ts$/.test(value) ? value : '[REDACTED]',
+    .replace(/[A-Za-z0-9+/_=-]{16,}/g, (value) =>
+      /[A-Za-z]/.test(value) && /\d/.test(value) ? '[REDACTED]' : value,
     );
   return Buffer.byteLength(cleaned) > 200
     ? `${Buffer.from(cleaned).subarray(0, 200).toString('utf8')}…`

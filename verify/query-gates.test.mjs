@@ -22,6 +22,8 @@ test('unlabelled credential-shaped assertion values are redacted', (t) => {
     `github_pat_${'abcDEF0123456789'.repeat(4)}`,
     `Bearer ${'abcDEF0123456789'.repeat(3)}`,
     'aZ8kR2sP9vN4mQ6tX1cB7hW3',
+    'aZ8kR2sP9vN4mQ6tX1cB7w',
+    'ab12CD34ef56GH78',
   ];
   for (const credential of credentials) {
     const result = queryDiagnostics(
