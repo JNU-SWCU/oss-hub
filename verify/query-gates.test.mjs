@@ -35,27 +35,32 @@ test('unlabelled credential-shaped assertion values are redacted', (t) => {
       { jest: true },
     );
     assert.ok(!result.text.includes(credential));
-    assert.match(result.text, /<redacted: \d+ chars>/);
+    assert.doesNotMatch(result.text, /Received:|Expected:/);
     const log = /Full local log: (.+)/.exec(result.text)[1];
     t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
     assert.ok(readFileSync(log, 'utf8').includes(credential));
   }
 });
 
-test('summary keeps matcher and short values but never longer assertion values', (t) => {
+test('summary strips line separators in names and excludes all assertion and matcher output', (t) => {
   const result = queryDiagnostics(
     {
       stdout: '',
       stderr:
-        'FAIL test/summary.integration.spec.ts\n  ● bounded assertions\n    expect(received).toEqual(expected)\n    Expected: 123456789012\n    Received: abcdefghijklm\n    Received: Bearer x',
+        'FAIL test/summary.integration.spec.ts\n  ● bounded\u2028 assertions\u2029\n    expect(received).not.toBe(expected)\n    Expected: 123456789012\n    Received: \u2028cRUWnZoTyfLHjKmQpAsVeA\u2029\n    Received: Bearer x\n  ● ' +
+        'a'.repeat(1000),
     },
     { jest: true },
   );
-  assert.match(result.text, /Matcher: toEqual/);
-  assert.match(result.text, /Expected: 123456789012/);
-  assert.match(result.text, /Received: <redacted: 13 chars>/);
-  assert.match(result.text, /Received: Bearer \[REDACTED\]/);
-  assert.doesNotMatch(result.text, /abcdefghijklm/);
+  assert.deepEqual(result.text.split('\n').slice(0, 3), [
+    'FAIL test/summary.integration.spec.ts',
+    '  ● bounded assertions',
+    '  ● ' + 'a'.repeat(200),
+  ]);
+  assert.doesNotMatch(
+    result.text,
+    /Matcher:|Expected:|Received:|Bearer|cRUWnZoTyfLHjKmQpAsVeA|\u2028|\u2029/,
+  );
   const log = /Full local log: (.+)/.exec(result.text)[1];
   t.after(() => rmSync(dirname(log), { recursive: true, force: true }));
 });
@@ -265,7 +270,7 @@ test('a lint violation inside the integration run is reported as query-lint', as
     findings.map((item) => item.rule),
     ['query-lint'],
   );
-  assert.match(findings[0].message, /\[LINT\.NO_LIMIT\]/);
+  assert.doesNotMatch(findings[0].message, /\[LINT\.NO_LIMIT\]/);
   assert.match(findings[0].message, /FAIL prisma\/program-read-baseline/);
 });
 
@@ -299,7 +304,7 @@ test('a query failure retains Jest diagnostics above the integration output tail
     findings[0].message,
     /query growth › bounds the number of reads/,
   );
-  assert.match(findings[0].message, /Expected: <= 4\n\s+Received:\s+9/);
+  assert.doesNotMatch(findings[0].message, /Expected:|Received:/);
 });
 
 test('hook output is a bounded redacted Jest summary and the raw log is private', async (t) => {
@@ -336,7 +341,7 @@ test('hook output is a bounded redacted Jest summary and the raw log is private'
   );
   assert.match(
     message,
-    /FAIL test\/query-growth\.integration\.spec\.ts\n\s+● bounds reads\n\s+Expected: 4\n\s+Received:/,
+    /FAIL test\/query-growth\.integration\.spec\.ts\n\s+● bounds reads\nFull local log:/,
   );
   const path = /Full local log: (.+)/.exec(message)?.[1];
   assert.ok(path);

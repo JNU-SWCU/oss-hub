@@ -3,69 +3,35 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 
-function safeLine(line) {
-  const cleaned = line
-    .replace(/[\x00-\x1f\x7f-\x9f]/g, '')
-    .replace(
-      /^(\s+(?:[-+]\s+)?(?:Expected|Received)(?:\s+\w+)*:\s*)(.*)$/,
-      (_match, label, value) =>
-        value.length > 12
-          ? `${label}<redacted: ${value.length} chars>`
-          : `${label}${value}`,
-    )
-    .replace(/\b(Bearer|Basic)\s+[\w./+=~-]+/gi, '$1 [REDACTED]')
-    .replace(
-      /\b(?:AKIA|ASIA|ABIA|ACCA|AGPA|AIDA|AIPA|ANPA|ANVA|AROA|A3T[A-Z0-9])[A-Z0-9]{16}\b/g,
-      '[REDACTED]',
-    )
-    .replace(
-      /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g,
-      '[REDACTED]',
-    )
-    .replace(
-      /(\b[\w-]*(?:token|secret|password|authorization|api[-_]?key|cookie)[\w-]*["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi,
-      '$1[REDACTED]',
-    )
-    .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s/]+@/gi, '[REDACTED]@');
-  return Buffer.byteLength(cleaned) > 200
-    ? `${Buffer.from(cleaned).subarray(0, 200).toString('utf8')}…`
-    : cleaned;
-}
+const name = (value) =>
+  [...value.replace(/[\x00-\x1f\x7f-\x9f\u2028\u2029]/g, '')]
+    .slice(0, 200)
+    .join('');
 
 export function queryDiagnostics({ stdout, stderr }, { jest = false } = {}) {
   const summary = [];
-  const lintIds = new Set();
+  let hasLint = false;
   for (const stream of [stderr, stdout]) {
     let failedSuite = false;
-    let failedTest = false;
     for (const raw of stream.split('\n')) {
       const line = stripVTControlCharacters(raw);
-      const lintId = /^\s*(\[LINT\.[A-Z_]{1,40}\])/.exec(line);
-      if (lintId) lintIds.add(lintId[1]);
+      if (/^\s*\[LINT\.[A-Z_]{1,40}\]/.test(line)) hasLint = true;
       if (!jest || summary.length >= 12) continue;
       if (/^(?:PASS |FAIL |Test Suites:)/.test(line)) {
-        failedSuite = /^FAIL\s+[\w./-]+\.integration\.spec\.ts(?:\s|$)/.test(
+        const suite = /^FAIL\s+([\w./-]+\.integration\.spec\.ts)(?:\s|$)/.exec(
           line,
         );
-        failedTest = false;
-        if (failedSuite) summary.push(safeLine(line));
-      } else if (failedSuite && /^\s+● /.test(line)) {
-        failedTest = !/^\s+● Console\s*$/.test(line);
-        if (failedTest) summary.push(safeLine(line));
+        failedSuite = suite !== null;
+        if (suite) summary.push(`FAIL ${name(suite[1])}`);
       } else if (
-        failedTest &&
-        /^\s+expect\(received\)\.[A-Za-z]+\(/.test(line)
+        failedSuite &&
+        /^\s+● /.test(line) &&
+        !/^\s+● Console\s*$/.test(line)
       ) {
-        summary.push(`Matcher: ${/\.([A-Za-z]+)\(/.exec(line)[1]}`);
-      } else if (
-        failedTest &&
-        /^\s+(?:[-+]\s+)?(?:Expected|Received)(?:\s+\w+)*:/.test(line)
-      ) {
-        summary.push(safeLine(line));
+        summary.push(`  ● ${name(line.replace(/^\s+● /, ''))}`);
       }
     }
   }
-
   const path = join(
     mkdtempSync(join(tmpdir(), 'oss-hub-query-')),
     'integration.log',
@@ -74,12 +40,5 @@ export function queryDiagnostics({ stdout, stderr }, { jest = false } = {}) {
     mode: 0o600,
     flag: 'wx',
   });
-  return {
-    hasLint: lintIds.size > 0,
-    text: [
-      ...summary,
-      ...[...lintIds].slice(0, 8),
-      `Full local log: ${path}`,
-    ].join('\n'),
-  };
+  return { hasLint, text: [...summary, `Full local log: ${path}`].join('\n') };
 }
