@@ -1,7 +1,9 @@
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { run } from './tools.mjs';
 
-const LOCK = '/tmp/oss-hub-docker.lock';
+const LOCK = join(homedir(), '.cache', 'oss-hub', 'docker.lock');
 const HELPER = fileURLToPath(new URL('./docker-lock.py', import.meta.url));
 const WAIT = 'verify: waiting for another Docker-backed run';
 

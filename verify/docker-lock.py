@@ -14,6 +14,7 @@ import sys
 
 
 def run_locked(lock: Path, command: list[str]) -> int:
+    lock.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     # Never unlink: every process must lock the same inode.
     fd = os.open(lock.with_name(f"{lock.name}.flock"), os.O_CREAT | os.O_NOFOLLOW | os.O_RDWR, 0o600)
     try:
