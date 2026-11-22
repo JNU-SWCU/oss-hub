@@ -7,6 +7,11 @@ export type PurgeDeletionStep = {
 
 const PURGE_RELATIONS = [
   {
+    id: 'program-mail-jobs',
+    operation: 'PRESERVE',
+    covers: ['Program->MailJob', 'MailJob->MailJob', 'MailJob->MailRecipient'],
+  },
+  {
     id: 'program-outbox-events',
     operation: 'DELETE',
     covers: ['logical:Team->OutboxEvent'],

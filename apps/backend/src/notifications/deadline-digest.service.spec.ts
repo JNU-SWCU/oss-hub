@@ -1,3 +1,4 @@
+import { MailPreviewService } from './mail-preview.service';
 import {
   DeadlineDigestMailService,
   mailSenderProvider,
@@ -49,6 +50,7 @@ describe('deadline digest cron', () => {
         {} as MailSender,
         { FRONTEND_URL: 'https://oss.example' },
         new DeadlineDigestMailService(),
+        new MailPreviewService(),
       );
       scheduler.sendDeadlineDigests = sendDeadlineDigests;
       testingModule = await Test.createTestingModule({
@@ -345,6 +347,7 @@ function setup() {
         FRONTEND_URL: 'https://oss.example',
       },
       new DeadlineDigestMailService(),
+      new MailPreviewService(),
     ),
   };
 }

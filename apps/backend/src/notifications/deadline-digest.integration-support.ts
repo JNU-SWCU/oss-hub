@@ -1,3 +1,4 @@
+import { MailPreviewService } from './mail-preview.service';
 import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 import {
   ApplicationStatus,
@@ -246,6 +247,7 @@ export function createDeadlineDigestIntegrationHarness(
           FRONTEND_URL: 'https://oss.example',
         },
         new DeadlineDigestMailService(),
+        new MailPreviewService(),
       ),
   };
 }

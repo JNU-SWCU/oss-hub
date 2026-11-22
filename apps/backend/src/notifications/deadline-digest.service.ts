@@ -23,7 +23,8 @@ import {
 } from './notifications-error-code.error';
 import { type MailSender, MAIL_SENDER } from './gmail-mail.client';
 import { AccountStatus } from '@prisma/client';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { MailPreviewService } from './mail-preview.service';
 
 const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
@@ -250,6 +251,7 @@ export class DeadlineDigestService {
     @Inject(RUNTIME_CONFIG)
     private readonly runtimeConfig: Pick<RuntimeConfig, 'FRONTEND_URL'>,
     private readonly mail: DeadlineDigestMailService,
+    private readonly previews: MailPreviewService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })
@@ -302,9 +304,7 @@ export class DeadlineDigestService {
   ): Promise<DeadlineDigestSendResult> {
     const previewedAt = new Date(preview.previewedAt);
     if (
-      !Number.isFinite(previewedAt.getTime()) ||
-      previewedAt > now ||
-      now.getTime() > previewedAt.getTime() + DEADLINE_PREVIEW_TTL_MS
+      !this.previews.legacyIsCurrent(previewedAt, now, DEADLINE_PREVIEW_TTL_MS)
     ) {
       this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
     }
@@ -564,9 +564,7 @@ export class DeadlineDigestService {
       staffMilestones,
       applicationCount: eligibleApplicationIds.length,
       summary,
-      previewVersion: createHash('sha256')
-        .update(JSON.stringify(canonical))
-        .digest('hex'),
+      previewVersion: this.previews.version(canonical),
     };
   }
 
@@ -622,17 +620,13 @@ export class DeadlineDigestService {
             mail: staffPreview,
           }))),
     ];
-    const previewVersion = createHash('sha256')
-      .update(
-        JSON.stringify({
-          eligibility: eligibility.previewVersion,
-          previewedAt: draft.now.toISOString(),
-          studentGuidance: draft.studentGuidance ?? '',
-          staffGuidance: draft.staffGuidance ?? '',
-          deliveries,
-        }),
-      )
-      .digest('hex');
+    const previewVersion = this.previews.version({
+      eligibility: eligibility.previewVersion,
+      previewedAt: draft.now.toISOString(),
+      studentGuidance: draft.studentGuidance ?? '',
+      staffGuidance: draft.staffGuidance ?? '',
+      deliveries,
+    });
     return {
       deliveries,
       studentPreviews: students.map(({ recipient, mail }) => ({

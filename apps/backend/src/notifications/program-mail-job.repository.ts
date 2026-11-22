@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -10,11 +10,14 @@ import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.
 import { ProgramMailStoredResultError } from './program-mail-send-state.error';
 
 const PAGE_SIZE = 10;
-const scope = (programId: string) => ({
-  type: 'PROGRAM_MAIL_SEND',
-  channel: 'INTERNAL',
-  payload: { path: ['programId'], equals: programId },
-});
+const receiptSources = (programId: string) => Prisma.sql`
+  SELECT id, "createdAt" FROM "Notification"
+  WHERE type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' AND payload->>'programId' = ${programId}
+  UNION ALL
+  SELECT id, "createdAt" FROM "MailJob" job
+  WHERE "programId" = ${programId} AND "partNo" = 0 AND "receiptFinishedAt" IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM "Notification" legacy WHERE legacy.id = job.id)
+`;
 const notFound = () =>
   new DomainException(
     NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.MAIL_JOB_NOT_FOUND],
@@ -28,29 +31,22 @@ export class ProgramMailJobRepository {
   ) {}
 
   async recent(programId: string, before?: string) {
-    const where = scope(programId);
+    const source = receiptSources(programId);
     const anchor =
       before === undefined
         ? null
-        : await this.prisma.notification.findUnique({
-            where: { id: before, ...where },
-            select: { createdAt: true, id: true },
-          });
+        : (
+            await this.prisma.$queryRaw<{ createdAt: Date; id: string }[]>`
+            SELECT id, "createdAt" FROM (${source}) receipts WHERE id = ${before} LIMIT 1
+          `
+          )[0];
     if (before !== undefined && !anchor) throw notFound();
-    const rows = await this.prisma.notification.findMany({
-      where: {
-        ...where,
-        ...(anchor && {
-          OR: [
-            { createdAt: { lt: anchor.createdAt } },
-            { createdAt: anchor.createdAt, id: { lt: anchor.id } },
-          ],
-        }),
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, createdAt: true },
-      take: PAGE_SIZE + 1,
-    });
+    const rows = await this.prisma.$queryRaw<{ createdAt: Date; id: string }[]>`
+      SELECT id, "createdAt" FROM (${source}) receipts
+      WHERE ${anchor === null || anchor === undefined}
+        OR ("createdAt", id) < (${anchor?.createdAt ?? null}::timestamp, ${anchor?.id ?? null}::text)
+      ORDER BY "createdAt" DESC, id DESC LIMIT ${PAGE_SIZE + 1}
+    `;
     const items = rows.slice(0, PAGE_SIZE).map((row) => ({
       jobId: row.id,
       acceptedAt: row.createdAt.toISOString(),
@@ -70,10 +66,17 @@ export class ProgramMailJobRepository {
         result: Prisma.JsonValue;
       }[]
     >`
-      SELECT "createdAt", "sentAt", status, payload->'result' AS result
-      FROM "Notification"
-      WHERE id = ${jobId} AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL'
-        AND payload->>'programId' = ${programId}
+      SELECT "createdAt", "sentAt", status, result FROM (
+        SELECT "createdAt", "sentAt", status, payload->'result' AS result, 0 AS priority
+        FROM "Notification"
+        WHERE id = ${jobId} AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL'
+          AND payload->>'programId' = ${programId}
+        UNION ALL
+        SELECT "createdAt", "receiptFinishedAt", 'COMPLETED' AS status, result, 1 AS priority
+        FROM "MailJob"
+        WHERE id = ${jobId} AND "receiptId" = id AND "partNo" = 0
+          AND "programId" = ${programId} AND "receiptFinishedAt" IS NOT NULL
+      ) receipts ORDER BY priority
       LIMIT 1
     `;
     if (!batch) throw notFound();

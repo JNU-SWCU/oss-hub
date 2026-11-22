@@ -1,3 +1,4 @@
+import { MailPreviewService } from './mail-preview.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -128,6 +129,7 @@ export async function startProgramMailIntegration(
           worker,
         ),
         new ProgramMailJobRepository(harness.prisma, payloads),
+        new MailPreviewService(),
       ),
     };
   };
