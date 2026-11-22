@@ -20,7 +20,7 @@ import {
 import { AuditLogDetail } from './audit-log-detail';
 import { AuditLogFeed } from './audit-log-feed';
 import { AuditLogFilterFields, AuditLogFilterSheet } from './audit-log-filters';
-import { auditLogRecordKey, foldAuditFeed } from './audit-log-fold';
+import { auditEvents, foldAuditFeed } from './audit-log-fold';
 import { AUDIT_LOG_CATEGORY_LABELS, formatStamp } from './audit-log-format';
 import { AuditLogTable } from './audit-log-table';
 
@@ -97,16 +97,15 @@ export function AuditLogView(props: AuditLogViewProps) {
   const allCount = counts
     ? AUDIT_LOG_CATEGORIES.reduce((sum, category) => sum + counts[category], 0)
     : null;
+  const events = useMemo(() => auditEvents(records), [records]);
   const days = useMemo(
-    () => foldAuditFeed(records, { foldLogins }),
-    [records, foldLogins],
+    () => foldAuditFeed(events, { foldLogins }),
+    [events, foldLogins],
   );
   const selected =
     props.selectedId === null
       ? undefined
-      : records.find(
-          (record) => auditLogRecordKey(record) === props.selectedId,
-        );
+      : events.find((event) => event.key === props.selectedId)?.record;
   const totalPages = Math.max(1, Math.ceil(props.total / props.limit));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -253,7 +252,7 @@ export function AuditLogView(props: AuditLogViewProps) {
               <>
                 <div className="hidden xl:block">
                   <AuditLogTable
-                    records={records}
+                    events={events}
                     now={props.now}
                     selectedId={props.selectedId}
                     onSelect={props.onSelect}

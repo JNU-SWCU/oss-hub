@@ -86,4 +86,16 @@ describe('AuditLog URL state', () => {
     expect(state).toEqual({ ...DEFAULTS, period: '7d' });
     expect(buildAuditLogSearchParams(state).toString()).toBe('period=7d');
   });
+
+  it.each(['category=LOGIN', 'action=TEAM_CREATED'])(
+    'preserves all-time and explicit recent periods for %s',
+    (filter) => {
+      const state = parseAuditLogSearchParams(new URLSearchParams(filter));
+      expect(state.period).toBe('custom');
+      const recent = { ...state, period: '30d' } as const;
+      expect(
+        parseAuditLogSearchParams(buildAuditLogSearchParams(recent)),
+      ).toEqual(recent);
+    },
+  );
 });
