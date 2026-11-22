@@ -5,6 +5,10 @@ import { ProgramDeletionScopeRepository } from '../programs/programs.repository'
 import { Prisma } from '@prisma/client';
 import { AUDIT_SOURCE_QUERIES } from '../platform/audit-source.config';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
+import { ProgramMailBatchRepository } from './program-mail-batch.repository';
+import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
+import { ProgramMailKeyRepository } from './program-mail-key.repository';
+import { ProgramMailSendRepository } from './program-mail-send.repository';
 import { SystemStatusRepository } from '../admin/system-status.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -49,6 +53,130 @@ beforeEach(async () => {
 }, SETUP_TIMEOUT_MS);
 afterEach(async () => {
   await database?.close();
+});
+
+describe('when legacy finishes work after an unfinished paused import', () => {
+  let jobId: string;
+  const payloads = new ProgramMailBatchPayloadRepository();
+  const refresh = () =>
+    database.prisma.$queryRaw`SELECT import_legacy_program_mail(${jobId})`;
+
+  beforeEach(async () => {
+    const prisma = database.prisma;
+    const audit = new ProgramMailAuditRepository();
+    const keys = new ProgramMailKeyRepository();
+    const sender = new ProgramMailSendRepository(prisma, audit, keys, payloads);
+    const batches = new ProgramMailBatchRepository(prisma, audit, payloads);
+    const deliveries = new ProgramMailDeliveryRepository(prisma, keys);
+    await prisma.program.update({
+      where: { id: programId },
+      data: { lifecycle: 'PUBLISHED' },
+    });
+    const reservation = await sender.reserve({
+      actorId: userId,
+      programId,
+      programName: 'Synthetic',
+      senderName: 'Synthetic',
+      subject: 'Synthetic',
+      body: 'Body',
+      bodyLength: 4,
+      bodyHash: 'synthetic',
+      previewVersion: 'synthetic-rollback',
+      occurredAt: CREATED,
+      recipients: [
+        {
+          id: otherUserId,
+          displayName: 'Synthetic',
+          notificationEmail: 'rollback@example.invalid',
+        },
+      ],
+    });
+    jobId = reservation.jobId;
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    await refresh();
+    const receipts = new ProgramMailJobRepository(prisma, payloads);
+    await expect(receipts.status(programId, jobId)).resolves.toMatchObject({
+      jobId,
+      status: 'QUEUED',
+    });
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'LEGACY' },
+    });
+    const work = await batches.claim(
+      reservation.batchKey,
+      'synthetic-worker',
+      CREATED,
+    );
+    if ('kind' in work)
+      throw new Error(
+        'Expected the original legacy reservation to be claimable',
+      );
+    const [recipient] = await deliveries.states(work);
+    if (!recipient) throw new Error('Expected the reserved legacy recipient');
+    expect(await deliveries.claim(work, recipient, CREATED)).toBe(true);
+    expect(
+      await deliveries.complete({
+        work,
+        state: recipient,
+        status: 'FAILED',
+        now: CREATED,
+      }),
+    ).toBe(true);
+    const result = await deliveries.result(work);
+    if (!result) throw new Error('Expected a terminal delivery result');
+    await expect(
+      batches.complete(work, result, CREATED),
+    ).resolves.toMatchObject({ kind: 'COMPLETED', result: { failedCount: 1 } });
+  }, BODY_TIMEOUT_MS);
+
+  it('keeps the original completed receipt visible before and after re-import', async () => {
+    const prisma = database.prisma;
+    const receipts = new ProgramMailJobRepository(prisma, payloads);
+    const check = async () => {
+      await expect(receipts.status(programId, jobId)).resolves.toMatchObject({
+        jobId,
+        status: 'COMPLETED',
+        failedCount: 1,
+      });
+      expect(
+        (await receipts.recent(programId)).items.map((row) => row.jobId),
+      ).toEqual([jobId]);
+    };
+    await check();
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    await refresh();
+    await refresh();
+    expect(
+      await prisma.mailJob.findUniqueOrThrow({
+        where: { id: jobId },
+        select: { state: true, recipients: { select: { state: true } } },
+      }),
+    ).toEqual({ state: 'COMPLETED', recipients: [{ state: 'FAILED' }] });
+    await check();
+    expect(
+      await prisma.userHistory.count({ where: { sourceTable: 'ProgramMail' } }),
+    ).toBe(2);
+  });
+
+  it('counts the confirmed legacy failure once before and after re-import', async () => {
+    const prisma = database.prisma;
+    const status = new SystemStatusRepository(prisma, new PlatformRepository());
+    const expected = { sent7d: 0, failed7d: 1, unknown7d: 0, lastSentAt: null };
+    await expect(status.getMailStatus(new Date(0))).resolves.toEqual(expected);
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    await refresh();
+    await expect(status.getMailStatus(new Date(0))).resolves.toEqual(expected);
+  });
 });
 
 it(
@@ -592,7 +720,7 @@ it(
         programId,
         actorId: userId,
         seoulDay: CREATED,
-        state: 'QUARANTINED',
+        state: 'COMPLETED',
       },
     });
     await prisma.mailRecipient.createMany({

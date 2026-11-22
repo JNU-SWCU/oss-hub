@@ -130,9 +130,13 @@ export class SystemStatusRepository {
           AND NOT EXISTS (
             SELECT 1 FROM "MailJob" job WHERE legacy.type = 'PROGRAM_MAIL'
               AND job."intentKey" = legacy.payload->>'batchKey'
+              AND (job.state = 'COMPLETED' OR job."legacySnapshotStatus" = 'COMPLETED'
+                OR (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS')
           )
           AND NOT EXISTS (
             SELECT 1 FROM "MailRecipient" recipient WHERE recipient."deliveryKey" = legacy."idempotencyKey"
+              AND (recipient.state NOT IN ('PENDING', 'SENDING')
+                OR (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS')
           )
         UNION ALL
         SELECT recipient.state::text, recipient."createdAt", recipient."finishedAt"

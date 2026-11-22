@@ -22,6 +22,7 @@ CREATE TABLE "MailJob" (
   "intentKey" TEXT UNIQUE,
   "requestDigest" TEXT,
   "previewVersion" TEXT,
+  "legacySnapshotStatus" TEXT CHECK ("legacySnapshotStatus" IN ('PENDING', 'PROCESSING', 'COMPLETED')),
   "seoulDay" DATE NOT NULL,
   state "MailPartState" NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -113,7 +114,10 @@ BEGIN
   END IF;
   SELECT * INTO STRICT batch FROM "Notification"
     WHERE id = receipt AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' FOR UPDATE;
-  IF EXISTS (SELECT 1 FROM "MailJob" WHERE id = receipt) THEN RETURN receipt; END IF;
+  IF EXISTS (
+    SELECT 1 FROM "MailJob" WHERE id = receipt
+      AND ("legacySnapshotStatus" IS NULL OR "legacySnapshotStatus" = 'COMPLETED' OR state <> 'QUARANTINED')
+  ) THEN RETURN receipt; END IF;
   IF jsonb_typeof(batch.payload->'schemaVersion') IS DISTINCT FROM 'number'
     OR batch.payload->'schemaVersion' IS DISTINCT FROM '1'::jsonb
     OR (batch.payload ? 'bodyLength' AND jsonb_typeof(batch.payload->'bodyLength') IS DISTINCT FROM 'number')
@@ -185,17 +189,21 @@ BEGIN
   END IF;
   INSERT INTO "MailJob" (
     id, "receiptId", "partNo", source, "programId", "actorId", "intentKey",
-    "previewVersion", "seoulDay", state, "createdAt", "updatedAt",
+    "legacySnapshotStatus", "previewVersion", "seoulDay", state, "createdAt", "updatedAt",
     "partFinishedAt", "receiptFinishedAt", result
   ) VALUES (
     receipt, receipt, 0, 'PROGRAM_MANUAL', batch.payload->>'programId', batch."userId", batch."idempotencyKey",
-    batch.payload->>'previewVersion', (batch."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::date,
+    batch.status, batch.payload->>'previewVersion', (batch."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::date,
     CASE WHEN reconciled THEN 'COMPLETED'::"MailPartState" ELSE 'QUARANTINED'::"MailPartState" END,
     batch."createdAt", CURRENT_TIMESTAMP,
     CASE WHEN reconciled THEN batch."sentAt" END,
     CASE WHEN reconciled THEN batch."sentAt" END,
     CASE WHEN reconciled THEN jsonb_build_object('sentCount', sent, 'failedCount', failed, 'unknownCount', unknown_count, 'duplicateCount', 0) END
-  );
+  ) ON CONFLICT (id) DO UPDATE SET
+    "legacySnapshotStatus" = EXCLUDED."legacySnapshotStatus", state = EXCLUDED.state,
+    "partFinishedAt" = EXCLUDED."partFinishedAt", "receiptFinishedAt" = EXCLUDED."receiptFinishedAt",
+    result = EXCLUDED.result, "updatedAt" = EXCLUDED."updatedAt"
+  WHERE "MailJob"."legacySnapshotStatus" IS DISTINCT FROM EXCLUDED."legacySnapshotStatus";
   INSERT INTO "MailRecipient" (id, "jobId", ordinal, audience, "userId", "deliveryKey", state, reason, "createdAt", "updatedAt", "finishedAt")
   SELECT id, receipt, (row_number() OVER (ORDER BY id) - 1)::int, 'STUDENT', "userId", "idempotencyKey",
     CASE
@@ -207,7 +215,12 @@ BEGIN
     END,
     CASE WHEN status = 'FAILED' THEN payload->>'code' END, "createdAt", CURRENT_TIMESTAMP, "sentAt"
   FROM "Notification"
-  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
+  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey"
+  ON CONFLICT (id) DO UPDATE SET
+    state = EXCLUDED.state, reason = EXCLUDED.reason, "finishedAt" = EXCLUDED."finishedAt",
+    "updatedAt" = EXCLUDED."updatedAt"
+  WHERE "MailRecipient"."jobId" = receipt AND "MailRecipient".state IN ('PENDING', 'SENDING')
+    AND "MailRecipient".state IS DISTINCT FROM EXCLUDED.state;
   RETURN receipt;
 END;
 $$;

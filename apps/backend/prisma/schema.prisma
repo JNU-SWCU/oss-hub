@@ -823,27 +823,28 @@ enum MailRecipientState {
 }
 
 model MailJob {
-  id                String          @id @default(cuid())
-  receiptId         String
-  receipt           MailJob         @relation("ReceiptParts", fields: [receiptId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  parts             MailJob[]       @relation("ReceiptParts")
-  partNo            Int
-  source            MailSource
-  programId         String
-  program           Program         @relation(fields: [programId], references: [id], onDelete: Restrict)
-  actorId           String?
-  actor             User?           @relation(fields: [actorId], references: [id], onDelete: Restrict)
-  intentKey         String?         @unique
-  requestDigest     String?
-  previewVersion    String?
-  seoulDay          DateTime        @db.Date
-  state             MailPartState
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  partFinishedAt    DateTime?
-  receiptFinishedAt DateTime?
-  result            Json?
-  recipients        MailRecipient[]
+  id                   String          @id @default(cuid())
+  receiptId            String
+  receipt              MailJob         @relation("ReceiptParts", fields: [receiptId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  parts                MailJob[]       @relation("ReceiptParts")
+  partNo               Int
+  source               MailSource
+  programId            String
+  program              Program         @relation(fields: [programId], references: [id], onDelete: Restrict)
+  actorId              String?
+  actor                User?           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  intentKey            String?         @unique
+  requestDigest        String?
+  previewVersion       String?
+  legacySnapshotStatus String?
+  seoulDay             DateTime        @db.Date
+  state                MailPartState
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  partFinishedAt       DateTime?
+  receiptFinishedAt    DateTime?
+  result               Json?
+  recipients           MailRecipient[]
 
   @@unique([receiptId, partNo])
   @@index([state, createdAt, id])

@@ -10,18 +10,23 @@ import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.
 import { ProgramMailStoredResultError } from './program-mail-send-state.error';
 
 const PAGE_SIZE = 10;
-const visibleLegacy = Prisma.sql`
-  NOT (legacy.status = 'COMPLETED' AND EXISTS (
-    SELECT 1 FROM "MailJob" job WHERE job.id = legacy.id AND job.state = 'QUARANTINED'
-  ))
-`;
 const receiptSources = (programId: string) => Prisma.sql`
-  SELECT id, "createdAt" FROM "Notification" legacy
-  WHERE type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' AND payload->>'programId' = ${programId} AND ${visibleLegacy}
+  SELECT id, "createdAt", "sentAt", status, payload->'result' AS result FROM "Notification" legacy
+  WHERE type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' AND payload->>'programId' = ${programId}
+    AND NOT EXISTS (
+      SELECT 1 FROM "MailJob" job WHERE job.id = legacy.id AND (
+        job."receiptFinishedAt" IS NOT NULL OR job."legacySnapshotStatus" = 'COMPLETED'
+        OR (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS'
+      )
+    )
   UNION ALL
-  SELECT id, "createdAt" FROM "MailJob" job
-  WHERE "programId" = ${programId} AND "partNo" = 0 AND "receiptFinishedAt" IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM "Notification" legacy WHERE legacy.id = job.id)
+  SELECT id, "createdAt", "receiptFinishedAt",
+    CASE state WHEN 'QUEUED' THEN 'PENDING' WHEN 'IN_PROGRESS' THEN 'PROCESSING' ELSE 'COMPLETED' END, result
+  FROM "MailJob" WHERE "programId" = ${programId} AND "partNo" = 0 AND (
+    "receiptFinishedAt" IS NOT NULL OR (
+      state IN ('QUEUED', 'IN_PROGRESS') AND (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS'
+    )
+  )
 `;
 const notFound = () =>
   new DomainException(
@@ -71,17 +76,7 @@ export class ProgramMailJobRepository {
         result: Prisma.JsonValue;
       }[]
     >`
-      SELECT "createdAt", "sentAt", status, result FROM (
-        SELECT "createdAt", "sentAt", status, payload->'result' AS result, 1 AS priority
-        FROM "Notification" legacy
-        WHERE id = ${jobId} AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL'
-          AND payload->>'programId' = ${programId} AND ${visibleLegacy}
-        UNION ALL
-        SELECT "createdAt", "receiptFinishedAt", 'COMPLETED' AS status, result, 0 AS priority
-        FROM "MailJob"
-        WHERE id = ${jobId} AND "receiptId" = id AND "partNo" = 0
-          AND "programId" = ${programId} AND "receiptFinishedAt" IS NOT NULL
-      ) receipts ORDER BY priority
+      SELECT "createdAt", "sentAt", status, result FROM (${receiptSources(programId)}) receipts WHERE id = ${jobId}
       LIMIT 1
     `;
     if (!batch) throw notFound();
