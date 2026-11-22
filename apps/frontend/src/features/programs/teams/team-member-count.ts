@@ -6,6 +6,7 @@ interface TeamSize {
 
 interface TeamMemberCountText {
   readonly label: string;
+  readonly capacity: string | null;
   readonly shortage: string | null;
 }
 
@@ -15,10 +16,11 @@ export function teamMemberCountText(team: TeamSize): TeamMemberCountText {
       ? 0
       : Math.max(team.minSize - team.memberCount, 0);
   return {
-    label:
+    label: `${team.memberCount}명`,
+    capacity:
       team.maxSize === undefined || team.maxSize <= 1
-        ? `팀원 ${team.memberCount}명`
-        : `팀원 ${team.memberCount}/${team.maxSize}명`,
+        ? null
+        : `정원 ${team.maxSize}명`,
     shortage:
       team.minSize === undefined || missing === 0
         ? null
