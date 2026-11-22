@@ -1,0 +1,237 @@
+CREATE TYPE "MailMode" AS ENUM ('LEGACY', 'PAUSED', 'JOBS');
+CREATE TYPE "MailSource" AS ENUM ('PROGRAM_MANUAL', 'DEADLINE_MANUAL', 'DEADLINE_AUTOMATIC');
+CREATE TYPE "MailPartState" AS ENUM ('QUEUED', 'IN_PROGRESS', 'COMPLETED', 'QUARANTINED');
+CREATE TYPE "MailAudience" AS ENUM ('STUDENT', 'STAFF');
+CREATE TYPE "MailRecipientState" AS ENUM ('PENDING', 'SENDING', 'SENT', 'FAILED', 'UNKNOWN', 'ALREADY_RESERVED', 'CANCELLED');
+ALTER TYPE "ProgramHistoryEvent" ADD VALUE 'MAIL_ACCEPTED';
+ALTER TYPE "ProgramHistoryEvent" ADD VALUE 'MAIL_COMPLETED';
+
+CREATE TABLE "MailControl" (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  mode "MailMode" NOT NULL CHECK (mode IN ('LEGACY', 'PAUSED'))
+);
+INSERT INTO "MailControl" (id, mode) VALUES (1, 'LEGACY');
+
+CREATE TABLE "MailJob" (
+  id TEXT PRIMARY KEY,
+  "receiptId" TEXT NOT NULL,
+  "partNo" INTEGER NOT NULL CHECK ("partNo" >= 0),
+  source "MailSource" NOT NULL,
+  "programId" TEXT NOT NULL REFERENCES "Program"(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  "actorId" TEXT REFERENCES "User"(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  "intentKey" TEXT UNIQUE,
+  "requestDigest" TEXT,
+  "previewVersion" TEXT,
+  "legacySnapshotStatus" TEXT CHECK ("legacySnapshotStatus" IN ('PENDING', 'PROCESSING', 'COMPLETED')),
+  "seoulDay" DATE NOT NULL,
+  state "MailPartState" NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  "partFinishedAt" TIMESTAMP(3),
+  "receiptFinishedAt" TIMESTAMP(3),
+  result JSONB,
+  UNIQUE ("receiptId", "partNo"),
+  CHECK (("partNo" = 0 AND id = "receiptId") OR ("partNo" > 0 AND id <> "receiptId" AND "intentKey" IS NULL AND result IS NULL AND "receiptFinishedAt" IS NULL)),
+  CHECK (source = 'DEADLINE_AUTOMATIC' OR "actorId" IS NOT NULL),
+  CHECK (("receiptFinishedAt" IS NULL) = (result IS NULL))
+);
+CREATE INDEX "MailJob_state_createdAt_id_idx" ON "MailJob"(state, "createdAt", id);
+CREATE INDEX "MailJob_programId_createdAt_id_idx" ON "MailJob"("programId", "createdAt", id);
+CREATE INDEX "MailJob_actorId_createdAt_idx" ON "MailJob"("actorId", "createdAt");
+CREATE INDEX "MailJob_receiptId_state_idx" ON "MailJob"("receiptId", state);
+ALTER TABLE "MailJob" ADD CONSTRAINT "MailJob_receiptId_fkey"
+  FOREIGN KEY ("receiptId") REFERENCES "MailJob"(id) ON DELETE RESTRICT ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "ProgramHistory" ADD CONSTRAINT "ProgramHistory_mail_action_check"
+  CHECK (
+    event::text NOT IN ('MAIL_ACCEPTED', 'MAIL_COMPLETED')
+    OR (
+      "sourceTable" = 'MailJob' AND "sourceId" IS NOT NULL AND
+      data->>'action' IN (
+        'PROGRAM_MAIL_SEND_ATTEMPTED', 'PROGRAM_MAIL_SENT',
+        'PROGRAM_MAIL_FAILED', 'PROGRAM_MAIL_PARTIALLY_FAILED', 'PROGRAM_MAIL_DELIVERY_UNKNOWN'
+      )
+    ) IS TRUE
+  );
+
+CREATE TABLE "MailRecipient" (
+  id TEXT PRIMARY KEY,
+  "jobId" TEXT NOT NULL REFERENCES "MailJob"(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  ordinal INTEGER NOT NULL CHECK (ordinal BETWEEN 0 AND 199),
+  audience "MailAudience" NOT NULL,
+  "userId" TEXT NOT NULL REFERENCES "User"(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  "deliveryKey" TEXT UNIQUE,
+  "priorReceiptId" TEXT,
+  state "MailRecipientState" NOT NULL,
+  reason TEXT,
+  envelope JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  "finishedAt" TIMESTAMP(3),
+  UNIQUE ("jobId", ordinal),
+  UNIQUE ("jobId", audience, "userId"),
+  CHECK (state IN ('PENDING', 'SENDING') OR envelope IS NULL)
+);
+
+CREATE FUNCTION guard_legacy_mail_write() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE current_mode "MailMode";
+BEGIN
+  IF NEW.type NOT IN ('PROGRAM_MAIL_SEND', 'PROGRAM_MAIL', 'DEADLINE_DIGEST') THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.status NOT IN ('PENDING', 'PROCESSING') THEN RETURN NEW; END IF;
+    IF NEW.status = OLD.status AND NEW.payload->>'leaseToken' IS NOT DISTINCT FROM OLD.payload->>'leaseToken' THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  SELECT mode INTO current_mode FROM "MailControl" WHERE id = 1 FOR SHARE;
+  IF current_mode IS DISTINCT FROM 'LEGACY'::"MailMode" THEN
+    RAISE EXCEPTION 'mail admissions paused' USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER legacy_mail_mode BEFORE INSERT OR UPDATE ON "Notification"
+FOR EACH ROW EXECUTE FUNCTION guard_legacy_mail_write();
+
+CREATE FUNCTION import_legacy_program_mail(receipt TEXT) RETURNS TEXT LANGUAGE plpgsql AS $$
+DECLARE
+  batch "Notification"%ROWTYPE;
+  total INTEGER;
+  copied INTEGER;
+  sent INTEGER;
+  failed INTEGER;
+  unknown_count INTEGER;
+  stored JSONB;
+  recipient_ids JSONB;
+  audit_phases INTEGER;
+  valid_child_versions BOOLEAN;
+  valid_counts BOOLEAN;
+  invalid_provenance BOOLEAN;
+  reconciled BOOLEAN := false;
+  current_mode "MailMode";
+BEGIN
+  SELECT mode INTO current_mode FROM "MailControl" WHERE id = 1 FOR SHARE;
+  IF current_mode IS DISTINCT FROM 'PAUSED'::"MailMode" THEN
+    RAISE EXCEPTION 'mail bridge import requires paused admissions' USING ERRCODE = '55000';
+  END IF;
+  SELECT * INTO STRICT batch FROM "Notification"
+    WHERE id = receipt AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' FOR UPDATE;
+  IF EXISTS (
+    SELECT 1 FROM "MailJob" WHERE id = receipt
+      AND ("legacySnapshotStatus" IS NULL OR "legacySnapshotStatus" = 'COMPLETED' OR state <> 'QUARANTINED')
+  ) THEN RETURN receipt; END IF;
+  invalid_provenance := jsonb_typeof(batch.payload->'schemaVersion') IS DISTINCT FROM 'number'
+    OR batch.payload->'schemaVersion' IS DISTINCT FROM '1'::jsonb
+    OR (batch.payload ? 'bodyLength' AND jsonb_typeof(batch.payload->'bodyLength') IS DISTINCT FROM 'number')
+    OR batch."idempotencyKey" IS NULL;
+  SELECT count(*)::int,
+    bool_and((jsonb_typeof(payload->'schemaVersion') = 'number' AND payload->'schemaVersion' = '1'::jsonb) IS TRUE)
+  INTO total, valid_child_versions
+  FROM "Notification"
+  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
+  stored := batch.payload->'result';
+  valid_counts := (
+    jsonb_typeof(stored->'sentCount') = 'number' AND
+    jsonb_typeof(stored->'failedCount') = 'number' AND
+    jsonb_typeof(stored->'duplicateCount') = 'number' AND
+    (NOT (stored ? 'unknownCount') OR jsonb_typeof(stored->'unknownCount') = 'number')
+  ) IS TRUE;
+  IF batch.status = 'COMPLETED' THEN
+    SELECT count(*) INTO audit_phases FROM "UserHistory"
+    WHERE "sourceTable" = 'ProgramMail' AND "sourceId" = batch."idempotencyKey"
+      AND "sourcePart" IN ('attempt', 'result');
+  END IF;
+  IF invalid_provenance OR valid_child_versions IS FALSE
+      OR (batch.status = 'COMPLETED' AND (NOT valid_counts OR audit_phases <> 2)) THEN
+    -- Reject an unrecognized first import. A known snapshot must keep its terminal hide marker.
+    UPDATE "MailJob" SET "legacySnapshotStatus" = 'COMPLETED', "updatedAt" = CURRENT_TIMESTAMP
+    WHERE id = receipt AND batch.status = 'COMPLETED';
+    IF FOUND THEN RETURN receipt; END IF;
+    RAISE EXCEPTION 'unrecognized legacy receipt or audit' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO "MailJob" (
+    id, "receiptId", "partNo", source, "programId", "actorId", "intentKey",
+    "legacySnapshotStatus", "previewVersion", "seoulDay", state, "createdAt", "updatedAt"
+  ) VALUES (
+    receipt, receipt, 0, 'PROGRAM_MANUAL', batch.payload->>'programId', batch."userId", batch."idempotencyKey",
+    batch.status, batch.payload->>'previewVersion', (batch."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::date,
+    'QUARANTINED', batch."createdAt", CURRENT_TIMESTAMP
+  ) ON CONFLICT (id) DO UPDATE SET
+    "legacySnapshotStatus" = EXCLUDED."legacySnapshotStatus", "updatedAt" = EXCLUDED."updatedAt"
+  WHERE "MailJob"."legacySnapshotStatus" IS DISTINCT FROM EXCLUDED."legacySnapshotStatus";
+
+  DELETE FROM "MailRecipient" WHERE "jobId" = receipt;
+  IF total > 200 THEN RETURN receipt; END IF;
+  INSERT INTO "MailRecipient" (id, "jobId", ordinal, audience, "userId", "deliveryKey", state, reason, "createdAt", "updatedAt", "finishedAt")
+  SELECT id, receipt, (row_number() OVER (ORDER BY id) - 1)::int, 'STUDENT', "userId", "idempotencyKey",
+    CASE
+      WHEN status = 'SENT' THEN 'SENT'::"MailRecipientState"
+      WHEN status = 'FAILED' AND payload->>'code' = 'MAIL_DELIVERY_UNKNOWN' THEN 'UNKNOWN'::"MailRecipientState"
+      WHEN status = 'FAILED' THEN 'FAILED'::"MailRecipientState"
+      WHEN status = 'PROCESSING' THEN 'SENDING'::"MailRecipientState"
+      ELSE 'PENDING'::"MailRecipientState"
+    END,
+    CASE WHEN status = 'FAILED' THEN payload->>'code' END, "createdAt", coalesce("sentAt", batch."sentAt", "createdAt"), "sentAt"
+  FROM "Notification"
+  WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey"
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS copied = ROW_COUNT;
+  IF copied <> total OR batch.status <> 'COMPLETED' THEN RETURN receipt; END IF;
+
+  SELECT count(*)::int, count(*) FILTER (WHERE state = 'SENT')::int,
+    count(*) FILTER (WHERE state = 'FAILED')::int, count(*) FILTER (WHERE state = 'UNKNOWN')::int,
+    coalesce(jsonb_agg("userId"), '[]'::jsonb)
+  INTO total, sent, failed, unknown_count, recipient_ids
+  FROM "MailRecipient" WHERE "jobId" = receipt;
+  IF (
+    batch."sentAt" IS NULL OR stored IS NULL OR
+    (stored->>'sentCount')::numeric IS DISTINCT FROM sent OR
+    (stored->>'failedCount')::numeric IS DISTINCT FROM failed OR
+    (stored ? 'unknownCount' AND (stored->>'unknownCount')::numeric <> unknown_count) OR
+    (stored->>'duplicateCount')::numeric IS DISTINCT FROM 0 OR
+    total <> sent + failed + unknown_count
+  ) THEN RETURN receipt; END IF;
+  SELECT count(*), bool_and((
+      history."userId" = batch."userId" AND history."actorId" = batch."userId"
+      AND history.data->>'targetId' = batch.payload->>'programId'
+      AND jsonb_typeof(history.data->'schemaVersion') = 'number' AND history.data->'schemaVersion' = '1'::jsonb
+      AND jsonb_typeof(history.data#>'{metadata,schemaVersion}') = 'number' AND history.data#>'{metadata,schemaVersion}' = '1'::jsonb
+      AND jsonb_typeof(history.data#>'{metadata,bodyLength}') = 'number'
+      AND jsonb_typeof(history.data#>'{metadata,recipientCount}') = 'number'
+      AND history.data#>'{metadata,recipientCount}' = to_jsonb(total)
+      AND CASE WHEN jsonb_typeof(history.data#>'{metadata,recipientIds}') = 'array' THEN
+        jsonb_array_length(history.data#>'{metadata,recipientIds}') = total
+        AND history.data#>'{metadata,recipientIds}' @> recipient_ids
+      ELSE false END
+      AND CASE WHEN history."sourcePart" = 'attempt' THEN
+        history.data->>'action' = 'PROGRAM_MAIL_SEND_ATTEMPTED'
+      ELSE
+        jsonb_typeof(history.data#>'{metadata,sentCount}') = 'number'
+        AND jsonb_typeof(history.data#>'{metadata,failedCount}') = 'number'
+        AND jsonb_typeof(history.data#>'{metadata,duplicateCount}') = 'number'
+        AND (NOT (history.data->'metadata' ? 'unknownCount') OR jsonb_typeof(history.data#>'{metadata,unknownCount}') = 'number')
+        AND history.data#>'{metadata,sentCount}' = to_jsonb(sent)
+        AND history.data#>'{metadata,failedCount}' = to_jsonb(failed)
+        AND history.data#>'{metadata,duplicateCount}' = '0'::jsonb
+        AND coalesce(history.data#>'{metadata,unknownCount}', '0'::jsonb) = to_jsonb(unknown_count)
+        AND history.data->>'action' = CASE
+          WHEN failed > 0 AND sent + unknown_count > 0 THEN 'PROGRAM_MAIL_PARTIALLY_FAILED'
+          WHEN failed > 0 THEN 'PROGRAM_MAIL_FAILED'
+          WHEN unknown_count > 0 THEN 'PROGRAM_MAIL_DELIVERY_UNKNOWN'
+          ELSE 'PROGRAM_MAIL_SENT' END
+      END
+    ) IS TRUE)
+  INTO audit_phases, reconciled
+  FROM "UserHistory" history
+  WHERE history."sourceTable" = 'ProgramMail' AND history."sourceId" = batch."idempotencyKey"
+    AND history."sourcePart" IN ('attempt', 'result');
+  IF audit_phases = 2 AND reconciled THEN
+    UPDATE "MailJob" SET state = 'COMPLETED', "partFinishedAt" = batch."sentAt", "receiptFinishedAt" = batch."sentAt",
+      result = jsonb_build_object('sentCount', sent, 'failedCount', failed, 'unknownCount', unknown_count, 'duplicateCount', 0)
+    WHERE id = receipt;
+  END IF;
+  RETURN receipt;
+END;
+$$;

@@ -1,3 +1,4 @@
+import { MailPreviewService } from '../notifications/mail-preview.service';
 import { ProgramMailAuditRepository } from '../notifications/program-mail-audit.repository';
 import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { UserProfileService } from '../users/user-profile.service';
@@ -81,6 +82,7 @@ const digest = new DeadlineDigestService(
   },
   { FRONTEND_URL: 'https://oss-hub.invalid' },
   new DeadlineDigestMailService(),
+  new MailPreviewService(),
 );
 function updateRequest(notifyOnDeadline: boolean) {
   return {

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MailPreviewService } from './mail-preview.service';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
@@ -39,6 +40,7 @@ import { ProgramMailWorkerService } from './program-mail-worker.service';
     ProgramMailController,
   ],
   providers: [
+    MailPreviewService,
     ApplicationDecisionNotificationsRepository,
     ApplicationDecisionNotificationsService,
     NotificationSettingsRepository,

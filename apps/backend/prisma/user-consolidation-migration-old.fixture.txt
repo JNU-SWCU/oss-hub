@@ -59,6 +59,8 @@ model User {
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
+  acceptedMailJobs                       MailJob[]
+  mailRecipients                         MailRecipient[]
   loginHistories                         LoginHistory[]
   profile                                UserProfile?
 }

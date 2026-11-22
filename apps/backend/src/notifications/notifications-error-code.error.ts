@@ -12,12 +12,19 @@ export enum NotificationsErrorCode {
   PROGRAM_MAIL_RATE_LIMITED = 'NOT_009',
   PROGRAM_MAIL_RECIPIENT_LIMIT = 'NOT_010',
   MAIL_JOB_NOT_FOUND = 'NOT_011',
+  MAIL_PAUSED = 'NOT_012',
 }
 
 export const NOTIFICATIONS_ERROR_CODES: Record<
   NotificationsErrorCode,
   ErrorCode
 > = {
+  [NotificationsErrorCode.MAIL_PAUSED]: {
+    code: NotificationsErrorCode.MAIL_PAUSED,
+    status: 503,
+    message: '메일 발송이 일시 중지되었습니다. 잠시 후 다시 확인하세요.',
+    exposeToClient: true,
+  },
   [NotificationsErrorCode.MAIL_JOB_NOT_FOUND]: {
     code: NotificationsErrorCode.MAIL_JOB_NOT_FOUND,
     status: 404,

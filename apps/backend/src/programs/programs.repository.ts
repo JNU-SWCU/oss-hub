@@ -776,6 +776,13 @@ export class ProgramDeletionScopeRepository {
               SELECT id FROM "Team" WHERE "programId" = ${programId}
             )
             UNION ALL
+            SELECT CONCAT('MailJob:', job.id) FROM "MailJob" job
+            WHERE job."programId" = ${programId}
+            UNION ALL
+            SELECT CONCAT('MailRecipient:', recipient.id) FROM "MailRecipient" recipient
+            JOIN "MailJob" job ON job.id = recipient."jobId"
+            WHERE job."programId" = ${programId}
+            UNION ALL
             SELECT CONCAT('Notification:', notification.id)
             FROM "Notification" AS notification
             WHERE (

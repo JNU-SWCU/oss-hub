@@ -106,7 +106,9 @@ export class ProgramMailBatchPayloadRepository {
       !Array.isArray(result) &&
       typeof result.sentCount === 'number' &&
       typeof result.duplicateCount === 'number' &&
-      typeof result.failedCount === 'number'
+      typeof result.failedCount === 'number' &&
+      (result.unknownCount === undefined ||
+        typeof result.unknownCount === 'number')
       ? {
           sentCount: result.sentCount,
           duplicateCount: result.duplicateCount,

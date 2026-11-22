@@ -49,6 +49,7 @@ function mail(overrides: Partial<MailStatusDto> = {}): MailStatusDto {
   return {
     sent7d: 3,
     failed7d: 0,
+    unknown7d: 0,
     lastSentAt: new Date('2026-07-25T08:00:00.000Z'),
     ...overrides,
   };

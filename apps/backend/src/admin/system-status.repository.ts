@@ -48,6 +48,7 @@ export interface ProvisioningStatusDto {
 export interface MailStatusDto {
   readonly sent7d: number;
   readonly failed7d: number;
+  readonly unknown7d: number;
   readonly lastSentAt: Date | null;
 }
 
@@ -121,23 +122,27 @@ export class SystemStatusRepository {
   }
 
   async getMailStatus(since: Date): Promise<MailStatusDto> {
-    const [sent7d, failed7d, last] = await Promise.all([
-      this.prisma.notification.count({
-        where: { channel: 'EMAIL', status: 'SENT', sentAt: { gte: since } },
-      }),
-      this.prisma.notification.count({
-        where: {
-          channel: 'EMAIL',
-          status: 'FAILED',
-          createdAt: { gte: since },
-        },
-      }),
-      this.prisma.notification.aggregate({
-        where: { channel: 'EMAIL', status: 'SENT' },
-        _max: { sentAt: true },
-      }),
-    ]);
-    return { sent7d, failed7d, lastSentAt: last._max.sentAt ?? null };
+    const [result] = await this.prisma.$queryRaw<[MailStatusDto]>`
+      WITH terminal_recipients AS (
+        SELECT "deliveryKey", state, "createdAt", "finishedAt" FROM "MailRecipient"
+        WHERE "deliveryKey" IS NOT NULL AND state NOT IN ('PENDING', 'SENDING')
+      ), deliveries AS (
+        SELECT CASE WHEN status = 'FAILED' AND payload->>'code' = 'MAIL_DELIVERY_UNKNOWN' THEN 'UNKNOWN' ELSE status END AS state,
+          "createdAt", "sentAt"
+        FROM "Notification" legacy WHERE channel = 'EMAIL'
+          AND NOT EXISTS (
+            SELECT 1 FROM terminal_recipients recipient WHERE recipient."deliveryKey" = legacy."idempotencyKey"
+          )
+        UNION ALL
+        SELECT state::text, "createdAt", "finishedAt" FROM terminal_recipients
+      )
+      SELECT count(*) FILTER (WHERE state = 'SENT' AND "sentAt" >= ${since})::int AS "sent7d",
+        count(*) FILTER (WHERE state = 'FAILED' AND "createdAt" >= ${since})::int AS "failed7d",
+        count(*) FILTER (WHERE state = 'UNKNOWN' AND "createdAt" >= ${since})::int AS "unknown7d",
+        max("sentAt") FILTER (WHERE state = 'SENT') AS "lastSentAt"
+      FROM deliveries LIMIT 1
+    `;
+    return result;
   }
 
   async findBulkRemovalEvents(
