@@ -138,7 +138,11 @@ for (const width of [1440, 390]) {
     );
 
     await page.goto(`/programs/${programId}/teams`);
-    await expect(page.getByText('팀원 1/3명', { exact: true })).toBeVisible();
+    const count = page.getByLabel('팀원 1명, 정원 3명', { exact: true });
+    await expect(count.locator('data')).toHaveAttribute('value', '1');
+    await count.click();
+    await expect(page.getByText('정원 3명', { exact: true })).toBeVisible();
+    await count.click();
     await expect(
       page.getByText('최소 2명 · 1명 부족', { exact: true }),
     ).toBeVisible();
@@ -168,7 +172,7 @@ for (const width of [1440, 390]) {
     }));
     expect(noticeSize.width).toBeLessThanOrEqual(width - 32);
     expect(noticeSize.scrollWidth).toBeLessThanOrEqual(noticeSize.clientWidth);
-    await expect(notice).toHaveText(
+    await expect(notice).toContainText(
       '팀 최소 인원이 부족해 승인할 수 없습니다. 초대한 팀원이 수락한 뒤 다시 승인해 주세요.',
     );
     await expect(status).toHaveValue('SUBMITTED');

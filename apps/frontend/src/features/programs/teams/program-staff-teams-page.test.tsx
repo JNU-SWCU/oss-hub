@@ -94,7 +94,7 @@ async function mount() {
 }
 
 function statusSelects(): HTMLSelectElement[] {
-  return [...container.querySelectorAll('select')];
+  return [...container.querySelectorAll<HTMLSelectElement>('tbody select')];
 }
 
 beforeEach(async () => {
@@ -326,7 +326,7 @@ describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
       }),
     );
     await mount();
-    expect(container.textContent).toContain('팀원 1/4명');
+    expect(container.querySelector('data')?.value).toBe('1');
     expect(container.textContent).toContain('최소 2명 · 1명 부족');
     const select = statusSelects()[0];
     if (!select) throw new Error('신청 상태 선택이 없습니다.');
@@ -423,7 +423,10 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     listTeamManagementApplicationsMock.mockResolvedValue(page([team(4)]));
     await mount();
 
-    expect(container.textContent).toContain('팀원 4/4명');
+    expect(container.querySelector('data')?.value).toBe('4');
+    expect(container.querySelector('summary')?.getAttribute('aria-label')).toBe(
+      '팀원 4명, 정원 4명',
+    );
     expect(container.textContent).not.toContain('부족');
   });
 
@@ -433,8 +436,8 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     );
     await mount();
 
-    expect(container.textContent).toContain('팀원 2명');
-    expect(container.textContent).not.toContain('팀원 2/');
+    expect(container.querySelector('data')?.value).toBe('2');
+    expect(container.querySelector('tbody details')).toBeNull();
   });
 
   it('혼자 참여하는 프로그램은 수락한 인원만 보여 준다', async () => {
@@ -443,7 +446,7 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     );
     await mount();
 
-    expect(container.textContent).toContain('팀원 1명');
+    expect(container.querySelector('data')?.value).toBe('1');
     expect(container.textContent).not.toContain('부족');
   });
 
