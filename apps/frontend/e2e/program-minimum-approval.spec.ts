@@ -160,6 +160,7 @@ for (const width of [1440, 390]) {
     await expect(page.locator('[data-missing-members="1"]')).toBeVisible();
     const status = page.locator('tbody').getByRole('combobox');
     await status.selectOption('APPROVED');
+    await expect(status).toHaveAttribute('aria-describedby', /^team-notice-/);
     const notice = page.locator(
       `#${await status.getAttribute('aria-describedby')}`,
     );
