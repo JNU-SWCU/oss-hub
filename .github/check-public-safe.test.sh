@@ -295,8 +295,10 @@ for root in Users private tmp; do
   expect_fail "단일 하위 요소의 로컬 경로: $root" \
     scan_pr_text "$(printf '/%s/%s' "$root" synthetic)"
 done
-expect_fail '설정값의 임시 경로 차단' \
-  scan_pr_text "$(printf 'output=/%s/%s' tmp synthetic)"
+for prefix in 'output=' 'output:' "'" '"' '('; do
+  expect_fail "구분 기호 뒤의 임시 경로 차단: $prefix" \
+    scan_pr_text "$(printf '%s/%s/%s' "$prefix" tmp synthetic)"
+done
 expect_pass '공개 URL 안의 tmp 경로 허용' \
   scan_pr_text 'output=https://example.org/tmp/synthetic'
 expect_fail '허용·금지 주소가 같은 줄인 Issue 본문·댓글 텍스트' \
