@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProgram } from '../catalog/queries';
-import { useUrlSearchDraft } from '@/lib/list-url-state';
+import { parseListEnum, useUrlSearchDraft } from '@/lib/list-url-state';
 import { useStaffTeamsUrlState } from './staff-teams-url-state';
 import { useStaffTeamsQuery } from './queries';
 import { teamMemberCountText } from './team-member-count';
+import { TeamMemberCountValue } from './team-member-count-value';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, RotateCcw, TriangleAlert } from 'lucide-react';
 import {
@@ -15,7 +16,7 @@ import {
   PageHeader,
   type DataTableColumn,
 } from '@/components';
-import { FilterChip, FilterChipGroup } from '@/components';
+import { Select } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -230,18 +231,46 @@ export function ProgramStaffTeamsPage({
         ),
       },
       {
+        id: 'members',
+        header: '팀원',
+        cell: (item) => {
+          if (!item.team) return '—';
+          const size = teamMemberCountText({
+            memberCount: item.team.memberCount,
+            minSize: item.teamMinSize,
+            maxSize: item.teamMaxSize,
+          });
+          return (
+            <div className="grid gap-1 whitespace-nowrap tabular-nums">
+              <TeamMemberCountValue
+                memberCount={item.team.memberCount}
+                minSize={item.teamMinSize}
+                maxSize={item.teamMaxSize}
+              />
+              {size.shortage ? (
+                <span
+                  data-missing-members={Math.max(
+                    (item.teamMinSize ?? 0) - item.team.memberCount,
+                    0,
+                  )}
+                  className="flex items-center gap-1 text-xs text-status-pending-fg"
+                >
+                  <TriangleAlert
+                    aria-hidden="true"
+                    className="size-3 shrink-0"
+                  />
+                  {size.shortage}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
         id: 'status',
-        header: '상태',
+        header: '신청 상태',
         cell: (item) => {
           const notice = notices[item.id] ?? null;
-          const size =
-            item.team === null
-              ? null
-              : teamMemberCountText({
-                  memberCount: item.team.memberCount,
-                  minSize: item.teamMinSize,
-                  maxSize: item.teamMaxSize,
-                });
           return (
             <div className="grid min-w-[9rem] gap-1">
               <ApplicationStatusControl
@@ -250,30 +279,9 @@ export function ProgramStaffTeamsPage({
                 value={item.status}
 
                 disabled={busyId === item.id || (notice?.blocked ?? false)}
+                aria-describedby={notice ? `team-notice-${item.id}` : undefined}
                 onChange={(next) => onSelectStatus(item, next)}
               />
-              {size !== null ? (
-                <span className="text-xs text-muted-foreground">
-                  {size.label}
-                </span>
-              ) : null}
-              {size !== null && size.shortage !== null ? (
-                <span className="flex items-center gap-1 text-xs break-keep text-status-pending-fg">
-                  <TriangleAlert
-                    aria-hidden="true"
-                    className="size-3 shrink-0"
-                  />
-                  {size.shortage}
-                </span>
-              ) : null}
-              {notice !== null ? (
-                <span
-                  role="status"
-                  className="max-w-64 text-xs break-keep whitespace-normal text-muted-foreground"
-                >
-                  {notice.message}
-                </span>
-              ) : null}
             </div>
           );
         },
@@ -320,29 +328,7 @@ export function ProgramStaffTeamsPage({
 
   return (
     <div className="grid gap-4 p-4 sm:p-6">
-      <PageHeader
-        title="팀 관리"
-        description="팀 구성과 신청 상태를 함께 봅니다. 상태를 바꾸면 그 행을 다시 읽어 갱신합니다."
-      />
-
-      <FilterChipGroup aria-label="상태 필터">
-        {(
-          [
-            ['all', '전체'],
-            ['SUBMITTED', APPLICATION_STATUS_LABELS.SUBMITTED],
-            ['APPROVED', APPLICATION_STATUS_LABELS.APPROVED],
-            ['REJECTED', APPLICATION_STATUS_LABELS.REJECTED],
-          ] as const
-        ).map(([value, label]) => (
-          <FilterChip
-            key={value}
-            pressed={filter === value}
-            onClick={() => changeFilter(value)}
-          >
-            {label}
-          </FilterChip>
-        ))}
-      </FilterChipGroup>
+      <PageHeader title="팀 관리" />
 
       <form
         className="flex gap-2"
@@ -351,6 +337,27 @@ export function ProgramStaffTeamsPage({
           applySearch();
         }}
       >
+        <Select
+          className="w-auto shrink-0"
+          aria-label="상태 필터"
+          value={filter}
+          onChange={(event) =>
+            changeFilter(
+              parseListEnum(
+                event.target.value,
+                ['all', 'SUBMITTED', 'APPROVED', 'REJECTED'],
+                'all',
+              ),
+            )
+          }
+        >
+          <option value="all">전체 상태</option>
+          {(['SUBMITTED', 'APPROVED', 'REJECTED'] as const).map((value) => (
+            <option key={value} value={value}>
+              {APPLICATION_STATUS_LABELS[value]}
+            </option>
+          ))}
+        </Select>
         <Input
           aria-label="팀 검색"
           placeholder="팀명 · 팀원 이름 · GitHub 계정으로 검색"
@@ -369,7 +376,7 @@ export function ProgramStaffTeamsPage({
         data={[...items]}
         rowKey={(item) => item.id}
         isLoading={state.kind === 'loading'}
-        caption={`${totalItems}개 팀 중 ${items.length}개를 표시합니다. 표를 좌우로 스크롤할 수 있습니다.`}
+        caption={`전체 ${totalItems}팀`}
         emptyState={
           search === '' && filter === 'all' ? (
             <EmptyState
@@ -389,6 +396,20 @@ export function ProgramStaffTeamsPage({
           )
         }
       />
+      {items.map((item) =>
+        notices[item.id] ? (
+          <div
+            key={item.id}
+            role="status"
+            id={`team-notice-${item.id}`}
+            className="min-w-0 break-words text-small"
+          >
+            <strong>{item.team?.name ?? item.applicant.nickname}</strong>
+            {' · '}
+            {notices[item.id]?.message}
+          </div>
+        ) : null,
+      )}
 
       {totalPages > 1 ? (
         <nav aria-label="목록 페이지" className="flex items-center gap-3">
@@ -402,7 +423,7 @@ export function ProgramStaffTeamsPage({
             이전
           </Button>
           <span className="text-small tabular-nums text-muted-foreground">
-            {page} / {totalPages}
+            {page}페이지
           </span>
           <Button
             type="button"

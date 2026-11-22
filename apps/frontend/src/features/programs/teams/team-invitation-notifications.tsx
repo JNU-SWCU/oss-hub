@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TeamMemberCountValue } from './team-member-count-value';
 import { useRouter } from 'next/navigation';
 import { Bell, LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -341,9 +342,12 @@ export function TeamInvitationNotifications({
                           </Link>
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {invitation.invitedByDisplayName}님이 초대했습니다 ·{' '}
-                          {invitation.memberCount}/{invitation.teamMaxSize}명
+                          {invitation.invitedByDisplayName}님이 초대했습니다
                         </p>
+                        <TeamMemberCountValue
+                          memberCount={invitation.memberCount}
+                          maxSize={invitation.teamMaxSize}
+                        />
                       </div>
                       <div className="mt-3 flex flex-wrap justify-end gap-2">
                         <Button

@@ -299,6 +299,8 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 
 </details>
 
+CI and pre-push compare route findings at the merge base and head on the shared frontend scope. `node verify/route-manifest.mjs origin/main` lists all findings at one revision. The gate looks for App Router page paths in non-test frontend and backend source, including templates, route helpers and redirects. A matching path counts even in unused code: this is a reference check, not proof that a user can navigate there. The duplicate check compares primary page components, not shared widgets.
+
 The Core Web Vitals verifier uses Lighthouse 13.6.0 and compares the median of five runs per page against the unchanged absolute thresholds. The local report records host load, CPU-heavy processes and running Docker containers immediately before and after each run. These diagnostics do not change the verdict or trigger retries.
 
 Docker-backed work uses the verify runner's native inherited file lock in the user's cache directory, shared across worktrees. Python 3 is required. The kernel retains ownership until the process tree closes the descriptor, including after its supervisor crashes. Do not use a shell mkdir lock or wrap the runner in another lock. Use `node verify/index.mjs backend` for the isolated query gates. Failure summaries use Jest's private JSON report, showing only suite paths and sanitized test names. Error text is never parsed for names. Full process output stays in a private local log; do not share it without reviewing it.

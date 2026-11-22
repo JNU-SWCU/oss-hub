@@ -94,7 +94,7 @@ async function mount() {
 }
 
 function statusSelects(): HTMLSelectElement[] {
-  return [...container.querySelectorAll('select')];
+  return [...container.querySelectorAll<HTMLSelectElement>('tbody select')];
 }
 
 beforeEach(async () => {
@@ -326,7 +326,7 @@ describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
       }),
     );
     await mount();
-    expect(container.textContent).toContain('팀원 1/4명');
+    expect(container.querySelector('data')?.value).toBe('1');
     expect(container.textContent).toContain('최소 2명 · 1명 부족');
     const select = statusSelects()[0];
     if (!select) throw new Error('신청 상태 선택이 없습니다.');
@@ -419,11 +419,39 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     });
   }
 
+  it.each([2, 3])(
+    'shows configured minimum %i even when satisfied',
+    async (minimum) => {
+      listTeamManagementApplicationsMock.mockResolvedValue(
+        page([team(3, { teamMinSize: minimum })]),
+      );
+      await mount();
+      expect(
+        container.querySelector<HTMLDataElement>('summary data')?.value,
+      ).toBe('3');
+      expect(
+        container.querySelector<HTMLDataElement>('[data-limit="minimum"]')
+          ?.value,
+      ).toBe(String(minimum));
+      expect(
+        container.querySelector<HTMLDataElement>('[data-limit="maximum"]')
+          ?.value,
+      ).toBe('4');
+      expect(container.querySelector('[data-missing-members]')).toBeNull();
+    },
+  );
+
   it('정원을 채운 팀은 정원과 함께 보여 주고 부족 경고는 없다', async () => {
     listTeamManagementApplicationsMock.mockResolvedValue(page([team(4)]));
     await mount();
 
-    expect(container.textContent).toContain('팀원 4/4명');
+    expect(container.querySelector('data')?.value).toBe('4');
+    expect(
+      container.querySelector<HTMLDataElement>('[data-limit="minimum"]')?.value,
+    ).toBe('2');
+    expect(
+      container.querySelector<HTMLDataElement>('[data-limit="maximum"]')?.value,
+    ).toBe('4');
     expect(container.textContent).not.toContain('부족');
   });
 
@@ -433,8 +461,8 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     );
     await mount();
 
-    expect(container.textContent).toContain('팀원 2명');
-    expect(container.textContent).not.toContain('팀원 2/');
+    expect(container.querySelector('data')?.value).toBe('2');
+    expect(container.querySelector('[data-limit="maximum"]')).toBeNull();
   });
 
   it('혼자 참여하는 프로그램은 수락한 인원만 보여 준다', async () => {
@@ -443,7 +471,7 @@ describe('ProgramStaffTeamsPage — 팀원 수 칸', () => {
     );
     await mount();
 
-    expect(container.textContent).toContain('팀원 1명');
+    expect(container.querySelector('data')?.value).toBe('1');
     expect(container.textContent).not.toContain('부족');
   });
 
