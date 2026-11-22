@@ -103,6 +103,7 @@ DECLARE
   stored JSONB;
   recipient_ids JSONB;
   audit_phases INTEGER;
+  valid_child_versions BOOLEAN;
   reconciled BOOLEAN := false;
   current_mode "MailMode";
 BEGIN
@@ -113,17 +114,22 @@ BEGIN
   SELECT * INTO STRICT batch FROM "Notification"
     WHERE id = receipt AND type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' FOR UPDATE;
   IF EXISTS (SELECT 1 FROM "MailJob" WHERE id = receipt) THEN RETURN receipt; END IF;
-  IF batch.payload->>'schemaVersion' IS DISTINCT FROM '1' OR batch."idempotencyKey" IS NULL THEN
+  IF jsonb_typeof(batch.payload->'schemaVersion') IS DISTINCT FROM 'number'
+    OR batch.payload->'schemaVersion' IS DISTINCT FROM '1'::jsonb
+    OR (batch.payload ? 'bodyLength' AND jsonb_typeof(batch.payload->'bodyLength') IS DISTINCT FROM 'number')
+    OR batch."idempotencyKey" IS NULL THEN
     RAISE EXCEPTION 'unrecognized mail provenance' USING ERRCODE = '22023';
   END IF;
   SELECT count(*)::int,
     count(*) FILTER (WHERE status = 'SENT')::int,
     count(*) FILTER (WHERE status = 'FAILED' AND payload->>'code' IS DISTINCT FROM 'MAIL_DELIVERY_UNKNOWN')::int,
     count(*) FILTER (WHERE status = 'FAILED' AND payload->>'code' = 'MAIL_DELIVERY_UNKNOWN')::int,
-    coalesce(jsonb_agg("userId"), '[]'::jsonb)
-  INTO total, sent, failed, unknown_count, recipient_ids
+    coalesce(jsonb_agg("userId"), '[]'::jsonb),
+    bool_and((jsonb_typeof(payload->'schemaVersion') = 'number' AND payload->'schemaVersion' = '1'::jsonb) IS TRUE)
+  INTO total, sent, failed, unknown_count, recipient_ids, valid_child_versions
   FROM "Notification"
   WHERE type = 'PROGRAM_MAIL' AND channel = 'EMAIL' AND payload->>'batchKey' = batch."idempotencyKey";
+  IF NOT valid_child_versions THEN RAISE EXCEPTION 'unrecognized recipient provenance' USING ERRCODE = '22023'; END IF;
   IF total > 200 THEN RAISE EXCEPTION 'legacy batch exceeds recipient cap' USING ERRCODE = '22023'; END IF;
   stored := batch.payload->'result';
   IF batch.status = 'COMPLETED' AND (
@@ -144,6 +150,10 @@ BEGIN
     SELECT count(*), bool_and((
         history."userId" = batch."userId" AND history."actorId" = batch."userId"
         AND history.data->>'targetId' = batch.payload->>'programId'
+        AND jsonb_typeof(history.data->'schemaVersion') = 'number' AND history.data->'schemaVersion' = '1'::jsonb
+        AND jsonb_typeof(history.data#>'{metadata,schemaVersion}') = 'number' AND history.data#>'{metadata,schemaVersion}' = '1'::jsonb
+        AND jsonb_typeof(history.data#>'{metadata,bodyLength}') = 'number'
+        AND jsonb_typeof(history.data#>'{metadata,recipientCount}') = 'number'
         AND history.data#>'{metadata,recipientCount}' = to_jsonb(total)
         AND CASE WHEN jsonb_typeof(history.data#>'{metadata,recipientIds}') = 'array' THEN
           jsonb_array_length(history.data#>'{metadata,recipientIds}') = total
@@ -152,7 +162,11 @@ BEGIN
         AND CASE WHEN history."sourcePart" = 'attempt' THEN
           history.data->>'action' = 'PROGRAM_MAIL_SEND_ATTEMPTED'
         ELSE
-          history.data#>'{metadata,sentCount}' = to_jsonb(sent)
+          jsonb_typeof(history.data#>'{metadata,sentCount}') = 'number'
+          AND jsonb_typeof(history.data#>'{metadata,failedCount}') = 'number'
+          AND jsonb_typeof(history.data#>'{metadata,duplicateCount}') = 'number'
+          AND (NOT (history.data->'metadata' ? 'unknownCount') OR jsonb_typeof(history.data#>'{metadata,unknownCount}') = 'number')
+          AND history.data#>'{metadata,sentCount}' = to_jsonb(sent)
           AND history.data#>'{metadata,failedCount}' = to_jsonb(failed)
           AND history.data#>'{metadata,duplicateCount}' = '0'::jsonb
           AND coalesce(history.data#>'{metadata,unknownCount}', '0'::jsonb) = to_jsonb(unknown_count)

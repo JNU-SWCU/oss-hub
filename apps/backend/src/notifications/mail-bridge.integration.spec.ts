@@ -249,15 +249,49 @@ it.each([
 );
 
 it(
+  'rejects string versions and counts even when their numeric values reconcile',
+  async () => {
+    const prisma = database.prisma;
+    const result = await seedTerminalReceipt([userId], [userId], [userId]);
+    const payload = {
+      schemaVersion: 1,
+      programId,
+      previewVersion: 'synthetic',
+      result,
+    };
+    await prisma.mailControl.update({
+      where: { id: 1 },
+      data: { mode: 'PAUSED' },
+    });
+    for (const malformed of [
+      { ...payload, schemaVersion: '1' },
+      ...Object.entries(result).map(([field, value]) => ({
+        ...payload,
+        result: { ...result, [field]: String(value) },
+      })),
+    ]) {
+      await prisma.notification.update({
+        where: { id: 'synthetic-batch' },
+        data: { payload: malformed },
+      });
+      await expect(
+        prisma.$queryRaw`SELECT import_legacy_program_mail('synthetic-batch')`,
+      ).rejects.toMatchObject({
+        code: 'P2010',
+        meta: { driverAdapterError: { cause: { originalCode: '22023' } } },
+      });
+      expect(await prisma.mailJob.count()).toBe(0);
+    }
+  },
+  BODY_TIMEOUT_MS,
+);
+
+it(
   'imports a mixed terminal receipt twice without changing identities, audits or totals',
   async () => {
     const prisma = database.prisma;
     const members = [userId, otherUserId];
-    const result = await seedTerminalReceipt(
-      members,
-      members,
-      [...members].reverse(),
-    );
+    await seedTerminalReceipt(members, members, [...members].reverse());
     const reader = new ProgramMailJobRepository(
       prisma,
       new ProgramMailBatchPayloadRepository(),
@@ -274,34 +308,6 @@ it(
     await prisma.mailControl.update({
       where: { id: 1 },
       data: { mode: 'PAUSED' },
-    });
-    await prisma.notification.update({
-      where: { id: 'synthetic-batch' },
-      data: {
-        payload: {
-          schemaVersion: 1,
-          programId,
-          previewVersion: 'synthetic',
-          result: { ...result, unknownCount: '1' },
-        },
-      },
-    });
-    await expect(
-      prisma.$queryRaw`SELECT import_legacy_program_mail('synthetic-batch')`,
-    ).rejects.toMatchObject({
-      code: 'P2010',
-      meta: { driverAdapterError: { cause: { originalCode: '22023' } } },
-    });
-    await prisma.notification.update({
-      where: { id: 'synthetic-batch' },
-      data: {
-        payload: {
-          schemaVersion: 1,
-          programId,
-          previewVersion: 'synthetic',
-          result,
-        },
-      },
     });
     await prisma.$queryRaw`SELECT import_legacy_program_mail('synthetic-batch')`;
     const imported = await prisma.mailJob.findUniqueOrThrow({
@@ -525,7 +531,7 @@ it(
           status: 'SENT',
           idempotencyKey: 'program-mail:no-audit:recipient',
           sentAt: CREATED,
-          payload: { batchKey: 'program-mail-send:no-audit' },
+          payload: { schemaVersion: 1, batchKey: 'program-mail-send:no-audit' },
         },
       ],
     });
