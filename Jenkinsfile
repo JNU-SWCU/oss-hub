@@ -331,7 +331,7 @@ docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTG
         dir("${env.RELEASE_SOURCE}") {
           sh '''#!/usr/bin/env bash
 set -euo pipefail
-docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}" --label "org.opencontainers.image.version=${RELEASE_TAG}" --label "org.opencontainers.image.revision=${RELEASE_SHA}" .
+docker build --file apps/backend/Dockerfile --build-arg "APP_VERSION=${IMAGE_TAG}" --tag "oss-hub-backend:${IMAGE_TAG}" --label "org.opencontainers.image.version=${RELEASE_TAG}" --label "org.opencontainers.image.revision=${RELEASE_SHA}" .
 '''
         }
       }

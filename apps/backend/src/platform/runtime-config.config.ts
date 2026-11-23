@@ -30,6 +30,7 @@ export const RUNTIME_CONFIG_KEYS = [
   'SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED',
   'MAIL_MODE',
   'NODE_ENV',
+  'APP_VERSION',
 ] as const;
 
 export type RuntimeEnvKey = (typeof RUNTIME_CONFIG_KEYS)[number];
@@ -77,5 +78,6 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
       env.SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED,
     MAIL_MODE: env.MAIL_MODE,
     NODE_ENV: env.NODE_ENV,
+    APP_VERSION: env.APP_VERSION,
   });
 }

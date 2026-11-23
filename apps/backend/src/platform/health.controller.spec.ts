@@ -31,7 +31,7 @@ describe('HealthController', () => {
     const result = await controller.getHealth();
 
     expect(isDatabaseReachable).toHaveBeenCalled();
-    expect(result).toEqual({ status: 'ok' });
+    expect(result).toEqual({ status: 'ok', version: 'v0.24.132' });
   });
 
   it('PostgreSQL 연결 확인이 실패하면 503 예외를 반환한다', async () => {
