@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { renderWithQuery } from '../../../../test-support/render-with-query';
-import { ProgramMailCompose } from './program-mail-compose';
+import { ProgramMailCompose, ProgramMailResult } from './program-mail-compose';
 
 const applicant = (id: string, mailAvailable: boolean) => ({
   id,
@@ -97,4 +97,29 @@ it('exposes both mail input limits to the browser', async () => {
     document.querySelector<HTMLTextAreaElement>('#program-mail-body')
       ?.maxLength,
   ).toBe(4000);
+});
+
+it('shows unattempted cancellations separately from failed and uncertain sends', async () => {
+  mounted = await renderWithQuery(
+    <ProgramMailResult
+      result={{
+        status: 'COMPLETED',
+        sentCount: 1,
+        failedCount: 0,
+        unknownCount: 1,
+        duplicateCount: 0,
+      }}
+      cancelledCount={2}
+    />,
+  );
+  const counts = [
+    ...document.querySelectorAll<HTMLDataElement>('data[data-outcome]'),
+  ].map((row) => [row.dataset.outcome, Number(row.value)]);
+  expect(counts).toEqual([
+    ['sentCount', 1],
+    ['failedCount', 0],
+    ['unknownCount', 1],
+    ['duplicateCount', 0],
+    ['cancelledCount', 2],
+  ]);
 });

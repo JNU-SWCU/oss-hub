@@ -118,7 +118,13 @@ export function ProgramMailJobStatus({
       </section>
     );
   return job.data.status === 'COMPLETED' ? (
-    <ProgramMailResult result={job.data} />
+    <ProgramMailResult
+      result={job.data}
+      cancelledCount={job.data.audiences?.reduce(
+        (sum, row) => sum + row.cancelledCount,
+        0,
+      )}
+    />
   ) : (
     <p role="status">메일 발송을 처리 중입니다.</p>
   );
