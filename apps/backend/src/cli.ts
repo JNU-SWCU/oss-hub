@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
-import { fstatSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  fstatSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DeadlineDigestMailService } from './notifications/deadline-digest-mail.service';
 import { DeadlineDigestRepository } from './notifications/deadline-digest.repository';
@@ -192,6 +198,13 @@ async function sendDeadlineDigest(): Promise<void> {
   }
 }
 
+export function hasWorkerMount(mount: string, mountInfo: string): boolean {
+  const canonicalMount = realpathSync(mount);
+  return mountInfo
+    .split('\n')
+    .some((line) => line.split(' ')[4] === canonicalMount);
+}
+
 async function drainMailJobs() {
   if (
     MaintenanceConfig.enabled() ||
@@ -210,9 +223,7 @@ async function drainMailJobs() {
     !/^lock:\s+\d+:\s+FLOCK\s+ADVISORY\s+WRITE\b/m.test(
       readFileSync('/proc/self/fdinfo/9', 'utf8'),
     ) ||
-    !readFileSync('/proc/self/mountinfo', 'utf8')
-      .split('\n')
-      .some((line) => line.split(' ')[4] === mount)
+    !hasWorkerMount(mount, readFileSync('/proc/self/mountinfo', 'utf8'))
   )
     throw new Error('Missing worker interlock');
   const db = new PrismaService();
