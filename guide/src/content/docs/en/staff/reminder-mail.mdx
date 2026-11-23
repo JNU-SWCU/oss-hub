@@ -74,7 +74,7 @@ Below the body sits `이 메일은 oss-hub에서 발송했습니다.` (this mail
 Opening a record does not resend the message.
 
 <Success>
-When processing finishes, the result shows `발송` (Sent), `실패` (Failed), `확인 불가` (Unconfirmed), and `중복 제외` (Duplicates skipped). Unconfirmed means the system could not verify whether the message was sent. If you see `메일 발송을 처리 중입니다.` (Sending is in progress), it continues even if you choose `닫기` (Close). Open the same record later to check the outcome.
+When processing finishes, the result shows `발송` (Sent), `실패` (Failed), `확인 불가` (Unconfirmed), and `중복 제외` (Duplicates skipped). If any sends were cancelled, `취소 N명` (N cancelled) also appears. Unconfirmed means the system could not verify whether the message was sent. Since it may already have arrived, the system never resends to these recipients. Check with the student directly if needed. If you see `메일 발송을 처리 중입니다.` (Sending is in progress), it continues even if you choose `닫기` (Close). Open the same record later to check the outcome.
 </Success>
 
 <Recover title="If the mail cannot be sent">
@@ -83,6 +83,8 @@ A failure shows a `메일을 처리하지 못했습니다` (the mail could not b
 - `메일 수신자를 불러오지 못했습니다` (could not load recipients): click `다시 시도` (retry).
 - If `발송 기록을 불러오지 못했습니다` (could not load send history) or `발송 결과를 불러오지 못했습니다` (could not load the result) appears, choose `다시 시도` (Retry) to look it up rather than sending again. If you see `발송 기록이 없습니다.` (No send records), check that you opened the same program.
 - If the preview expires or the recipients change, click `미리보기` (preview) again before sending.
+- `메일 발송이 일시 중지되었습니다. 잠시 후 다시 확인하세요.` (sending is paused, check again later): sending is temporarily stopped. Wait and try again.
+- `발송 기록에서 결과를 확인하세요.` (check the result in send history): the request was accepted but the result did not come back right away. Don't send again; open that send in `발송 기록` (Send history).
 - `메일을 연속으로 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.` (you cannot send repeatedly): within 10 minutes one person can send three times and one program five times. Wait and send again.
 - `한 번에 선택할 수 있는 학생 수를 초과했습니다.` (too many students selected): split the send into groups of 200 or fewer.
 - `선택한 학생이 이 프로그램의 메일 발송 대상이 아닙니다.` (a selected student is not a recipient for this program): close the popup, open it again, and choose the recipients. A student's notification setting or account status changed while you were choosing.
@@ -107,7 +109,7 @@ Read the student count and `교직원 요약 수신` (staff summary recipients) 
 
 Read the final line, `학생 N명 · 교직원 N명 · 발송 후 취소 불가` (N students · N staff · cannot be recalled). Choose ② `보내기` (send) only when you are ready to send both messages. To change a note, choose `수정` (edit).
 
-<Success>The result lists student messages sent, duplicates skipped, failures, and the staff summary recipient count.</Success>
+<Success>`발송 결과` (Send result) is split into `학생` (Students) and `교직원` (Staff). Each shows `발송` (Sent), `실패` (Failed), `확인 불가` (Unconfirmed), `중복 제외` (Duplicates skipped), and `취소` (Cancelled) counts. Deadline reminders go through the same sending path as regular mail, so after closing the dialog you can see the same result in `발송 기록` (Send history) under `메일 보내기` (Send mail). Unconfirmed recipients are never sent to again.</Success>
 
 <Recover title="If you cannot send deadline reminders">
 - If the button is replaced by `제출 마감 알림을 켜야 합니다.` (enable submission deadline reminders), turn on `제출 마감 알림` in the editor and save. The separate `메일 보내기` action is still available.
