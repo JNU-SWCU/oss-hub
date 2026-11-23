@@ -16,12 +16,14 @@ Decide student program applications in `팀 관리` (team management) in the pro
 
 <Steps>
 1. Click a program name on the [operations dashboard](/oss-hub/en/staff/dashboard/), then select `팀 관리` in its left menu.
-2. Filter applications with the chips at the top: `전체` (all), `검토 대기` (awaiting review), `승인` (approved), or `반려` (rejected). Click a team name to open [team details](/oss-hub/en/staff/team-detail/).
+2. Filter applications with the status select at the top: `전체 상태` (all statuses), `검토 대기` (awaiting review), `승인` (approved), or `반려` (rejected). `전체 N팀` (N teams) above the table is the number of matching teams. Click a team name to open [team details](/oss-hub/en/staff/team-detail/).
 3. In that row's ① `신청 상태` (application status) selector, choose `승인` or `반려`. Changing the status may reorder the rows, so verify the team by name.
 </Steps>
-<Shot src="staff/teams-list.webp" alt="Team management list with team composition, lead applicant, status, and latest submission columns. Marker ① points to the first row's application status selector." caption="① `신청 상태` (application status)" />
+<Shot src="staff/teams-list.webp" alt="Team management list with a status select and search box above a table with member and application status columns. Marker ① points to the member cell of a team below the minimum." caption="① Member count and minimum shortage warning" />
 
-Choosing `승인` from `검토 대기` sends the approval request without a confirmation dialog. Check the team and application first. Students must meet the minimum with themselves and their nominated members when applying, but nomination alone does not join a member to the team. Under the status you see the accepted member count and the maximum, such as `팀원 2/5명` (2 of 5 members). Below the minimum, a warning like `최소 3명 · 1명 부족` (minimum 3, 1 short) appears and the team cannot be approved. Pending invitations do not count.
+Choosing `승인` from `검토 대기` sends the approval request without a confirmation dialog. Check the team and application first. Students must meet the minimum with themselves and their nominated members when applying, but nomination alone does not join a member to the team. The `팀원` (Members) column shows only the accepted member count, such as `2명` (2). Click the number to reveal the program's limits, such as `최소 3명 · 정원 5명` (minimum 3, capacity 5). Below the minimum, a warning like `최소 3명 · 1명 부족` (minimum 3, 1 short) appears under the count and the team cannot be approved. Pending invitations do not count.
+
+Notices raised while you decide appear below the table, one line per team, as `team name · notice`.
 
 ## Reject an application
 
