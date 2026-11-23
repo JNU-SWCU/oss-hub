@@ -4,47 +4,47 @@ import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 
 async function buildController(
-	isDatabaseReachable: () => Promise<boolean>,
+  isDatabaseReachable: () => Promise<boolean>,
 ): Promise<HealthController> {
-	const moduleRef = await Test.createTestingModule({
-		controllers: [HealthController],
-		providers: [HealthService],
-	})
-		.overrideProvider(HealthService)
-		.useValue(
-			Object.assign(Object.create(HealthService.prototype) as object, {
-				isDatabaseReachable,
-			}),
-		)
-		.compile();
+  const moduleRef = await Test.createTestingModule({
+    controllers: [HealthController],
+    providers: [HealthService],
+  })
+    .overrideProvider(HealthService)
+    .useValue(
+      Object.assign(Object.create(HealthService.prototype) as object, {
+        isDatabaseReachable,
+      }),
+    )
+    .compile();
 
-	return moduleRef.get(HealthController);
+  return moduleRef.get(HealthController);
 }
 
 describe('HealthController', () => {
-	it('PostgreSQL이 응답하면 기존 성공 응답을 반환한다', async () => {
-		const isDatabaseReachable = jest
-			.fn<Promise<boolean>, []>()
-			.mockResolvedValue(true);
-		const controller = await buildController(isDatabaseReachable);
+  it('PostgreSQL이 응답하면 기존 성공 응답을 반환한다', async () => {
+    const isDatabaseReachable = jest
+      .fn<Promise<boolean>, []>()
+      .mockResolvedValue(true);
+    const controller = await buildController(isDatabaseReachable);
 
-		const result = await controller.getHealth();
+    const result = await controller.getHealth();
 
-		expect(isDatabaseReachable).toHaveBeenCalled();
-		expect(result).toEqual({ status: 'ok', version: 'dev' });
-	});
+    expect(isDatabaseReachable).toHaveBeenCalled();
+    expect(result).toEqual({ status: 'ok', version: 'dev' });
+  });
 
-	it('PostgreSQL 연결 확인이 실패하면 503 예외를 반환한다', async () => {
-		const isDatabaseReachable = jest
-			.fn<Promise<boolean>, []>()
-			.mockResolvedValue(false);
-		const controller = await buildController(isDatabaseReachable);
+  it('PostgreSQL 연결 확인이 실패하면 503 예외를 반환한다', async () => {
+    const isDatabaseReachable = jest
+      .fn<Promise<boolean>, []>()
+      .mockResolvedValue(false);
+    const controller = await buildController(isDatabaseReachable);
 
-		const action = controller.getHealth();
+    const action = controller.getHealth();
 
-		await expect(action).rejects.toBeInstanceOf(ServiceUnavailableException);
-		await expect(action).rejects.toMatchObject({
-			status: HttpStatus.SERVICE_UNAVAILABLE,
-		});
-	});
+    await expect(action).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(action).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+    });
+  });
 });
