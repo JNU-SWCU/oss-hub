@@ -16,7 +16,10 @@ assertIsolatedIntegrationDatabase({
 const harness = createDeadlineDigestIntegrationHarness();
 
 beforeAll(() => harness.connect());
-beforeEach(() => harness.reset());
+beforeEach(async () => {
+  await harness.reset();
+  await harness.useJobs();
+});
 afterAll(() => harness.disconnect());
 
 it('notifyOnDeadline과 필수 서류가 있는 마감 임박 프로그램만 포함한다', async () => {
