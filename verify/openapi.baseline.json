@@ -5745,10 +5745,14 @@
         "properties": {
           "status": {
             "type": "string"
+          },
+          "version": {
+            "type": "string"
           }
         },
         "required": [
-          "status"
+          "status",
+          "version"
         ]
       },
       "MeResponseDto": {
