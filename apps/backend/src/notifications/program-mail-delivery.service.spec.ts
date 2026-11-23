@@ -1,6 +1,6 @@
-import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import type { ProgramMailSendRepository } from './program-mail-send.repository';
-import type { ProgramMailWorkerService } from './program-mail-worker.service';
+import { ProgramMailDeliveryService } from './program-mail-delivery.service.fixture';
+import type { ProgramMailSendRepository } from './program-mail-send.repository.fixture';
+import type { ProgramMailWorkerService } from './program-mail-worker.service.fixture';
 
 const input = {
   actorId: 'staff-1',

@@ -30,6 +30,7 @@ export interface ProgramMailRepositoryPort {
   findAudience(
     programId: string,
     window: { readonly from: Date; readonly to: Date },
+    tx?: Prisma.TransactionClient,
   ): Promise<ProgramMailAudience | null>;
 }
 
@@ -54,8 +55,9 @@ export class ProgramMailRepository implements ProgramMailRepositoryPort {
   async findAudience(
     programId: string,
     window: { readonly from: Date; readonly to: Date },
+    tx: Prisma.TransactionClient = this.prisma,
   ): Promise<ProgramMailAudience | null> {
-    const program = await this.prisma.program
+    const program = await tx.program
       .findUnique({
         where: { id: programId, lifecycle: { not: 'DELETED' } },
         select: {

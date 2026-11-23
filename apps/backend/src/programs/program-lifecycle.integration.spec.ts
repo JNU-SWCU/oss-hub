@@ -1,4 +1,3 @@
-import { ProgramMailAuditRepository } from '../notifications/program-mail-audit.repository';
 import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -54,10 +53,7 @@ const dashboard = new ApplicationsRepository(
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
-const deadlineDigest = new DeadlineDigestRepository(
-  prisma,
-  new ProgramMailAuditRepository(),
-);
+const deadlineDigest = new DeadlineDigestRepository(prisma);
 const deadlineWindow = {
   from: new Date('2026-11-19T00:00:00Z'),
   to: new Date('2026-11-21T00:00:00Z'),

@@ -21,14 +21,10 @@ import {
   previewProgramMail,
   sendProgramMail,
 } from './program-mail-api';
-import type {
-  ProgramMailPreview,
-  ProgramMailSendResult,
-} from './program-mail-dto';
+import type { ProgramMailPreview } from './program-mail-dto';
 import {
   ProgramMailCompose,
   ProgramMailPreviewView,
-  ProgramMailResult,
 } from './program-mail-compose';
 import {
   canSendProgramMail,
@@ -62,7 +58,6 @@ export function ProgramMailDialog({
     readonly preview: ProgramMailPreview;
     readonly version: number;
   } | null>(null);
-  const [result, setResult] = useState<ProgramMailSendResult | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [busy, setBusy] = useState<ProgramMailDialogBusy>(null);
@@ -80,7 +75,7 @@ export function ProgramMailDialog({
     setError(PREVIEW_EXPIRED);
   }, []);
   const expireIfDue = usePreviewExpiry(
-    busy === null && result === null ? preview?.expiresAt : undefined,
+    busy === null && jobId === null ? preview?.expiresAt : undefined,
     expirePreview,
   );
 
@@ -92,7 +87,6 @@ export function ProgramMailDialog({
     draftRef.current = EMPTY_PROGRAM_MAIL_DRAFT;
     setDraft(EMPTY_PROGRAM_MAIL_DRAFT);
     setLoaded(null);
-    setResult(null);
     setJobId(null);
     setShowHistory(false);
     setBusy(null);
@@ -109,9 +103,9 @@ export function ProgramMailDialog({
   );
 
   useEffect(() => {
-    if (preview === null || result !== null || busy !== null) return;
+    if (preview === null || jobId !== null || busy !== null) return;
     queueMicrotask(() => editButtonRef.current?.focus());
-  }, [busy, preview, result]);
+  }, [busy, preview, jobId]);
 
   const canPreview =
     busy === null && isProgramMailDraftReady(draft, recipientLimit);
@@ -122,7 +116,6 @@ export function ProgramMailDialog({
     draftRef.current = { ...draftRef.current, ...change };
     setDraft(draftRef.current);
     setLoaded(null);
-    setResult(null);
     setBusy((current) => (current === 'preview' ? null : current));
     setError(null);
   };
@@ -172,8 +165,8 @@ export function ProgramMailDialog({
     try {
       const sent = await sendProgramMail(programId, loaded.preview);
       if (loaded.version !== previewRequestVersion.current) return;
-      setResult(sent);
-      if (sent.status === 'IN_PROGRESS' && sent.jobId) setJobId(sent.jobId);
+      setLoaded(null);
+      setJobId(sent.jobId);
     } catch (caught: unknown) {
       if (loaded.version !== previewRequestVersion.current) return;
       setLoaded(null);
@@ -187,7 +180,7 @@ export function ProgramMailDialog({
   };
 
   const footer =
-    showHistory || jobId || result ? (
+    showHistory || jobId ? (
       <Button type="button" onClick={onClose}>
         닫기
       </Button>
@@ -239,7 +232,6 @@ export function ProgramMailDialog({
         !showHistory &&
         !jobId &&
         !preview &&
-        !result &&
         busy === null && (
           <Button
             type="button"
@@ -273,8 +265,6 @@ export function ProgramMailDialog({
           title="메일 수신자를 불러오지 못했습니다"
           onRetry={() => void recipientsQuery.refetch()}
         />
-      ) : result ? (
-        <ProgramMailResult result={result} />
       ) : preview ? (
         <ProgramMailPreviewView preview={preview} />
       ) : (

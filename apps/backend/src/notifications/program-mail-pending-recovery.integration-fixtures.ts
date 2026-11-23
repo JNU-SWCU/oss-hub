@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
-import { ProgramMailKeyRepository } from './program-mail-key.repository';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
+import { ProgramMailKeyRepository } from './program-mail-key.repository.fixture';
+import { ProgramMailSendRepository } from './program-mail-send.repository.fixture';
 import {
   PROGRAM_MAIL_STAFF_FIXTURE,
   type ProgramMailIntegrationWorld,

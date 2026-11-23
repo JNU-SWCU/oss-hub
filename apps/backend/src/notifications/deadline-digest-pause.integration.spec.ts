@@ -48,17 +48,18 @@ it.each([0, 1])(
     ).rejects.toMatchObject({ errorCode: { code: 'NOT_012', status: 503 } });
     expect(sender.sent).toHaveLength(0);
     expect(
-      await database.prisma.userHistory.count({
-        where: { sourceTable: 'DeadlineDigest' },
+      await database.prisma.programHistory.count({
+        where: { sourceTable: 'MailJob' },
       }),
     ).toBe(0);
   },
   30_000,
 );
 
-it('records one result and stops unclaimed staff mail when paused after student delivery', async () => {
+it('holds unclaimed mail while paused, cancels withdrawn consent on resume, and records one result', async () => {
+  await harness.useJobs();
   const sender = new RecordingMailSender();
-  const service = harness.service({
+  const runtime = harness.service({
     async send(mail) {
       await sender.send(mail);
       await database.prisma.mailControl.update({
@@ -67,31 +68,46 @@ it('records one result and stops unclaimed staff mail when paused after student 
       });
     },
   });
-  const preview = await service.previewProgram(
-    DIGEST_FIXTURE.notifyProgram,
-    DIGEST_FIXTURE.now,
+  const id = DIGEST_FIXTURE.notifyProgram;
+  const preview = await runtime.previewProgram(id, DIGEST_FIXTURE.now);
+  expect([preview.recipientCount, preview.staffRecipientCount]).toEqual([1, 1]);
+  const { jobId } = await runtime.accept(
+    id,
+    preview,
+    DIGEST_FIXTURE.staffOn,
+    true,
   );
-  expect(preview.staffRecipientCount).toBe(1);
-  await expect(
-    service.sendProgramFromPreview(
-      DIGEST_FIXTURE.notifyProgram,
-      preview,
-      DIGEST_FIXTURE.staffOn,
-      DIGEST_FIXTURE.now,
-    ),
-  ).rejects.toMatchObject({ errorCode: { code: 'NOT_012' } });
+  expect(await runtime.worker.step()).toBe(true);
+  expect(await runtime.worker.step()).toBe(false);
   expect(sender.sent).toHaveLength(1);
-  const history = await database.prisma.userHistory.findMany({
-    where: { sourceTable: 'DeadlineDigest' },
-    orderBy: { sourcePart: 'asc' },
-    take: 3,
-    select: { sourcePart: true, data: true },
+  const pending = await database.prisma.mailRecipient.findFirstOrThrow({
+    where: { jobId, state: 'PENDING' },
+    select: { userId: true },
   });
-  expect(history.map((event) => event.sourcePart)).toEqual([
-    'attempt',
-    'result',
+  const history = () =>
+    database.prisma.programHistory.findMany({
+      where: { sourceTable: 'MailJob', programId: id },
+      orderBy: { event: 'asc' },
+      select: { event: true, data: true },
+      take: 3,
+    });
+  expect((await history()).map((h) => h.event)).toEqual(['MAIL_ACCEPTED']);
+  await database.prisma.user.update({
+    where: { id: pending.userId },
+    data: { notifyEnabled: false },
+  });
+  await database.prisma.mailControl.update({
+    where: { id: 1 },
+    data: { mode: 'JOBS' },
+  });
+  await runtime.drain();
+  expect(sender.sent).toHaveLength(1);
+  const events = await history();
+  expect(events.map((h) => h.event)).toEqual([
+    'MAIL_ACCEPTED',
+    'MAIL_COMPLETED',
   ]);
-  expect(history[1]?.data).toMatchObject({
+  expect(events[1]?.data).toMatchObject({
     metadata: {
       sentCount: 1,
       failedCount: 0,
@@ -99,4 +115,4 @@ it('records one result and stops unclaimed staff mail when paused after student 
       cancelledCount: 1,
     },
   });
-}, 30_000);
+}, 30000);

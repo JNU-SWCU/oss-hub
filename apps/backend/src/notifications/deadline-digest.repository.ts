@@ -1,9 +1,3 @@
-import { ProgramMailAuditRepository } from './program-mail-audit.repository';
-import { DomainException } from '../platform/error-code.error';
-import {
-  NOTIFICATIONS_ERROR_CODES,
-  NotificationsErrorCode,
-} from './notifications-error-code.error';
 import { READ_CAP } from '../platform/bounded-read.config';
 import { BoundedReadRepository } from '../platform/bounded-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
@@ -44,47 +38,15 @@ export type DeadlineProgramSource = {
     readonly submittedDocumentIds: readonly string[];
   }[];
 };
-export type DigestNotificationStatus = 'SENT' | 'FAILED';
-type ManualSendAudit = {
-  readonly actorId: string;
-  readonly requestId: string;
-  readonly programId: string;
-  readonly previewVersion: string;
-  readonly occurredAt: Date;
-} & (
-  | {
-      readonly phase: 'attempt';
-      readonly counts: {
-        readonly recipientCount: number;
-        readonly staffRecipientCount: number;
-      };
-    }
-  | {
-      readonly phase: 'result';
-      readonly counts: ManualDeadlineDigestAuditResult;
-    }
-);
-type ManualDeadlineDigestAuditResult = {
-  readonly sentCount: number;
-  readonly duplicateCount: number;
-  readonly failedCount: number;
-  readonly cancelledCount?: number;
-};
 export interface DeadlineDigestRepositoryPort {
   findAutomaticProgramIds(window: DeadlineWindow): Promise<readonly string[]>;
-  findDeadlineProgram(programId: string): Promise<DeadlineProgramSource | null>;
-  findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]>;
-  claimNotification(
-    userId: string,
-    idempotencyKey: string,
-    payload: Prisma.InputJsonValue,
-  ): Promise<boolean>;
-  completeNotification(
-    idempotencyKey: string,
-    status: DigestNotificationStatus,
-    payload: Prisma.InputJsonValue,
-  ): Promise<void>;
-  recordManualSend(input: ManualSendAudit): Promise<void>;
+  findDeadlineProgram(
+    programId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DeadlineProgramSource | null>;
+  findNotifiableStaff(
+    tx?: Prisma.TransactionClient,
+  ): Promise<readonly NotifiableStaffRecipient[]>;
 }
 const deadlineRecipientSelect = {
   id: true,
@@ -100,7 +62,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
-    private readonly audit: ProgramMailAuditRepository,
   ) {}
   async findAutomaticProgramIds(
     window: DeadlineWindow,
@@ -133,8 +94,9 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   }
   async findDeadlineProgram(
     programId: string,
+    tx: Prisma.TransactionClient = this.prisma,
   ): Promise<DeadlineProgramSource | null> {
-    const program = await this.prisma.program
+    const program = await tx.program
       .findUnique({
         where: { id: programId, lifecycle: { not: 'DELETED' } },
         select: {
@@ -214,10 +176,12 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       })),
     };
   }
-  async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
+  async findNotifiableStaff(
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<readonly NotifiableStaffRecipient[]> {
     const staff = await this.boundedReads.readAllInBatches(
       (after: string | undefined, take) =>
-        this.prisma.user.findMany({
+        tx.user.findMany({
           take,
           ...(after === undefined ? {} : { cursor: { id: after }, skip: 1 }),
           where: {
@@ -238,94 +202,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     return staff.flatMap(({ id, notificationEmail }) =>
       notificationEmail === null ? [] : [{ id, notificationEmail }],
     );
-  }
-  async claimNotification(
-    userId: string,
-    idempotencyKey: string,
-    payload: Prisma.InputJsonValue,
-  ): Promise<boolean> {
-    try {
-      await this.prisma.$transaction(async (transaction) => {
-        await this.requireLegacyAdmission(transaction);
-        await transaction.notification.create({
-          data: {
-            userId,
-            idempotencyKey,
-            type: 'DEADLINE_DIGEST',
-            payload,
-            channel: 'EMAIL',
-            status: 'PENDING',
-          },
-        });
-      });
-      return true;
-    } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2002'
-      ) {
-        return false;
-      }
-      throw error;
-    }
-  }
-  async completeNotification(
-    idempotencyKey: string,
-    status: DigestNotificationStatus,
-    payload: Prisma.InputJsonValue,
-  ): Promise<void> {
-    await this.prisma.notification.update({
-      where: { idempotencyKey },
-      data: {
-        status,
-        payload,
-        sentAt: status === 'SENT' ? new Date() : null,
-      },
-    });
-  }
-  async recordManualSend(input: ManualSendAudit): Promise<void> {
-    const entry = {
-      id: `user:deadline-digest-${input.phase}:${input.requestId}`,
-      sourceTable: 'DeadlineDigest',
-      sourcePart: input.phase,
-      actorId: input.actorId,
-      programId: input.programId,
-      requestId: input.requestId,
-      occurredAt: input.occurredAt,
-      action:
-        input.phase === 'attempt'
-          ? 'DEADLINE_DIGEST_SEND_ATTEMPTED'
-          : 'DEADLINE_DIGEST_SEND_COMPLETED',
-      metadata: {
-        schemaVersion: 1,
-        source: 'MANUAL',
-        previewVersion: input.previewVersion,
-        ...input.counts,
-      },
-    } satisfies Parameters<ProgramMailAuditRepository['recordEvent']>[1];
-    if (input.phase === 'attempt') {
-      await this.prisma.$transaction(async (transaction) => {
-        await this.requireLegacyAdmission(transaction);
-        await this.audit.recordEvent(transaction, entry);
-      });
-    } else {
-      await this.audit.recordEvent(this.prisma, entry);
-    }
-  }
-
-  private async requireLegacyAdmission(
-    transaction: Prisma.TransactionClient,
-  ): Promise<void> {
-    const [control] = await transaction.$queryRaw<{ mode: string }[]>`
-      SELECT mode::text FROM "MailControl" WHERE id = 1 LIMIT 1 FOR SHARE
-    `;
-    if (control?.mode !== 'LEGACY') {
-      throw new DomainException(
-        NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.MAIL_PAUSED],
-      );
-    }
   }
   findFailedNotifications(): Promise<
     readonly {

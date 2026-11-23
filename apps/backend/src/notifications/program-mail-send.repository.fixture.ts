@@ -8,7 +8,7 @@ import {
 } from './notifications-error-code.error';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
-import { ProgramMailKeyRepository } from './program-mail-key.repository';
+import { ProgramMailKeyRepository } from './program-mail-key.repository.fixture';
 import {
   PROGRAM_MAIL_PROGRAM_SEND_LIMIT,
   PROGRAM_MAIL_RATE_WINDOW_MS,

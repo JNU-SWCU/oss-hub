@@ -1,3 +1,4 @@
+import { clearFixtureJobs } from '../../src/notifications/mail-job-runtime.fixture';
 import { TEST_READ_LIMIT } from '../test-read-limit.config';
 import type { Prisma } from '@prisma/client';
 
@@ -7,6 +8,7 @@ export async function deleteE2eProgramDeadlineClaims(
   transaction: Prisma.TransactionClient,
   programId: string,
 ): Promise<void> {
+  await clearFixtureJobs(transaction, programId);
   const candidates = await transaction.notification.findMany({
     take: TEST_READ_LIMIT,
     where: {

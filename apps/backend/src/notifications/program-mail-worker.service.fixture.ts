@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { SequentialRepository } from '../platform/sequential.repository';
-import { ProgramMailBatchRepository } from './program-mail-batch.repository';
+import { ProgramMailBatchRepository } from './program-mail-batch.repository.fixture';
 import {
   PROGRAM_MAIL_BATCH_DEADLINE_MS,
   PROGRAM_MAIL_BATCH_DRAIN_MS,
@@ -13,7 +13,7 @@ import {
 import {
   ProgramMailDeliveryRepository,
   type ProgramMailRecipientDeliveryState,
-} from './program-mail-delivery.repository';
+} from './program-mail-delivery.repository.fixture';
 import type {
   ProgramMailBatchWork,
   ProgramMailClock,
@@ -22,7 +22,7 @@ import type {
 import {
   type ProgramMailBatchScope,
   ProgramMailTransportService,
-} from './program-mail-transport.service';
+} from './program-mail-transport.service.fixture';
 
 const SYSTEM_CLOCK: ProgramMailClock = () => new Date();
 

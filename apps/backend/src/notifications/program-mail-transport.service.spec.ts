@@ -1,6 +1,6 @@
 import { PROGRAM_MAIL_BATCH_DRAIN_MS } from './program-mail.config';
 import { ProgramMailTemplateService } from './program-mail-template.service';
-import { ProgramMailTransportService } from './program-mail-transport.service';
+import { ProgramMailTransportService } from './program-mail-transport.service.fixture';
 
 function deferred(): {
   readonly promise: Promise<void>;

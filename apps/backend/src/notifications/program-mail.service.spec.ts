@@ -5,7 +5,11 @@ import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
 } from './notifications-error-code.error';
-import type { ProgramMailDeliveryService } from './program-mail-delivery.service';
+import type {
+  MailJobAdmissionRepository,
+  JobDelivery,
+} from './mail-job-admission.repository';
+import { ProgramMailTemplateService } from './program-mail-template.service';
 import type {
   ProgramMailAudience,
   ProgramMailRepositoryPort,
@@ -52,20 +56,21 @@ function harness() {
   const repository: jest.Mocked<ProgramMailRepositoryPort> = {
     findAudience: jest.fn().mockResolvedValue(audience),
   };
-  const delivery: jest.Mocked<Pick<ProgramMailDeliveryService, 'send'>> = {
-    send: jest.fn().mockResolvedValue({
-      kind: 'COMPLETED',
-      batchKey: 'program-mail-send:preview',
-      jobId: 'opaque-job',
-      result: {
-        sentCount: 1,
-        duplicateCount: 0,
-        failedCount: 0,
-        unknownCount: 0,
-      },
-    }),
-  };
+  const deliveries: JobDelivery[] = [];
+  const accept = jest.fn<
+    ReturnType<MailJobAdmissionRepository['accept']>,
+    Parameters<MailJobAdmissionRepository['accept']>
+  >(async (_intent, prepare) => {
+    const batch = await prepare(
+      jest.fn() as never,
+      new Date('2026-11-18T00:00:00.000Z'),
+    );
+    deliveries.push(...batch.deliveries);
+    return { jobId: 'opaque-job', replay: false };
+  });
+  const delivery = { accept };
   return {
+    deliveries,
     repository,
     delivery,
     service: new ProgramMailService(
@@ -73,9 +78,16 @@ function harness() {
       delivery,
       {
         recent: jest.fn(),
-        status: jest.fn(),
+        status: jest.fn().mockResolvedValue({
+          status: 'COMPLETED',
+          sentCount: 1,
+          duplicateCount: 0,
+          failedCount: 0,
+          unknownCount: 0,
+        }),
       },
       new MailPreviewService(),
+      new ProgramMailTemplateService(),
     ),
   };
 }
@@ -95,7 +107,7 @@ it('rejects an applicant id that does not belong to the program before delivery'
         NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_INVALID
       ],
   });
-  expect(delivery.send.mock.calls).toHaveLength(0);
+  expect(delivery.accept.mock.calls).toHaveLength(0);
 });
 
 it('rejects a selected applicant whose notification settings do not permit mail', async () => {
@@ -156,7 +168,7 @@ it('rejects a send that exceeds the bounded recipient limit', async () => {
 });
 
 it('passes a confirmed preview to the durable delivery owner', async () => {
-  const { service, delivery } = harness();
+  const { service, delivery, deliveries } = harness();
   const now = new Date('2026-11-18T00:00:00.000Z');
   const draft = {
     subject: '안내 제목',
@@ -165,28 +177,27 @@ it('passes a confirmed preview to the durable delivery owner', async () => {
   };
   const preview = await service.preview('program-1', sender, draft, now);
 
-  const result = await service.send(
-    'program-1',
-    sender,
-    { ...draft, ...preview },
-    now,
-  );
+  const result = await service.send('program-1', sender, {
+    ...draft,
+    ...preview,
+  });
 
   expect(result).toMatchObject({ sentCount: 1, duplicateCount: 0 });
-  expect(delivery.send.mock.calls).toEqual([
+  expect(delivery.accept.mock.calls).toEqual([
     [
       expect.objectContaining({
         actorId: 'staff-1',
         programId: 'program-1',
         previewVersion: preview.previewVersion,
-        occurredAt: now,
-        recipients: [
-          expect.objectContaining({
-            id: 'student-1',
-            notificationEmail: 'student@example.com',
-          }),
-        ],
       }),
+      expect.any(Function),
     ],
   ]);
+  expect(deliveries).toHaveLength(1);
+  expect(deliveries[0]).toMatchObject({
+    audience: 'STUDENT',
+    userId: 'student-1',
+    envelope: { to: 'student@example.com', subject: '[oss-hub] 안내 제목' },
+  });
+  expect(deliveries[0]?.envelope.body).toContain('안내 본문');
 });

@@ -1,19 +1,19 @@
 import { Logger } from '@nestjs/common';
-import type { ProgramMailBatchRepository } from './program-mail-batch.repository';
+import type { ProgramMailBatchRepository } from './program-mail-batch.repository.fixture';
 import {
   PROGRAM_MAIL_BATCH_DEADLINE_MS,
   PROGRAM_MAIL_BATCH_DRAIN_MS,
   PROGRAM_MAIL_LEASE_MS,
   PROGRAM_MAIL_LEASE_SAFETY_MARGIN_MS,
 } from './program-mail.config';
-import type { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
+import type { ProgramMailDeliveryRepository } from './program-mail-delivery.repository.fixture';
 import type {
   ProgramMailBatchWork,
   ProgramMailDeliveryResult,
 } from './program-mail-send.types';
 import { ProgramMailTemplateService } from './program-mail-template.service';
-import { ProgramMailTransportService } from './program-mail-transport.service';
-import { ProgramMailWorkerService } from './program-mail-worker.service';
+import { ProgramMailTransportService } from './program-mail-transport.service.fixture';
+import { ProgramMailWorkerService } from './program-mail-worker.service.fixture';
 
 function deferred(): {
   readonly promise: Promise<void>;

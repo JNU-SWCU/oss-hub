@@ -792,6 +792,7 @@ enum MailMode {
 model MailControl {
   id   Int      @id
   mode MailMode
+  senderHost String?
 }
 
 enum MailSource {

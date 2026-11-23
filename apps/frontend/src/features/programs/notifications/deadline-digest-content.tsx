@@ -1,7 +1,6 @@
 'use client';
 
 import type { RefObject } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +8,6 @@ import { ApiError } from '@/lib/api-client';
 import type {
   ProgramDeadlineGuidance,
   ProgramDeadlinePreview,
-  ProgramDeadlineSendResult,
 } from './program-deadline-dto';
 import {
   DeadlinePreviewBodies,
@@ -20,7 +18,7 @@ export const DEADLINE_GUIDANCE_LIMIT = 4000;
 export type DeadlineDigestBusy = 'preview' | 'send' | null;
 
 type DeadlineDigestFooterModel = {
-  readonly result: ProgramDeadlineSendResult | null;
+  readonly result: string | null;
   readonly preview: ProgramDeadlinePreview | null;
   readonly busy: DeadlineDigestBusy;
   readonly invalidGuidance: boolean;
@@ -39,22 +37,6 @@ export function isDeadlineGuidanceInvalid(
   return (
     guidance.studentGuidance.length > DEADLINE_GUIDANCE_LIMIT ||
     guidance.staffGuidance.length > DEADLINE_GUIDANCE_LIMIT
-  );
-}
-
-export function DeadlineDigestResult({
-  result,
-}: {
-  readonly result: ProgramDeadlineSendResult;
-}) {
-  return (
-    <Alert>
-      <AlertTitle>학생 {result.sentCount}명에게 보냈습니다.</AlertTitle>
-      <AlertDescription>
-        학생 중복 생략 {result.duplicateCount}명 · 학생 발송 실패{' '}
-        {result.failedCount}명 · 교직원 요약 수신 {result.staffRecipientCount}명
-      </AlertDescription>
-    </Alert>
   );
 }
 

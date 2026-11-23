@@ -1,12 +1,13 @@
+import { MailJobsService } from './mail-jobs.service';
+import { MailJobAdmissionRepository } from './mail-job-admission.repository';
+import { MailJobResultRepository } from './mail-job-result.repository';
 import { Module } from '@nestjs/common';
+import { MailJobsController } from './mail-jobs.controller';
 import { MailPreviewService } from './mail-preview.service';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
-import {
-  DeadlineDigestMailService,
-  mailSenderProvider,
-} from './deadline-digest-mail.service';
+import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 import { NotificationSettingsController } from './notification-settings.controller';
 import {
   NotificationSettingsRepository,
@@ -19,21 +20,15 @@ import {
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
-import { ProgramMailBatchRepository } from './program-mail-batch.repository';
 import { ProgramMailController } from './program-mail.controller';
-import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
-import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailKeyRepository } from './program-mail-key.repository';
 import { ProgramMailRepository } from './program-mail.repository';
 import { ProgramMailJobRepository } from './program-mail-job.repository';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
 import { ProgramMailService } from './program-mail.service';
 import { ProgramMailTemplateService } from './program-mail-template.service';
-import { ProgramMailTransportService } from './program-mail-transport.service';
-import { ProgramMailWorkerService } from './program-mail-worker.service';
 
 @Module({
   controllers: [
+    MailJobsController,
     ApplicationDecisionNotificationsController,
     NotificationSettingsController,
     DeadlineDigestController,
@@ -41,6 +36,9 @@ import { ProgramMailWorkerService } from './program-mail-worker.service';
   ],
   providers: [
     MailPreviewService,
+    MailJobsService,
+    MailJobAdmissionRepository,
+    MailJobResultRepository,
     ApplicationDecisionNotificationsRepository,
     ApplicationDecisionNotificationsService,
     NotificationSettingsRepository,
@@ -50,18 +48,10 @@ import { ProgramMailWorkerService } from './program-mail-worker.service';
     DeadlineDigestMailService,
     ProgramMailAuditRepository,
     ProgramMailBatchPayloadRepository,
-    ProgramMailBatchRepository,
     ProgramMailRepository,
     ProgramMailJobRepository,
-    ProgramMailKeyRepository,
-    ProgramMailDeliveryRepository,
-    ProgramMailSendRepository,
-    ProgramMailTransportService,
-    ProgramMailWorkerService,
-    ProgramMailDeliveryService,
     ProgramMailService,
     ProgramMailTemplateService,
-    mailSenderProvider,
   ],
   exports: [DeadlineDigestService],
 })

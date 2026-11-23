@@ -11,7 +11,7 @@ import { ProgramMailStoredResultError } from './program-mail-send-state.error';
 
 const PAGE_SIZE = 10;
 const receiptSources = (programId: string) => Prisma.sql`
-  SELECT id, "createdAt", "sentAt", status, payload->'result' AS result FROM "Notification" legacy
+  SELECT id, "createdAt", "sentAt", status, payload->'result' AS result, 'PROGRAM_MANUAL'::text AS source FROM "Notification" legacy
   WHERE type = 'PROGRAM_MAIL_SEND' AND channel = 'INTERNAL' AND payload->>'programId' = ${programId}
     AND NOT EXISTS (
       SELECT 1 FROM "MailJob" job WHERE job.id = legacy.id AND (
@@ -21,10 +21,10 @@ const receiptSources = (programId: string) => Prisma.sql`
     )
   UNION ALL
   SELECT id, "createdAt", "receiptFinishedAt",
-    CASE state WHEN 'QUEUED' THEN 'PENDING' WHEN 'IN_PROGRESS' THEN 'PROCESSING' ELSE 'COMPLETED' END, result
+    CASE WHEN "receiptFinishedAt" IS NOT NULL THEN 'COMPLETED' WHEN state = 'QUEUED' THEN 'PENDING' ELSE 'PROCESSING' END, result, source::text
   FROM "MailJob" WHERE "programId" = ${programId} AND "partNo" = 0 AND (
     "receiptFinishedAt" IS NOT NULL OR (
-      state IN ('QUEUED', 'IN_PROGRESS') AND (SELECT mode FROM "MailControl" WHERE id = 1) = 'JOBS'
+      "legacySnapshotStatus" IS NULL AND state <> 'QUARANTINED'
     )
   )
 `;
@@ -74,9 +74,10 @@ export class ProgramMailJobRepository {
         sentAt: Date | null;
         status: string;
         result: Prisma.JsonValue;
+        source: 'PROGRAM_MANUAL' | 'DEADLINE_MANUAL' | 'DEADLINE_AUTOMATIC';
       }[]
     >`
-      SELECT "createdAt", "sentAt", status, result FROM (${receiptSources(programId)}) receipts WHERE id = ${jobId}
+      SELECT "createdAt", "sentAt", status, result, source FROM (${receiptSources(programId)}) receipts WHERE id = ${jobId}
       LIMIT 1
     `;
     if (!batch) throw notFound();
@@ -94,8 +95,23 @@ export class ProgramMailJobRepository {
       result: batch.result,
     });
     if (!result || !batch.sentAt) throw new ProgramMailStoredResultError(jobId);
+    const groups = await this.prisma.$queryRaw<
+      {
+        audience: 'STUDENT' | 'STAFF';
+        sentCount: number;
+        failedCount: number;
+        unknownCount: number;
+        cancelledCount: number;
+        duplicateCount: number;
+      }[]
+    >`SELECT r.audience, count(*) FILTER (WHERE r.state='SENT')::int AS "sentCount", count(*) FILTER (WHERE r.state='FAILED')::int AS "failedCount",
+      count(*) FILTER (WHERE r.state='UNKNOWN')::int AS "unknownCount",count(*) FILTER (WHERE r.state='CANCELLED')::int AS "cancelledCount",count(*) FILTER (WHERE r.state='ALREADY_RESERVED')::int AS "duplicateCount"
+      FROM "MailRecipient" r JOIN "MailJob" j ON j.id=r."jobId" WHERE j."receiptId"=${jobId} AND j."programId"=${programId} AND j."legacySnapshotStatus" IS NULL GROUP BY r.audience ORDER BY r.audience LIMIT 2`;
     return {
       ...receipt,
+      ...(groups.length || batch.source !== 'PROGRAM_MANUAL'
+        ? { audiences: groups, source: batch.source }
+        : {}),
       status: 'COMPLETED' as const,
       finishedAt: batch.sentAt.toISOString(),
       ...result,

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PROGRAM_MAIL_LEASE_MS } from './program-mail.config';
-import { ProgramMailKeyRepository } from './program-mail-key.repository';
+import { ProgramMailKeyRepository } from './program-mail-key.repository.fixture';
 import { ProgramMailStoredResultError } from './program-mail-send-state.error';
 import type {
   ProgramMailBatchWork,

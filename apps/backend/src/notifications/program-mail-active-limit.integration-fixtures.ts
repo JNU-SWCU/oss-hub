@@ -1,6 +1,6 @@
 import type { MailSender } from './gmail-mail.client';
 import { DIGEST_FIXTURE } from './deadline-digest.integration-support';
-import type { ProgramMailService } from './program-mail.service';
+import type { BridgeProgramMailService as ProgramMailService } from './program-mail-bridge-v131.fixture';
 import {
   PROGRAM_MAIL_STAFF_FIXTURE,
   type ProgramMailIntegrationWorld,

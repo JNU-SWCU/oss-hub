@@ -13,6 +13,7 @@ const deadlineDigestService = new DeadlineDigestService(
   undefined as never,
   new DeadlineDigestMailService(),
   new MailPreviewService(),
+  { legacyDigest: jest.fn() },
 );
 
 const NOW = new Date('2026-08-14T00:00:00.000Z');

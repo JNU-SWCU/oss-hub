@@ -105,7 +105,8 @@ try {
     .split(/\s+/)
     .filter(Boolean);
   if (!ids.length) fail('unsupported empty host');
-  if (ids.length !== 3) fail('partial or duplicate project');
+  if (ids.length !== 3 && ids.length !== 4)
+    fail('partial or duplicate project');
   const services = {};
   for (const id of ids) {
     const container = inspect('inspect', id);
@@ -113,7 +114,7 @@ try {
     const service = labels['com.docker.compose.service'];
     if (
       labels['com.docker.compose.project'] !== 'oss-hub' ||
-      !['postgres', 'backend', 'nginx'].includes(service) ||
+      !['postgres', 'backend', 'nginx', 'mail-worker'].includes(service) ||
       services[service]
     )
       fail('invalid service inventory');
@@ -132,6 +133,13 @@ try {
     services[service] = container;
   }
   const backend = services.backend;
+  if (!backend || !services.nginx || !services.postgres)
+    fail('missing required service');
+  if (
+    services['mail-worker'] &&
+    services['mail-worker'].Image !== backend.Image
+  )
+    fail('mail worker image mismatch');
   const labels = backend.Config.Labels;
   const previousTag = labels['org.opencontainers.image.version'];
   const previousSha = labels['org.opencontainers.image.revision'];
