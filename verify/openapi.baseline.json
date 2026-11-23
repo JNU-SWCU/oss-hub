@@ -4461,6 +4461,234 @@
         ]
       }
     },
+    "/api/v1/programs/{programId}/mail/previews": {
+      "post": {
+        "operationId": "MailJobsController_preview",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "draft"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "PROGRAM"
+                        ]
+                      },
+                      "draft": {
+                        "$ref": "#/components/schemas/ProgramMailDraftRequestDto"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "draft"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "DEADLINE"
+                        ]
+                      },
+                      "draft": {
+                        "$ref": "#/components/schemas/DeadlineDigestGuidanceRequestDto"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ProgramMailPreviewResponseDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeadlineDigestPreviewResponseDto"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "MailJobs"
+        ]
+      }
+    },
+    "/api/v1/programs/{programId}/mail/jobs": {
+      "post": {
+        "operationId": "MailJobsController_accept",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "draft"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "PROGRAM"
+                        ]
+                      },
+                      "draft": {
+                        "$ref": "#/components/schemas/ProgramMailSendRequestDto"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "draft"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "DEADLINE"
+                        ]
+                      },
+                      "draft": {
+                        "$ref": "#/components/schemas/DeadlineDigestSendRequestDto"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedMailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MailJobs"
+        ]
+      },
+      "get": {
+        "operationId": "ProgramMailController_recent",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramMailJobListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProgramMail"
+        ]
+      }
+    },
     "/api/v1/users/me/notifications/team-decisions": {
       "get": {
         "operationId": "ApplicationDecisionNotificationsController_listUnread",
@@ -4676,53 +4904,6 @@
         },
         "tags": [
           "DeadlineDigest"
-        ]
-      }
-    },
-    "/api/v1/programs/{programId}/mail/jobs": {
-      "get": {
-        "operationId": "ProgramMailController_recent",
-        "parameters": [
-          {
-            "name": "programId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "before",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProgramMailJobListResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": ""
-          },
-          "403": {
-            "description": ""
-          },
-          "404": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "ProgramMail"
         ]
       }
     },
@@ -11700,6 +11881,295 @@
           "expiresAt"
         ]
       },
+      "ProgramMailDraftRequestDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "applicantIds": {
+            "uniqueItems": true,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "applicantIds"
+        ]
+      },
+      "ProgramMailSendRequestDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "applicantIds": {
+            "uniqueItems": true,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "applicantIds",
+          "previewedAt",
+          "previewVersion"
+        ]
+      },
+      "DeadlineDigestGuidanceRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "staffGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "DeadlineDigestSendRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "staffGuidance": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "previewedAt",
+          "previewVersion"
+        ]
+      },
+      "ProgramMailPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "applicantIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "programName": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "recipientNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recipientCount": {
+            "type": "number"
+          },
+          "renderedSubject": {
+            "type": "string"
+          },
+          "footer": {
+            "type": "string"
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "applicantIds",
+          "programName",
+          "senderName",
+          "recipientNames",
+          "recipientCount",
+          "renderedSubject",
+          "footer",
+          "previewedAt",
+          "expiresAt",
+          "previewVersion"
+        ]
+      },
+      "DeadlineMailPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "text",
+          "html"
+        ]
+      },
+      "DeadlineDigestPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "applicationCount": {
+            "type": "number"
+          },
+          "milestoneCount": {
+            "type": "number"
+          },
+          "recipientCount": {
+            "type": "number"
+          },
+          "inactiveCount": {
+            "type": "number"
+          },
+          "optedOutCount": {
+            "type": "number"
+          },
+          "noEmailCount": {
+            "type": "number"
+          },
+          "staffRecipientCount": {
+            "type": "number"
+          },
+          "previewedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "previewVersion": {
+            "type": "string"
+          },
+          "studentPreviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "html": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "displayName",
+                "subject",
+                "text",
+                "html"
+              ]
+            }
+          },
+          "staffPreview": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeadlineMailPreviewResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "applicationCount",
+          "milestoneCount",
+          "recipientCount",
+          "inactiveCount",
+          "optedOutCount",
+          "noEmailCount",
+          "staffRecipientCount",
+          "previewedAt",
+          "expiresAt",
+          "previewVersion",
+          "studentPreviews",
+          "staffPreview"
+        ]
+      },
+      "AcceptedMailResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
       "ApplicationDecisionNotificationResponseDto": {
         "type": "object",
         "properties": {
@@ -11832,146 +12302,6 @@
           "notifyEnabled"
         ]
       },
-      "DeadlineDigestGuidanceRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "staffGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          }
-        }
-      },
-      "DeadlineMailPreviewResponseDto": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          },
-          "html": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "subject",
-          "text",
-          "html"
-        ]
-      },
-      "DeadlineDigestPreviewResponseDto": {
-        "type": "object",
-        "properties": {
-          "applicationCount": {
-            "type": "number"
-          },
-          "milestoneCount": {
-            "type": "number"
-          },
-          "recipientCount": {
-            "type": "number"
-          },
-          "inactiveCount": {
-            "type": "number"
-          },
-          "optedOutCount": {
-            "type": "number"
-          },
-          "noEmailCount": {
-            "type": "number"
-          },
-          "staffRecipientCount": {
-            "type": "number"
-          },
-          "previewedAt": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string"
-          },
-          "studentPreviews": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "displayName": {
-                  "type": "string"
-                },
-                "subject": {
-                  "type": "string"
-                },
-                "text": {
-                  "type": "string"
-                },
-                "html": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "displayName",
-                "subject",
-                "text",
-                "html"
-              ]
-            }
-          },
-          "staffPreview": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DeadlineMailPreviewResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "applicationCount",
-          "milestoneCount",
-          "recipientCount",
-          "inactiveCount",
-          "optedOutCount",
-          "noEmailCount",
-          "staffRecipientCount",
-          "previewedAt",
-          "expiresAt",
-          "previewVersion",
-          "studentPreviews",
-          "staffPreview"
-        ]
-      },
-      "DeadlineDigestSendRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "staffGuidance": {
-            "type": "string",
-            "maxLength": 4000
-          },
-          "previewedAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          }
-        },
-        "required": [
-          "previewedAt",
-          "previewVersion"
-        ]
-      },
       "DeadlineDigestSendResponseDto": {
         "type": "object",
         "properties": {
@@ -12055,15 +12385,59 @@
           "items"
         ]
       },
+      "MailAudienceCountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "enum": [
+              "STUDENT",
+              "STAFF"
+            ],
+            "type": "string"
+          },
+          "sentCount": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "number"
+          },
+          "unknownCount": {
+            "type": "number"
+          },
+          "cancelledCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "audience",
+          "sentCount",
+          "failedCount",
+          "unknownCount",
+          "cancelledCount",
+          "duplicateCount"
+        ]
+      },
       "ProgramMailJobResponseDto": {
         "type": "object",
         "properties": {
+          "audiences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailAudienceCountsResponseDto"
+            }
+          },
           "status": {
             "enum": [
               "QUEUED",
               "IN_PROGRESS",
               "COMPLETED"
             ],
+            "type": "string"
+          },
+          "source": {
             "type": "string"
           },
           "finishedAt": {
@@ -12176,135 +12550,6 @@
           "teams",
           "programId",
           "programName"
-        ]
-      },
-      "ProgramMailDraftRequestDto": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "body": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4000
-          },
-          "applicantIds": {
-            "uniqueItems": true,
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "maxLength": 128
-            }
-          }
-        },
-        "required": [
-          "subject",
-          "body",
-          "applicantIds"
-        ]
-      },
-      "ProgramMailPreviewResponseDto": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "type": "string"
-          },
-          "body": {
-            "type": "string"
-          },
-          "applicantIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "programName": {
-            "type": "string"
-          },
-          "senderName": {
-            "type": "string"
-          },
-          "recipientNames": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "recipientCount": {
-            "type": "number"
-          },
-          "renderedSubject": {
-            "type": "string"
-          },
-          "footer": {
-            "type": "string"
-          },
-          "previewedAt": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "subject",
-          "body",
-          "applicantIds",
-          "programName",
-          "senderName",
-          "recipientNames",
-          "recipientCount",
-          "renderedSubject",
-          "footer",
-          "previewedAt",
-          "expiresAt",
-          "previewVersion"
-        ]
-      },
-      "ProgramMailSendRequestDto": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "body": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4000
-          },
-          "applicantIds": {
-            "uniqueItems": true,
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "maxLength": 128
-            }
-          },
-          "previewedAt": {
-            "type": "string"
-          },
-          "previewVersion": {
-            "type": "string",
-            "minLength": 64,
-            "maxLength": 64
-          }
-        },
-        "required": [
-          "subject",
-          "body",
-          "applicantIds",
-          "previewedAt",
-          "previewVersion"
         ]
       },
       "ProgramMailSendResponseDto": {

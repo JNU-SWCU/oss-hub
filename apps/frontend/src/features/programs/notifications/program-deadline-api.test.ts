@@ -36,25 +36,31 @@ describe('program deadline digest API', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      apiPath('programs/program%2F1/deadline-digest/preview'),
+      apiPath('programs/program%2F1/mail/previews'),
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          studentGuidance: '학생 추가 안내',
-          staffGuidance: '교직원 추가 안내',
+          kind: 'DEADLINE',
+          draft: {
+            studentGuidance: '학생 추가 안내',
+            staffGuidance: '교직원 추가 안내',
+          },
         }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      apiPath('programs/program%2F1/deadline-digest/send'),
+      apiPath('programs/program%2F1/mail/jobs'),
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          previewedAt: '2026-11-19T00:00:00.000Z',
-          previewVersion: 'a'.repeat(64),
-          studentGuidance: '학생 추가 안내',
-          staffGuidance: '교직원 추가 안내',
+          kind: 'DEADLINE',
+          draft: {
+            previewedAt: '2026-11-19T00:00:00.000Z',
+            previewVersion: 'a'.repeat(64),
+            studentGuidance: '학생 추가 안내',
+            staffGuidance: '교직원 추가 안내',
+          },
         }),
       }),
     );

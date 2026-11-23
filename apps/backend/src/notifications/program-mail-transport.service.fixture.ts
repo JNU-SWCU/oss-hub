@@ -9,7 +9,7 @@ import {
   PROGRAM_MAIL_BATCH_DEADLINE_MS,
   PROGRAM_MAIL_BATCH_DRAIN_MS,
 } from './program-mail.config';
-import type { ProgramMailRecipientDeliveryState } from './program-mail-delivery.repository';
+import type { ProgramMailRecipientDeliveryState } from './program-mail-delivery.repository.fixture';
 import type { ProgramMailBatchWork } from './program-mail-send.types';
 import { ProgramMailTemplateService } from './program-mail-template.service';
 

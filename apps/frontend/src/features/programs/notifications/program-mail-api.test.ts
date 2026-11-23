@@ -20,9 +20,9 @@ it('reads recipients via the encoded GET endpoint', async () => {
 
 it('posts the draft to preview', async () => {
   await previewProgramMail(programId, draft);
-  expect(apiClient).toHaveBeenLastCalledWith(route + 'preview', {
+  expect(apiClient).toHaveBeenLastCalledWith(route + 'previews', {
     method: 'POST',
-    body: JSON.stringify(draft),
+    body: JSON.stringify({ kind: 'PROGRAM', draft }),
   });
 });
 
@@ -41,8 +41,11 @@ it('sends only draft and confirmation fields, not rendered preview data', async 
     recipientNames: ['Student'],
     recipientCount: 1,
   });
-  expect(apiClient).toHaveBeenLastCalledWith(route + 'send', {
+  expect(apiClient).toHaveBeenLastCalledWith(route + 'jobs', {
     method: 'POST',
-    body: JSON.stringify({ ...draft, previewedAt, previewVersion }),
+    body: JSON.stringify({
+      kind: 'PROGRAM',
+      draft: { ...draft, previewedAt, previewVersion },
+    }),
   });
 });

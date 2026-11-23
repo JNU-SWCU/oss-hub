@@ -71,17 +71,25 @@ it('lists all application statuses, sends mail, and records an attributable audi
   expect(serializedRecipients).toContain('"status":"APPROVED"');
   expect(serializedRecipients).toContain('"status":"REJECTED"');
 
+  await world.enableJobs();
   const confirmed = await world.confirmedPreview(cookie);
   const sendResponse = await world.post('send', confirmed, cookie);
 
   expect(sendResponse.status).toBe(201);
-  const batch = await world.prisma.notification.findUniqueOrThrow({
-    where: { idempotencyKey: `program-mail-send:${confirmed.previewVersion}` },
-    select: { id: true, createdAt: true, sentAt: true },
-  });
-  expect(await sendResponse.json()).toMatchObject({
-    sentCount: 1,
-    jobId: batch.id,
+  const queued: unknown = await sendResponse.json();
+  if (
+    !queued ||
+    typeof queued !== 'object' ||
+    !('jobId' in queued) ||
+    typeof queued.jobId !== 'string'
+  )
+    throw new Error('Missing receipt ID');
+  expect(queued).toMatchObject({ status: 'IN_PROGRESS', sentCount: 0 });
+  expect(world.mailSender.sent).toEqual([]);
+  await world.drain();
+  const batch = await world.prisma.mailJob.findUniqueOrThrow({
+    where: { id: queued.jobId },
+    select: { id: true, createdAt: true, receiptFinishedAt: true },
   });
   const headers = { cookie };
   const list = await fetch(world.endpoint('jobs'), { headers });
@@ -93,7 +101,18 @@ it('lists all application statuses, sends mail, and records an attributable audi
   expect(await status.json()).toEqual({
     ...item,
     status: 'COMPLETED',
-    finishedAt: batch.sentAt?.toISOString(),
+    finishedAt: batch.receiptFinishedAt?.toISOString(),
+    source: 'PROGRAM_MANUAL',
+    audiences: [
+      {
+        audience: 'STUDENT',
+        sentCount: 1,
+        failedCount: 0,
+        unknownCount: 0,
+        duplicateCount: 0,
+        cancelledCount: 0,
+      },
+    ],
     sentCount: 1,
     failedCount: 0,
     unknownCount: 0,
@@ -115,25 +134,30 @@ it('lists all application statuses, sends mail, and records an attributable audi
       subject: '[oss-hub] 프로그램 안내',
     }),
   ]);
-  const idempotencyKey = `program-mail-send:${confirmed.previewVersion}`;
-  const audit = await world.prisma.userHistory.findUnique({
-    where: { id: `user:program-mail-result:${idempotencyKey}` },
+  const idempotencyKey = batch.id;
+  const audit = await world.prisma.programHistory.findUnique({
+    where: {
+      sourceTable_sourceId: {
+        sourceTable: 'MailJob',
+        sourceId: `${batch.id}:result`,
+      },
+    },
     select: { actorId: true, occurredAt: true, data: true },
   });
   expect(audit?.actorId).toBe(PROGRAM_MAIL_STAFF_FIXTURE.id);
   expect(audit?.occurredAt).toBeInstanceOf(Date);
   expect(audit?.data).toMatchObject({
-    recordKind: 'DOMAIN_EVENT',
+    schemaVersion: 1,
     action: 'PROGRAM_MAIL_SENT',
-    targetType: 'PROGRAM',
-    targetId: DIGEST_FIXTURE.notifyProgram,
     requestId: idempotencyKey,
     metadata: {
-      recipientCount: 1,
-      recipientIds: [DIGEST_FIXTURE.studentMissing],
-      subject: '프로그램 안내',
-      bodyLength: confirmed.body.length,
-      idempotencyKey,
+      source: 'PROGRAM_MANUAL',
+      actorType: 'USER',
+      sentCount: 1,
+      failedCount: 0,
+      unknownCount: 0,
+      duplicateCount: 0,
+      audiences: { STUDENT: { sentCount: 1 }, STAFF: { sentCount: 0 } },
     },
   });
   const pageSize = 20;
@@ -173,8 +197,11 @@ it('lists all application statuses, sends mail, and records an attributable audi
     }),
   });
   expect(
-    await world.prisma.userHistory.count({
-      where: { sourceTable: 'ProgramMail', sourceId: idempotencyKey },
+    await world.prisma.programHistory.count({
+      where: {
+        sourceTable: 'MailJob',
+        sourceId: { in: [`${batch.id}:attempt`, `${batch.id}:result`] },
+      },
     }),
   ).toBe(2);
   const readAudit = createAuditLogReadService(
@@ -333,6 +360,7 @@ it('revalidates program membership at send time', async () => {
     data: { archivedAt: new Date('2026-11-18T00:00:00.000Z') },
   });
 
+  await world.enableJobs();
   const response = await world.post('send', confirmed, cookie);
 
   expect(response.status).toBe(400);
@@ -342,4 +370,75 @@ it('revalidates program membership at send time', async () => {
       where: { type: 'PROGRAM_MAIL' },
     }),
   ).toBe(0);
+});
+
+it('accepts a single selected recipient through the new HTTP routes and returns the same receipt on replay', async () => {
+  await world.enableJobs();
+  const cookie = await world.sessionCookie(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
+  const post = (action: string, draft: object) =>
+    fetch(world.endpoint(action), {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'PROGRAM', draft }),
+    });
+  const draft = {
+    subject: 'Synthetic receipt',
+    body: 'Only this selected recipient',
+    applicantIds: [DIGEST_FIXTURE.studentMissing],
+  };
+  const response = await post('previews', draft);
+  expect(response.status).toBe(200);
+  const preview: unknown = await response.json();
+  if (
+    !preview ||
+    typeof preview !== 'object' ||
+    !('previewVersion' in preview) ||
+    !('previewedAt' in preview)
+  )
+    throw new Error('Invalid preview');
+  expect(preview).toMatchObject({
+    recipientCount: 1,
+    applicantIds: draft.applicantIds,
+  });
+  const confirm = {
+    ...draft,
+    previewVersion: preview.previewVersion,
+    previewedAt: preview.previewedAt,
+  };
+  const accepted = await post('jobs', confirm);
+  expect(accepted.status).toBe(202);
+  const ack: unknown = await accepted.json();
+  if (
+    !ack ||
+    typeof ack !== 'object' ||
+    !('jobId' in ack) ||
+    typeof ack.jobId !== 'string'
+  )
+    throw new Error('Missing jobId');
+  expect(ack).toMatchObject({ status: 'QUEUED' });
+  const location = accepted.headers.get('location');
+  expect(location).toBe(
+    `/api/v1/programs/${encodeURIComponent(DIGEST_FIXTURE.notifyProgram)}/mail/jobs/${ack.jobId}`,
+  );
+  if (!location) throw new Error('Missing Location');
+  expect(world.mailSender.sent).toHaveLength(0);
+  await world.drain();
+  const replay = await post('jobs', confirm);
+  expect(replay.status).toBe(202);
+  expect(await replay.json()).toEqual({
+    jobId: ack.jobId,
+    status: 'COMPLETED',
+  });
+  const status = await fetch(new URL(location, world.endpoint('jobs')), {
+    headers: { cookie },
+  });
+  expect(await status.json()).toMatchObject({
+    sentCount: 1,
+    unknownCount: 0,
+    failedCount: 0,
+    duplicateCount: 0,
+  });
+  expect(world.mailSender.sent.map((row) => row.to)).toEqual([
+    'student-missing@example.com',
+  ]);
 });

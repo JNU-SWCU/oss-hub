@@ -9,7 +9,6 @@ import { DeadlineDigestService } from '../../src/notifications/deadline-digest.s
 import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
-  E2E_NOW,
   E2E_PROGRAM_ID,
   E2E_STAFF_GITHUB_ID,
   E2E_STAFF_ID,
@@ -52,13 +51,11 @@ export function configureFailure(
 export async function stalePreview(
   deadlines: DeadlineDigestService,
 ): Promise<void> {
-  const preview = await deadlines.previewProgram(E2E_PROGRAM_ID, E2E_NOW);
-  await deadlines.sendProgramFromPreview(
+  const preview = await deadlines.previewProgram(
     E2E_PROGRAM_ID,
-    preview,
-    E2E_STAFF_ID,
-    new Date(E2E_NOW.getTime() + 10 * 60 * 1000 + 1),
+    new Date(Date.now() - 600_001),
   );
+  await deadlines.sendProgramFromPreview(E2E_PROGRAM_ID, preview, E2E_STAFF_ID);
 }
 
 export async function exercisePrismaFailure(
@@ -105,12 +102,11 @@ function prismaAggregateRequest(uploadId: string): ProgramAuthoringRequest {
 export async function exerciseSmtpFailure(
   deadlines: DeadlineDigestService,
 ): Promise<void> {
-  const preview = await deadlines.previewProgram(E2E_PROGRAM_ID, E2E_NOW);
+  const preview = await deadlines.previewProgram(E2E_PROGRAM_ID);
   const result = await deadlines.sendProgramFromPreview(
     E2E_PROGRAM_ID,
     preview,
     E2E_STAFF_ID,
-    E2E_NOW,
   );
   if (result.failedCount > 0) throw new E2eAdapterError(409);
 }

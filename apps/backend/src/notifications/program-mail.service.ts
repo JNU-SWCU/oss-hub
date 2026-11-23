@@ -1,4 +1,8 @@
+import { MailJobConfig } from './mail-job.config';
 import { MailPreviewService } from './mail-preview.service';
+import type { MailTransaction } from './mail-job-admission.repository';
+import { MailJobAdmissionRepository } from './mail-job-admission.repository';
+import { ProgramMailTemplateService } from './program-mail-template.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import type { ActiveAccountPrincipal } from '../auth/http-auth.types';
@@ -13,7 +17,6 @@ import {
   type ProgramMailRepositoryPort,
 } from './program-mail.repository';
 import { PROGRAM_MAIL_RECIPIENT_LIMIT } from './program-mail.config';
-import { ProgramMailDeliveryService } from './program-mail-delivery.service';
 import { ProgramMailJobRepository } from './program-mail-job.repository';
 
 const PREVIEW_TTL_MS = 10 * 60 * 1000;
@@ -83,11 +86,12 @@ export class ProgramMailService {
   constructor(
     @Inject(ProgramMailRepository)
     private readonly repository: ProgramMailRepositoryPort,
-    @Inject(ProgramMailDeliveryService)
-    private readonly delivery: Pick<ProgramMailDeliveryService, 'send'>,
+    @Inject(MailJobAdmissionRepository)
+    private readonly admission: Pick<MailJobAdmissionRepository, 'accept'>,
     @Inject(ProgramMailJobRepository)
     private readonly jobs: Pick<ProgramMailJobRepository, 'recent' | 'status'>,
     private readonly previews: MailPreviewService,
+    private readonly templates: ProgramMailTemplateService,
   ) {}
 
   recent(programId: string, before?: string) {
@@ -138,51 +142,98 @@ export class ProgramMailService {
     programId: string,
     sender: ActiveAccountPrincipal,
     request: ProgramMailSendRequest,
-    now = new Date(),
   ): Promise<ProgramMailSendResult> {
-    const previewedAt = new Date(request.previewedAt);
-    if (!this.previews.legacyIsCurrent(previewedAt, now, PREVIEW_TTL_MS)) {
-      this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
-    }
-    const audience = await this.requireAudience(programId, now);
-    const prepared = this.prepare(audience, sender, request, previewedAt);
-    if (prepared.previewVersion !== request.previewVersion) {
-      this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
-    }
-    const delivery = await this.delivery.send({
-      actorId: sender.id,
-      programId,
-      programName: prepared.programName,
-      senderName: prepared.senderName,
-      subject: prepared.subject,
-      body: prepared.body,
-      previewVersion: prepared.previewVersion,
-      occurredAt: now,
-      recipients: prepared.recipients,
-    });
+    const jobId = await this.accept(programId, sender, request, true);
+    const status = await this.jobs.status(programId, jobId);
     return {
-      status: delivery.kind,
-      jobId: delivery.jobId,
-      ...(delivery.kind === 'COMPLETED'
-        ? delivery.result
-        : {
-            sentCount: 0,
-            duplicateCount: 0,
-            failedCount: 0,
-            unknownCount: 0,
-          }),
-      previewVersion: prepared.previewVersion,
+      jobId,
+      status: status.status === 'COMPLETED' ? 'COMPLETED' : 'IN_PROGRESS',
+      ...(status.status === 'COMPLETED'
+        ? {
+            sentCount: status.sentCount,
+            duplicateCount: status.duplicateCount,
+            failedCount: status.failedCount,
+            unknownCount: status.unknownCount,
+          }
+        : { sentCount: 0, duplicateCount: 0, failedCount: 0, unknownCount: 0 }),
+      previewVersion: request.previewVersion,
     };
+  }
+
+  async accept(
+    programId: string,
+    sender: ActiveAccountPrincipal,
+    request: ProgramMailSendRequest,
+    legacy = false,
+  ) {
+    const accepted = await this.admission.accept(
+      {
+        programId,
+        actorId: sender.id,
+        source: 'PROGRAM_MANUAL',
+        previewVersion: request.previewVersion,
+        requestDigest: MailJobConfig.digest([
+          request.previewedAt,
+          request.subject.trim(),
+          request.body.trim(),
+          [...new Set(request.applicantIds)].sort(),
+        ]),
+      },
+      async (tx, now) => {
+        const anchor = new Date(request.previewedAt);
+        if (
+          !this.previews.legacyIsCurrent(anchor, now, PREVIEW_TTL_MS) ||
+          (!legacy && now.getTime() >= anchor.getTime() + PREVIEW_TTL_MS)
+        )
+          this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
+        const prepared = this.prepare(
+          await this.requireAudience(programId, now, tx),
+          sender,
+          request,
+          anchor,
+        );
+        if (prepared.previewVersion !== request.previewVersion)
+          this.fail(NotificationsErrorCode.PROGRAM_MAIL_PREVIEW_STALE);
+        return {
+          deliveries: prepared.recipients.map((recipient) => {
+            const { subject, text, html } = this.templates.build({
+              ...prepared,
+              displayName: recipient.displayName,
+            });
+            return {
+              userId: recipient.id,
+              audience: 'STUDENT',
+              envelope: {
+                to: recipient.notificationEmail,
+                subject,
+                body: text,
+                html,
+                displayName: recipient.displayName,
+                programName: prepared.programName,
+              },
+            };
+          }),
+        };
+      },
+    );
+    if (!accepted)
+      this.fail(NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_INVALID);
+    return accepted.jobId;
   }
 
   private async requireAudience(
     programId: string,
     now: Date,
+    tx?: MailTransaction,
   ): Promise<ProgramMailAudience> {
-    const audience = await this.repository.findAudience(programId, {
-      from: now,
-      to: new Date(now.getTime() + DEADLINE_LEAD_TIME_MS),
-    });
+    const audience = await this.repository.findAudience(
+      programId,
+      {
+        from: now,
+        to: new Date(now.getTime() + DEADLINE_LEAD_TIME_MS),
+      },
+      tx,
+    );
     if (audience === null) this.fail(NotificationsErrorCode.PROGRAM_NOT_FOUND);
     return audience;
   }
@@ -210,10 +261,10 @@ export class ProgramMailService {
         ? [{ ...applicant, notificationEmail: applicant.notificationEmail }]
         : [];
     });
-    if (subject.length === 0 || body.length === 0) {
+    if (subject.length === 0 || /[\r\n]/.test(subject) || body.length === 0) {
       this.fail(NotificationsErrorCode.PROGRAM_MAIL_CONTENT_INVALID);
     }
-    if (recipients.length !== selectedIds.length) {
+    if (recipients.length === 0 || recipients.length !== selectedIds.length) {
       this.fail(NotificationsErrorCode.PROGRAM_MAIL_RECIPIENT_INVALID);
     }
     const senderName = sender.name ?? sender.nickname;
@@ -229,6 +280,15 @@ export class ProgramMailService {
       recipients: recipients.map((recipient) => ({
         id: recipient.id,
         notificationEmail: recipient.notificationEmail,
+        rendered: MailJobConfig.digest(
+          this.templates.build({
+            subject,
+            body,
+            displayName: recipient.displayName,
+            senderName,
+            programName: audience.name,
+          }),
+        ),
       })),
     });
     return {

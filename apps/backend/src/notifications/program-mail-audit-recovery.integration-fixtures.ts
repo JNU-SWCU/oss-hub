@@ -9,8 +9,8 @@ import {
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import type {
   ProgramMailSendRequest,
-  ProgramMailService,
-} from './program-mail.service';
+  BridgeProgramMailService as ProgramMailService,
+} from './program-mail-bridge-v131.fixture';
 import { type ProgramMailIntegrationWorld } from './program-mail.integration-support';
 import { createAuditLogReadService } from '../platform/audit-log-mapping.fixture';
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';

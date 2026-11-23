@@ -12,7 +12,7 @@ import {
   PROGRAM_MAIL_STAFF_FIXTURE,
   type ProgramMailIntegrationWorld,
 } from './program-mail.integration-support';
-import type { ProgramMailService } from './program-mail.service';
+import type { BridgeProgramMailService as ProgramMailService } from './program-mail-bridge-v131.fixture';
 
 function deferred(): {
   readonly promise: Promise<void>;

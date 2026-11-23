@@ -1,5 +1,4 @@
-import { MailPreviewService } from '../notifications/mail-preview.service';
-import { ProgramMailAuditRepository } from '../notifications/program-mail-audit.repository';
+import { digestRuntime } from '../notifications/mail-job-runtime.fixture';
 import { createProgramNoticeFetchClient } from '../../test/program-notice-client.fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
@@ -7,7 +6,6 @@ import {
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
 } from './files.service';
-import { DeadlineDigestMailService } from '../notifications/deadline-digest-mail.service';
 import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
@@ -22,8 +20,6 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';
-import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
-import { DeadlineDigestService } from '../notifications/deadline-digest.service';
 import { NotificationsErrorCode } from '../notifications/notifications-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -72,17 +68,15 @@ const editor = new ProgramEditorService(
   new ProgramOrganizersService(),
 );
 const sentMails: DeadlineDigestMail[] = [];
-const digest = new DeadlineDigestService(
-  new DeadlineDigestRepository(prisma, new ProgramMailAuditRepository()),
+const digest = digestRuntime(
+  prisma,
   {
-    send: (mail: DeadlineDigestMail) => {
+    send(mail) {
       sentMails.push(mail);
       return Promise.resolve();
     },
   },
-  { FRONTEND_URL: 'https://oss-hub.invalid' },
-  new DeadlineDigestMailService(),
-  new MailPreviewService(),
+  NOW,
 );
 function updateRequest(notifyOnDeadline: boolean) {
   return {

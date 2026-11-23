@@ -1,3 +1,4 @@
+import { MailJobConfig } from './mail-job.config';
 import { TEST_READ_LIMIT } from '../../test/test-read-limit.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -15,7 +16,10 @@ assertIsolatedIntegrationDatabase({
 const harness = createDeadlineDigestIntegrationHarness();
 
 beforeAll(() => harness.connect());
-beforeEach(() => harness.reset());
+beforeEach(async () => {
+  await harness.reset();
+  await harness.useJobs();
+});
 afterAll(() => harness.disconnect());
 
 it('필수 서류 미제출 수신자에게만 발송하고 SENT를 기록한다', async () => {
@@ -35,7 +39,7 @@ it('필수 서류 미제출 수신자에게만 발송하고 SENT를 기록한다
   expect(studentMail?.html).toContain(
     `https://oss.example/programs/${encodeURIComponent(DIGEST_FIXTURE.notifyProgram)}#milestone-${encodeURIComponent(DIGEST_FIXTURE.notifyMilestone)}-name`,
   );
-  const notifications = await harness.prisma.notification.findMany({
+  const notifications = await harness.prisma.mailRecipient.findMany({
     take: TEST_READ_LIMIT,
     where: {
       userId: {
@@ -59,19 +63,19 @@ it('필수 서류 미제출 수신자에게만 발송하고 SENT를 기록한다
   ]);
   for (const row of notifications) {
     expect(row).toMatchObject({
-      status: 'SENT',
-      type: 'DEADLINE_DIGEST',
-      channel: 'EMAIL',
+      state: 'SENT',
+      audience: 'STUDENT',
+      envelope: null,
     });
-    expect(row.sentAt).not.toBeNull();
+    expect(row.finishedAt).not.toBeNull();
   }
 
   await service.sendDeadlineDigests(DIGEST_FIXTURE.now);
 
   expect(mailSender.sent).toHaveLength(1);
   expect(
-    await harness.prisma.notification.count({
-      where: { type: 'DEADLINE_DIGEST' },
+    await harness.prisma.mailRecipient.count({
+      where: { job: { programId: DIGEST_FIXTURE.notifyProgram } },
     }),
   ).toBe(1);
 });
@@ -86,25 +90,22 @@ it('한 수신자 발송 실패가 다른 수신자의 multipart 발송과 SENT 
     expect(mail.body).toContain('synthetic test:notifications:program:notify');
     expect(mail.html).toContain('synthetic test:notifications:program:notify');
   }
-  const ledger = await harness.prisma.notification.findMany({
+  const ledger = await harness.prisma.mailRecipient.findMany({
     take: TEST_READ_LIMIT,
     where: {
       userId: {
         in: [DIGEST_FIXTURE.studentMissing],
       },
     },
-    select: { userId: true, status: true, payload: true },
+    select: { userId: true, state: true, reason: true, envelope: true },
     orderBy: { userId: 'asc' },
   });
   expect(ledger).toEqual([
     {
       userId: DIGEST_FIXTURE.studentMissing,
-      status: 'FAILED',
-      payload: {
-        milestoneCount: 1,
-        code: 'MAIL_DELIVERY_FAILED',
-        message: '메일 발송에 실패했습니다.',
-      },
+      state: 'UNKNOWN',
+      reason: 'MAIL_DELIVERY_UNKNOWN',
+      envelope: null,
     },
   ]);
   expect(JSON.stringify(ledger)).not.toContain('leaked-recipient');
@@ -153,16 +154,16 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   }
   expect(staffMail?.html).toContain('https://oss.example/dashboard');
 
-  const ledger = await harness.prisma.notification.findMany({
+  const ledger = await harness.prisma.mailRecipient.findMany({
     take: TEST_READ_LIMIT,
-    where: { type: 'DEADLINE_DIGEST' },
-    select: { userId: true, idempotencyKey: true, status: true },
+    where: { job: { programId: DIGEST_FIXTURE.notifyProgram } },
+    select: { userId: true, deliveryKey: true, state: true },
   });
-  expect(ledger.map((row) => row.idempotencyKey).sort()).toEqual([
-    `deadline-digest-staff:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.staffOn}`,
-    `deadline-digest:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.studentMissing}`,
+  expect(ledger.map((row) => row.deliveryKey).sort()).toEqual([
+    `deadline-digest-staff:${MailJobConfig.seoulDay(new Date())}:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.staffOn}`,
+    `deadline-digest:${MailJobConfig.seoulDay(new Date())}:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.studentMissing}`,
   ]);
-  expect(ledger.every((row) => row.status === 'SENT')).toBe(true);
+  expect(ledger.every((row) => row.state === 'SENT')).toBe(true);
 
   const repeated = await service.sendProgramFromPreview(
     DIGEST_FIXTURE.notifyProgram,

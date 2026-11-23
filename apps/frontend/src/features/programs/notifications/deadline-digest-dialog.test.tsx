@@ -11,6 +11,8 @@ vi.mock('./program-deadline-api', () => ({
   sendProgramDeadline: sendProgramDeadlineMock,
 }));
 
+const statusMock = vi.hoisted(() => vi.fn());
+vi.mock('./program-mail-api', () => ({ getMailJob: statusMock }));
 import { DeadlineDigestDialog } from './deadline-digest-dialog';
 
 const studentMail = {
@@ -135,11 +137,31 @@ describe('DeadlineDigestDialog', () => {
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(new Date('2026-11-19T00:00:00.000Z'));
     previewProgramDeadlineMock.mockReset().mockResolvedValue(preview);
-    sendProgramDeadlineMock.mockReset().mockResolvedValue({
-      ...preview,
-      sentCount: 4,
-      duplicateCount: 0,
-      failedCount: 0,
+    sendProgramDeadlineMock
+      .mockReset()
+      .mockResolvedValue({ jobId: 'opaque-digest', status: 'QUEUED' });
+    statusMock.mockReset().mockResolvedValue({
+      jobId: 'opaque-digest',
+      status: 'COMPLETED',
+      source: 'DEADLINE_MANUAL',
+      audiences: [
+        {
+          audience: 'STUDENT',
+          sentCount: 4,
+          failedCount: 0,
+          unknownCount: 0,
+          duplicateCount: 0,
+          cancelledCount: 0,
+        },
+        {
+          audience: 'STAFF',
+          sentCount: 1,
+          failedCount: 0,
+          unknownCount: 1,
+          duplicateCount: 0,
+          cancelledCount: 0,
+        },
+      ],
     });
     trigger = document.createElement('button');
     trigger.textContent = '마감 알림 보내기';
@@ -214,16 +236,14 @@ describe('DeadlineDigestDialog', () => {
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
     expect(
       counts(
-        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
-      ),
-    ).toEqual([4]);
-    expect(
-      counts(
         document.querySelector(
-          '[role="alert"] [data-slot="alert-description"]',
+          '[aria-label="학생"] data[data-outcome="sentCount"]',
         ),
       ),
-    ).toEqual([0, 0, 2]);
+    ).toEqual([4]);
+    expect(counts(document.querySelector('[aria-label="교직원"] dl'))).toEqual([
+      1, 0, 1, 0,
+    ]);
   });
 
   it('ignores repeated send clicks in the same turn and while the request is in flight', async () => {
@@ -261,17 +281,14 @@ describe('DeadlineDigestDialog', () => {
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
 
     await act(async () =>
-      resolveSend({
-        ...preview,
-        sentCount: 4,
-        duplicateCount: 0,
-        failedCount: 0,
-      }),
+      resolveSend({ jobId: 'opaque-digest', status: 'QUEUED' }),
     );
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
     expect(
       counts(
-        document.querySelector('[role="alert"] [data-slot="alert-title"]'),
+        document.querySelector(
+          '[aria-label="학생"] data[data-outcome="sentCount"]',
+        ),
       ),
     ).toEqual([4]);
   });
@@ -588,20 +605,17 @@ describe('DeadlineDigestDialog', () => {
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);
 
     await act(async () =>
-      resolveSend({
-        ...preview,
-        sentCount: 4,
-        duplicateCount: 0,
-        failedCount: 0,
-      }),
+      resolveSend({ jobId: 'opaque-digest', status: 'QUEUED' }),
     );
 
-    const result = document.body.querySelector('[role="alert"]');
+    const result = document.body.querySelector('[aria-label="발송 결과"]');
+    expect(result?.querySelector('[aria-label="교직원"]')).not.toBeNull();
     expect(
-      result?.querySelector('[data-slot="alert-description"]'),
-    ).not.toBeNull();
-    expect(
-      counts(result?.querySelector('[data-slot="alert-title"]') ?? null),
+      counts(
+        result?.querySelector(
+          '[aria-label="학생"] data[data-outcome="sentCount"]',
+        ) ?? null,
+      ),
     ).toEqual([4]);
     expect(document.body.querySelector('#deadline-studentGuidance')).toBeNull();
     expect(queryButton('닫기')).toBeDefined();
@@ -610,11 +624,15 @@ describe('DeadlineDigestDialog', () => {
       vi.advanceTimersByTime(60_000);
     });
 
-    expect([...document.body.querySelectorAll('[role="alert"]')]).toEqual([
-      result,
-    ]);
+    expect([
+      ...document.body.querySelectorAll('[aria-label="발송 결과"]'),
+    ]).toEqual([result]);
     expect(
-      counts(result?.querySelector('[data-slot="alert-title"]') ?? null),
+      counts(
+        result?.querySelector(
+          '[aria-label="학생"] data[data-outcome="sentCount"]',
+        ) ?? null,
+      ),
     ).toEqual([4]);
     expect(document.body.querySelector('#deadline-studentGuidance')).toBeNull();
     expect(sendProgramDeadlineMock).toHaveBeenCalledTimes(1);

@@ -40,11 +40,7 @@ services:
       SUBMISSION_FILE_S3_SECRET_ACCESS_KEY: ${SUBMISSION_FILE_S3_SECRET_ACCESS_KEY:?SUBMISSION_FILE_S3_SECRET_ACCESS_KEY is required}
       SUBMISSION_FILE_S3_FORCE_PATH_STYLE: ${SUBMISSION_FILE_S3_FORCE_PATH_STYLE:?SUBMISSION_FILE_S3_FORCE_PATH_STYLE is required}
       AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
-      MAIL_MODE: ${MAIL_MODE:?MAIL_MODE is required}
-      GMAIL_SENDER: ${GMAIL_SENDER:-}
-      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
-      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
-      GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:-}
+      MAIL_MODE: dry-run
     secrets:
       - github_collection_app_private_key
       - github_operations_app_private_key
@@ -67,6 +63,38 @@ services:
       retries: 12
       start_period: 10s
 
+  mail-worker:
+    image: oss-hub-backend:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    command:
+      [
+        '/bin/sh',
+        '-ec',
+        'rm -f /run/oss-hub-mail/ready; exec 9<>/var/lock/oss-hub-mail/sender.lock; flock -xn 9; exec node dist/src/cli.js mail-worker',
+      ]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      OSS_HUB_MAINTENANCE: ${OSS_HUB_MAINTENANCE:-0}
+      MAIL_MODE: ${MAIL_MODE:?MAIL_MODE is required}
+      GMAIL_SENDER: ${GMAIL_SENDER:-}
+      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
+      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
+      GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:-}
+    volumes:
+      - mail_lock:/var/lock/oss-hub-mail
+      - /etc/machine-id:/run/oss-hub-machine-id:ro
+    tmpfs:
+      - /run/oss-hub-mail:uid=1000,gid=1000,mode=0700
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/run/oss-hub-mail/ready']
+      interval: 3s
+      timeout: 2s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   nginx:
     image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
@@ -82,6 +110,8 @@ services:
 
 volumes:
   pgdata:
+  mail_lock:
+    name: oss-hub-mail-sender-lock
 
 secrets:
   github_collection_app_private_key:

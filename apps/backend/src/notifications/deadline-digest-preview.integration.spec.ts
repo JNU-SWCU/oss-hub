@@ -85,6 +85,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await harness.reset();
+  await harness.useJobs();
   sender.sent.length = 0;
   githubId = DIGEST_FIXTURE.staffOnGithub;
 });
@@ -147,34 +148,37 @@ it('renders, confirms, and sends separate escaped guidance through the real HTTP
       .filter((mail) => mail.to !== 'student-missing@example.com')
       .every((mail) => mail.body.includes(draft.staffGuidance)),
   ).toBe(true);
-  const audit = await harness.prisma.userHistory.findMany({
+  const audit = await harness.prisma.programHistory.findMany({
     take: 3,
     where: {
-      sourceTable: 'DeadlineDigest',
+      sourceTable: 'MailJob',
       data: {
         path: ['metadata', 'previewVersion'],
         equals: preview.previewVersion,
       },
     },
-    select: { actorId: true, sourceId: true, sourcePart: true, data: true },
-    orderBy: { sourcePart: 'asc' },
+    select: { actorId: true, sourceId: true, event: true, data: true },
+    orderBy: { event: 'asc' },
   });
   expect(audit).toHaveLength(2);
-  const requestId = audit[0]?.sourceId;
+  const requestId = audit[0]?.sourceId?.replace(/:attempt$/, '');
   expect(requestId).toEqual(expect.any(String));
   expect(audit.map((entry) => entry.actorId)).toEqual([
     DIGEST_FIXTURE.staffOn,
     DIGEST_FIXTURE.staffOn,
   ]);
-  expect(audit.map((entry) => entry.sourcePart)).toEqual(['attempt', 'result']);
+  expect(audit.map((entry) => entry.event)).toEqual([
+    'MAIL_ACCEPTED',
+    'MAIL_COMPLETED',
+  ]);
   expect(audit[0]?.data).toMatchObject({
-    action: 'DEADLINE_DIGEST_SEND_ATTEMPTED',
-    targetId: DIGEST_FIXTURE.notifyProgram,
+    action: 'PROGRAM_MAIL_SEND_ATTEMPTED',
+    schemaVersion: 1,
     requestId,
   });
   expect(audit[1]?.data).toMatchObject({
-    action: 'DEADLINE_DIGEST_SEND_COMPLETED',
-    targetId: DIGEST_FIXTURE.notifyProgram,
+    action: 'PROGRAM_MAIL_SENT',
+    schemaVersion: 1,
     requestId,
     metadata: {
       sentCount: 2,
@@ -197,8 +201,8 @@ it('rejects changed guidance with 409 before creating any notification', async (
   expect(response.status).toBe(409);
   expect(sender.sent).toEqual([]);
   expect(
-    await harness.prisma.notification.count({
-      where: { type: 'DEADLINE_DIGEST' },
+    await harness.prisma.mailRecipient.count({
+      where: { job: { programId: DIGEST_FIXTURE.notifyProgram } },
     }),
   ).toBe(0);
 });
@@ -281,10 +285,10 @@ it('retains same-day deduplication across automatic and guided manual sends', as
   expect(
     sender.sent.find((mail) => mail.to === 'student-missing@example.com')?.body,
   ).not.toContain('manual note');
-  const results = await harness.prisma.userHistory.findMany({
+  const results = await harness.prisma.programHistory.findMany({
     where: {
-      sourceTable: 'DeadlineDigest',
-      sourcePart: 'result',
+      sourceTable: 'MailJob',
+      event: 'MAIL_COMPLETED',
       data: {
         path: ['metadata', 'previewVersion'],
         equals: preview.previewVersion,
@@ -319,8 +323,8 @@ it('does not claim or send when no milestone meets existing eligibility', async 
   });
   expect(sender.sent).toEqual([]);
   expect(
-    await harness.prisma.notification.count({
-      where: { type: 'DEADLINE_DIGEST' },
+    await harness.prisma.mailRecipient.count({
+      where: { job: { programId: DIGEST_FIXTURE.notifyProgram } },
     }),
   ).toBe(0);
 });

@@ -1,5 +1,8 @@
-import { MailPreviewService } from './mail-preview.service';
-import { DeadlineDigestMailService } from './deadline-digest-mail.service';
+import {
+  digestRuntime,
+  clearFixtureJobs,
+  useJobs,
+} from './mail-job-runtime.fixture';
 import {
   ApplicationStatus,
   ProgramCategory,
@@ -14,8 +17,6 @@ import {
   DIGEST_USER_IDS,
 } from './deadline-digest.integration-fixtures';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
-import { ProgramMailAuditRepository } from './program-mail-audit.repository';
-import { DeadlineDigestService } from './deadline-digest.service';
 import { NotificationSettingsRepository } from './application-decision-notifications.repository';
 import { type DeadlineDigestMail, type MailSender } from './gmail-mail.client';
 export { DIGEST_FIXTURE };
@@ -42,12 +43,17 @@ export class IsolatingMailSender implements MailSender {
 export function createDeadlineDigestIntegrationHarness(
   prisma = new PrismaService(),
 ) {
-  const repository = new DeadlineDigestRepository(
-    prisma,
-    new ProgramMailAuditRepository(),
-  );
+  let originalMode: 'LEGACY' | 'PAUSED' | 'JOBS' | undefined;
+  const repository = new DeadlineDigestRepository(prisma);
   const settingsRepository = new NotificationSettingsRepository(prisma);
   async function cleanup(): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      for (const id of [
+        DIGEST_FIXTURE.notifyProgram,
+        DIGEST_FIXTURE.silentProgram,
+      ])
+        await clearFixtureJobs(tx, id);
+    });
     await prisma.notification.deleteMany({
       where: { userId: { in: DIGEST_USER_IDS } },
     });
@@ -227,7 +233,15 @@ export function createDeadlineDigestIntegrationHarness(
     prisma,
     repository,
     settingsRepository,
-    connect: () => prisma.$connect(),
+    connect: async () => {
+      await prisma.$connect();
+      originalMode = (
+        await prisma.mailControl.findUniqueOrThrow({
+          where: { id: 1 },
+          select: { mode: true },
+        })
+      ).mode;
+    },
     reset: async () => {
       await cleanup();
       await seed();
@@ -235,19 +249,32 @@ export function createDeadlineDigestIntegrationHarness(
     disconnect: async () => {
       try {
         await cleanup();
+        if (originalMode !== undefined) {
+          const current = (
+            await prisma.mailControl.findUniqueOrThrow({
+              where: { id: 1 },
+              select: { mode: true },
+            })
+          ).mode;
+          if (current !== originalMode) {
+            if (current !== 'PAUSED')
+              await prisma.mailControl.update({
+                where: { id: 1 },
+                data: { mode: 'PAUSED' },
+              });
+            if (originalMode !== 'PAUSED')
+              await prisma.mailControl.update({
+                where: { id: 1 },
+                data: { mode: originalMode },
+              });
+          }
+        }
       } finally {
         await prisma.$disconnect();
       }
     },
-    service: (mailSender: MailSender) =>
-      new DeadlineDigestService(
-        repository,
-        mailSender,
-        {
-          FRONTEND_URL: 'https://oss.example',
-        },
-        new DeadlineDigestMailService(),
-        new MailPreviewService(),
-      ),
+    service: (sender: MailSender) =>
+      digestRuntime(prisma, sender, DIGEST_FIXTURE.now),
+    useJobs: () => useJobs(prisma),
   };
 }

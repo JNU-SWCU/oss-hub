@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
+import { ProgramMailSendRepository } from './program-mail-send.repository.fixture';
 import type {
   ProgramMailProcessResult,
   ProgramMailRecipient,
 } from './program-mail-send.types';
-import { ProgramMailWorkerService } from './program-mail-worker.service';
+import { ProgramMailWorkerService } from './program-mail-worker.service.fixture';
 
 export type ProgramMailDelivery = {
   readonly actorId: string;

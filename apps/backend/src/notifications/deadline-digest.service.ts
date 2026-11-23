@@ -1,11 +1,16 @@
+import type {
+  DeadlineEligibilitySummary,
+  DeadlineDigestSendResult,
+} from './mail-job.types';
+export type { DeadlineDigestSendResult } from './mail-job.types';
+import { MailJobConfig } from './mail-job.config';
 import { SequentialRepository } from '../platform/sequential.repository';
 import {
   type BuiltDeadlineMail,
   DeadlineDigestMailService,
 } from './deadline-digest-mail.service';
-import { Logger, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DEADLINE_DIGEST_DELIVERY_FAILURE } from './deadline-digest-failure.error';
 import {
   type DeadlineDigestRepositoryPort,
   DeadlineDigestRepository,
@@ -21,9 +26,10 @@ import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
 } from './notifications-error-code.error';
-import { type MailSender, MAIL_SENDER } from './gmail-mail.client';
+import { MailJobAdmissionRepository } from './mail-job-admission.repository';
+import { MailJobResultRepository } from './mail-job-result.repository';
 import { AccountStatus } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import type { MailTransaction } from './mail-job-admission.repository';
 import { MailPreviewService } from './mail-preview.service';
 
 const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
@@ -46,15 +52,6 @@ type EligibleDeadlineRecipient = {
 
 type StaffDeadlineMilestone = EligibleDeadlineMilestone & {
   readonly missingNicknames: readonly string[];
-};
-
-type DeadlineEligibilitySummary = {
-  readonly applicationCount: number;
-  readonly milestoneCount: number;
-  readonly recipientCount: number;
-  readonly inactiveCount: number;
-  readonly optedOutCount: number;
-  readonly noEmailCount: number;
 };
 
 export type DeadlineEligibility = {
@@ -154,100 +151,6 @@ export type DeadlineDigestSendRequest = DeadlineDigestGuidance & {
   readonly previewVersion: string;
 };
 
-export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
-  readonly staffRecipientCount: number;
-  readonly previewVersion: string;
-  readonly sentCount: number;
-  readonly duplicateCount: number;
-  readonly failedCount: number;
-};
-
-type DeadlineDeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED' | 'PAUSED';
-const logger = new Logger('DeadlineDigestService');
-
-function deliveryCounts(outcomes: readonly DeadlineDeliveryOutcome[]) {
-  return {
-    sentCount: outcomes.filter((outcome) => outcome === 'SENT').length,
-    duplicateCount: outcomes.filter((outcome) => outcome === 'DUPLICATE')
-      .length,
-    failedCount: outcomes.filter((outcome) => outcome === 'FAILED').length,
-  };
-}
-
-async function dispatchDeadlineDigest(
-  batch: {
-    readonly programId: string;
-    readonly now: Date;
-    readonly deliveries: readonly PreparedDeadlineMail[];
-  },
-  dependencies: {
-    readonly repository: DeadlineDigestRepositoryPort;
-    readonly mailSender: MailSender;
-  },
-): Promise<readonly DeadlineDeliveryOutcome[]> {
-  const digestDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(batch.now);
-  return Promise.all(
-    batch.deliveries.map(async (delivery): Promise<DeadlineDeliveryOutcome> => {
-      const prefix =
-        delivery.audience === 'STUDENT'
-          ? 'deadline-digest'
-          : 'deadline-digest-staff';
-      const idempotencyKey = `${prefix}:${digestDate}:${batch.programId}:${delivery.recipientId}`;
-      const payload = { milestoneCount: delivery.milestoneCount };
-      try {
-        if (
-          !(await dependencies.repository.claimNotification(
-            delivery.recipientId,
-            idempotencyKey,
-            payload,
-          ))
-        )
-          return 'DUPLICATE';
-      } catch (error) {
-        if (
-          error instanceof DomainException &&
-          error.errorCode.code ===
-            NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.MAIL_PAUSED].code
-        )
-          return 'PAUSED';
-        throw error;
-      }
-
-      try {
-        await dependencies.mailSender.send({
-          to: delivery.to,
-          subject: delivery.mail.subject,
-          body: delivery.mail.text,
-          html: delivery.mail.html,
-        });
-        await dependencies.repository.completeNotification(
-          idempotencyKey,
-          'SENT',
-          payload,
-        );
-        return 'SENT';
-      } catch {
-        await dependencies.repository.completeNotification(
-          idempotencyKey,
-          'FAILED',
-          { ...payload, ...DEADLINE_DIGEST_DELIVERY_FAILURE },
-        );
-        logger.error(
-          delivery.audience === 'STUDENT'
-            ? '마감 알림 발송 실패'
-            : '교직원 마감 요약 발송 실패',
-        );
-        return 'FAILED';
-      }
-    }),
-  );
-}
-
 const DEADLINE_PREVIEW_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
@@ -257,11 +160,14 @@ export class DeadlineDigestService {
   constructor(
     @Inject(DeadlineDigestRepository)
     private readonly repository: DeadlineDigestRepositoryPort,
-    @Inject(MAIL_SENDER) private readonly mailSender: MailSender,
+    @Inject(MailJobAdmissionRepository)
+    private readonly admission: Pick<MailJobAdmissionRepository, 'accept'>,
     @Inject(RUNTIME_CONFIG)
     private readonly runtimeConfig: Pick<RuntimeConfig, 'FRONTEND_URL'>,
     private readonly mail: DeadlineDigestMailService,
     private readonly previews: MailPreviewService,
+    @Inject(MailJobResultRepository)
+    private readonly results: Pick<MailJobResultRepository, 'legacyDigest'>,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })
@@ -310,110 +216,145 @@ export class DeadlineDigestService {
     programId: string,
     preview: DeadlineDigestSendRequest,
     actorId: string,
-    now: Date = new Date(),
   ): Promise<DeadlineDigestSendResult> {
-    const previewedAt = new Date(preview.previewedAt);
-    if (
-      !this.previews.legacyIsCurrent(previewedAt, now, DEADLINE_PREVIEW_TTL_MS)
-    ) {
-      this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
-    }
-    const eligibility = await this.requireEligibility(programId, now);
-    const staffRecipients =
-      eligibility.staffMilestones.length === 0
-        ? []
-        : await this.repository.findNotifiableStaff();
+    const accepted = await this.accept(programId, preview, actorId, true);
+    return this.results.legacyDigest(
+      programId,
+      accepted.jobId,
+      accepted.replay,
+      preview.previewVersion,
+    );
+  }
 
-    const prepared = this.prepareDeadlineDigest(eligibility, staffRecipients, {
-      ...preview,
-      now: previewedAt,
+  async accept(
+    programId: string,
+    preview: DeadlineDigestSendRequest,
+    actorId: string,
+    legacy = false,
+  ) {
+    const accepted = await this.admission.accept(
+      {
+        source: 'DEADLINE_MANUAL',
+        programId,
+        actorId,
+        previewVersion: preview.previewVersion,
+        requestDigest: MailJobConfig.digest([
+          preview.previewedAt,
+          preview.studentGuidance ?? '',
+          preview.staffGuidance ?? '',
+        ]),
+      },
+      async (tx, now) => {
+        const anchor = new Date(preview.previewedAt);
+        if (
+          !this.previews.legacyIsCurrent(
+            anchor,
+            now,
+            DEADLINE_PREVIEW_TTL_MS,
+          ) ||
+          (!legacy &&
+            now.getTime() >= anchor.getTime() + DEADLINE_PREVIEW_TTL_MS) ||
+          MailJobConfig.seoulDay(anchor) !== MailJobConfig.seoulDay(now)
+        )
+          this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
+        const { prepared, eligibility, staff } = await this.prepareJob(
+          programId,
+          now,
+          anchor,
+          preview,
+          true,
+          tx,
+        );
+        if (
+          (legacy
+            ? prepared.previewVersion
+            : MailJobConfig.digest([
+                'deadline-v1',
+                programId,
+                actorId,
+                prepared.previewVersion,
+              ])) !== preview.previewVersion
+        )
+          this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
+        return {
+          deliveries: this.rows(prepared, preview, anchor),
+          summary: {
+            ...eligibility.summary,
+            staffRecipientCount: staff.length,
+          },
+        };
+      },
+    );
+    if (!accepted) this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
+    return accepted;
+  }
+
+  private rows(
+    prepared: ReturnType<DeadlineDigestService['prepareDeadlineDigest']>,
+    guidance: DeadlineDigestGuidance,
+    anchor: Date,
+  ) {
+    return prepared.deliveries.map((row) => ({
+      userId: row.recipientId,
+      audience: row.audience,
+      envelope: {
+        to: row.to,
+        subject: row.mail.subject,
+        body: row.mail.text,
+        html: row.mail.html,
+        studentGuidance: guidance.studentGuidance ?? '',
+        staffGuidance: guidance.staffGuidance ?? '',
+        anchor: anchor.toISOString(),
+      },
+    }));
+  }
+
+  async prepareJob(
+    programId: string,
+    now: Date,
+    anchor: Date,
+    guidance: DeadlineDigestGuidance,
+    manual: boolean,
+    tx: MailTransaction,
+  ) {
+    const eligibility = await this.requireEligibility(programId, now, tx);
+    const staff =
+      manual && eligibility.staffMilestones.length
+        ? await this.repository.findNotifiableStaff(tx)
+        : [];
+    const prepared = this.prepareDeadlineDigest(eligibility, staff, {
+      ...guidance,
+      now: anchor,
       frontendOrigin: this.mail.parseFrontendOrigin(
         this.runtimeConfig.FRONTEND_URL,
       ),
     });
-    if (prepared.previewVersion !== preview.previewVersion)
-      this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
-    const audit = {
-      requestId: randomUUID(),
-      actorId,
-      programId,
-      previewVersion: prepared.previewVersion,
-      occurredAt: now,
-    };
-    await this.repository.recordManualSend({
-      ...audit,
-      phase: 'attempt',
-      counts: {
-        recipientCount: eligibility.summary.recipientCount,
-        staffRecipientCount: staffRecipients.length,
-      },
-    });
-    const dependencies = {
-      repository: this.repository,
-      mailSender: this.mailSender,
-    };
-    const outcomes = await dispatchDeadlineDigest(
-      {
-        programId,
-        now,
-        deliveries: prepared.deliveries.filter(
-          (mail) => mail.audience === 'STUDENT',
-        ),
-      },
-      dependencies,
-    );
-
-    const staffOutcomes = await dispatchDeadlineDigest(
-      {
-        programId,
-        now,
-        deliveries: prepared.deliveries.filter(
-          (mail) => mail.audience === 'STAFF',
-        ),
-      },
-      dependencies,
-    );
-    const cancelledCount = [...outcomes, ...staffOutcomes].filter(
-      (outcome) => outcome === 'PAUSED',
-    ).length;
-    await this.repository.recordManualSend({
-      ...audit,
-      phase: 'result',
-      counts: {
-        ...deliveryCounts([...outcomes, ...staffOutcomes]),
-        ...(cancelledCount > 0 ? { cancelledCount } : {}),
-      },
-    });
-    if (cancelledCount > 0) this.fail(NotificationsErrorCode.MAIL_PAUSED);
-    return {
-      ...eligibility.summary,
-      staffRecipientCount: staffRecipients.length,
-      previewVersion: prepared.previewVersion,
-      ...deliveryCounts(outcomes),
-    };
+    return { prepared, eligibility, staff };
   }
 
-  async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
-    const window = this.deadlineWindow(now);
-    const programIds = await this.repository.findAutomaticProgramIds(window);
-    await this.sequential.forEach(programIds, async (programId) => {
-      const source = await this.repository.findDeadlineProgram(programId);
-      if (source === null || !source.notifyOnDeadline) return;
-      const prepared = this.prepareDeadlineDigest(
-        this.buildDeadlineEligibility(source, window),
-        [],
+  async sendDeadlineDigests(now = new Date()): Promise<void> {
+    const ids = await this.repository.findAutomaticProgramIds(
+      this.deadlineWindow(now),
+    );
+    await this.sequential.forEach(ids, async (programId) => {
+      await this.admission.accept(
         {
-          now,
-          frontendOrigin: this.mail.parseFrontendOrigin(
-            this.runtimeConfig.FRONTEND_URL,
-          ),
+          source: 'DEADLINE_AUTOMATIC',
+          programId,
+          actorId: null,
+          previewVersion: '',
+          requestDigest: '',
         },
-      );
-      await dispatchDeadlineDigest(
-        { programId, now, deliveries: prepared.deliveries },
-        {
-          repository: this.repository,
-          mailSender: this.mailSender,
+        async (tx, acceptedAt) => {
+          const { prepared } = await this.prepareJob(
+            programId,
+            acceptedAt,
+            acceptedAt,
+            {},
+            false,
+            tx,
+          );
+          return { deliveries: this.rows(prepared, {}, acceptedAt) };
         },
       );
     });
@@ -422,8 +363,9 @@ export class DeadlineDigestService {
   private async requireEligibility(
     programId: string,
     now: Date,
+    tx?: MailTransaction,
   ): Promise<DeadlineEligibility> {
-    const source = await this.repository.findDeadlineProgram(programId);
+    const source = await this.repository.findDeadlineProgram(programId, tx);
     if (source === null) this.fail(NotificationsErrorCode.PROGRAM_NOT_FOUND);
     if (!source.notifyOnDeadline)
       this.fail(NotificationsErrorCode.DEADLINE_DISABLED);

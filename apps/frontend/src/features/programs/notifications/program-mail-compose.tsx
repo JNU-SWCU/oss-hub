@@ -186,8 +186,10 @@ export function ProgramMailPreviewView({
 
 export function ProgramMailResult({
   result,
+  cancelledCount = 0,
 }: {
   readonly result: Omit<ProgramMailSendResult, 'previewVersion'>;
+  readonly cancelledCount?: number;
 }) {
   if (result.status === 'IN_PROGRESS')
     return <p role="status">메일 발송을 처리 중입니다.</p>;
@@ -223,6 +225,15 @@ export function ProgramMailResult({
           );
         })}
       </dl>
+      {cancelledCount > 0 && (
+        <p>
+          취소{' '}
+          <data data-outcome="cancelledCount" value={cancelledCount}>
+            {cancelledCount}
+          </data>
+          명
+        </p>
+      )}
     </div>
   );
 }

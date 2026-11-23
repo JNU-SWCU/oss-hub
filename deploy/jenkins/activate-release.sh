@@ -16,6 +16,11 @@ export GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE="$SECRETS_DIR/current/collection
 export GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE="$SECRETS_DIR/current/operations.pem"
 compose=(docker compose -p oss-hub -f "$CANDIDATE_COMPOSE" --env-file "$OSS_HUB_ENV_FILE")
 export IMAGE_TAG="$RELEASE_TAG"
+source "$controller_dir/deploy/jenkins/mail-cutover.sh"
+# The controller can be newer than the exact release being activated.
+# Decide from the verified release source rather than the controller version.
+jobs_release=false
+if [[ -f "$RELEASE_SOURCE/apps/backend/prisma/migrations/20261123000000_mail_job_cutover/migration.sql" ]]; then jobs_release=true; fi
 
 verify_keys() {
   local role host_digest mounted_digest expected_digest
@@ -54,6 +59,18 @@ recover() {
   printf 'ACTIVATION_FAILED status=%s\n' "$original" >&2
   if (
     set -e
+    if "$jobs_release"; then
+    mail_pause || exit $?
+    mail_stop mail-worker || exit $?
+    # A bridge cannot drain native receipts. Keep the candidate reader
+    # available and all admissions paused until a corrected image ships.
+    native="$(mail_sql -c 'SELECT count(*) FROM "MailJob" WHERE "partNo"=0 AND "legacySnapshotStatus" IS NULL')" || exit $?
+    if [[ "$native" != 0 ]]; then
+      echo 'MAIL_READ_ONLY; native receipts retained; roll forward' >&2
+      exit 1
+    fi
+    "${compose[@]}" rm --stop --force mail-worker || exit $?
+    fi
     node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-keys "$PREVIOUS_KEY_IDENTITY" "$previous_generation" || exit $?
     switch_keys "$previous_generation" || exit $?
     export IMAGE_TAG="$previous_tag"
@@ -68,7 +85,8 @@ recover() {
     compose+=(--env-file "$OSS_HUB_ENV_FILE")
     "${compose[@]}" up -d --no-build --force-recreate --no-deps --wait --wait-timeout 180 backend nginx || exit $?
     node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify "$PREVIOUS_STATE" "$SECRETS_DIR" >/dev/null || exit $?
-    check_serving "$PREVIOUS_KEY_IDENTITY"
+    check_serving "$PREVIOUS_KEY_IDENTITY" || exit $?
+    if "$jobs_release"; then mail_sql -c "UPDATE \"MailControl\" SET mode='LEGACY' WHERE id=1"; fi
   ); then
     printf 'RECOVERY=ok; deployment remains failed\n' >&2
   else
@@ -83,9 +101,18 @@ node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$
 verify_keys "$PREVIOUS_KEY_IDENTITY"
 trap recover ERR
 set -E
+if "$jobs_release"; then
+  mail_pause
+  mail_stop mail-worker
+  mail_stop backend
+fi
 switch_keys "$STAGED_KEY_GENERATION"
 "${compose[@]}" up -d --no-build --force-recreate --no-deps --wait --wait-timeout 180 backend nginx
-node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$RELEASE_SOURCE" "$SECRETS_DIR" | jq -e --arg tag "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg compose "$CANDIDATE_COMPOSE" --arg generation "$STAGED_KEY_GENERATION" '.decision == "noop" and .tag == $tag and .sha == $sha and .compose == $compose and .generation == $generation' >/dev/null
 check_serving
+if "$jobs_release"; then
+  mail_activate
+  "${compose[@]}" up -d --no-build --force-recreate --no-deps --wait --wait-timeout 90 mail-worker
+fi
+node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$RELEASE_SOURCE" "$SECRETS_DIR" | jq -e --arg tag "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg compose "$CANDIDATE_COMPOSE" --arg generation "$STAGED_KEY_GENERATION" '.decision == "noop" and .tag == $tag and .sha == $sha and .compose == $compose and .generation == $generation' >/dev/null
 trap - ERR
 printf 'ACTIVATION=ok\n'

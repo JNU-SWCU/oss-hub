@@ -63,5 +63,17 @@ export type MailJob = MailReceipt &
           ProgramMailSendResult,
           'sentCount' | 'failedCount' | 'duplicateCount' | 'unknownCount'
         >
-      > & { readonly status: 'COMPLETED'; readonly finishedAt: string })
+      > & {
+        readonly status: 'COMPLETED';
+        readonly finishedAt: string;
+        readonly source?: string;
+        readonly audiences?: readonly {
+          readonly audience: 'STUDENT' | 'STAFF';
+          readonly sentCount: number;
+          readonly failedCount: number;
+          readonly unknownCount: number;
+          readonly cancelledCount: number;
+          readonly duplicateCount: number;
+        }[];
+      })
   );

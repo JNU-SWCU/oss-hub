@@ -1,13 +1,12 @@
-import { MailPreviewService } from '../../src/notifications/mail-preview.service';
+import {
+  digestRuntime,
+  useJobs,
+} from '../../src/notifications/mail-job-runtime.fixture';
 import { TEST_READ_LIMIT } from '../test-read-limit.config';
-import { DeadlineDigestMailService } from '../../src/notifications/deadline-digest-mail.service';
 import { MemberKind } from '../../src/users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { canonicalUserCreate } from '../../src/users/canonical-user-fixture';
-import { DeadlineDigestRepository } from '../../src/notifications/deadline-digest.repository';
-import { ProgramMailAuditRepository } from '../../src/notifications/program-mail-audit.repository';
-import { DeadlineDigestService } from '../../src/notifications/deadline-digest.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   E2E_NOW,
@@ -25,12 +24,10 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const fixture = new E2eProgramAuthoringFixture(prisma);
 const staffId = 'test:e2e-deadline-reset:global-staff';
-const service = new DeadlineDigestService(
-  new DeadlineDigestRepository(prisma, new ProgramMailAuditRepository()),
+const service = digestRuntime(
+  prisma,
   e2eProgramAuthoringExternalPorts.mail,
-  { FRONTEND_URL: 'https://oss.example' },
-  new DeadlineDigestMailService(),
-  new MailPreviewService(),
+  E2E_NOW,
 );
 
 beforeAll(async () => {
@@ -52,6 +49,14 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await fixture.reset();
+  await prisma.mailControl.update({
+    where: { id: 1 },
+    data: { mode: 'PAUSED' },
+  });
+  await prisma.mailControl.update({
+    where: { id: 1 },
+    data: { mode: 'LEGACY' },
+  });
   await prisma.notification.deleteMany({ where: { userId: staffId } });
   e2eProgramAuthoringExternalPorts.reset();
 });
@@ -100,22 +105,23 @@ async function sendDigest(): Promise<void> {
 }
 
 it('resets global staff daily claims so the next isolated scenario sends again', async () => {
+  await useJobs(prisma);
   await ensureMissingSubmission();
   await sendDigest();
   expect(e2eProgramAuthoringExternalPorts.capture().mail.envelopeCount).toBe(2);
-  const before = await prisma.notification.findMany({
+  const before = await prisma.mailRecipient.findMany({
     take: TEST_READ_LIMIT,
     where: { userId: staffId },
-    select: { status: true, idempotencyKey: true },
+    select: { state: true, deliveryKey: true },
   });
   expect(before).toHaveLength(1);
-  expect(before[0]?.status).toBe('SENT');
-  expect(before[0]?.idempotencyKey).toContain(E2E_PROGRAM_ID);
+  expect(before[0]?.state).toBe('SENT');
+  expect(before[0]?.deliveryKey).toContain(E2E_PROGRAM_ID);
 
   await fixture.reset();
   e2eProgramAuthoringExternalPorts.reset();
   await expect(
-    prisma.notification.count({ where: { userId: staffId } }),
+    prisma.mailRecipient.count({ where: { userId: staffId } }),
   ).resolves.toBe(0);
   expect(e2eProgramAuthoringExternalPorts.capture().mail.envelopeCount).toBe(0);
 
@@ -123,10 +129,10 @@ it('resets global staff daily claims so the next isolated scenario sends again',
   await sendDigest();
   expect(e2eProgramAuthoringExternalPorts.capture().mail.envelopeCount).toBe(2);
   await expect(
-    prisma.notification.findMany({
+    prisma.mailRecipient.findMany({
       take: TEST_READ_LIMIT,
       where: { userId: staffId },
-      select: { status: true, idempotencyKey: true },
+      select: { state: true, deliveryKey: true },
     }),
   ).resolves.toEqual(before);
 });

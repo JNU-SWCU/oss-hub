@@ -1,3 +1,4 @@
+import { MailJobsService } from './mail-jobs.service';
 import { MailPreviewService } from './mail-preview.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -24,21 +25,26 @@ import {
 import { DIGEST_USER_IDS } from './deadline-digest.integration-fixtures';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
-import { ProgramMailBatchRepository } from './program-mail-batch.repository';
+import { ProgramMailBatchRepository } from './program-mail-batch.repository.fixture';
 import { ProgramMailController } from './program-mail.controller';
 import { ProgramMailJobRepository } from './program-mail-job.repository';
-import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
-import { ProgramMailDeliveryService } from './program-mail-delivery.service';
-import { ProgramMailKeyRepository } from './program-mail-key.repository';
+import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository.fixture';
+import { ProgramMailDeliveryService } from './program-mail-delivery.service.fixture';
+import { ProgramMailKeyRepository } from './program-mail-key.repository.fixture';
 import {
   ProgramMailRepository,
   type ProgramMailAudience,
 } from './program-mail.repository';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
+import { ProgramMailSendRepository } from './program-mail-send.repository.fixture';
 import { ProgramMailService } from './program-mail.service';
+import { BridgeProgramMailService } from './program-mail-bridge-v131.fixture';
+import { MailJobAdmissionRepository } from './mail-job-admission.repository';
+import { MailJobsController } from './mail-jobs.controller';
+import { DeadlineDigestService } from './deadline-digest.service';
+import { clearFixtureJobs, useJobs } from './mail-job-runtime.fixture';
 import { ProgramMailTemplateService } from './program-mail-template.service';
-import { ProgramMailTransportService } from './program-mail-transport.service';
-import { ProgramMailWorkerService } from './program-mail-worker.service';
+import { ProgramMailTransportService } from './program-mail-transport.service.fixture';
+import { ProgramMailWorkerService } from './program-mail-worker.service.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -66,12 +72,14 @@ export type ProgramMailIntegrationWorld = {
     mailSender: MailSender,
     audit?: ProgramMailAuditRepository,
   ): {
-    readonly service: ProgramMailService;
+    readonly service: BridgeProgramMailService;
     readonly worker: ProgramMailWorkerService;
     readonly batches: ProgramMailBatchRepository;
     readonly deliveries: ProgramMailDeliveryRepository;
   };
-  createService(mailSender: MailSender): ProgramMailService;
+  createService(mailSender: MailSender): BridgeProgramMailService;
+  enableJobs(): Promise<void>;
+  drain(): Promise<void>;
   principal(githubId: bigint): Promise<ActiveAccountPrincipal>;
   endpoint(action: string, programId?: string): string;
   sessionCookie(githubId: bigint): Promise<string>;
@@ -122,7 +130,7 @@ export async function startProgramMailIntegration(
       worker,
       batches,
       deliveries,
-      service: new ProgramMailService(
+      service: new BridgeProgramMailService(
         new ProgramMailRepository(harness.prisma),
         new ProgramMailDeliveryService(
           new ProgramMailSendRepository(harness.prisma, audit, keys, payloads),
@@ -134,7 +142,17 @@ export async function startProgramMailIntegration(
     };
   };
   const createService = (sender: MailSender) => createRuntime(sender).service;
-  const service = createService(mailSender);
+  const service = new ProgramMailService(
+    repository,
+    new MailJobAdmissionRepository(harness.prisma),
+    new ProgramMailJobRepository(
+      harness.prisma,
+      new ProgramMailBatchPayloadRepository(),
+    ),
+    new MailPreviewService(),
+    new ProgramMailTemplateService(),
+  );
+  const digest = harness.service(mailSender);
   const clearProgramMail = async () => {
     await harness.prisma.notification.deleteMany({
       where: {
@@ -161,13 +179,15 @@ export async function startProgramMailIntegration(
     update: { notifyEnabled: false, notificationEmail: null },
   });
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramMailController],
+    controllers: [ProgramMailController, MailJobsController],
     providers: [
       ...STATELESS_PROVIDERS,
+      MailJobsService,
       AuthSessionService,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       { provide: ProgramMailService, useValue: service },
+      { provide: DeadlineDigestService, useValue: digest },
       {
         provide: AuthService,
         useValue: {
@@ -226,6 +246,8 @@ export async function startProgramMailIntegration(
     mailSender,
     createRuntime,
     createService,
+    enableJobs: () => useJobs(harness.prisma),
+    drain: digest.drain,
     principal: (githubId) => databaseSessionPrincipal(harness.prisma, githubId),
     endpoint,
     sessionCookie,
@@ -275,6 +297,21 @@ export async function startProgramMailIntegration(
     },
     reset: async () => {
       mailSender.sent.length = 0;
+      await harness.prisma.$transaction(async (tx) => {
+        for (const id of [
+          DIGEST_FIXTURE.notifyProgram,
+          DIGEST_FIXTURE.silentProgram,
+        ])
+          await clearFixtureJobs(tx, id);
+      });
+      await harness.prisma.mailControl.update({
+        where: { id: 1 },
+        data: { mode: 'PAUSED' },
+      });
+      await harness.prisma.mailControl.update({
+        where: { id: 1 },
+        data: { mode: 'LEGACY' },
+      });
       await clearProgramMail();
       await harness.prisma.team.updateMany({
         where: {

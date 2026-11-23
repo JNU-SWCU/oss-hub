@@ -1,3 +1,15 @@
+import { createHash } from 'node:crypto';
+import { fstatSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { setTimeout as delay } from 'node:timers/promises';
+import { DeadlineDigestMailService } from './notifications/deadline-digest-mail.service';
+import { DeadlineDigestRepository } from './notifications/deadline-digest.repository';
+import { DeadlineDigestService } from './notifications/deadline-digest.service';
+import { MailJobAdmissionRepository } from './notifications/mail-job-admission.repository';
+import { MailJobResultRepository } from './notifications/mail-job-result.repository';
+import { MailJobWorkerService } from './notifications/mail-job-worker.service';
+import { MailJobClaimRepository } from './notifications/mail-job-claim.repository';
+import { MailPreviewService } from './notifications/mail-preview.service';
+import { PrismaService } from './platform/prisma.service';
 import {
   ConsoleLogger,
   Logger,
@@ -180,6 +192,65 @@ async function sendDeadlineDigest(): Promise<void> {
   }
 }
 
+async function drainMailJobs() {
+  if (
+    MaintenanceConfig.enabled() ||
+    PROCESS_RUNTIME_CONFIG.MAIL_MODE !== 'send'
+  )
+    throw new Error('Mail worker disabled');
+  const mount = '/var/lock/oss-hub-mail';
+  const host = readFileSync('/run/oss-hub-machine-id', 'utf8').trim();
+  const lock = statSync(`${mount}/sender.lock`);
+  const fd = fstatSync(9);
+  if (
+    !/^[a-f0-9]{32}$/.test(host) ||
+    !lock.isFile() ||
+    fd.ino !== lock.ino ||
+    fd.dev !== lock.dev ||
+    !/^lock:\s+\d+:\s+FLOCK\s+ADVISORY\s+WRITE\b/m.test(
+      readFileSync('/proc/self/fdinfo/9', 'utf8'),
+    ) ||
+    !readFileSync('/proc/self/mountinfo', 'utf8')
+      .split('\n')
+      .some((line) => line.split(' ')[4] === mount)
+  )
+    throw new Error('Missing worker interlock');
+  const db = new PrismaService();
+  try {
+    const digest = new DeadlineDigestMailService();
+    const results = new MailJobResultRepository(db);
+    const service = new DeadlineDigestService(
+      new DeadlineDigestRepository(db),
+      new MailJobAdmissionRepository(db),
+      PROCESS_RUNTIME_CONFIG,
+      digest,
+      new MailPreviewService(),
+      results,
+    );
+    const worker = new MailJobWorkerService(
+      new MailJobClaimRepository(db, results),
+      digest.resolveMailSender(PROCESS_RUNTIME_CONFIG),
+      service,
+    );
+    const [owner] = await db.$queryRaw<
+      object[]
+    >`SELECT 1 FROM "MailControl" WHERE id=1 AND mode='JOBS'
+      AND "senderHost"=${createHash('sha256').update(host).digest('hex')} LIMIT 1`;
+    if (!owner) throw new Error('Unauthorized mail host');
+    await worker.recover();
+    writeFileSync('/run/oss-hub-mail/ready', '1', { mode: 0o600 });
+    async function* ticks() {
+      for (;;) yield Promise.resolve();
+    }
+    for await (const _tick of ticks()) {
+      void _tick;
+      if (!(await worker.step())) await delay(1000);
+    }
+  } finally {
+    await db.$disconnect();
+  }
+}
+
 interface CliCommand {
   readonly maintenanceSafe?: true;
   run(args: readonly string[]): Promise<void>;
@@ -237,6 +308,13 @@ const COMMANDS = new Map<string, CliCommand>([
     {
       run: reconcileStorageOrphans,
       failureMessage: () => 'Storage orphan reconciliation failed',
+    },
+  ],
+  [
+    'mail-worker',
+    {
+      run: drainMailJobs,
+      failureMessage: () => 'Mail worker stopped; inspect the durable receipt.',
     },
   ],
   [

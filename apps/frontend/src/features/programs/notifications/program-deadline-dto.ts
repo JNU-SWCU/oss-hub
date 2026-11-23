@@ -25,12 +25,3 @@ export type ProgramDeadlinePreview = {
   })[];
   readonly staffPreview: ProgramDeadlineMail | null;
 };
-
-export type ProgramDeadlineSendResult = Omit<
-  ProgramDeadlinePreview,
-  'previewedAt' | 'expiresAt' | 'studentPreviews' | 'staffPreview'
-> & {
-  readonly sentCount: number;
-  readonly duplicateCount: number;
-  readonly failedCount: number;
-};

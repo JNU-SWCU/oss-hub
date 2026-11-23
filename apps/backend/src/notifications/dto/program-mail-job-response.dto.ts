@@ -26,7 +26,35 @@ export class ProgramMailJobListResponseDto {
   }
 }
 
+class MailAudienceCountsResponseDto {
+  @ApiProperty({ enum: ['STUDENT', 'STAFF'] })
+  declare readonly audience: 'STUDENT' | 'STAFF';
+  declare readonly sentCount: number;
+  declare readonly failedCount: number;
+  declare readonly unknownCount: number;
+  declare readonly cancelledCount: number;
+  static from(
+    row: MailAudienceCountsResponseDto,
+  ): MailAudienceCountsResponseDto {
+    return {
+      audience: row.audience,
+      sentCount: row.sentCount,
+      failedCount: row.failedCount,
+      unknownCount: row.unknownCount,
+      cancelledCount: row.cancelledCount,
+      duplicateCount: row.duplicateCount,
+    };
+  }
+  declare readonly duplicateCount: number;
+}
 export class ProgramMailJobResponseDto extends ProgramMailReceiptResponseDto {
+  @ApiProperty({
+    type: () => MailAudienceCountsResponseDto,
+    isArray: true,
+    required: false,
+  })
+  declare readonly audiences?: readonly MailAudienceCountsResponseDto[];
+  declare readonly source?: string;
   @ApiProperty({ enum: ['QUEUED', 'IN_PROGRESS', 'COMPLETED'] })
   declare readonly status: 'QUEUED' | 'IN_PROGRESS' | 'COMPLETED';
   declare readonly finishedAt?: string;
@@ -39,6 +67,10 @@ export class ProgramMailJobResponseDto extends ProgramMailReceiptResponseDto {
   ): ProgramMailJobResponseDto {
     return {
       jobId: value.jobId,
+      source: value.source,
+      audiences: value.audiences?.map((row) =>
+        MailAudienceCountsResponseDto.from(row),
+      ),
       acceptedAt: value.acceptedAt,
       status: value.status,
       finishedAt: value.finishedAt,

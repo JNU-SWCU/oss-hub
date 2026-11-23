@@ -125,7 +125,6 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       this.fixtures.graph().programId,
       preview,
       E2E_STAFF_ID,
-      E2E_NOW,
     );
     if (result.failedCount > 0) throw new E2eAdapterError(409);
   }
@@ -205,7 +204,6 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       this.fixtures.graph().programId,
       preview,
       E2E_STAFF_ID,
-      E2E_NOW,
     );
   }
 

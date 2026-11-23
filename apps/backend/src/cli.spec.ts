@@ -19,7 +19,7 @@ describe('backend CLI dispatch', () => {
 
       expect(process.exitCode).toBe(1);
       expect(String(stderr.mock.calls[0]?.[0])).toContain(
-        'retry-submission-file-cleanup, reconcile-storage-orphans, send-deadline-digest',
+        'retry-submission-file-cleanup, reconcile-storage-orphans, mail-worker, send-deadline-digest',
       );
     },
   );

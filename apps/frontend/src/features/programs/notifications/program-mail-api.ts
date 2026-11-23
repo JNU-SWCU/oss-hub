@@ -1,3 +1,4 @@
+import { mailRequest, type AcceptedMailJob } from './mail-job-client';
 import { apiClient } from '@/lib/api-client';
 import type {
   MailReceipt,
@@ -5,7 +6,6 @@ import type {
   ProgramMailDraft,
   ProgramMailPreview,
   ProgramMailRecipients,
-  ProgramMailSendResult,
 } from './program-mail-dto';
 
 function mailPath(programId: string, action: string): string {
@@ -45,24 +45,23 @@ export function previewProgramMail(
   programId: string,
   draft: ProgramMailDraft,
 ): Promise<ProgramMailPreview> {
-  return apiClient<ProgramMailPreview>(mailPath(programId, 'preview'), {
-    method: 'POST',
-    body: JSON.stringify(draft),
-  });
+  return mailRequest<ProgramMailPreview>(
+    programId,
+    'previews',
+    'PROGRAM',
+    draft,
+  );
 }
 
 export function sendProgramMail(
   programId: string,
   preview: ProgramMailPreview,
-): Promise<ProgramMailSendResult> {
-  return apiClient<ProgramMailSendResult>(mailPath(programId, 'send'), {
-    method: 'POST',
-    body: JSON.stringify({
-      subject: preview.subject,
-      body: preview.body,
-      applicantIds: preview.applicantIds,
-      previewedAt: preview.previewedAt,
-      previewVersion: preview.previewVersion,
-    }),
+): Promise<AcceptedMailJob> {
+  return mailRequest<AcceptedMailJob>(programId, 'jobs', 'PROGRAM', {
+    subject: preview.subject,
+    body: preview.body,
+    applicantIds: preview.applicantIds,
+    previewedAt: preview.previewedAt,
+    previewVersion: preview.previewVersion,
   });
 }

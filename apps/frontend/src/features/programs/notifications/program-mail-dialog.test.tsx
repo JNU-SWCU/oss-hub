@@ -110,7 +110,13 @@ describe('ProgramMailDialog', () => {
     getMailJobs.mockReset();
     getProgramMailRecipientsMock.mockReset().mockResolvedValue(recipients);
     previewProgramMailMock.mockReset().mockResolvedValue(preview);
-    sendProgramMailMock.mockReset().mockResolvedValue({
+    sendProgramMailMock
+      .mockReset()
+      .mockResolvedValue({ jobId: 'opaque-program', status: 'QUEUED' });
+    getMailJob.mockResolvedValue({
+      jobId: 'opaque-program',
+      acceptedAt: preview.previewedAt,
+      finishedAt: preview.previewedAt,
       status: 'COMPLETED',
       sentCount: 1,
       duplicateCount: 0,

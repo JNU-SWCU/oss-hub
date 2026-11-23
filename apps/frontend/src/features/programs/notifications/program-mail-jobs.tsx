@@ -93,8 +93,38 @@ export function ProgramMailJobStatus({
       />
     );
   if (!job.data) return <p role="status">발송 결과를 불러오는 중입니다.</p>;
+  if (
+    job.data.status === 'COMPLETED' &&
+    job.data.source?.startsWith('DEADLINE_')
+  )
+    return (
+      <section aria-label="발송 결과">
+        {(job.data.audiences ?? []).map((row) => (
+          <section
+            key={row.audience}
+            aria-label={row.audience === 'STAFF' ? '교직원' : '학생'}
+          >
+            <h3>{row.audience === 'STAFF' ? '교직원' : '학생'}</h3>
+            <ProgramMailResult result={{ ...row, status: 'COMPLETED' }} />
+            <p>
+              취소{' '}
+              <data data-outcome="cancelledCount" value={row.cancelledCount}>
+                {row.cancelledCount}
+              </data>
+              명
+            </p>
+          </section>
+        ))}
+      </section>
+    );
   return job.data.status === 'COMPLETED' ? (
-    <ProgramMailResult result={job.data} />
+    <ProgramMailResult
+      result={job.data}
+      cancelledCount={job.data.audiences?.reduce(
+        (sum, row) => sum + row.cancelledCount,
+        0,
+      )}
+    />
   ) : (
     <p role="status">메일 발송을 처리 중입니다.</p>
   );

@@ -34,7 +34,10 @@ ENV TZ=Asia/Seoul
 
 WORKDIR /app
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl util-linux \
+    && mkdir -p /var/lock/oss-hub-mail \
+    && touch /var/lock/oss-hub-mail/sender.lock \
+    && chown -R node:node /var/lock/oss-hub-mail
 
 COPY --from=builder --chown=node:node /deploy ./
 COPY --from=builder --chown=node:node /workspace/apps/backend/dist ./dist

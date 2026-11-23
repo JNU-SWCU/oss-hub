@@ -21,18 +21,17 @@ import {
 import type {
   ProgramDeadlineGuidance,
   ProgramDeadlinePreview,
-  ProgramDeadlineSendResult,
 } from './program-deadline-dto';
 import {
   DEADLINE_GUIDANCE_LIMIT,
   DeadlineDigestFooter,
   DeadlineDigestPreview,
-  DeadlineDigestResult,
   DeadlineGuidanceFields,
   deadlineErrorMessage,
   isDeadlineGuidanceInvalid,
   type DeadlineDigestBusy,
 } from './deadline-digest-content';
+import { ProgramMailJobStatus } from './program-mail-jobs';
 import { usePreviewExpiry } from './use-preview-expiry';
 
 export function DeadlineDigestDialog({
@@ -53,7 +52,7 @@ export function DeadlineDigestDialog({
     readonly guidance: ProgramDeadlineGuidance;
     readonly version: number;
   } | null>(null);
-  const [result, setResult] = useState<ProgramDeadlineSendResult | null>(null);
+  const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState<DeadlineDigestBusy>(null);
   const [error, setError] = useState<MailDialogError>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
@@ -169,14 +168,18 @@ export function DeadlineDigestDialog({
         previewVersion: preview.previewVersion,
         ...loaded.guidance,
       });
-      setResult(sent);
+      if (loaded.version !== previewRequestVersion.current) return;
+      setResult(sent.jobId);
       setLoaded(null);
     } catch (caught: unknown) {
+      if (loaded.version !== previewRequestVersion.current) return;
       setLoaded(null);
       setError(deadlineErrorMessage(caught));
     } finally {
-      sendInFlight.current = false;
-      setBusy(null);
+      if (loaded.version === previewRequestVersion.current) {
+        sendInFlight.current = false;
+        setBusy(null);
+      }
     }
   };
 
@@ -210,7 +213,7 @@ export function DeadlineDigestDialog({
           <SkeletonBlock className="h-80 rounded-card" />
         </Skeleton>
       ) : result ? (
-        <DeadlineDigestResult result={result} />
+        <ProgramMailJobStatus programId={programId} jobId={result} />
       ) : preview ? (
         <DeadlineDigestPreview preview={preview} />
       ) : (

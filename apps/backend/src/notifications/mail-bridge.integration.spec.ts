@@ -5,10 +5,10 @@ import { ProgramDeletionScopeRepository } from '../programs/programs.repository'
 import { Prisma } from '@prisma/client';
 import { AUDIT_SOURCE_QUERIES } from '../platform/audit-source.config';
 import { ProgramMailAuditRepository } from './program-mail-audit.repository';
-import { ProgramMailBatchRepository } from './program-mail-batch.repository';
-import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository';
-import { ProgramMailKeyRepository } from './program-mail-key.repository';
-import { ProgramMailSendRepository } from './program-mail-send.repository';
+import { ProgramMailBatchRepository } from './program-mail-batch.repository.fixture';
+import { ProgramMailDeliveryRepository } from './program-mail-delivery.repository.fixture';
+import { ProgramMailKeyRepository } from './program-mail-key.repository.fixture';
+import { ProgramMailSendRepository } from './program-mail-send.repository.fixture';
 import { SystemStatusRepository } from '../admin/system-status.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 
