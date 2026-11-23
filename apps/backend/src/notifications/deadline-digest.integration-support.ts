@@ -43,6 +43,7 @@ export class IsolatingMailSender implements MailSender {
 export function createDeadlineDigestIntegrationHarness(
   prisma = new PrismaService(),
 ) {
+  let originalMode: 'LEGACY' | 'PAUSED' | 'JOBS' | undefined;
   const repository = new DeadlineDigestRepository(prisma);
   const settingsRepository = new NotificationSettingsRepository(prisma);
   async function cleanup(): Promise<void> {
@@ -232,7 +233,15 @@ export function createDeadlineDigestIntegrationHarness(
     prisma,
     repository,
     settingsRepository,
-    connect: () => prisma.$connect(),
+    connect: async () => {
+      await prisma.$connect();
+      originalMode = (
+        await prisma.mailControl.findUniqueOrThrow({
+          where: { id: 1 },
+          select: { mode: true },
+        })
+      ).mode;
+    },
     reset: async () => {
       await cleanup();
       await seed();
@@ -240,6 +249,26 @@ export function createDeadlineDigestIntegrationHarness(
     disconnect: async () => {
       try {
         await cleanup();
+        if (originalMode !== undefined) {
+          const current = (
+            await prisma.mailControl.findUniqueOrThrow({
+              where: { id: 1 },
+              select: { mode: true },
+            })
+          ).mode;
+          if (current !== originalMode) {
+            if (current !== 'PAUSED')
+              await prisma.mailControl.update({
+                where: { id: 1 },
+                data: { mode: 'PAUSED' },
+              });
+            if (originalMode !== 'PAUSED')
+              await prisma.mailControl.update({
+                where: { id: 1 },
+                data: { mode: originalMode },
+              });
+          }
+        }
       } finally {
         await prisma.$disconnect();
       }

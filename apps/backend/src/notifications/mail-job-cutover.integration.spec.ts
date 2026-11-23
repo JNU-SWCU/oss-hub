@@ -8,6 +8,35 @@ import { ProgramMailJobRepository } from './program-mail-job.repository';
 import { ProgramMailBatchPayloadRepository } from './program-mail-batch-payload.repository';
 import { SystemStatusRepository } from '../admin/system-status.repository';
 import { PlatformRepository } from '../platform/platform.repository';
+import { createDeadlineDigestIntegrationHarness } from './deadline-digest.integration-support';
+
+it('restores the shared fixture mail mode after the job scenario disconnects', async () => {
+  const database = await createOwnedIntegrationDatabase();
+  try {
+    const fixture = createDeadlineDigestIntegrationHarness(database.prisma);
+    await fixture.connect();
+    await fixture.useJobs();
+    expect(
+      (
+        await database.prisma.mailControl.findUniqueOrThrow({
+          where: { id: 1 },
+          select: { mode: true },
+        })
+      ).mode,
+    ).toBe('JOBS');
+    await fixture.disconnect();
+    expect(
+      (
+        await database.prisma.mailControl.findUniqueOrThrow({
+          where: { id: 1 },
+          select: { mode: true },
+        })
+      ).mode,
+    ).toBe('LEGACY');
+  } finally {
+    await database.close();
+  }
+}, 90000);
 
 it('keeps the old daily key, refuses unsafe rollback, and never hands an uncertain recipient to SMTP twice', async () => {
   const db = await createOwnedIntegrationDatabase();
