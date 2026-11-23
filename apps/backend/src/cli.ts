@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { fstatSync, readFileSync, statSync } from 'node:fs';
+import { fstatSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DeadlineDigestMailService } from './notifications/deadline-digest-mail.service';
 import { DeadlineDigestRepository } from './notifications/deadline-digest.repository';
@@ -238,6 +238,7 @@ async function drainMailJobs() {
       AND "senderHost"=${createHash('sha256').update(host).digest('hex')} LIMIT 1`;
     if (!owner) throw new Error('Unauthorized mail host');
     await worker.recover();
+    writeFileSync('/tmp/mail-worker-ready', '1', { mode: 0o600 });
     async function* ticks() {
       for (;;) yield Promise.resolve();
     }

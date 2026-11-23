@@ -371,3 +371,74 @@ it('revalidates program membership at send time', async () => {
     }),
   ).toBe(0);
 });
+
+it('accepts a single selected recipient through the new HTTP routes and returns the same receipt on replay', async () => {
+  await world.enableJobs();
+  const cookie = await world.sessionCookie(PROGRAM_MAIL_STAFF_FIXTURE.githubId);
+  const post = (action: string, draft: object) =>
+    fetch(world.endpoint(action), {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'PROGRAM', draft }),
+    });
+  const draft = {
+    subject: 'Synthetic receipt',
+    body: 'Only this selected recipient',
+    applicantIds: [DIGEST_FIXTURE.studentMissing],
+  };
+  const response = await post('previews', draft);
+  expect(response.status).toBe(200);
+  const preview: unknown = await response.json();
+  if (
+    !preview ||
+    typeof preview !== 'object' ||
+    !('previewVersion' in preview) ||
+    !('previewedAt' in preview)
+  )
+    throw new Error('Invalid preview');
+  expect(preview).toMatchObject({
+    recipientCount: 1,
+    applicantIds: draft.applicantIds,
+  });
+  const confirm = {
+    ...draft,
+    previewVersion: preview.previewVersion,
+    previewedAt: preview.previewedAt,
+  };
+  const accepted = await post('jobs', confirm);
+  expect(accepted.status).toBe(202);
+  const ack: unknown = await accepted.json();
+  if (
+    !ack ||
+    typeof ack !== 'object' ||
+    !('jobId' in ack) ||
+    typeof ack.jobId !== 'string'
+  )
+    throw new Error('Missing jobId');
+  expect(ack).toMatchObject({ status: 'QUEUED' });
+  const location = accepted.headers.get('location');
+  expect(location).toBe(
+    `/api/v1/programs/${encodeURIComponent(DIGEST_FIXTURE.notifyProgram)}/mail/jobs/${ack.jobId}`,
+  );
+  if (!location) throw new Error('Missing Location');
+  expect(world.mailSender.sent).toHaveLength(0);
+  await world.drain();
+  const replay = await post('jobs', confirm);
+  expect(replay.status).toBe(202);
+  expect(await replay.json()).toEqual({
+    jobId: ack.jobId,
+    status: 'COMPLETED',
+  });
+  const status = await fetch(new URL(location, world.endpoint('jobs')), {
+    headers: { cookie },
+  });
+  expect(await status.json()).toMatchObject({
+    sentCount: 1,
+    unknownCount: 0,
+    failedCount: 0,
+    duplicateCount: 0,
+  });
+  expect(world.mailSender.sent.map((row) => row.to)).toEqual([
+    'student-missing@example.com',
+  ]);
+});

@@ -280,6 +280,15 @@ export class ProgramMailService {
       recipients: recipients.map((recipient) => ({
         id: recipient.id,
         notificationEmail: recipient.notificationEmail,
+        rendered: MailJobConfig.digest(
+          this.templates.build({
+            subject,
+            body,
+            displayName: recipient.displayName,
+            senderName,
+            programName: audience.name,
+          }),
+        ),
       })),
     });
     return {

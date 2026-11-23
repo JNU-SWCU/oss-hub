@@ -70,7 +70,7 @@ services:
       [
         '/bin/sh',
         '-ec',
-        'exec 9<>/var/lock/oss-hub-mail/sender.lock; flock -xn 9; exec node dist/src/cli.js mail-worker',
+        'rm -f /tmp/mail-worker-ready; exec 9<>/var/lock/oss-hub-mail/sender.lock; flock -xn 9; exec node dist/src/cli.js mail-worker',
       ]
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
@@ -84,6 +84,11 @@ services:
     volumes:
       - mail_lock:/var/lock/oss-hub-mail
       - /etc/machine-id:/run/oss-hub-machine-id:ro
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/mail-worker-ready']
+      interval: 3s
+      timeout: 2s
+      retries: 10
     depends_on:
       postgres:
         condition: service_healthy
