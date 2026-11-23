@@ -29,15 +29,24 @@ export class MailJobClaimRepository {
     private readonly results: MailJobResultRepository,
   ) {}
   async recover() {
-    await this.db.mailRecipient.updateMany({
-      where: { state: 'SENDING', job: { legacySnapshotStatus: null } },
-      data: {
-        state: 'UNKNOWN',
-        reason: 'MAIL_DELIVERY_UNKNOWN',
-        finishedAt: new Date(),
-        envelope: Prisma.DbNull,
+    await this.db.$transaction(
+      async (tx) => {
+        const [owner] = await tx.$queryRaw<object[]>`
+        SELECT id FROM "MailControl" WHERE id=1 AND mode='JOBS' LIMIT 1 FOR UPDATE
+      `;
+        if (!owner) throw new Error('Mail recovery requires jobs mode');
+        await tx.mailRecipient.updateMany({
+          where: { state: 'SENDING', job: { legacySnapshotStatus: null } },
+          data: {
+            state: 'UNKNOWN',
+            reason: 'MAIL_DELIVERY_UNKNOWN',
+            finishedAt: new Date(),
+            envelope: Prisma.DbNull,
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
   }
 
   async claim(digest: MailEligibility) {

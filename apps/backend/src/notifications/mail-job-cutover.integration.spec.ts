@@ -162,6 +162,25 @@ it('keeps the old daily key, refuses unsafe rollback, and never hands an uncerta
         data: { state: 'PENDING' },
       }),
     ).rejects.toThrow();
+    const interrupted = await jobs.accept(
+      { ...input, previewVersion: 'interrupted' },
+      prepare,
+    );
+    if (!interrupted) throw new Error('Missing interrupted receipt');
+    const claimed = await new MailJobClaimRepository(p, result).claim({
+      prepareJob: () => Promise.reject(new Error('unexpected digest')),
+    });
+    expect(claimed?.mail?.to).toBe(envelope.to);
+    await worker.recover();
+    expect(await worker.step()).toBe(true);
+    expect(await worker.step()).toBe(false);
+    expect(calls).toBe(1);
+    expect(await receipts.status(programId, interrupted.jobId)).toMatchObject({
+      status: 'COMPLETED',
+      sentCount: 0,
+      failedCount: 0,
+      unknownCount: 1,
+    });
   } finally {
     await db.close();
   }
