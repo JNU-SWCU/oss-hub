@@ -70,7 +70,7 @@ services:
       [
         '/bin/sh',
         '-ec',
-        'rm -f /tmp/mail-worker-ready; exec 9<>/var/lock/oss-hub-mail/sender.lock; flock -xn 9; exec node dist/src/cli.js mail-worker',
+        'rm -f /run/oss-hub-mail/ready; exec 9<>/var/lock/oss-hub-mail/sender.lock; flock -xn 9; exec node dist/src/cli.js mail-worker',
       ]
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
@@ -84,8 +84,10 @@ services:
     volumes:
       - mail_lock:/var/lock/oss-hub-mail
       - /etc/machine-id:/run/oss-hub-machine-id:ro
+    tmpfs:
+      - /run/oss-hub-mail:uid=1000,gid=1000,mode=0700
     healthcheck:
-      test: ['CMD', 'test', '-f', '/tmp/mail-worker-ready']
+      test: ['CMD', 'test', '-f', '/run/oss-hub-mail/ready']
       interval: 3s
       timeout: 2s
       retries: 10

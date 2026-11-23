@@ -238,7 +238,7 @@ async function drainMailJobs() {
       AND "senderHost"=${createHash('sha256').update(host).digest('hex')} LIMIT 1`;
     if (!owner) throw new Error('Unauthorized mail host');
     await worker.recover();
-    writeFileSync('/tmp/mail-worker-ready', '1', { mode: 0o600 });
+    writeFileSync('/run/oss-hub-mail/ready', '1', { mode: 0o600 });
     async function* ticks() {
       for (;;) yield Promise.resolve();
     }
