@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type ReactElement, type ReactNode } from 'react';
+import { useId, useState, type ReactElement } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { ListPanel } from '@/components';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,6 @@ const ROW_ITEM_CLASS = 'border-t border-border/50';
 interface RowSelection {
   readonly selectedId: string | null;
   readonly onSelect: (key: string | null) => void;
-  readonly detail: ReactNode;
 }
 
 function EventRow({
@@ -43,7 +42,6 @@ function EventRow({
   nested,
   selectedId,
   onSelect,
-  detail,
 }: RowSelection & {
   readonly event: AuditFeedEvent;
   readonly nested: boolean;
@@ -79,7 +77,6 @@ function EventRow({
         )}
         <AuditLogChangeValue record={record} />
       </Button>
-      {selected && detail ? <div className="px-4 pb-3">{detail}</div> : null}
     </li>
   );
 }
@@ -90,7 +87,6 @@ function RunRow({
   onToggle,
   selectedId,
   onSelect,
-  detail,
 }: RowSelection & {
   readonly run: AuditFeedRun;
   readonly open: boolean;
@@ -132,7 +128,6 @@ function RunRow({
                 nested
                 selectedId={selectedId}
                 onSelect={onSelect}
-                detail={detail}
               />
             ))
           : null}
@@ -146,7 +141,6 @@ export function AuditLogFeed({
   now,
   selectedId,
   onSelect,
-  detail,
 }: RowSelection & {
   readonly days: readonly AuditFeedDay[];
   readonly now: Date;
@@ -182,7 +176,6 @@ export function AuditLogFeed({
                       onToggle={() => toggle(item.key)}
                       selectedId={selectedId}
                       onSelect={onSelect}
-                      detail={detail}
                     />
                   ) : (
                     <EventRow
@@ -191,7 +184,6 @@ export function AuditLogFeed({
                       nested={false}
                       selectedId={selectedId}
                       onSelect={onSelect}
-                      detail={detail}
                     />
                   ),
                 )}

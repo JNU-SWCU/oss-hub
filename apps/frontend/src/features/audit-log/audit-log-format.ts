@@ -219,16 +219,6 @@ const timeFormatter = new Intl.DateTimeFormat('ko-KR', {
   hourCycle: 'h23',
 });
 
-const stampFormatter = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: SEOUL,
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
 const dayFormatter = new Intl.DateTimeFormat('ko-KR', {
   timeZone: SEOUL,
   month: 'long',
@@ -261,10 +251,6 @@ export function formatTimeRange(from: string, to: string): string {
   const start = formatTime(from);
   const end = formatTime(to);
   return start === end ? start : `${start}–${end}`;
-}
-
-export function formatStamp(date: Date): string {
-  return stampFormatter.format(date);
 }
 
 export function periodRange(

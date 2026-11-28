@@ -50,7 +50,6 @@ function baseProps(): AuditLogViewProps {
     isLoading: false,
     errorMessage: null,
     now: new Date('2026-11-17T06:00:00.000Z'),
-    fetchedAt: new Date('2026-11-17T06:00:00.000Z'),
     foldLogins: true,
     selectedId: null,
     onFilterChange: vi.fn(),
@@ -194,21 +193,6 @@ describe('AuditLogView', () => {
 
     expect(props.onSearchPerson).toHaveBeenCalledWith('synthetic-admin');
     expect(props.onSelect).toHaveBeenCalledWith(null);
-  });
-
-  it('opens the feed detail right below the selected row instead of above the list', async () => {
-    const [first, second] = fixture.items;
-    await render({
-      records: [first, second],
-      selectedId: auditLogRecordKey(second),
-    });
-
-    const rows = Array.from(container.querySelectorAll('li'));
-    expect(container.querySelectorAll('aside')).toHaveLength(1);
-    expect(rows[0].querySelector('aside')).toBeNull();
-    expect(
-      element(rows[1], 'button[aria-pressed="true"] + div > aside'),
-    ).toBeTruthy();
   });
 
   it.each(['feed', 'table'] as const)(

@@ -67,7 +67,6 @@ export function AuditLogScreen() {
       isLoading={query.isFetching}
       errorMessage={errorMessage}
       now={now}
-      fetchedAt={query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null}
       foldLogins={state.category === '' && applied.action === ''}
       selectedId={selectedId}
       onFilterChange={(next) => setDraft({ source, filters: next })}

@@ -21,7 +21,7 @@ import { AuditLogDetail } from './audit-log-detail';
 import { AuditLogFeed } from './audit-log-feed';
 import { AuditLogFilterFields, AuditLogFilterSheet } from './audit-log-filters';
 import { auditEvents, foldAuditFeed } from './audit-log-fold';
-import { AUDIT_LOG_CATEGORY_LABELS, formatStamp } from './audit-log-format';
+import { AUDIT_LOG_CATEGORY_LABELS } from './audit-log-format';
 import { AuditLogTable } from './audit-log-table';
 
 export interface AuditLogViewProps {
@@ -36,7 +36,6 @@ export interface AuditLogViewProps {
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
-  readonly fetchedAt: Date | null;
   readonly foldLogins: boolean;
   readonly selectedId: string | null;
   readonly onFilterChange: (filters: AuditLogFilters) => void;
@@ -111,20 +110,12 @@ export function AuditLogView(props: AuditLogViewProps) {
     event.preventDefault();
     props.onApply(props.filters);
   };
-  const detail = selected ? (
-    <AuditLogDetail
-      record={selected}
-      onClose={() => props.onSelect(null)}
-      onSearchPerson={props.onSearchPerson}
-    />
-  ) : null;
   const feed = (
     <AuditLogFeed
       days={days}
       now={props.now}
       selectedId={props.selectedId}
       onSelect={props.onSelect}
-      detail={detail}
     />
   );
 
@@ -132,9 +123,6 @@ export function AuditLogView(props: AuditLogViewProps) {
     <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6">
       <PageHeader
         title="감사 로그"
-        description={
-          props.fetchedAt ? `${formatStamp(props.fetchedAt)} 기준` : undefined
-        }
         actions={
           <>
             <div
@@ -243,11 +231,18 @@ export function AuditLogView(props: AuditLogViewProps) {
         <div
           className={cn(
             'grid min-w-0 items-start gap-4',
-            selected &&
-              props.view === 'table' &&
-              'xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+            selected && 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
           )}
         >
+          {selected ? (
+            <div className="min-w-0 lg:sticky lg:top-4 lg:order-last">
+              <AuditLogDetail
+                record={selected}
+                onClose={() => props.onSelect(null)}
+                onSearchPerson={props.onSearchPerson}
+              />
+            </div>
+          ) : null}
           <div className="min-w-0">
             {props.view === 'table' ? (
               <>
@@ -265,11 +260,6 @@ export function AuditLogView(props: AuditLogViewProps) {
               feed
             )}
           </div>
-          {detail && props.view === 'table' ? (
-            <div className="hidden min-w-0 xl:sticky xl:top-4 xl:block">
-              {detail}
-            </div>
-          ) : null}
         </div>
       )}
       <PaginationNav
