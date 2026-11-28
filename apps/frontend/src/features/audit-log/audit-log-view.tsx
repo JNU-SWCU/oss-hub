@@ -17,7 +17,6 @@ import {
   type AuditLogRecord,
   type AuditLogViewMode,
 } from './types';
-import { AuditLogDetail } from './audit-log-detail';
 import { AuditLogFeed } from './audit-log-feed';
 import { AuditLogFilterFields, AuditLogFilterSheet } from './audit-log-filters';
 import { auditEvents, foldAuditFeed } from './audit-log-fold';
@@ -37,7 +36,6 @@ export interface AuditLogViewProps {
   readonly errorMessage: string | null;
   readonly now: Date;
   readonly foldLogins: boolean;
-  readonly selectedId: string | null;
   readonly onFilterChange: (filters: AuditLogFilters) => void;
   readonly onApply: (filters: AuditLogFilters) => void;
   readonly onCancel: () => void;
@@ -45,7 +43,6 @@ export interface AuditLogViewProps {
   readonly onViewChange: (view: AuditLogViewMode) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
-  readonly onSelect: (key: string | null) => void;
   readonly onSearchPerson: (login: string) => void;
 }
 
@@ -101,10 +98,6 @@ export function AuditLogView(props: AuditLogViewProps) {
     () => foldAuditFeed(events, { foldLogins }),
     [events, foldLogins],
   );
-  const selected =
-    props.selectedId === null
-      ? undefined
-      : events.find((event) => event.key === props.selectedId)?.record;
   const totalPages = Math.max(1, Math.ceil(props.total / props.limit));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -114,8 +107,7 @@ export function AuditLogView(props: AuditLogViewProps) {
     <AuditLogFeed
       days={days}
       now={props.now}
-      selectedId={props.selectedId}
-      onSelect={props.onSelect}
+      onSearchPerson={props.onSearchPerson}
     />
   );
 
@@ -228,38 +220,21 @@ export function AuditLogView(props: AuditLogViewProps) {
           description="조회 조건을 바꿔 보세요."
         />
       ) : (
-        <div
-          className={cn(
-            'grid min-w-0 items-start gap-4',
-            selected && 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+        <div className="min-w-0">
+          {props.view === 'table' ? (
+            <>
+              <div className="hidden xl:block">
+                <AuditLogTable
+                  events={events}
+                  now={props.now}
+                  onSearchPerson={props.onSearchPerson}
+                />
+              </div>
+              <div className="xl:hidden">{feed}</div>
+            </>
+          ) : (
+            feed
           )}
-        >
-          {selected ? (
-            <div className="min-w-0 lg:sticky lg:top-4 lg:order-last">
-              <AuditLogDetail
-                record={selected}
-                onClose={() => props.onSelect(null)}
-                onSearchPerson={props.onSearchPerson}
-              />
-            </div>
-          ) : null}
-          <div className="min-w-0">
-            {props.view === 'table' ? (
-              <>
-                <div className="hidden xl:block">
-                  <AuditLogTable
-                    events={events}
-                    now={props.now}
-                    selectedId={props.selectedId}
-                    onSelect={props.onSelect}
-                  />
-                </div>
-                <div className="xl:hidden">{feed}</div>
-              </>
-            ) : (
-              feed
-            )}
-          </div>
         </div>
       )}
       <PaginationNav

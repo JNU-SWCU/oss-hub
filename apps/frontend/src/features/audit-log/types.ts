@@ -57,6 +57,7 @@ export interface AuditLogRecord {
   readonly actor: AuditLogPerson | null;
   readonly target: AuditLogTarget;
   readonly change: AuditLogChange | null;
+  readonly fieldChanges: readonly AuditLogChange[];
   readonly requestId: string | null;
   readonly teamMembership: TeamMembershipChange | null;
   readonly phoneTransition: 'SET' | 'REPLACED' | null;

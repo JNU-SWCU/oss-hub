@@ -5,8 +5,8 @@ import {
   AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
 } from './fixtures';
 
-function pageWith(item: Record<string, unknown>) {
-  return { ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE, items: [item] };
+function pageWith(...items: Record<string, unknown>[]) {
+  return { ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE, items };
 }
 
 describe('parseAuditLogPage', () => {
@@ -24,6 +24,7 @@ describe('parseAuditLogPage', () => {
       change: { field: 'role', before: 'STUDENT', after: 'STAFF' },
       requestId: null,
       teamMembership: null,
+      fieldChanges: [],
       phoneTransition: null,
       mailDelivery: null,
     });
@@ -98,6 +99,40 @@ describe('parseAuditLogPage', () => {
     );
 
     expect(phone.items[0]?.phoneTransition).toBe('REPLACED');
+  });
+
+  it('reads stored profile field changes only for profile updates', () => {
+    const changes = [
+      { field: 'name', before: null, after: '합성학생' },
+      { field: 'department', before: '합성학과', after: '합성전공' },
+    ];
+    const metadata = { schemaVersion: 1, changes };
+    const [profile, role] = parseAuditLogPage(
+      pageWith(
+        {
+          ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+          action: 'USER_PROFILE_UPDATED',
+          change: null,
+          metadata,
+        },
+        { ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE, metadata },
+      ),
+    ).items;
+
+    expect(profile?.fieldChanges).toEqual(changes);
+    expect(role?.fieldChanges).toEqual([]);
+  });
+
+  it('rejects a profile field change without its field', () => {
+    expect(() =>
+      parseAuditLogPage(
+        pageWith({
+          ...AUDIT_LOG_ROLE_CHANGE_RECORD_FIXTURE,
+          action: 'USER_PROFILE_UPDATED',
+          metadata: { changes: [{ before: null, after: 'x' }] },
+        }),
+      ),
+    ).toThrow(AuditLogResponseError);
   });
 
   it.each([

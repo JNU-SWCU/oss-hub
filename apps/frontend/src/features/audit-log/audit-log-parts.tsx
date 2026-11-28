@@ -1,10 +1,12 @@
 import type { ReactElement } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   actionLabel,
   actorLabel,
   changeLabel,
   roleLabel,
   targetLabel,
+  type ChangeLabel,
 } from './audit-log-format';
 import type { AuditLogRecord } from './types';
 
@@ -23,6 +25,31 @@ export function AuditLogActor({
         <span className="text-muted-foreground">@{label.handle}</span>
       ) : null}
     </span>
+  );
+}
+
+export function AuditLogActorSearch({
+  record,
+  onSearchPerson,
+}: {
+  readonly record: AuditLogRecord;
+  readonly onSearchPerson: (login: string) => void;
+}): ReactElement {
+  const login = record.actor?.login ?? null;
+  if (login === null) return <AuditLogActor record={record} />;
+  const label = actorLabel(record);
+  const name = label.known ? label.primary : `@${login}`;
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="content"
+      className="relative z-10 font-semibold text-foreground"
+      aria-label={`${name} 기록 검색`}
+      onClick={() => onSearchPerson(login)}
+    >
+      {name}
+    </Button>
   );
 }
 
@@ -81,13 +108,11 @@ export function AuditLogActionValue({
   );
 }
 
-export function AuditLogChangeValue({
-  record,
+export function AuditLogChange({
+  label,
 }: {
-  readonly record: AuditLogRecord;
-}): ReactElement | null {
-  const label = changeLabel(record);
-  if (label === null) return null;
+  readonly label: ChangeLabel;
+}): ReactElement {
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1">
       {label.field ? (
@@ -109,4 +134,13 @@ export function AuditLogChangeValue({
       ) : null}
     </span>
   );
+}
+
+export function AuditLogChangeValue({
+  record,
+}: {
+  readonly record: AuditLogRecord;
+}): ReactElement | null {
+  const label = changeLabel(record);
+  return label === null ? null : <AuditLogChange label={label} />;
 }
