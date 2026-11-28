@@ -111,12 +111,20 @@ export function AuditLogView(props: AuditLogViewProps) {
     event.preventDefault();
     props.onApply(props.filters);
   };
+  const detail = selected ? (
+    <AuditLogDetail
+      record={selected}
+      onClose={() => props.onSelect(null)}
+      onSearchPerson={props.onSearchPerson}
+    />
+  ) : null;
   const feed = (
     <AuditLogFeed
       days={days}
       now={props.now}
       selectedId={props.selectedId}
       onSelect={props.onSelect}
+      detail={detail}
     />
   );
 
@@ -235,18 +243,11 @@ export function AuditLogView(props: AuditLogViewProps) {
         <div
           className={cn(
             'grid min-w-0 items-start gap-4',
-            selected && 'xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+            selected &&
+              props.view === 'table' &&
+              'xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
           )}
         >
-          {selected ? (
-            <div className="min-w-0 xl:sticky xl:top-4 xl:order-last">
-              <AuditLogDetail
-                record={selected}
-                onClose={() => props.onSelect(null)}
-                onSearchPerson={props.onSearchPerson}
-              />
-            </div>
-          ) : null}
           <div className="min-w-0">
             {props.view === 'table' ? (
               <>
@@ -264,6 +265,11 @@ export function AuditLogView(props: AuditLogViewProps) {
               feed
             )}
           </div>
+          {detail && props.view === 'table' ? (
+            <div className="hidden min-w-0 xl:sticky xl:top-4 xl:block">
+              {detail}
+            </div>
+          ) : null}
         </div>
       )}
       <PaginationNav
