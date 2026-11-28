@@ -109,7 +109,7 @@ export class MemberOnboardingRepository {
         updateSelectedMemberKind: async (userId, memberKind) => {
           const before = await transaction.user.findUniqueOrThrow({
             where: { id: userId },
-            select: { type: true },
+            select: { type: true, profileCreatedAt: true },
           });
           if (before.type === memberKind) {
             return toMemberUser(
@@ -133,6 +133,7 @@ export class MemberOnboardingRepository {
             },
             select: MEMBER_USER_SELECT,
           });
+          if (before.profileCreatedAt === null) return toMemberUser(user);
           await transaction.userHistory.create({
             data: {
               id: 'user:' + randomUUID(),

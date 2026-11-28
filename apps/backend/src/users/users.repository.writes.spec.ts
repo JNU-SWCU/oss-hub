@@ -60,12 +60,30 @@ describe('flat User profile completion writes', () => {
       });
     },
   );
-  it('audits the first phone with the same transaction writer', async () => {
+  it('stores the signup phone without a separate phone audit', async () => {
     const { h, expected } = await fixture('STUDENT', {
       name: null,
       department: null,
       studentId: null,
       profileCreatedAt: null,
+    });
+    await h.repository.completeProfileIfUnchanged(
+      expected,
+      {
+        ...canonicalCompletion({ ...fields, studentId: '123456' }),
+        phone: '00012345678',
+      },
+      h.recordPhoneAudit,
+    );
+    expect(h.current()).toMatchObject({ phone: '00012345678' });
+    expect(h.recordPhoneAudit).not.toHaveBeenCalled();
+  });
+  it('audits a phone entered after signup with the same transaction writer', async () => {
+    const { h, expected } = await fixture('STUDENT', {
+      name: null,
+      department: null,
+      studentId: null,
+      profileCreatedAt: new Date('2026-11-01T00:00:00.000Z'),
     });
     await h.repository.completeProfileIfUnchanged(
       expected,
