@@ -10,6 +10,7 @@ async function complete(
     readonly pending?: boolean;
     readonly approved?: boolean;
     readonly failPhone?: boolean;
+    readonly profileCreatedAt?: Date;
   } = {},
 ) {
   const h = usersRepositoryHarness(
@@ -23,6 +24,7 @@ async function complete(
             : 'PENDING'
           : 'NOT_REQUIRED',
       approvalRequestId: options.pending ? 'existing-request' : null,
+      profileCreatedAt: options.profileCreatedAt ?? null,
     }),
   );
   const expected = await h.repository.findByGithubId(4242n);
@@ -114,8 +116,24 @@ it('an already approved STAFF completion preserves approval without submitting a
     h.histories.filter((row) => row.event === 'APPROVAL_REQUESTED'),
   ).toHaveLength(0);
 });
-it('phone auditing precedes staff request submission in the same transaction', async () => {
+it('signup completion stores the phone without a separate phone audit', async () => {
   const { h, expected, input } = await complete('STAFF');
+  await h.repository.completeProfileIfUnchanged(
+    expected,
+    input,
+    h.recordPhoneAudit,
+  );
+  expect(h.current()?.phone).toBe('00012345678');
+  expect(h.recordPhoneAudit).not.toHaveBeenCalled();
+  expect(
+    h.histories.filter((row) => row.event === 'PROFILE_UPDATED'),
+  ).toHaveLength(0);
+});
+const SIGNED_UP_AT = new Date('2026-11-01T00:00:00.000Z');
+it('phone auditing precedes staff request submission in the same transaction', async () => {
+  const { h, expected, input } = await complete('STAFF', {
+    profileCreatedAt: SIGNED_UP_AT,
+  });
   h.recordPhoneAudit.mockImplementation(
     (store) =>
       new Promise<void>((resolve) => {
@@ -132,7 +150,10 @@ it('phone auditing precedes staff request submission in the same transaction', a
   expect(h.current()?.approvalRequestId).not.toBeNull();
 });
 it('phone audit failure prevents request submission and rolls back profile completion', async () => {
-  const { h, expected, input } = await complete('STAFF', { failPhone: true });
+  const { h, expected, input } = await complete('STAFF', {
+    failPhone: true,
+    profileCreatedAt: SIGNED_UP_AT,
+  });
   await expect(
     h.repository.completeProfileIfUnchanged(
       expected,
@@ -142,7 +163,7 @@ it('phone audit failure prevents request submission and rolls back profile compl
   ).rejects.toThrow('phone audit failure');
   expect(h.current()).toMatchObject({
     name: null,
-    profileCreatedAt: null,
+    profileCreatedAt: SIGNED_UP_AT,
     approvalRequestId: null,
   });
   expect(h.histories).toHaveLength(0);

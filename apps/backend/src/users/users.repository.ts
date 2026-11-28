@@ -155,6 +155,7 @@ export class UsersRepository implements UsersRepositoryPort {
         )
           return 'conflict';
         const now = new Date();
+        const completesSignup = current.profileCreatedAt === null;
         await transaction.user.update({
           where: { id: expected.id },
           data: {
@@ -168,15 +169,16 @@ export class UsersRepository implements UsersRepositoryPort {
         });
         await writeUserPhoneIfChanged(
           transaction,
-          recordPhoneAudit,
+          completesSignup ? null : recordPhoneAudit,
           toUserProfileRecord(current),
           input.phone,
         );
-        await recordProfileChange(transaction, current, {
-          name: input.name,
-          studentId: input.studentId,
-          department: input.department,
-        });
+        if (!completesSignup)
+          await recordProfileChange(transaction, current, {
+            name: input.name,
+            studentId: input.studentId,
+            department: input.department,
+          });
         if (input.requestsStaffAccess)
           await this.transitions.requestStaffAccess(transaction, expected.id);
         return 'completed';
@@ -317,12 +319,13 @@ export class UsersRepository implements UsersRepositoryPort {
 }
 async function writeUserPhoneIfChanged(
   transaction: Prisma.TransactionClient,
-  recordPhoneAudit: RecordPhoneAudit,
+  recordPhoneAudit: RecordPhoneAudit | null,
   user: UserProfileRecord,
   phone: string | undefined,
 ): Promise<void> {
   if (phone === undefined || phone === user.phone) return;
   await transaction.user.update({ where: { id: user.id }, data: { phone } });
+  if (recordPhoneAudit === null) return;
   await recordPhoneAudit(
     { userHistoryWriter: transaction },
     {
