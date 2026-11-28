@@ -115,7 +115,7 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
               onChange={(event) => props.onCommentChange(event.target.value)}
               className={cn(
                 'min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4',
-                'text-body outline-none placeholder:text-muted-foreground',
+                'text-body outline-none placeholder:text-placeholder',
                 'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
