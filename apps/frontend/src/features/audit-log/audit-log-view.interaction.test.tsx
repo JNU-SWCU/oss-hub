@@ -1,7 +1,6 @@
-import { act, useState } from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { auditLogRecordKey } from './audit-log-fold';
 import { AuditLogView, type AuditLogViewProps } from './audit-log-view';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 import { parseAuditLogPage } from './parser';
@@ -32,6 +31,19 @@ function login(id: string, occurredAt: string): AuditLogRecord {
   return { ...change, id, occurredAt, action: 'LOGIN', category: 'LOGIN' };
 }
 
+const PROFILE: AuditLogRecord = {
+  ...change,
+  id: 'profile',
+  action: 'USER_PROFILE_UPDATED',
+  category: 'ACCOUNT',
+  change: null,
+  fieldChanges: [
+    { field: 'name', before: null, after: '합성학생' },
+    { field: 'studentId', before: null, after: '000001' },
+    { field: 'department', before: '합성학과', after: '합성전공' },
+  ],
+};
+
 const RUN = [
   login('login-b', '2026-11-17T05:30:00.000Z'),
   login('login-a', '2026-11-17T05:20:00.000Z'),
@@ -50,9 +62,7 @@ function baseProps(): AuditLogViewProps {
     isLoading: false,
     errorMessage: null,
     now: new Date('2026-11-17T06:00:00.000Z'),
-    fetchedAt: new Date('2026-11-17T06:00:00.000Z'),
     foldLogins: true,
-    selectedId: null,
     onFilterChange: vi.fn(),
     onApply: vi.fn(),
     onCancel: vi.fn(),
@@ -60,7 +70,6 @@ function baseProps(): AuditLogViewProps {
     onViewChange: vi.fn(),
     onPageChange: vi.fn(),
     onRetry: vi.fn(),
-    onSelect: vi.fn(),
     onSearchPerson: vi.fn(),
   };
 }
@@ -167,82 +176,62 @@ describe('AuditLogView', () => {
     );
   });
 
-  it('reports the pressed record and hides its GitHub login in the row', async () => {
+  it('searches the actor from the row without showing the GitHub login', async () => {
     const props = await render({ records: [change] });
 
-    const row = element<HTMLButtonElement>(container, 'li > button');
-    expect(row.textContent).not.toContain('synthetic-admin');
-    await act(async () => row.click());
-
-    expect(props.onSelect).toHaveBeenCalledWith(auditLogRecordKey(change));
-  });
-
-  it('shows the selected record in a detail panel that searches its actor and closes', async () => {
-    const props = await render({
-      records: [change],
-      selectedId: auditLogRecordKey(change),
-    });
-
-    const panel = element(container, 'aside');
-    const [close, actor] = Array.from(panel.querySelectorAll('button'));
-    expect(element(container, 'li > button').getAttribute('aria-pressed')).toBe(
-      'true',
+    const row = element(container, 'li');
+    const actor = element<HTMLButtonElement>(
+      row,
+      'button[aria-label$="기록 검색"]',
     );
+    expect(row.textContent).not.toContain('synthetic-admin');
 
     await act(async () => actor.click());
-    await act(async () => close.click());
 
     expect(props.onSearchPerson).toHaveBeenCalledWith('synthetic-admin');
-    expect(props.onSelect).toHaveBeenCalledWith(null);
   });
 
-  it.each(['feed', 'table'] as const)(
-    'opens the details for either record with the same ID in %s view',
-    async (view) => {
-      const records = RUN.map((record) => ({ ...record, id: 'same-login' }));
-      const props = { ...baseProps(), records, view };
+  it('keeps a single change on one line without a disclosure', async () => {
+    await render({ records: [change] });
 
-      function SelectableView() {
-        const [selectedId, onSelect] = useState<string | null>(null);
-        return (
-          <AuditLogView
-            {...props}
-            selectedId={selectedId}
-            onSelect={onSelect}
-          />
-        );
-      }
+    expect(container.querySelector('[aria-expanded]')).toBeNull();
+    expect(container.querySelector('dl')).toBeNull();
+  });
 
-      await act(async () => root.render(<SelectableView />));
-      if (view === 'feed') {
-        const toggle = element<HTMLButtonElement>(container, '[aria-expanded]');
-        await act(async () => toggle.click());
-      }
-      const buttons = Array.from(
-        container.querySelectorAll<HTMLButtonElement>(
-          view === 'table' ? 'tbody button' : 'li > button[aria-pressed]',
-        ),
-      );
-      expect(buttons).toHaveLength(2);
+  it('shows the first field change in the row and the rest below it when expanded', async () => {
+    await render({ records: [PROFILE] });
 
-      for (const [index, record] of records.entries()) {
-        await act(async () => buttons[index].click());
-        expect(timestamps(element(container, 'aside'))).toEqual([
-          record.occurredAt,
-        ]);
-        expect(
-          buttons.map((button) => button.getAttribute('aria-pressed')),
-        ).toEqual(records.map((_, row) => String(row === index)));
-      }
-    },
-  );
+    const row = element(container, 'li');
+    const toggle = element<HTMLButtonElement>(row, '[aria-expanded]');
+    const details = element<HTMLElement>(
+      container,
+      `[id="${toggle.getAttribute('aria-controls')}"]`,
+    );
+    expect(toggle.getAttribute('aria-label')).toBe('프로필 수정 변경 내용');
+    expect(row.firstElementChild?.textContent).toContain('이름합성학생');
+    expect(row.firstElementChild?.textContent).toContain('+2');
+    expect(details.hidden).toBe(true);
 
-  it('renders five columns and one row per record in table view', async () => {
-    await render({ view: 'table' });
+    await act(async () => toggle.click());
 
-    expect(container.querySelectorAll('thead th')).toHaveLength(5);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(details.hidden).toBe(false);
+    expect(
+      Array.from(details.querySelectorAll('dt'), (term) => term.textContent),
+    ).toEqual(['학번', '학과']);
+    expect(details.textContent).toContain('합성학과→합성전공');
+    expect(details.textContent).not.toContain('합성학생');
+  });
+
+  it('renders six columns and lists every field change in table view', async () => {
+    await render({ view: 'table', records: [...fixture.items, PROFILE] });
+
+    expect(container.querySelectorAll('thead th')).toHaveLength(6);
+    expect(container.querySelector('tbody')?.textContent).toContain(
+      '학과합성학과→합성전공',
+    );
     expect(container.querySelectorAll('tbody tr')).toHaveLength(
-      fixture.items.length,
+      fixture.items.length + 1,
     );
   });
 

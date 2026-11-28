@@ -17,11 +17,10 @@ import {
   type AuditLogRecord,
   type AuditLogViewMode,
 } from './types';
-import { AuditLogDetail } from './audit-log-detail';
 import { AuditLogFeed } from './audit-log-feed';
 import { AuditLogFilterFields, AuditLogFilterSheet } from './audit-log-filters';
 import { auditEvents, foldAuditFeed } from './audit-log-fold';
-import { AUDIT_LOG_CATEGORY_LABELS, formatStamp } from './audit-log-format';
+import { AUDIT_LOG_CATEGORY_LABELS } from './audit-log-format';
 import { AuditLogTable } from './audit-log-table';
 
 export interface AuditLogViewProps {
@@ -36,9 +35,7 @@ export interface AuditLogViewProps {
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
   readonly now: Date;
-  readonly fetchedAt: Date | null;
   readonly foldLogins: boolean;
-  readonly selectedId: string | null;
   readonly onFilterChange: (filters: AuditLogFilters) => void;
   readonly onApply: (filters: AuditLogFilters) => void;
   readonly onCancel: () => void;
@@ -46,7 +43,6 @@ export interface AuditLogViewProps {
   readonly onViewChange: (view: AuditLogViewMode) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
-  readonly onSelect: (key: string | null) => void;
   readonly onSearchPerson: (login: string) => void;
 }
 
@@ -102,10 +98,6 @@ export function AuditLogView(props: AuditLogViewProps) {
     () => foldAuditFeed(events, { foldLogins }),
     [events, foldLogins],
   );
-  const selected =
-    props.selectedId === null
-      ? undefined
-      : events.find((event) => event.key === props.selectedId)?.record;
   const totalPages = Math.max(1, Math.ceil(props.total / props.limit));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -115,8 +107,7 @@ export function AuditLogView(props: AuditLogViewProps) {
     <AuditLogFeed
       days={days}
       now={props.now}
-      selectedId={props.selectedId}
-      onSelect={props.onSelect}
+      onSearchPerson={props.onSearchPerson}
     />
   );
 
@@ -124,9 +115,6 @@ export function AuditLogView(props: AuditLogViewProps) {
     <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6">
       <PageHeader
         title="감사 로그"
-        description={
-          props.fetchedAt ? `${formatStamp(props.fetchedAt)} 기준` : undefined
-        }
         actions={
           <>
             <div
@@ -232,38 +220,21 @@ export function AuditLogView(props: AuditLogViewProps) {
           description="조회 조건을 바꿔 보세요."
         />
       ) : (
-        <div
-          className={cn(
-            'grid min-w-0 items-start gap-4',
-            selected && 'xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+        <div className="min-w-0">
+          {props.view === 'table' ? (
+            <>
+              <div className="hidden xl:block">
+                <AuditLogTable
+                  events={events}
+                  now={props.now}
+                  onSearchPerson={props.onSearchPerson}
+                />
+              </div>
+              <div className="xl:hidden">{feed}</div>
+            </>
+          ) : (
+            feed
           )}
-        >
-          {selected ? (
-            <div className="min-w-0 xl:sticky xl:top-4 xl:order-last">
-              <AuditLogDetail
-                record={selected}
-                onClose={() => props.onSelect(null)}
-                onSearchPerson={props.onSearchPerson}
-              />
-            </div>
-          ) : null}
-          <div className="min-w-0">
-            {props.view === 'table' ? (
-              <>
-                <div className="hidden xl:block">
-                  <AuditLogTable
-                    events={events}
-                    now={props.now}
-                    selectedId={props.selectedId}
-                    onSelect={props.onSelect}
-                  />
-                </div>
-                <div className="xl:hidden">{feed}</div>
-              </>
-            ) : (
-              feed
-            )}
-          </div>
         </div>
       )}
       <PaginationNav

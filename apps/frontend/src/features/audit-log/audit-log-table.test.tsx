@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { auditEvents, auditLogRecordKey } from './audit-log-fold';
+import { auditEvents } from './audit-log-fold';
 import { AuditLogTable } from './audit-log-table';
 import { AUDIT_LOG_PAGE_RESPONSE_FIXTURE } from './fixtures';
 import { parseAuditLogPage } from './parser';
@@ -29,72 +29,59 @@ describe('AuditLogTable', () => {
     container.remove();
   });
 
-  async function render(selectedId: string | null, rows = records) {
-    const onSelect = vi.fn();
+  async function render(rows = records) {
+    const onSearchPerson = vi.fn();
     await act(async () =>
       root.render(
         <AuditLogTable
           events={auditEvents(rows)}
           now={NOW}
-          selectedId={selectedId}
-          onSelect={onSelect}
+          onSearchPerson={onSearchPerson}
         />,
       ),
     );
-    return onSelect;
+    return onSearchPerson;
   }
 
-  function actionButtons(): HTMLButtonElement[] {
-    return Array.from(container.querySelectorAll('tbody button'));
+  function rows(): HTMLTableRowElement[] {
+    return Array.from(container.querySelectorAll('tbody tr'));
   }
 
-  it('keeps the server order and reports the record whose action is pressed', async () => {
-    const onSelect = await render(null);
+  it('keeps the server order', async () => {
+    await render();
 
     expect(
       Array.from(container.querySelectorAll('tbody time'), (time) =>
         time.getAttribute('datetime'),
       ),
     ).toEqual(records.map((record) => record.occurredAt));
-
-    await act(async () => actionButtons()[1].click());
-
-    expect(onSelect).toHaveBeenCalledWith(auditLogRecordKey(records[1]));
   });
 
-  it('marks the selected record and clears it when pressed again', async () => {
-    const onSelect = await render(auditLogRecordKey(records[0]));
+  it('searches the actor of a row', async () => {
+    const onSearchPerson = await render();
+    const index = records.findIndex((record) => record.actor?.login);
+    const login = records[index].actor?.login;
 
-    expect(
-      actionButtons().map((button) => button.getAttribute('aria-pressed')),
-    ).toEqual(records.map((_, index) => String(index === 0)));
+    await act(async () =>
+      rows()
+        [index].querySelector<HTMLButtonElement>(
+          'button[aria-label$="기록 검색"]',
+        )
+        ?.click(),
+    );
 
-    await act(async () => actionButtons()[0].click());
-
-    expect(onSelect).toHaveBeenCalledWith(null);
-  });
-
-  it('selects a record from a click anywhere on its row', async () => {
-    const onSelect = await render(null);
-    const cell = container.querySelector('tbody tr:nth-child(3) td');
-    if (cell === null) throw new Error('missing third row');
-
-    await act(async () => {
-      cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    expect(onSelect).toHaveBeenCalledWith(auditLogRecordKey(records[2]));
+    expect(onSearchPerson).toHaveBeenCalledWith(login);
   });
 
   it('preserves each same-ID row when server order changes', async () => {
     const first = records[0];
     const second = { ...records[1], id: first.id };
-    await render(null, [first, second]);
-    const [firstButton, secondButton] = actionButtons();
+    await render([first, second]);
+    const [firstRow, secondRow] = rows();
 
-    await render(null, [second, first]);
+    await render([second, first]);
 
-    expect(actionButtons()[0]).toBe(secondButton);
-    expect(actionButtons()[1]).toBe(firstButton);
+    expect(rows()[0]).toBe(secondRow);
+    expect(rows()[1]).toBe(firstRow);
   });
 });

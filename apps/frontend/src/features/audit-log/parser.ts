@@ -170,6 +170,22 @@ function phoneTransition(
     : null;
 }
 
+function fieldChanges(
+  action: string,
+  metadata: unknown,
+): readonly AuditLogChange[] {
+  if (action !== 'USER_PROFILE_UPDATED' || !isRecord(metadata)) return [];
+  if (!Array.isArray(metadata.changes)) return [];
+  return metadata.changes.map((entry) => {
+    const record = exactRecord(entry, ['field', 'before', 'after']);
+    return {
+      field: nonEmptyString(record.field),
+      before: nullableString(record.before),
+      after: nullableString(record.after),
+    };
+  });
+}
+
 const RECORD_KEYS = [
   'id',
   'occurredAt',
@@ -220,6 +236,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
     actor: person(record.actor),
     target: target(record.target),
     change: change(record.change),
+    fieldChanges: fieldChanges(action, record.metadata),
     requestId: nullableString(record.requestId),
     teamMembership: teamMembership(record.teamMembership),
     phoneTransition: phoneTransition(action, record.metadata),

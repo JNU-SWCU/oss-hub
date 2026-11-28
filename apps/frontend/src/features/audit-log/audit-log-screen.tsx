@@ -26,7 +26,6 @@ export function AuditLogScreen() {
     readonly filters: AuditLogFilters;
   }>({ source, filters: applied });
   const [now] = useState(() => new Date());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const filters = draft.source === source ? draft.filters : applied;
   const query = useAuditLogQuery({
     q: applied.q,
@@ -50,7 +49,6 @@ export function AuditLogScreen() {
       : '감사 로그를 불러오지 못했습니다. 잠시 후 다시 시도하세요.'
     : null;
   const apply = (next: AuditLogFilters) => {
-    setSelectedId(null);
     navigate({ ...next, page: 1, limit: DEFAULT_AUDIT_LOG_PAGE_LIMIT });
   };
 
@@ -67,23 +65,16 @@ export function AuditLogScreen() {
       isLoading={query.isFetching}
       errorMessage={errorMessage}
       now={now}
-      fetchedAt={query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null}
       foldLogins={state.category === '' && applied.action === ''}
-      selectedId={selectedId}
       onFilterChange={(next) => setDraft({ source, filters: next })}
       onApply={apply}
       onCancel={() => setDraft({ source, filters: applied })}
-      onCategoryChange={(category) => {
-        setSelectedId(null);
-        navigate({ category, page: 1, limit: DEFAULT_AUDIT_LOG_PAGE_LIMIT });
-      }}
+      onCategoryChange={(category) =>
+        navigate({ category, page: 1, limit: DEFAULT_AUDIT_LOG_PAGE_LIMIT })
+      }
       onViewChange={(view) => navigate({ view }, 'replace')}
-      onPageChange={(page) => {
-        setSelectedId(null);
-        navigate({ page });
-      }}
+      onPageChange={(page) => navigate({ page })}
       onRetry={() => void query.refetch()}
-      onSelect={setSelectedId}
       onSearchPerson={(login) => apply({ ...applied, q: login })}
     />
   );

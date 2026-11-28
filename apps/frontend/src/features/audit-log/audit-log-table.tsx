@@ -2,13 +2,18 @@
 
 import type { ReactElement } from 'react';
 import { DataTable, type DataTableColumn } from '@/components';
-import { Button } from '@/components/ui/button';
 import type { AuditFeedEvent } from './audit-log-fold';
-import { formatDateTime, resultLabel, targetLabel } from './audit-log-format';
+import {
+  changeLines,
+  formatDateTime,
+  formatFullDateTime,
+  resultLabel,
+  targetLabel,
+} from './audit-log-format';
 import {
   AuditLogActionValue,
-  AuditLogActor,
-  AuditLogChangeValue,
+  AuditLogActorSearch,
+  AuditLogChange,
   AuditLogRole,
   AuditLogTargetValue,
 } from './audit-log-parts';
@@ -20,17 +25,12 @@ const WRAP_CELL_CLASS = `${CELL_CLASS} whitespace-normal`;
 export function AuditLogTable({
   events,
   now,
-  selectedId,
-  onSelect,
+  onSearchPerson,
 }: {
   readonly events: readonly AuditFeedEvent[];
   readonly now: Date;
-  readonly selectedId: string | null;
-  readonly onSelect: (key: string | null) => void;
+  readonly onSearchPerson: (login: string) => void;
 }): ReactElement {
-  const toggle = ({ key }: AuditFeedEvent) => {
-    onSelect(key === selectedId ? null : key);
-  };
   const columns: DataTableColumn<AuditFeedEvent>[] = [
     {
       id: 'occurredAt',
@@ -38,7 +38,14 @@ export function AuditLogTable({
       headClassName: CELL_CLASS,
       cellClassName: `${CELL_CLASS} tabular-nums`,
       cell: ({ record }) => (
-        <time dateTime={record.occurredAt}>
+        <time
+          dateTime={record.occurredAt}
+          title={
+            record.requestId
+              ? `${formatFullDateTime(record.occurredAt)} · 요청 ${record.requestId}`
+              : undefined
+          }
+        >
           {formatDateTime(record.occurredAt, now)}
         </time>
       ),
@@ -50,7 +57,10 @@ export function AuditLogTable({
       cellClassName: CELL_CLASS,
       cell: ({ record }) => (
         <span className="inline-flex items-baseline gap-x-1.5">
-          <AuditLogActor record={record} />
+          <AuditLogActorSearch
+            record={record}
+            onSearchPerson={onSearchPerson}
+          />
           <AuditLogRole record={record} />
         </span>
       ),
@@ -60,18 +70,7 @@ export function AuditLogTable({
       header: '작업',
       headClassName: CELL_CLASS,
       cellClassName: CELL_CLASS,
-      cell: (event) => (
-        <Button
-          type="button"
-          variant="bare"
-          size="content"
-          aria-pressed={event.key === selectedId}
-          className="text-left aria-pressed:font-semibold"
-          onClick={() => toggle(event)}
-        >
-          <AuditLogActionValue record={event.record} />
-        </Button>
-      ),
+      cell: ({ record }) => <AuditLogActionValue record={record} />,
     },
     {
       id: 'target',
@@ -88,16 +87,24 @@ export function AuditLogTable({
         ),
     },
     {
+      id: 'change',
+      header: '변경',
+      headClassName: CELL_CLASS,
+      cellClassName: WRAP_CELL_CLASS,
+      cell: ({ record }) => (
+        <span className="flex flex-col gap-0.5">
+          {changeLines(record).map((line) => (
+            <AuditLogChange key={line.field ?? ''} label={line} />
+          ))}
+        </span>
+      ),
+    },
+    {
       id: 'result',
       header: '결과',
       headClassName: CELL_CLASS,
-      cellClassName: WRAP_CELL_CLASS,
-      cell: ({ record }) =>
-        record.mailDelivery ? (
-          <AuditLogChangeValue record={record} />
-        ) : (
-          resultLabel(record)
-        ),
+      cellClassName: CELL_CLASS,
+      cell: ({ record }) => resultLabel(record),
     },
   ];
   return (
@@ -107,7 +114,6 @@ export function AuditLogTable({
       columns={columns}
       data={[...events]}
       rowKey={(event) => event.key}
-      onRowClick={toggle}
     />
   );
 }

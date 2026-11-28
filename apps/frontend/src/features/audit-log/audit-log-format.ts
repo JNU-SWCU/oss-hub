@@ -56,6 +56,13 @@ const CHANGE_FIELD_LABELS: Readonly<Record<string, string>> = {
   hasAdminAccess: '관리자 접근',
 };
 
+const PROFILE_FIELD_LABELS: Readonly<Record<string, string>> = {
+  name: '이름',
+  studentId: '학번',
+  department: '학과',
+  staffNumber: '교직원 번호',
+};
+
 const MEMBERSHIP_ACTION_LABELS: Readonly<
   Record<TeamMembershipOperation, string>
 > = {
@@ -212,18 +219,21 @@ export function changeLabel(record: AuditLogRecord): ChangeLabel | null {
   };
 }
 
+export function changeLines(record: AuditLogRecord): readonly ChangeLabel[] {
+  if (record.fieldChanges.length > 0) {
+    return record.fieldChanges.map(({ field, before, after }) => ({
+      field: lookup(PROFILE_FIELD_LABELS, field) ?? field,
+      before: changeValue(field, before),
+      after: changeValue(field, after),
+      note: null,
+    }));
+  }
+  const label = changeLabel(record);
+  return label === null ? [] : [label];
+}
+
 const timeFormatter = new Intl.DateTimeFormat('ko-KR', {
   timeZone: SEOUL,
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
-const stampFormatter = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: SEOUL,
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
   hourCycle: 'h23',
@@ -261,10 +271,6 @@ export function formatTimeRange(from: string, to: string): string {
   const start = formatTime(from);
   const end = formatTime(to);
   return start === end ? start : `${start}–${end}`;
-}
-
-export function formatStamp(date: Date): string {
-  return stampFormatter.format(date);
 }
 
 export function periodRange(
